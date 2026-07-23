@@ -10,13 +10,17 @@ Tailwind v4 + OKLCH tokens, Svelte 5 runes, TanStack, LayerChart.
 
 ## Develop
 
+Requires Node ≥ 20, [pnpm](https://pnpm.io) (`winget install pnpm.pnpm`), and
+[just](https://github.com/casey/just) (`winget install Casey.Just`).
+
 ```sh
-corepack enable            # or ensure pnpm is on PATH
-pnpm install
-pnpm dev                   # dev server
-pnpm check                 # svelte-check (types)
-pnpm test                  # vitest unit tests
-pnpm build                 # production build (adapter-node)
+just            # list recipes
+just setup      # install dependencies
+just dev        # dev server
+just check      # svelte-check (types)
+just test       # vitest unit tests
+just build      # production build (adapter-node)
+just verify     # types + tests + build — run before every PR
 ```
 
 ## Docs
