@@ -33,6 +33,10 @@ doctor:
 dev:
     pnpm dev
 
+# Dev server + auto-open the browser on a pinned port.
+dev-open:
+    pnpm dev -- --open --port 5173
+
 # Type-check (svelte-check).
 check:
     pnpm run check
