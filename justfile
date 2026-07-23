@@ -30,8 +30,9 @@ doctor:
 # --- Operate ---------------------------------------------------------------
 
 # Run the dev server (auto-opens the browser on a pinned port).
+# Leading `-` ignores the exit code — Ctrl-C stopping the server is not a failure.
 dev:
-    pnpm dev -- --open --port 5173
+    -pnpm dev -- --open --port 5173
 
 # Type-check (svelte-check).
 check:
