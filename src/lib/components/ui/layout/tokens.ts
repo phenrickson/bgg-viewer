@@ -1,0 +1,10 @@
+export const COL_MIN = { sm: '9.375rem', md: '14.375rem', lg: '21.25rem', xl: '27.5rem' } as const;
+export type ColMin = keyof typeof COL_MIN;
+export const GAP = { sm: 'var(--space-sm)', md: 'var(--space-md)', lg: 'var(--space-lg)' } as const;
+export type Gap = keyof typeof GAP;
+export const SPLIT_BASIS = { half: '50%', 'aside-narrow': '34%', 'aside-wide': '40%' } as const;
+export type SplitRatio = keyof typeof SPLIT_BASIS;
+export type SplitAt = 'sm' | 'md';
+export const colMin = (m: ColMin = 'md') => COL_MIN[m] ?? COL_MIN.md;
+export const gapVar = (g: Gap = 'md') => GAP[g] ?? GAP.md;
+export const splitBasis = (r: SplitRatio = 'aside-narrow') => SPLIT_BASIS[r] ?? SPLIT_BASIS['aside-narrow'];
