@@ -9,8 +9,12 @@ export default defineConfig({
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true,
+				// Allow `await` in components (pairs with remote functions below).
+				experimental: { async: true }
 			},
+			// Enable `.remote.ts` query/form/command functions (server data layer).
+			experimental: { remoteFunctions: true },
 			adapter: adapter()
 		})
 	],
