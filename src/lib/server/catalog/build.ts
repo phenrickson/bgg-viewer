@@ -1,0 +1,27 @@
+/**
+ * Materialize the catalog artifact from BigQuery: one narrow scan of the working set
+ * (~38k rows, ~30 MB) → Arrow IPC bytes. Run at most on a TTL by the cache, never per
+ * request. Uses the same `analytics` dataset the warehouse serves from.
+ */
+import { BigQuery } from '@google-cloud/bigquery';
+import { env } from '$env/dynamic/private';
+import { catalogQuerySql } from './columns';
+import { rowsToArrowIPC, type CatalogRow } from './serialize';
+
+const PROJECT = env.GCP_PROJECT_ID || 'bgg-data-warehouse';
+const TABLE = `${PROJECT}.analytics.games_features`;
+
+let _bq: BigQuery | null = null;
+function bq(): BigQuery {
+	return (_bq ??= new BigQuery({ projectId: PROJECT }));
+}
+
+export async function fetchWorkingSet(client: BigQuery = bq()): Promise<CatalogRow[]> {
+	const [rows] = await client.query({ query: catalogQuerySql(TABLE) });
+	return rows as CatalogRow[];
+}
+
+/** Build the catalog artifact bytes (Arrow IPC) from BigQuery. */
+export async function buildCatalogArtifact(): Promise<Uint8Array> {
+	return rowsToArrowIPC(await fetchWorkingSet());
+}
