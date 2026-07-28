@@ -1,93 +1,126 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
+  import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from '$lib/catalog/scope';
+  import Rail from '$lib/catalog/Rail.svelte';
 
-  type Hit = { game_id: number; name: string; year_published: number | null; geek_rating: number | null };
+  type Row = {
+    game_id: number;
+    name: string;
+    year_published: number | null;
+    geek_rating: number | null;
+    average_weight: number | null;
+    min_players: number | null;
+    max_players: number | null;
+  };
+  type Facet = { c: string; n: number };
 
-  let term = $state('');
-  let hits = $state<Hit[]>([]);
+  let scope = $state<Scope>({ ...DEFAULT_SCOPE });
+  let count = $state(0);
+  let rows = $state<Row[]>([]);
+  let categories = $state<Facet[]>([]);
+  let mechanics = $state<Facet[]>([]);
+  let ready = $state(false);
 
-  onMount(() => initCatalog());
-
-  async function runSearch() {
+  onMount(async () => {
+    scope = scopeFromParams(new URLSearchParams(location.search));
+    await initCatalog();
     if (catalog.status !== 'ready') return;
-    const t = term.trim().toLowerCase().replace(/'/g, "''");
-    if (t.length < 2) {
-      hits = [];
-      return;
+    // UNNEST must be produced in a subquery before GROUP BY in DuckDB.
+    const facetSql = (col: string) =>
+      `SELECT c, COUNT(*)::INT AS n FROM (SELECT UNNEST(${col}) AS c FROM catalog) GROUP BY c ORDER BY n DESC LIMIT 15`;
+    try {
+      categories = await query<Facet>(facetSql('categories'));
+      mechanics = await query<Facet>(facetSql('mechanics'));
+    } catch (e) {
+      console.error('facet load failed', e); // non-critical — still show the workspace
     }
-    hits = await query<Hit>(
-      `SELECT game_id, name, year_published, geek_rating
-       FROM catalog WHERE lower(name) LIKE '%${t}%'
-       ORDER BY users_rated DESC LIMIT 12`
+    ready = true;
+  });
+
+  const where = $derived(ready ? toWhere(scope) : null);
+
+  $effect(() => {
+    if (where == null) return;
+    const p = scopeToParams(scope).toString();
+    history.replaceState(history.state, '', p ? `?${p}` : location.pathname);
+    void runQuery(where);
+  });
+
+  async function runQuery(w: string) {
+    const [c] = await query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`);
+    count = c?.n ?? 0;
+    rows = await query<Row>(
+      `SELECT game_id, name, year_published, geek_rating, average_weight, min_players, max_players
+       FROM catalog WHERE ${w} ORDER BY users_rated DESC LIMIT 50`
     );
   }
+
+  const num = (n: number | null, d = 2) => (n == null ? '—' : n.toFixed(d));
+  const players = (r: Row) =>
+    r.min_players == null ? '—' : r.min_players === r.max_players ? `${r.min_players}` : `${r.min_players}–${r.max_players}`;
 </script>
 
 <svelte:head><title>Explore · bgg-viewer</title></svelte:head>
 
-<h1>Explore</h1>
-
-{#if catalog.status === 'loading' || catalog.status === 'idle'}
-  <p class="state">Loading the catalog into your browser…</p>
-{:else if catalog.status === 'error'}
+{#if catalog.status === 'error'}
   <p class="state err">Couldn't load the catalog: {catalog.error}</p>
+{:else if !ready}
+  <p class="state">Loading the catalog into your browser…</p>
 {:else}
-  <p class="state ok">
-    <b class="tnum">{catalog.count.toLocaleString()}</b> games loaded — querying entirely in-browser.
-  </p>
+  <div class="workspace">
+    <Rail bind:scope {categories} {mechanics} onreset={() => (scope = { ...DEFAULT_SCOPE })} />
 
-  <input
-    class="search"
-    placeholder="Search titles… (client-side SQL)"
-    bind:value={term}
-    oninput={runSearch}
-  />
+    <div class="canvas">
+      <div class="canvas-h">
+        <span class="scope-sum"><b class="tnum">{count.toLocaleString()}</b> games</span>
+        <span class="muted">showing top {Math.min(count, 50)} by popularity · filtered in-browser</span>
+      </div>
 
-  {#if hits.length}
-    <ul class="hits">
-      {#each hits as h}
-        <li>
-          <a href="/games/{h.game_id}">
-            <span class="nm">{h.name}</span>
-            {#if h.year_published}<span class="yr">{h.year_published}</span>{/if}
-            <span class="score tnum">{h.geek_rating != null ? h.geek_rating.toFixed(2) : '—'}</span>
-          </a>
-        </li>
-      {/each}
-    </ul>
-  {:else if term.trim().length >= 2}
-    <p class="state">No matches.</p>
-  {/if}
-
-  <p class="note">
-    This is the Step-2 proof: the real catalog is a dataframe in your browser. The filter
-    rail, charts, and table come next (Steps 3–4).
-  </p>
+      <div class="tblwrap">
+        <table class="tnum">
+          <thead>
+            <tr><th>Game</th><th class="num">Year</th><th class="num">Geek</th><th class="num">Weight</th><th>Players</th></tr>
+          </thead>
+          <tbody>
+            {#each rows as r}
+              <tr>
+                <td class="nm"><a href="/games/{r.game_id}">{r.name}</a></td>
+                <td class="num">{r.year_published ?? '—'}</td>
+                <td class="num">{num(r.geek_rating)}</td>
+                <td class="num">{num(r.average_weight)}</td>
+                <td>{players(r)}</td>
+              </tr>
+            {/each}
+            {#if !rows.length}
+              <tr><td colspan="5" class="empty">No games match this scope.</td></tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
-  h1 { font-size: var(--text-heading); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 var(--space-md); }
-  .tnum { font-variant-numeric: tabular-nums; }
   .state { color: var(--muted-foreground); }
-  .state.ok { color: var(--foreground); }
   .state.err { color: var(--color-negative); }
-  .search {
-    width: 100%; max-width: 28rem; margin: var(--space-md) 0;
-    border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--card); color: var(--foreground);
-    padding: var(--space-sm) var(--space-md); font: inherit;
-  }
-  .search:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
-  .hits { list-style: none; padding: 0; margin: 0; max-width: 28rem; display: flex; flex-direction: column; gap: .3rem; }
-  .hits a {
-    display: flex; align-items: baseline; gap: .6rem;
-    padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 8px;
-    text-decoration: none; color: inherit; background: var(--card);
-  }
-  .hits a:hover { border-color: var(--primary); }
-  .hits .nm { font-weight: 550; }
-  .hits .yr { color: var(--muted-foreground); font-size: 0.8rem; }
-  .hits .score { margin-left: auto; color: var(--primary); font-weight: 600; font-size: 0.85rem; }
-  .note { margin-top: var(--space-lg); font-size: 0.8rem; color: var(--muted-foreground); border-left: 2px solid var(--primary); padding-left: .75rem; max-width: 30rem; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .workspace { display: grid; grid-template-columns: 15rem 1fr; gap: var(--space-lg); align-items: start; }
+  @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } }
+  .canvas { min-width: 0; }
+  .canvas-h { display: flex; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
+  .scope-sum { font-size: 1rem; }
+  .scope-sum b { font-weight: 700; }
+  .muted { color: var(--muted-foreground); font-size: 0.82rem; }
+  .tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+  thead th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; padding: .5rem .7rem; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; }
+  thead th.num, td.num { text-align: right; }
+  tbody td { padding: .45rem .7rem; border-bottom: 1px solid var(--border); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--muted); }
+  .nm a { color: var(--primary); text-decoration: none; font-weight: 550; }
+  .nm a:hover { text-decoration: underline; }
+  .empty { text-align: center; color: var(--muted-foreground); padding: var(--space-lg); }
 </style>
