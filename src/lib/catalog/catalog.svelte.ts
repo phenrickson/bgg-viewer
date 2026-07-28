@@ -1,0 +1,75 @@
+/**
+ * The client-side catalog: loads the Arrow artifact from `/api/catalog` into DuckDB-WASM
+ * once, then answers SQL queries in the browser — no server round-trip, no BigQuery.
+ *
+ * The wasm + worker are self-hosted (bundled via `?url`), not the CDN the spike used.
+ * DuckDB and its runtime are only touched inside `init()` (browser), so this module is
+ * safe to import during SSR; the page that uses it also opts out of SSR.
+ */
+import wasmMvp from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
+import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
+import wasmEh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
+import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
+import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
+
+export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+let status = $state<CatalogStatus>('idle');
+let count = $state(0);
+let error = $state<string | null>(null);
+
+/** Reactive, read-only view of load state for the UI. */
+export const catalog = {
+	get status() {
+		return status;
+	},
+	get count() {
+		return count;
+	},
+	get error() {
+		return error;
+	}
+};
+
+let conn: AsyncDuckDBConnection | null = null;
+let initPromise: Promise<void> | null = null;
+
+async function doInit(): Promise<void> {
+	status = 'loading';
+	try {
+		const duckdb = await import('@duckdb/duckdb-wasm');
+		const bundle = await duckdb.selectBundle({
+			mvp: { mainModule: wasmMvp, mainWorker: mvpWorker },
+			eh: { mainModule: wasmEh, mainWorker: ehWorker }
+		});
+		const worker = new Worker(bundle.mainWorker!);
+		const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
+		await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+		conn = await db.connect();
+
+		const res = await fetch('/api/catalog');
+		if (!res.ok) throw new Error(`catalog fetch failed (${res.status})`);
+		const buf = new Uint8Array(await res.arrayBuffer());
+		// Load into a native table so queries don't re-parse the artifact each time.
+		await conn.insertArrowFromIPCStream(buf, { name: 'catalog', create: true });
+
+		const r = await conn.query('SELECT COUNT(*)::INT AS n FROM catalog');
+		count = Number((r.get(0) as { n: number } | null)?.n ?? 0);
+		status = 'ready';
+	} catch (e) {
+		error = e instanceof Error ? e.message : String(e);
+		status = 'error';
+	}
+}
+
+/** Idempotent — first call loads the catalog; later calls await the same load. */
+export function initCatalog(): Promise<void> {
+	return (initPromise ??= doInit());
+}
+
+/** Run a SQL query against the in-browser `catalog` table; rows as plain objects. */
+export async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+	if (!conn) throw new Error('catalog is not ready');
+	const result = await conn.query(sql);
+	return result.toArray().map((row) => row.toJSON()) as T[];
+}
