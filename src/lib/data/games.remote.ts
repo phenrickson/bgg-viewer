@@ -10,15 +10,9 @@
  */
 import { query } from '$app/server';
 import { z } from 'zod';
-import { env } from '$env/dynamic/private';
-import { createWarehouseClient } from '$lib/server/warehouse/client';
-import { getWarehouseIdToken } from '$lib/server/warehouse/token';
-
-function warehouse() {
-	const baseUrl = env.WAREHOUSE_API_URL;
-	if (!baseUrl) throw new Error('WAREHOUSE_API_URL is not set — cannot reach the warehouse.');
-	return createWarehouseClient({ baseUrl, getIdToken: getWarehouseIdToken });
-}
+import { warehouseClient } from '$lib/server/warehouse';
 
 /** Full game document for a detail page. Rejects non-positive ids at the boundary. */
-export const getGame = query(z.number().int().positive(), (gameId) => warehouse().getGame(gameId));
+export const getGame = query(z.number().int().positive(), (gameId) =>
+	warehouseClient().getGame(gameId)
+);
