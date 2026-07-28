@@ -172,12 +172,23 @@ live scoring/similarity/simulation stay fast and cheap.
    scan. Delivery is always **through the authed SK server** (locally: a local file);
    the browser re-fetches by version/date.
 
-## Open questions / to validate before committing
+## Validation — DuckDB-WASM spike (2026-07-28): **PASSED**
 
-- **DuckDB-WASM spike (the one de-risking task, and step 1 of the plan):** build a real
-  ~3 MB Parquet of the working set, load it in-browser, and confirm payload size, load
-  time, and that a filter/group-by is genuinely sub-100ms. High confidence, but prove
-  the numbers before building on the assumption.
+Measured in a real browser (Chromium) against the actual 37,633-row working set:
+
+- **Artifact format:** Parquet + zstd wins — **1.79 MB raw / 1.76 MB gzipped** (Arrow
+  IPC was ~3.4 MB). This is the chosen format.
+- **Cold load:** DuckDB-WASM init 616 ms + fetch 7 ms + register/connect 50 ms ≈
+  **~0.7s**; ~1.2s including the one-time cold Parquet parse (first query) — under 2s.
+- **Query latency (after warm-up):** filter **16 ms**, group-by histogram **18 ms**,
+  array facet `list_contains(categories,…)` **9 ms**, `name LIKE` search **26 ms** —
+  all far under the 100 ms bar.
+- **Integration:** DuckDB-WASM ↔ SvelteKit/Vite works; array/list columns query
+  correctly (facets), search is a `LIKE`. The architecture is de-risked.
+
+Implementation notes carried forward: **prime the Parquet parse** during the loading
+state (the ~440 ms first-query cost) so the first interaction is warm; **self-host the
+wasm** in the real build rather than the jsDelivr CDN used for the spike.
 
 ## Out of scope
 
