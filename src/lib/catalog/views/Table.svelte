@@ -1,0 +1,126 @@
+<script lang="ts">
+  import { query } from '$lib/catalog/catalog.svelte';
+
+  let { where }: { where: string } = $props();
+
+  type Row = {
+    game_id: number;
+    name: string;
+    year_published: number | null;
+    geek_rating: number | null;
+    average_rating: number | null;
+    average_weight: number | null;
+    users_rated: number | null;
+    min_players: number | null;
+    max_players: number | null;
+  };
+
+  // Sorting runs in DuckDB, so it orders the *whole* scoped set — not just the page we
+  // render. Each column maps to a safe SQL sort expression (never user input).
+  type Col = { key: string; label: string; num: boolean; sql: string };
+  const COLS: Col[] = [
+    { key: 'name', label: 'Game', num: false, sql: 'lower(name)' },
+    { key: 'year', label: 'Year', num: true, sql: 'year_published' },
+    { key: 'geek', label: 'Geek', num: true, sql: 'geek_rating' },
+    { key: 'rating', label: 'Avg', num: true, sql: 'average_rating' },
+    { key: 'weight', label: 'Weight', num: true, sql: 'average_weight' },
+    { key: 'rated', label: 'Ratings', num: true, sql: 'users_rated' },
+    { key: 'players', label: 'Players', num: false, sql: 'min_players' }
+  ];
+  const LIMIT = 250;
+
+  let sortKey = $state('rated');
+  let desc = $state(true);
+  let rows = $state<Row[]>([]);
+  let total = $state(0);
+
+  function sortBy(c: Col) {
+    if (c.key === sortKey) desc = !desc;
+    else {
+      sortKey = c.key;
+      desc = c.num; // numbers default high→low, text A→Z
+    }
+  }
+
+  const orderExpr = $derived(COLS.find((c) => c.key === sortKey)?.sql ?? 'users_rated');
+
+  let token = 0;
+  $effect(() => {
+    const w = where;
+    const ord = `${orderExpr} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
+    const mine = ++token;
+    Promise.all([
+      query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`),
+      query<Row>(
+        `SELECT game_id, name, year_published, geek_rating, average_rating,
+                average_weight, users_rated, min_players, max_players
+         FROM catalog WHERE ${w} ORDER BY ${ord} LIMIT ${LIMIT}`
+      )
+    ])
+      .then(([c, r]) => {
+        if (mine !== token) return;
+        total = c[0]?.n ?? 0;
+        rows = r;
+      })
+      .catch((e) => mine === token && console.error('table query failed', e));
+  });
+
+  const num = (n: number | null, d = 2) => (n == null ? '—' : n.toFixed(d));
+  const players = (r: Row) =>
+    r.min_players == null ? '—' : r.min_players === r.max_players ? `${r.min_players}` : `${r.min_players}–${r.max_players}`;
+  const arrow = (c: Col) => (c.key === sortKey ? (desc ? '▼' : '▲') : '');
+</script>
+
+<div class="meta">
+  showing {Math.min(total, LIMIT).toLocaleString()} of {total.toLocaleString()} · sorted by {COLS.find((c) => c.key === sortKey)?.label}
+</div>
+
+<div class="tblwrap">
+  <table class="tnum">
+    <thead>
+      <tr>
+        {#each COLS as c}
+          <th class:num={c.num} class:active={c.key === sortKey}>
+            <button onclick={() => sortBy(c)}>{c.label} <span class="ar">{arrow(c)}</span></button>
+          </th>
+        {/each}
+      </tr>
+    </thead>
+    <tbody>
+      {#each rows as r}
+        <tr>
+          <td class="nm"><a href="/games/{r.game_id}">{r.name}</a></td>
+          <td class="num">{r.year_published ?? '—'}</td>
+          <td class="num">{num(r.geek_rating)}</td>
+          <td class="num">{num(r.average_rating)}</td>
+          <td class="num">{num(r.average_weight)}</td>
+          <td class="num">{(r.users_rated ?? 0).toLocaleString()}</td>
+          <td>{players(r)}</td>
+        </tr>
+      {/each}
+      {#if !rows.length}
+        <tr><td colspan={COLS.length} class="empty">No games match this scope.</td></tr>
+      {/if}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .meta { color: var(--muted-foreground); font-size: 0.78rem; margin-bottom: var(--space-sm); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+  thead th { text-align: left; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; padding: 0; }
+  thead th.num { text-align: right; }
+  thead th button { width: 100%; text-align: inherit; background: none; border: none; cursor: pointer; font: inherit; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; padding: .5rem .7rem; }
+  thead th.active button { color: var(--foreground); }
+  thead th button:hover { color: var(--foreground); }
+  .ar { font-size: 0.6rem; }
+  tbody td { padding: .45rem .7rem; border-bottom: 1px solid var(--border); }
+  td.num { text-align: right; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--muted); }
+  .nm a { color: var(--primary); text-decoration: none; font-weight: 550; }
+  .nm a:hover { text-decoration: underline; }
+  .empty { text-align: center; color: var(--muted-foreground); padding: var(--space-lg); }
+</style>

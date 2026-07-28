@@ -1,0 +1,53 @@
+<script lang="ts">
+  import { Chart, Svg, Axis, Bars } from 'layerchart';
+  import { scaleBand } from 'd3-scale';
+
+  let {
+    data,
+    label,
+    value,
+    color = 'var(--chart-3)',
+    labelWidth = 116
+  }: {
+    data: any[];
+    label: string; // categorical key (y, band)
+    value: string; // numeric key (x, linear)
+    color?: string;
+    labelWidth?: number;
+  } = $props();
+</script>
+
+<div class="lc" style="height: {Math.max(data.length, 1) * 1.6 + 1.8}rem">
+  <Chart
+    {data}
+    x={value}
+    y={label}
+    yScale={scaleBand().padding(0.24)}
+    xDomain={[0, null]}
+    xNice
+    padding={{ left: labelWidth, bottom: 24, top: 4, right: 40 }}
+  >
+    <Svg>
+      <Axis placement="bottom" grid rule ticks={5} format={(v: number) => v.toLocaleString()} />
+      <Axis placement="left" rule={false} />
+      <Bars radius={2} strokeWidth={0} fill={color} />
+    </Svg>
+  </Chart>
+</div>
+
+<style>
+  .lc {
+    width: 100%;
+    color: var(--muted-foreground);
+    font-size: 0.72rem;
+  }
+  .lc :global(.tick text) {
+    fill: var(--foreground);
+  }
+  .lc :global([class*='grid'] line) {
+    stroke: var(--border);
+  }
+  .lc :global(.rule) {
+    stroke: var(--border);
+  }
+</style>
