@@ -24,6 +24,7 @@ export interface Scope {
 	designers: string[];
 	artists: string[];
 	publishers: string[];
+	families: string[];
 	/** Base population (the "Universe"): top 10k by geek rating, or everything rated. */
 	universe: 'top10k' | 'rated';
 }
@@ -42,6 +43,7 @@ export const DEFAULT_SCOPE: Scope = {
 	designers: [],
 	artists: [],
 	publishers: [],
+	families: [],
 	universe: 'top10k'
 };
 
@@ -79,6 +81,7 @@ export function toWhere(scope: Scope): string {
 	entity('designers', scope.designers);
 	entity('artists', scope.artists);
 	entity('publishers', scope.publishers);
+	entity('families', scope.families);
 	const q = scope.q.trim().toLowerCase();
 	if (q.length >= 2) parts.push(`lower(name) LIKE '%${esc(q)}%'`);
 	return parts.length ? parts.join(' AND ') : 'TRUE';
@@ -101,6 +104,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	for (const d of scope.designers) p.append('des', d);
 	for (const a of scope.artists) p.append('art', a);
 	for (const pub of scope.publishers) p.append('pub', pub);
+	for (const f of scope.families) p.append('fam', f);
 	if (scope.universe !== 'top10k') p.set('u', scope.universe);
 	return p;
 }
@@ -126,6 +130,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		designers: params.getAll('des'),
 		artists: params.getAll('art'),
 		publishers: params.getAll('pub'),
+		families: params.getAll('fam'),
 		universe: params.get('u') === 'rated' ? 'rated' : 'top10k'
 	};
 }

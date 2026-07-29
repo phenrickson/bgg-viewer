@@ -99,10 +99,11 @@
   {/if}
 
   <div class="grp find">
-    <span class="lbl">Find <span class="hint">designer · artist · publisher</span></span>
+    <span class="lbl">Find <span class="hint">designer · artist · publisher · family</span></span>
     <EntityFilter label="Designer" column="designers" bind:selected={scope.designers} />
     <EntityFilter label="Artist" column="artists" bind:selected={scope.artists} />
     <EntityFilter label="Publisher" column="publishers" bind:selected={scope.publishers} />
+    <EntityFilter label="Family" column="families" bind:selected={scope.families} />
   </div>
 </aside>
 

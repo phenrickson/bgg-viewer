@@ -73,6 +73,7 @@ describe('URL round-trip', () => {
 			designers: ['Uwe Rosenberg', 'Vital Lacerda'],
 			artists: [],
 			publishers: ['Hans im Glück, GmbH'], // comma in name — round-trips via repeated params
+			families: ['Mechanism: Legacy'],
 			universe: 'rated'
 		};
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);

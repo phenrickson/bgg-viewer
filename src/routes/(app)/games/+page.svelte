@@ -52,7 +52,7 @@
     if (scope.bestAt != null) bits.push(`best at ${scope.bestAt}`);
     if (scope.categories.length) bits.push(scope.categories.join(', '));
     if (scope.mechanics.length) bits.push(scope.mechanics.join(', '));
-    for (const e of [scope.designers, scope.artists, scope.publishers])
+    for (const e of [scope.designers, scope.artists, scope.publishers, scope.families])
       if (e.length) bits.push(e.join(', '));
     return bits.join(' · ');
   });
