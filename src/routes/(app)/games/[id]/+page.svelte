@@ -20,6 +20,19 @@
     if (a == null) return `${b}${unit}`;
     return `${a}–${b}${unit}`;
   }
+  // BGG descriptions arrive HTML-entity-encoded (&amp;, &#10; newlines, …); decode to text.
+  function decode(s: string | null): string {
+    if (!s) return '';
+    return s
+      .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+      .replace(/&quot;/g, '"')
+      .replace(/&(?:#0?39|apos);/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .trim();
+  }
+  const description = $derived(decode(g.description));
 </script>
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
@@ -30,11 +43,18 @@
   <!-- identity -->
   <div class="card">
     <div class="info-top">
-      <div class="cover">{g.name?.[0] ?? '?'}</div>
+      {#if g.image}
+        <img class="cover" src={g.image} alt="{g.name} box art" loading="lazy" />
+      {:else}
+        <div class="cover ph">{g.name?.[0] ?? '?'}</div>
+      {/if}
       <div>
         <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
         {#if g.designers.length}
           <p class="byline">by {g.designers.join(', ')}</p>
+        {/if}
+        {#if g.publishers.length}
+          <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
         {/if}
         <div class="meta-row tnum">
           <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
@@ -52,6 +72,11 @@
     {#if g.mechanics.length}
       <p class="sub">Mechanics</p>
       <div class="chips">{#each g.mechanics as m}<span class="chip">{m}</span>{/each}</div>
+    {/if}
+
+    {#if description}
+      <p class="sub">About</p>
+      <p class="desc">{description}</p>
     {/if}
   </div>
 
@@ -128,18 +153,22 @@
   .crumbs b { color: var(--foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
 
-  .split { display: grid; grid-template-columns: 1.55fr 1fr; gap: var(--space-lg); }
+  .split { display: grid; grid-template-columns: 1.55fr 1fr; gap: var(--space-lg); align-items: start; }
   @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); }
 
   .info-top { display: flex; gap: var(--space-lg); }
-  .cover { width: 104px; height: 104px; flex: none; border-radius: 10px; border: 1px solid var(--border);
+  .cover { width: 128px; flex: none; border-radius: 10px; border: 1px solid var(--border); object-fit: contain; background: var(--muted); }
+  .cover.ph { width: 104px; height: 104px;
     background: radial-gradient(circle at 30% 30%, oklch(0.64 0.17 45 / .28), transparent 60%),
       repeating-linear-gradient(60deg, var(--muted) 0 14px, transparent 14px 28px), var(--card);
     display: grid; place-items: center; font-weight: 800; font-size: 2rem; color: var(--primary); letter-spacing: -0.03em; }
   .title { margin: 0; font-size: var(--text-heading); font-weight: 700; letter-spacing: -0.02em; }
   .title .yr { color: var(--muted-foreground); font-weight: 500; }
   .byline { color: var(--muted-foreground); font-size: 0.88rem; margin: .15rem 0 0; }
+  .pubs { color: var(--muted-foreground); font-size: 0.78rem; margin: .1rem 0 0; }
+  .desc { font-size: 0.86rem; line-height: 1.55; color: var(--foreground); margin: 0;
+    white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; line-clamp: 8; overflow: hidden; }
   .meta-row { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-top: var(--space-md); font-size: 0.85rem; }
   .meta-row div span { color: var(--muted-foreground); display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; }
   .meta-row div b { font-weight: 600; }

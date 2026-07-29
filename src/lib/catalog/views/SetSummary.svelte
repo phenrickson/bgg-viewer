@@ -68,6 +68,7 @@
       });
   });
 
+  let open = $state(true);
   const fmt = (n: number | null | undefined, d = 2) => (n == null ? '—' : n.toFixed(d));
   const onlyDecade = (v: number) => (v % 10 === 0 ? String(v) : '');
   const onlyWhole = (v: number) => (Number.isInteger(v) ? String(v) : '');
@@ -83,6 +84,12 @@
   <div class="tile"><span class="k">Upcoming / unrated</span><b class="v tnum">{(summary?.upcoming ?? 0).toLocaleString()}</b></div>
 </div>
 
+<button class="disclosure" onclick={() => (open = !open)} aria-expanded={open}>
+  <span class="caret" class:open>▸</span> Set summary
+  <span class="sub">· distributions & top facets{loading ? ' · updating…' : ''}</span>
+</button>
+
+{#if open}
 <div class="grid">
   <section class="panel">
     <header><h4>Rating distribution</h4><span class="sub">average rating</span></header>
@@ -138,8 +145,7 @@
     </div>
   </section>
 </div>
-
-{#if loading}<p class="loading">Updating…</p>{/if}
+{/if}
 
 <style>
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-md); }
@@ -147,13 +153,15 @@
   .tile .k { font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; }
   .tile .v { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
   .tnum { font-variant-numeric: tabular-nums; }
-  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .disclosure { display: flex; align-items: baseline; gap: .4rem; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid var(--border); padding: .6rem 0 .5rem; margin-bottom: var(--space-sm); cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 650; color: var(--foreground); }
+  .disclosure .caret { color: var(--muted-foreground); transition: transform 0.12s ease; }
+  .disclosure .caret.open { transform: rotate(90deg); }
+  .disclosure .sub { font-size: 0.72rem; font-weight: 400; color: var(--muted-foreground); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-md); }
   .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: var(--space-md); min-width: 0; }
   .panel header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
-  .panel h4 { margin: 0; font-size: 0.82rem; font-weight: 650; }
-  .panel .sub { font-size: 0.7rem; color: var(--muted-foreground); }
-  .body.chart { height: 16rem; }
+  .panel h4 { margin: 0; font-size: 0.8rem; font-weight: 650; }
+  .panel .sub { font-size: 0.68rem; color: var(--muted-foreground); }
+  .body.chart { height: 9.5rem; }
   .empty { color: var(--muted-foreground); font-size: 0.82rem; text-align: center; padding: var(--space-lg) 0; }
-  .loading { color: var(--muted-foreground); font-size: 0.78rem; margin-top: var(--space-sm); }
 </style>

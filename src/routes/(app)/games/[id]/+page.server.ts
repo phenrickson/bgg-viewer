@@ -7,6 +7,8 @@ interface Features {
 	name: string;
 	year_published: number | null;
 	designers: string[] | null;
+	artists: string[] | null;
+	publishers: string[] | null;
 	categories: string[] | null;
 	mechanics: string[] | null;
 	min_players: number | null;
@@ -18,6 +20,9 @@ interface Features {
 	average_rating: number | null;
 	users_rated: number | null;
 	average_weight: number | null;
+	image: string | null;
+	thumbnail: string | null;
+	description: string | null;
 	player_counts: Array<Record<string, number | string>>;
 }
 
@@ -49,7 +54,11 @@ function toViewModel(doc: GameDocument) {
 		id: doc.game_id,
 		name: f.name,
 		year: f.year_published,
+		image: f.image ?? f.thumbnail ?? null,
+		description: f.description ?? null,
 		designers: f.designers ?? [],
+		artists: f.artists ?? [],
+		publishers: f.publishers ?? [],
 		categories: f.categories ?? [],
 		mechanics: f.mechanics ?? [],
 		minPlayers: f.min_players,
