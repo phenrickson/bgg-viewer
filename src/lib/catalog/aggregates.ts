@@ -29,9 +29,10 @@ export interface Facet {
 	n: number;
 }
 export interface ScatterPoint {
-	x: number; // average_weight
-	y: number; // average_rating
-	name: string;
+	x: number; // average_weight (or average_rating, for the popularity plot)
+	y: number; // average_rating (or users_rated)
+	game_id: number; // the point's game — its name is resolved via the catalog's id→name map,
+	// never re-marshaled as a string column on every filter change (see catalog `nameOf`).
 }
 
 /** Width of the rating-distribution buckets, in rating points. */
@@ -74,15 +75,21 @@ export const gamesPerYearSql = (where: string): string =>
 	 FROM catalog WHERE ${where} AND year_published >= ${YEAR_FLOOR}
 	 GROUP BY year ORDER BY year`;
 
-/** Complexity (average_weight) vs average rating — every game in scope. */
+/**
+ * Complexity (average_weight) vs average rating — every game in scope.
+ * Numbers only (x, y, game_id) — the `name` string is deliberately NOT selected, so a filter
+ * change marshals near-zero-copy typed arrays, not tens of thousands of strings. The tooltip
+ * resolves the hovered point's name via the catalog `id→name` map (`nameOf`).
+ */
 export const scatterSql = (where: string, limit = SCATTER_LIMIT): string =>
-	`SELECT average_weight AS x, average_rating AS y, name
+	`SELECT average_weight AS x, average_rating AS y, game_id
 	 FROM catalog WHERE ${where} AND average_weight > 0 AND average_rating > 0
 	 LIMIT ${limit}`;
 
-/** Average rating vs popularity (users_rated) — y is log-scaled in the chart; every game in scope. */
+/** Average rating vs popularity (users_rated) — y is log-scaled in the chart; every game in scope.
+ * Numbers only (see `scatterSql`); name resolved via `nameOf`. */
 export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
-	`SELECT average_rating AS x, users_rated AS y, name
+	`SELECT average_rating AS x, users_rated AS y, game_id
 	 FROM catalog WHERE ${where} AND average_rating > 0 AND users_rated > 0
 	 LIMIT ${limit}`;
 

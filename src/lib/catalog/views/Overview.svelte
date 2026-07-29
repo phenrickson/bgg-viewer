@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { query } from '$lib/catalog/catalog.svelte';
+  import { query, nameOf } from '$lib/catalog/catalog.svelte';
   import {
     summarySql,
     ratingHistogramSql,
@@ -81,7 +81,7 @@
     <header><h4>Complexity vs rating</h4><span class="sub">{scatter.length.toLocaleString()} games · hover a point</span></header>
     <div class="body chart">
       {#if scatter.length}
-        <ScatterChart data={scatter} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
+        <ScatterChart data={scatter} {nameOf} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
       {:else}<p class="empty">No games in scope.</p>{/if}
     </div>
   </section>
@@ -92,6 +92,7 @@
       {#if popularity.length}
         <ScatterChart
           data={popularity}
+          {nameOf}
           xDomain={[2, 10]}
           yLog
           xLabel="rating"

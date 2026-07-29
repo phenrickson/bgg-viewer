@@ -43,6 +43,15 @@ describe('aggregate SQL builders', () => {
 		expect(scatterSql(W, 50)).toContain('LIMIT 50');
 	});
 
+	it('marshals numbers only — game_id, never the name string (lazy names)', () => {
+		// The name is resolved via the catalog id→name map; re-pulling it per filter is the
+		// string-decode cost that made scope changes slow.
+		for (const sql of [scatterSql(W), popularitySql(W)]) {
+			expect(sql).toContain('game_id');
+			expect(sql).not.toContain('name');
+		}
+	});
+
 	it('plots rating against users_rated for the popularity scatter', () => {
 		const sql = popularitySql(W);
 		expect(sql).toContain('average_rating AS x');

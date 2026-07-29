@@ -2,7 +2,7 @@
   import { Chart, Svg, Canvas, Axis, Points, Highlight, Tooltip } from 'layerchart';
   import { scaleLinear, scaleLog } from 'd3-scale';
 
-  type Datum = { x: number; y: number; name?: string };
+  type Datum = { x: number; y: number; game_id?: number };
   let {
     data,
     xDomain,
@@ -13,6 +13,7 @@
     yLog = false,
     xFmt = (v: number) => v.toFixed(2),
     yFmt = (v: number) => v.toLocaleString(),
+    nameOf,
     r = 1.8,
     opacity = 0.35
   }: {
@@ -25,6 +26,8 @@
     yLog?: boolean;
     xFmt?: (v: number) => string;
     yFmt?: (v: number) => string;
+    /** Resolve a point's game name from its id — the plot data carries no name string. */
+    nameOf?: (id: number) => string | undefined;
     r?: number;
     opacity?: number;
   } = $props();
@@ -58,7 +61,8 @@
 
     <Tooltip.Root>
       {#snippet children({ data }: { data: Datum })}
-        {#if data.name}<Tooltip.Header>{data.name}</Tooltip.Header>{/if}
+        {@const nm = data.game_id != null ? nameOf?.(data.game_id) : undefined}
+        {#if nm}<Tooltip.Header>{nm}</Tooltip.Header>{/if}
         <Tooltip.List>
           <Tooltip.Item label={xLabel || 'x'} value={xFmt(data.x)} />
           <Tooltip.Item label={yLabel || 'y'} value={yFmt(data.y)} />

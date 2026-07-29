@@ -33,6 +33,8 @@ export const catalog = {
 
 let conn: AsyncDuckDBConnection | null = null;
 let initPromise: Promise<void> | null = null;
+/** id → name, built once at load so per-filter plot queries can return numbers only. */
+let nameById = new Map<number, string>();
 
 async function doInit(): Promise<void> {
 	status = 'loading';
@@ -55,6 +57,18 @@ async function doInit(): Promise<void> {
 
 		const r = await conn.query('SELECT COUNT(*)::INT AS n FROM catalog');
 		count = Number((r.get(0) as { n: number } | null)?.n ?? 0);
+
+		// Build the id→name map once. The plot's per-filter queries return numbers only
+		// (x, y, game_id); the tooltip resolves the hovered name here (O(1)), so a scope
+		// change never re-marshals ~tens-of-thousands of name strings.
+		const names = await conn.query('SELECT game_id, name FROM catalog');
+		nameById = new Map(
+			names.toArray().map((row) => {
+				const o = row.toJSON() as { game_id: number | bigint; name: string };
+				return [Number(o.game_id), o.name] as const;
+			})
+		);
+
 		status = 'ready';
 	} catch (e) {
 		error = e instanceof Error ? e.message : String(e);
@@ -65,6 +79,11 @@ async function doInit(): Promise<void> {
 /** Idempotent — first call loads the catalog; later calls await the same load. */
 export function initCatalog(): Promise<void> {
 	return (initPromise ??= doInit());
+}
+
+/** Resolve a game's name from its id (map built once at load) — for the plot tooltip. */
+export function nameOf(id: number): string | undefined {
+	return nameById.get(Number(id));
 }
 
 /** Run a SQL query against the in-browser `catalog` table; rows as plain objects. */
