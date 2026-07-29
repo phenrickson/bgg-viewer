@@ -18,8 +18,8 @@ export interface Scope {
 	players: number | null;
 	categories: string[];
 	mechanics: string[];
-	/** Default view hides upcoming/unrated games (users_rated >= 30). */
-	ratedOnly: boolean;
+	/** Base population (the "Universe"): top 10k by geek rating, or everything rated. */
+	universe: 'top10k' | 'rated';
 }
 
 export const DEFAULT_SCOPE: Scope = {
@@ -32,7 +32,7 @@ export const DEFAULT_SCOPE: Scope = {
 	players: null,
 	categories: [],
 	mechanics: [],
-	ratedOnly: true
+	universe: 'top10k'
 };
 
 const esc = (s: string) => s.replace(/'/g, "''");
@@ -45,7 +45,12 @@ const finite = (v: unknown): number | null => {
 /** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
 export function toWhere(scope: Scope): string {
 	const parts: string[] = [];
-	if (scope.ratedOnly) parts.push('users_rated >= 30');
+	if (scope.universe === 'rated') parts.push('users_rated >= 30');
+	else
+		// Top 10k by geek rating — an independent subquery over the whole catalog.
+		parts.push(
+			'game_id IN (SELECT game_id FROM catalog WHERE geek_rating > 0 ORDER BY geek_rating DESC LIMIT 10000)'
+		);
 	if (scope.yearMin != null) parts.push(`year_published >= ${scope.yearMin}`);
 	if (scope.yearMax != null) parts.push(`year_published <= ${scope.yearMax}`);
 	if (scope.weightMin != null) parts.push(`average_weight >= ${scope.weightMin}`);
@@ -72,7 +77,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.categories.length) p.set('cats', scope.categories.join(','));
 	if (scope.mechanics.length) p.set('mechs', scope.mechanics.join(','));
-	if (!scope.ratedOnly) p.set('rated', '0'); // only when off (default is on)
+	if (scope.universe !== 'top10k') p.set('u', scope.universe);
 	return p;
 }
 
@@ -93,6 +98,6 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		players: finite(params.get('p')),
 		categories: list('cats'),
 		mechanics: list('mechs'),
-		ratedOnly: params.get('rated') !== '0'
+		universe: params.get('u') === 'rated' ? 'rated' : 'top10k'
 	};
 }

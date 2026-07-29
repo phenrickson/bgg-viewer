@@ -1,34 +1,32 @@
 <script lang="ts">
-  import { query, nameOf } from '$lib/catalog/catalog.svelte';
+  /**
+   * Set summary — the secondary "what kind of games are these?" lens: stat tiles plus
+   * aggregate charts (rating distribution, games per year, top categories) over the scoped
+   * set. Demoted below the headline plot + table; the individual games are the headline,
+   * this characterizes their shape.
+   */
+  import { query } from '$lib/catalog/catalog.svelte';
   import {
     summarySql,
     ratingHistogramSql,
     gamesPerYearSql,
-    scatterSql,
-    popularitySql,
     topFacetSql,
     type Summary,
     type Bin,
     type YearCount,
-    type ScatterPoint,
     type Facet
   } from '$lib/catalog/aggregates';
   import BarChart from '$lib/charts/BarChart.svelte';
   import RowBarChart from '$lib/charts/RowBarChart.svelte';
-  import ScatterChart from '$lib/charts/ScatterChart.svelte';
 
   let { where }: { where: string } = $props();
 
   let summary = $state<Summary | null>(null);
   let ratingBins = $state<Bin[]>([]);
   let perYear = $state<YearCount[]>([]);
-  let scatter = $state<ScatterPoint[]>([]);
-  let popularity = $state<ScatterPoint[]>([]);
   let topCats = $state<Facet[]>([]);
   let loading = $state(true);
 
-  // Re-run every panel whenever the scope changes. A token guards against a slow
-  // query resolving after a newer scope has already been applied (stale write).
   let token = 0;
   $effect(() => {
     const w = where;
@@ -38,23 +36,19 @@
       query<Summary>(summarySql(w)),
       query<Bin>(ratingHistogramSql(w)),
       query<YearCount>(gamesPerYearSql(w)),
-      query<ScatterPoint>(scatterSql(w)),
-      query<ScatterPoint>(popularitySql(w)),
       query<Facet>(topFacetSql(w, 'categories'))
     ])
-      .then(([s, rb, py, sc, pop, tc]) => {
+      .then(([s, rb, py, tc]) => {
         if (mine !== token) return;
         summary = s[0] ?? null;
         ratingBins = rb;
         perYear = py;
-        scatter = sc;
-        popularity = pop;
         topCats = tc.map((f) => ({ ...f, c: f.c.length > 20 ? f.c.slice(0, 19) + '…' : f.c }));
         loading = false;
       })
       .catch((e) => {
         if (mine === token) {
-          console.error('overview aggregates failed', e);
+          console.error('summary aggregates failed', e);
           loading = false;
         }
       });
@@ -63,7 +57,6 @@
   const fmt = (n: number | null | undefined, d = 2) => (n == null ? '—' : n.toFixed(d));
   const onlyDecade = (v: number) => (v % 10 === 0 ? String(v) : '');
   const onlyWhole = (v: number) => (Number.isInteger(v) ? String(v) : '');
-  // Games-per-year chart is floored (see YEAR_FLOOR) — label its own range, not the tile's.
   const chartYears = $derived(
     perYear.length ? `${perYear[0].year}–${perYear[perYear.length - 1].year}` : '—'
   );
@@ -77,33 +70,6 @@
 </div>
 
 <div class="grid">
-  <section class="panel">
-    <header><h4>Complexity vs rating</h4><span class="sub">{scatter.length.toLocaleString()} games · hover a point</span></header>
-    <div class="body chart">
-      {#if scatter.length}
-        <ScatterChart data={scatter} {nameOf} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
-      {:else}<p class="empty">No games in scope.</p>{/if}
-    </div>
-  </section>
-
-  <section class="panel">
-    <header><h4>Rating vs popularity</h4><span class="sub">{popularity.length.toLocaleString()} games · hover a point</span></header>
-    <div class="body chart">
-      {#if popularity.length}
-        <ScatterChart
-          data={popularity}
-          {nameOf}
-          xDomain={[2, 10]}
-          yLog
-          xLabel="rating"
-          yLabel="user ratings"
-          color="var(--chart-1)"
-          xFmt={(v) => v.toFixed(1)}
-        />
-      {:else}<p class="empty">No games in scope.</p>{/if}
-    </div>
-  </section>
-
   <section class="panel">
     <header><h4>Rating distribution</h4><span class="sub">average rating, {ratingBins.length} bins</span></header>
     <div class="body chart">

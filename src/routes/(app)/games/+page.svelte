@@ -3,14 +3,13 @@
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
-  import Overview from '$lib/catalog/views/Overview.svelte';
+  import HeadlinePlot from '$lib/catalog/views/HeadlinePlot.svelte';
   import Table from '$lib/catalog/views/Table.svelte';
+  import SetSummary from '$lib/catalog/views/SetSummary.svelte';
 
   type Facet = { c: string; n: number };
-  type View = 'overview' | 'table';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
-  let view = $state<View>('overview');
   let categories = $state<Facet[]>([]);
   let mechanics = $state<Facet[]>([]);
   let ready = $state(false);
@@ -18,7 +17,6 @@
   onMount(async () => {
     const params = new URLSearchParams(location.search);
     scope = scopeFromParams(params);
-    if (params.get('view') === 'table') view = 'table';
     await initCatalog();
     if (catalog.status !== 'ready') return;
     // UNNEST must be produced in a subquery before GROUP BY in DuckDB.
@@ -35,12 +33,10 @@
 
   const where = $derived(ready ? toWhere(scope) : null);
 
-  // Mirror scope + view to the URL (shareable, reload-safe) without a navigation.
+  // Mirror scope to the URL (shareable, reload-safe) without a navigation.
   $effect(() => {
     if (!ready) return;
-    const p = scopeToParams(scope);
-    if (view !== 'overview') p.set('view', view);
-    const qs = p.toString();
+    const qs = scopeToParams(scope).toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
 </script>
@@ -57,18 +53,22 @@
 
     <div class="canvas">
       <div class="canvas-h">
-        <div class="views" role="tablist" aria-label="View">
-          <button role="tab" aria-selected={view === 'overview'} class:on={view === 'overview'} onclick={() => (view = 'overview')}>Overview</button>
-          <button role="tab" aria-selected={view === 'table'} class:on={view === 'table'} onclick={() => (view = 'table')}>Table</button>
-        </div>
-        <span class="muted">filtered in-browser</span>
+        <span class="muted">Explore · filtered in-browser</span>
       </div>
 
       {#if where != null}
-        <!-- Both views stay mounted; we just hide the inactive one. Switching keeps
-             each view's state (sort, page, chart data) instead of rebuilding + re-querying. -->
-        <div class:hidden={view !== 'overview'}><Overview {where} /></div>
-        <div class:hidden={view !== 'table'}><Table {where} /></div>
+        <!-- The scoped set, understood then browsed: the plot (games, spatially) + the
+             summary vizs characterize the set; the table lists the games themselves. -->
+        <div class="stack">
+          <HeadlinePlot {where} />
+
+          <SetSummary {where} />
+
+          <section>
+            <h4 class="sect">Table <span class="sub">· the same games, as rows</span></h4>
+            <Table {where} />
+          </section>
+        </div>
       {/if}
     </div>
   </div>
@@ -82,9 +82,7 @@
   .canvas { min-width: 0; }
   .canvas-h { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
   .muted { color: var(--muted-foreground); font-size: 0.82rem; }
-  .views { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .views button { background: var(--card); border: none; cursor: pointer; font: inherit; font-size: 0.82rem; color: var(--muted-foreground); padding: .35rem .9rem; }
-  .views button + button { border-left: 1px solid var(--border); }
-  .views button.on { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
-  .hidden { display: none; }
+  .stack { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+  .sect { margin: 0 0 var(--space-sm); font-size: 0.82rem; font-weight: 650; }
+  .sect .sub { font-size: 0.7rem; color: var(--muted-foreground); font-weight: 400; }
 </style>

@@ -86,9 +86,31 @@ export function nameOf(id: number): string | undefined {
 	return nameById.get(Number(id));
 }
 
-/** Run a SQL query against the in-browser `catalog` table; rows as plain objects. */
+/** Run a SQL query against the in-browser `catalog` table; rows as plain objects.
+ * Fine for small result sets (aggregates, facets); for large clouds use `queryColumns`. */
 export async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
 	if (!conn) throw new Error('catalog is not ready');
 	const result = await conn.query(sql);
 	return result.toArray().map((row) => row.toJSON()) as T[];
+}
+
+/**
+ * Column-oriented query for large result sets (the plot cloud). Returns each requested
+ * column as a native typed array straight from Arrow — no per-row object/`toJSON`
+ * materialization. Arrow's row proxy makes `toArray().map(toJSON)` cost ~tens of ms per
+ * thousand rows; a 30k-point scatter pays that on every filter change. Pulling columns
+ * skips it entirely (near-zero-copy for numeric columns).
+ */
+export async function queryColumns(
+	sql: string,
+	cols: readonly string[]
+): Promise<Record<string, ArrayLike<number>>> {
+	if (!conn) throw new Error('catalog is not ready');
+	const result = await conn.query(sql);
+	const out: Record<string, ArrayLike<number>> = {};
+	for (const c of cols) {
+		const child = result.getChild(c);
+		out[c] = (child?.toArray() as ArrayLike<number> | undefined) ?? [];
+	}
+	return out;
 }

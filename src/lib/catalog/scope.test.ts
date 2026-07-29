@@ -2,13 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from './scope';
 
 describe('toWhere', () => {
-	it('defaults to the rated-only working view', () => {
-		expect(toWhere(DEFAULT_SCOPE)).toBe('users_rated >= 30');
+	it('defaults to the Top 10,000 universe', () => {
+		expect(toWhere(DEFAULT_SCOPE)).toContain('ORDER BY geek_rating DESC LIMIT 10000');
+	});
+
+	it('compiles the All rated universe to a users_rated floor', () => {
+		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'rated' })).toBe('users_rated >= 30');
 	});
 
 	it('compiles ranges, players, facets, and search into a conjunction', () => {
 		const scope: Scope = {
 			...DEFAULT_SCOPE,
+			universe: 'rated',
 			yearMin: 2020,
 			yearMax: 2025,
 			weightMin: 3,
@@ -36,11 +41,7 @@ describe('toWhere', () => {
 	});
 
 	it('ignores a too-short search term', () => {
-		expect(toWhere({ ...DEFAULT_SCOPE, q: 'a' })).toBe('users_rated >= 30');
-	});
-
-	it('yields TRUE when nothing is active', () => {
-		expect(toWhere({ ...DEFAULT_SCOPE, ratedOnly: false })).toBe('TRUE');
+		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'rated', q: 'a' })).toBe('users_rated >= 30');
 	});
 });
 
@@ -61,13 +62,13 @@ describe('URL round-trip', () => {
 			players: 3,
 			categories: ['Economic', 'City Building'],
 			mechanics: ['Trading'],
-			ratedOnly: false
+			universe: 'rated'
 		};
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);
 	});
 
-	it('records ratedOnly only when disabled', () => {
-		expect(scopeToParams(DEFAULT_SCOPE).has('rated')).toBe(false);
-		expect(scopeToParams({ ...DEFAULT_SCOPE, ratedOnly: false }).get('rated')).toBe('0');
+	it('records the universe only when it is not the Top 10,000 default', () => {
+		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
+		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
 	});
 });

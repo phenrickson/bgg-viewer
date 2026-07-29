@@ -25,7 +25,13 @@
 <aside class="rail">
   <div class="rail-h"><h3>Scope</h3><button class="reset" onclick={onreset}>Reset</button></div>
 
-  <label class="chk"><input type="checkbox" bind:checked={scope.ratedOnly} /> Rated only (≥30)</label>
+  <div class="grp uni">
+    <span class="lbl">Universe</span>
+    <div class="seg">
+      <button class:on={scope.universe === 'top10k'} onclick={() => (scope.universe = 'top10k')}>Top 10,000</button>
+      <button class:on={scope.universe === 'rated'} onclick={() => (scope.universe = 'rated')}>All rated</button>
+    </div>
+  </div>
 
   <div class="grp">
     <span class="lbl">Year</span>
@@ -93,7 +99,6 @@
   .pair { display: flex; gap: .4rem; }
   input[type='number'] { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--background); color: var(--foreground); padding: .3rem .45rem; font: inherit; }
   input[type='number']:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
-  .chk { display: flex; align-items: center; gap: .45rem; padding: .2rem 0 .5rem; }
   .seg { display: flex; gap: .25rem; }
   .seg button { flex: 1; border: 1px solid var(--border); border-radius: 6px; background: var(--background); color: var(--muted-foreground); padding: .25rem 0; cursor: pointer; font: inherit; font-size: 0.8rem; }
   .seg button.on { border-color: var(--primary); color: var(--primary); background: color-mix(in oklch, var(--primary) 10%, transparent); }

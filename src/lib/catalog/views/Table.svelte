@@ -134,9 +134,9 @@
   .pager button:disabled { opacity: .4; cursor: default; }
   .pager .pg { padding: 0 .4rem; color: var(--foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
-  .tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  .tblwrap { max-height: 34rem; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
   table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
-  thead th { text-align: left; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; padding: 0; }
+  thead th { text-align: left; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; z-index: 1; padding: 0; }
   thead th.num { text-align: right; }
   thead th button { width: 100%; text-align: inherit; background: none; border: none; cursor: pointer; font: inherit; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; padding: .5rem .7rem; }
   thead th.active button { color: var(--foreground); }
