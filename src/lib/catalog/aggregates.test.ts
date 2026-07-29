@@ -34,11 +34,13 @@ describe('aggregate SQL builders', () => {
 		expect(sql).toContain('ORDER BY bucket');
 	});
 
-	it('takes a seeded representative sample, not the top-N by popularity', () => {
+	it('returns every game in scope (Canvas renders the full cloud), not a sample', () => {
 		const sql = scatterSql(W);
-		expect(sql).toMatch(/USING SAMPLE 2000 ROWS \(reservoir, \d+\)/);
-		expect(sql).not.toContain('ORDER BY users_rated DESC'); // sampled, not ranked
-		expect(scatterSql(W, 50)).toContain('SAMPLE 50 ROWS');
+		expect(sql).toContain('average_weight AS x');
+		expect(sql).toContain('average_rating AS y');
+		expect(sql).not.toContain('SAMPLE'); // no sampling — full set on Canvas
+		expect(sql).toContain(`LIMIT ${SCATTER_LIMIT}`); // defensive cap only
+		expect(scatterSql(W, 50)).toContain('LIMIT 50');
 	});
 
 	it('plots rating against users_rated for the popularity scatter', () => {
@@ -46,7 +48,7 @@ describe('aggregate SQL builders', () => {
 		expect(sql).toContain('average_rating AS x');
 		expect(sql).toContain('users_rated AS y');
 		expect(sql).toContain('users_rated > 0'); // required for a log y-scale
-		expect(sql).toContain(`SAMPLE ${SCATTER_LIMIT} ROWS`);
+		expect(sql).not.toContain('SAMPLE');
 	});
 
 	it('unnests the facet column inside a subquery before grouping', () => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Chart, Svg, Axis, Points, Highlight, Tooltip } from 'layerchart';
+  import { Chart, Svg, Canvas, Axis, Points, Highlight, Tooltip } from 'layerchart';
   import { scaleLinear, scaleLog } from 'd3-scale';
 
   type Datum = { x: number; y: number; name?: string };
@@ -12,7 +12,9 @@
     color = 'var(--chart-1)',
     yLog = false,
     xFmt = (v: number) => v.toFixed(2),
-    yFmt = (v: number) => v.toLocaleString()
+    yFmt = (v: number) => v.toLocaleString(),
+    r = 1.8,
+    opacity = 0.35
   }: {
     data: Datum[];
     xDomain?: [number, number];
@@ -23,6 +25,8 @@
     yLog?: boolean;
     xFmt?: (v: number) => string;
     yFmt?: (v: number) => string;
+    r?: number;
+    opacity?: number;
   } = $props();
 </script>
 
@@ -40,11 +44,16 @@
     padding={{ left: 44, bottom: 34, top: 6, right: 8 }}
     tooltipContext={{ mode: 'quadtree' }}
   >
+    <!-- Dense point cloud is painted on a Canvas layer — tens of thousands of marks
+         stay smooth because they're pixels, not DOM nodes. Axes + the single hovered
+         highlight stay on crisp SVG on top. -->
+    <Canvas>
+      <Points {r} fill={color} fillOpacity={opacity} />
+    </Canvas>
     <Svg>
       <Axis placement="left" grid rule ticks={6} label={yLabel} format={yFmt} />
       <Axis placement="bottom" grid rule ticks={6} label={xLabel} format={xFmt} />
-      <Points r={2} fill={color} fillOpacity={0.4} strokeWidth={0} />
-      <Highlight points />
+      <Highlight points={{ r: 3.5, fill: color }} />
     </Svg>
 
     <Tooltip.Root>

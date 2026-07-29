@@ -78,7 +78,7 @@
 
 <div class="grid">
   <section class="panel">
-    <header><h4>Complexity vs rating</h4><span class="sub">{scatter.length.toLocaleString()} sampled · hover a point</span></header>
+    <header><h4>Complexity vs rating</h4><span class="sub">{scatter.length.toLocaleString()} games · hover a point</span></header>
     <div class="body chart">
       {#if scatter.length}
         <ScatterChart data={scatter} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
@@ -87,7 +87,7 @@
   </section>
 
   <section class="panel">
-    <header><h4>Rating vs popularity</h4><span class="sub">{popularity.length.toLocaleString()} sampled · hover a point</span></header>
+    <header><h4>Rating vs popularity</h4><span class="sub">{popularity.length.toLocaleString()} games · hover a point</span></header>
     <div class="body chart">
       {#if popularity.length}
         <ScatterChart

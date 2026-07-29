@@ -11,7 +11,7 @@ describe('catalogQuerySql', () => {
 	});
 
 	it('filters to the working set (rated OR current-year-onward)', () => {
-		expect(sql).toContain('users_rated >= 25');
+		expect(sql).toContain('users_rated >= 30');
 		expect(sql).toContain('year_published >= EXTRACT(YEAR FROM CURRENT_DATE())');
 	});
 

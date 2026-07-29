@@ -3,7 +3,7 @@ import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } fr
 
 describe('toWhere', () => {
 	it('defaults to the rated-only working view', () => {
-		expect(toWhere(DEFAULT_SCOPE)).toBe('users_rated >= 25');
+		expect(toWhere(DEFAULT_SCOPE)).toBe('users_rated >= 30');
 	});
 
 	it('compiles ranges, players, facets, and search into a conjunction', () => {
@@ -36,7 +36,7 @@ describe('toWhere', () => {
 	});
 
 	it('ignores a too-short search term', () => {
-		expect(toWhere({ ...DEFAULT_SCOPE, q: 'a' })).toBe('users_rated >= 25');
+		expect(toWhere({ ...DEFAULT_SCOPE, q: 'a' })).toBe('users_rated >= 30');
 	});
 
 	it('yields TRUE when nothing is active', () => {

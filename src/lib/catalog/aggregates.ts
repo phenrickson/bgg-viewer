@@ -9,7 +9,7 @@
 /** One-row summary for the stat tiles. */
 export interface Summary {
 	total: number;
-	upcoming: number; // in-scope games without a settled rating (users_rated < 25)
+	upcoming: number; // in-scope games without a settled rating (users_rated < 30)
 	median_weight: number | null;
 	median_geek: number | null;
 	year_min: number | null;
@@ -37,23 +37,18 @@ export interface ScatterPoint {
 /** Width of the rating-distribution buckets, in rating points. */
 export const RATING_BIN = 0.25;
 
-/** Cap on scatter points drawn — SVG stays smooth. Points are a representative sample. */
-export const SCATTER_LIMIT = 2000;
-
 /**
- * Seeded reservoir sample of a subquery. Scatters need a *representative* spread of the
- * scoped set (not the top-N by popularity, which would bunch every point at one end).
- * The fixed seed keeps the sample stable across unrelated re-queries, so points don't
- * jitter when you nudge a filter.
+ * Defensive cap on scatter points. The scatters render every point in scope on a Canvas
+ * layer, which handles the full working set (~33k) smoothly. This limit only guards
+ * against a pathologically large scope (e.g. a future kitchen-sink mode); it never bites
+ * the normal working set.
  */
-const SAMPLE_SEED = 42;
-const sampled = (inner: string, limit: number): string =>
-	`SELECT * FROM (${inner}) AS t USING SAMPLE ${limit} ROWS (reservoir, ${SAMPLE_SEED})`;
+export const SCATTER_LIMIT = 60000;
 
 export const summarySql = (where: string): string =>
 	`SELECT
 	   COUNT(*)::INT AS total,
-	   COUNT(*) FILTER (WHERE users_rated < 25)::INT AS upcoming,
+	   COUNT(*) FILTER (WHERE users_rated < 30)::INT AS upcoming,
 	   median(average_weight) FILTER (WHERE average_weight > 0) AS median_weight,
 	   median(geek_rating) FILTER (WHERE geek_rating > 0) AS median_geek,
 	   min(year_published)::INT AS year_min,
@@ -79,21 +74,17 @@ export const gamesPerYearSql = (where: string): string =>
 	 FROM catalog WHERE ${where} AND year_published >= ${YEAR_FLOOR}
 	 GROUP BY year ORDER BY year`;
 
-/** Complexity (average_weight) vs average rating — a representative sample of the scope. */
+/** Complexity (average_weight) vs average rating — every game in scope. */
 export const scatterSql = (where: string, limit = SCATTER_LIMIT): string =>
-	sampled(
-		`SELECT average_weight AS x, average_rating AS y, name
-		 FROM catalog WHERE ${where} AND average_weight > 0 AND average_rating > 0`,
-		limit
-	);
+	`SELECT average_weight AS x, average_rating AS y, name
+	 FROM catalog WHERE ${where} AND average_weight > 0 AND average_rating > 0
+	 LIMIT ${limit}`;
 
-/** Average rating vs popularity (users_rated) — y is log-scaled in the chart. */
+/** Average rating vs popularity (users_rated) — y is log-scaled in the chart; every game in scope. */
 export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
-	sampled(
-		`SELECT average_rating AS x, users_rated AS y, name
-		 FROM catalog WHERE ${where} AND average_rating > 0 AND users_rated > 0`,
-		limit
-	);
+	`SELECT average_rating AS x, users_rated AS y, name
+	 FROM catalog WHERE ${where} AND average_rating > 0 AND users_rated > 0
+	 LIMIT ${limit}`;
 
 /**
  * Top facet values within scope. `col` is a fixed identifier (categories/mechanics/

@@ -25,12 +25,12 @@ export const LIST_COLUMNS = ['categories', 'mechanics', 'families'] as const;
 export const ALL_COLUMN_NAMES = [...SCALAR_NAMES, ...LIST_COLUMNS] as string[];
 
 /**
- * Working set = established (rated ≥25) ∪ upcoming (current year or later). The current
+ * Working set = established (rated ≥30) ∪ upcoming (current year or later). The current
  * year is computed in SQL (`CURRENT_DATE()`) so it's always right without depending on
  * the server's clock.
  */
 export const WORKING_SET_WHERE =
-	'users_rated >= 25 OR year_published >= EXTRACT(YEAR FROM CURRENT_DATE())';
+	'users_rated >= 30 OR year_published >= EXTRACT(YEAR FROM CURRENT_DATE())';
 
 /**
  * The full catalog query against a fully-qualified `project.dataset.table`.

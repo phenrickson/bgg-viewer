@@ -18,7 +18,7 @@ export interface Scope {
 	players: number | null;
 	categories: string[];
 	mechanics: string[];
-	/** Default view hides upcoming/unrated games (users_rated >= 25). */
+	/** Default view hides upcoming/unrated games (users_rated >= 30). */
 	ratedOnly: boolean;
 }
 
@@ -45,7 +45,7 @@ const finite = (v: unknown): number | null => {
 /** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
 export function toWhere(scope: Scope): string {
 	const parts: string[] = [];
-	if (scope.ratedOnly) parts.push('users_rated >= 25');
+	if (scope.ratedOnly) parts.push('users_rated >= 30');
 	if (scope.yearMin != null) parts.push(`year_published >= ${scope.yearMin}`);
 	if (scope.yearMax != null) parts.push(`year_published <= ${scope.yearMax}`);
 	if (scope.weightMin != null) parts.push(`average_weight >= ${scope.weightMin}`);

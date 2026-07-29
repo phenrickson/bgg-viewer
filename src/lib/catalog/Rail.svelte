@@ -25,7 +25,7 @@
 <aside class="rail">
   <div class="rail-h"><h3>Scope</h3><button class="reset" onclick={onreset}>Reset</button></div>
 
-  <label class="chk"><input type="checkbox" bind:checked={scope.ratedOnly} /> Rated only (≥25)</label>
+  <label class="chk"><input type="checkbox" bind:checked={scope.ratedOnly} /> Rated only (≥30)</label>
 
   <div class="grp">
     <span class="lbl">Year</span>
