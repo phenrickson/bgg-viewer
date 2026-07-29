@@ -20,6 +20,7 @@
       : [...scope[list], value];
   }
   const setPlayers = (n: number) => (scope.players = scope.players === n ? null : n);
+  const setBestAt = (n: number) => (scope.bestAt = scope.bestAt === n ? null : n);
 </script>
 
 <aside class="rail">
@@ -63,6 +64,15 @@
     </div>
   </div>
 
+  <div class="grp">
+    <span class="lbl">Best at <span class="hint">community-voted</span></span>
+    <div class="seg">
+      {#each [1, 2, 3, 4, 5, 6] as n}
+        <button class:on={scope.bestAt === n} onclick={() => setBestAt(n)}>{n}</button>
+      {/each}
+    </div>
+  </div>
+
   {#if categories.length}
     <div class="grp">
       <span class="lbl">Categories</span>
@@ -96,6 +106,7 @@
   .tnum { font-variant-numeric: tabular-nums; }
   .grp { border-top: 1px solid var(--border); padding: .6rem 0; display: flex; flex-direction: column; gap: .4rem; }
   .lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; }
+  .lbl .hint { text-transform: none; letter-spacing: 0; font-weight: 400; opacity: .8; }
   .pair { display: flex; gap: .4rem; }
   input[type='number'] { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--background); color: var(--foreground); padding: .3rem .45rem; font: inherit; }
   input[type='number']:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }

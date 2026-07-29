@@ -16,6 +16,8 @@ export interface Scope {
 	weightMax: number | null;
 	geekMin: number | null;
 	players: number | null;
+	/** Community "best at N players" — the flagship filter BGG can't do. */
+	bestAt: number | null;
 	categories: string[];
 	mechanics: string[];
 	/** Base population (the "Universe"): top 10k by geek rating, or everything rated. */
@@ -30,6 +32,7 @@ export const DEFAULT_SCOPE: Scope = {
 	weightMax: null,
 	geekMin: null,
 	players: null,
+	bestAt: null,
 	categories: [],
 	mechanics: [],
 	universe: 'top10k'
@@ -58,6 +61,7 @@ export function toWhere(scope: Scope): string {
 	if (scope.geekMin != null) parts.push(`geek_rating >= ${scope.geekMin}`);
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
+	if (scope.bestAt != null) parts.push(`list_contains(best_player_counts, ${scope.bestAt})`);
 	for (const c of scope.categories) parts.push(`list_contains(categories, '${esc(c)}')`);
 	for (const m of scope.mechanics) parts.push(`list_contains(mechanics, '${esc(m)}')`);
 	const q = scope.q.trim().toLowerCase();
@@ -75,6 +79,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.weightMax != null) p.set('wmax', String(scope.weightMax));
 	if (scope.geekMin != null) p.set('gmin', String(scope.geekMin));
 	if (scope.players != null) p.set('p', String(scope.players));
+	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
 	if (scope.categories.length) p.set('cats', scope.categories.join(','));
 	if (scope.mechanics.length) p.set('mechs', scope.mechanics.join(','));
 	if (scope.universe !== 'top10k') p.set('u', scope.universe);
@@ -96,6 +101,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		weightMax: finite(params.get('wmax')),
 		geekMin: finite(params.get('gmin')),
 		players: finite(params.get('p')),
+		bestAt: finite(params.get('best')),
 		categories: list('cats'),
 		mechanics: list('mechs'),
 		universe: params.get('u') === 'rated' ? 'rated' : 'top10k'

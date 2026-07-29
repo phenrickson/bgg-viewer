@@ -13,6 +13,8 @@
     users_rated: number | null;
     min_players: number | null;
     max_players: number | null;
+    best_player_counts: number[] | null;
+    recommended_player_counts: number[] | null;
   };
 
   // Sorting runs in DuckDB, so it orders the *whole* scoped set — not just the page we
@@ -25,7 +27,9 @@
     { key: 'rating', label: 'Avg', num: true, sql: 'average_rating' },
     { key: 'weight', label: 'Weight', num: true, sql: 'average_weight' },
     { key: 'rated', label: 'Ratings', num: true, sql: 'users_rated' },
-    { key: 'players', label: 'Players', num: false, sql: 'min_players' }
+    { key: 'players', label: 'Players', num: false, sql: 'min_players' },
+    { key: 'best', label: 'Best at', num: false, sql: 'best_player_counts[1]' },
+    { key: 'rec', label: 'Rec at', num: false, sql: 'recommended_player_counts[1]' }
   ];
   const PAGE_SIZE = 250;
 
@@ -67,7 +71,8 @@
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`),
       query<Row>(
         `SELECT game_id, name, year_published, geek_rating, average_rating,
-                average_weight, users_rated, min_players, max_players
+                average_weight, users_rated, min_players, max_players,
+                best_player_counts, recommended_player_counts
          FROM catalog WHERE ${w} ORDER BY ${ord} LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])
@@ -82,6 +87,10 @@
   const num = (n: number | null, d = 2) => (n == null ? '—' : n.toFixed(d));
   const players = (r: Row) =>
     r.min_players == null ? '—' : r.min_players === r.max_players ? `${r.min_players}` : `${r.min_players}–${r.max_players}`;
+  const counts = (a: number[] | null) => {
+    const arr = a ? Array.from(a) : [];
+    return arr.length ? arr.join(', ') : '—';
+  };
   const arrow = (c: Col) => (c.key === sortKey ? (desc ? '▼' : '▲') : '');
 </script>
 
@@ -117,6 +126,8 @@
           <td class="num">{num(r.average_weight)}</td>
           <td class="num">{(r.users_rated ?? 0).toLocaleString()}</td>
           <td>{players(r)}</td>
+          <td class="best">{counts(r.best_player_counts)}</td>
+          <td>{counts(r.recommended_player_counts)}</td>
         </tr>
       {/each}
       {#if !rows.length}
@@ -144,6 +155,7 @@
   .ar { font-size: 0.6rem; }
   tbody td { padding: .45rem .7rem; border-bottom: 1px solid var(--border); }
   td.num { text-align: right; }
+  td.best { font-weight: 600; color: var(--primary); }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover { background: var(--muted); }
   .nm a { color: var(--primary); text-decoration: none; font-weight: 550; }

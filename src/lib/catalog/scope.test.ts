@@ -19,12 +19,14 @@ describe('toWhere', () => {
 			weightMin: 3,
 			geekMin: 7,
 			players: 4,
+			bestAt: 2,
 			categories: ['Economic'],
 			mechanics: ['Deck Building'],
 			q: 'brass'
 		};
 		const w = toWhere(scope);
 		expect(w).toContain('year_published >= 2020');
+		expect(w).toContain('list_contains(best_player_counts, 2)');
 		expect(w).toContain('year_published <= 2025');
 		expect(w).toContain('average_weight >= 3');
 		expect(w).toContain('geek_rating >= 7');
@@ -60,6 +62,7 @@ describe('URL round-trip', () => {
 			weightMax: 4,
 			geekMin: 6.5,
 			players: 3,
+			bestAt: 2,
 			categories: ['Economic', 'City Building'],
 			mechanics: ['Trading'],
 			universe: 'rated'
