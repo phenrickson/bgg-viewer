@@ -4,6 +4,7 @@ import {
 	ratingHistogramSql,
 	gamesPerYearSql,
 	scatterSql,
+	popularitySql,
 	topFacetSql,
 	RATING_BIN,
 	SCATTER_LIMIT
@@ -18,6 +19,7 @@ describe('aggregate SQL builders', () => {
 			ratingHistogramSql(W),
 			gamesPerYearSql(W),
 			scatterSql(W),
+			popularitySql(W),
 			topFacetSql(W, 'categories')
 		]) {
 			expect(sql).toContain(W);
@@ -32,10 +34,19 @@ describe('aggregate SQL builders', () => {
 		expect(sql).toContain('ORDER BY bucket');
 	});
 
-	it('caps the scatter and sorts by popularity', () => {
-		expect(scatterSql(W)).toContain(`LIMIT ${SCATTER_LIMIT}`);
-		expect(scatterSql(W)).toContain('ORDER BY users_rated DESC');
-		expect(scatterSql(W, 50)).toContain('LIMIT 50');
+	it('takes a seeded representative sample, not the top-N by popularity', () => {
+		const sql = scatterSql(W);
+		expect(sql).toMatch(/USING SAMPLE 2000 ROWS \(reservoir, \d+\)/);
+		expect(sql).not.toContain('ORDER BY users_rated DESC'); // sampled, not ranked
+		expect(scatterSql(W, 50)).toContain('SAMPLE 50 ROWS');
+	});
+
+	it('plots rating against users_rated for the popularity scatter', () => {
+		const sql = popularitySql(W);
+		expect(sql).toContain('average_rating AS x');
+		expect(sql).toContain('users_rated AS y');
+		expect(sql).toContain('users_rated > 0'); // required for a log y-scale
+		expect(sql).toContain(`SAMPLE ${SCATTER_LIMIT} ROWS`);
 	});
 
 	it('unnests the facet column inside a subquery before grouping', () => {

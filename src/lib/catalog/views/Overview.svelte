@@ -5,6 +5,7 @@
     ratingHistogramSql,
     gamesPerYearSql,
     scatterSql,
+    popularitySql,
     topFacetSql,
     type Summary,
     type Bin,
@@ -22,6 +23,7 @@
   let ratingBins = $state<Bin[]>([]);
   let perYear = $state<YearCount[]>([]);
   let scatter = $state<ScatterPoint[]>([]);
+  let popularity = $state<ScatterPoint[]>([]);
   let topCats = $state<Facet[]>([]);
   let loading = $state(true);
 
@@ -37,14 +39,16 @@
       query<Bin>(ratingHistogramSql(w)),
       query<YearCount>(gamesPerYearSql(w)),
       query<ScatterPoint>(scatterSql(w)),
+      query<ScatterPoint>(popularitySql(w)),
       query<Facet>(topFacetSql(w, 'categories'))
     ])
-      .then(([s, rb, py, sc, tc]) => {
+      .then(([s, rb, py, sc, pop, tc]) => {
         if (mine !== token) return;
         summary = s[0] ?? null;
         ratingBins = rb;
         perYear = py;
         scatter = sc;
+        popularity = pop;
         topCats = tc.map((f) => ({ ...f, c: f.c.length > 20 ? f.c.slice(0, 19) + '…' : f.c }));
         loading = false;
       })
@@ -57,11 +61,6 @@
   });
 
   const fmt = (n: number | null | undefined, d = 2) => (n == null ? '—' : n.toFixed(d));
-  const yearSpan = $derived(
-    summary?.year_min != null && summary?.year_max != null
-      ? `${summary.year_min}–${summary.year_max}`
-      : '—'
-  );
   const onlyDecade = (v: number) => (v % 10 === 0 ? String(v) : '');
   const onlyWhole = (v: number) => (Number.isInteger(v) ? String(v) : '');
   // Games-per-year chart is floored (see YEAR_FLOOR) — label its own range, not the tile's.
@@ -75,25 +74,41 @@
   <div class="tile"><span class="k">Upcoming / unrated</span><b class="v tnum">{(summary?.upcoming ?? 0).toLocaleString()}</b></div>
   <div class="tile"><span class="k">Median complexity</span><b class="v tnum">{fmt(summary?.median_weight)}</b></div>
   <div class="tile"><span class="k">Median geek rating</span><b class="v tnum">{fmt(summary?.median_geek)}</b></div>
-  <div class="tile"><span class="k">Years</span><b class="v tnum">{yearSpan}</b></div>
 </div>
 
 <div class="grid">
+  <section class="panel">
+    <header><h4>Complexity vs rating</h4><span class="sub">{scatter.length.toLocaleString()} sampled · hover a point</span></header>
+    <div class="body chart">
+      {#if scatter.length}
+        <ScatterChart data={scatter} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
+      {:else}<p class="empty">No games in scope.</p>{/if}
+    </div>
+  </section>
+
+  <section class="panel">
+    <header><h4>Rating vs popularity</h4><span class="sub">{popularity.length.toLocaleString()} sampled · hover a point</span></header>
+    <div class="body chart">
+      {#if popularity.length}
+        <ScatterChart
+          data={popularity}
+          xDomain={[2, 10]}
+          yLog
+          xLabel="rating"
+          yLabel="user ratings"
+          color="var(--chart-1)"
+          xFmt={(v) => v.toFixed(1)}
+        />
+      {:else}<p class="empty">No games in scope.</p>{/if}
+    </div>
+  </section>
+
   <section class="panel">
     <header><h4>Rating distribution</h4><span class="sub">average rating, {ratingBins.length} bins</span></header>
     <div class="body chart">
       {#if ratingBins.length}
         <BarChart data={ratingBins} x="bucket" y="n" color="var(--chart-1)" xFormat={onlyWhole} />
       {:else}<p class="empty">No rated games in scope.</p>{/if}
-    </div>
-  </section>
-
-  <section class="panel">
-    <header><h4>Complexity vs rating</h4><span class="sub">most-rated {scatter.length.toLocaleString()} in scope</span></header>
-    <div class="body chart">
-      {#if scatter.length}
-        <ScatterChart data={scatter} xDomain={[1, 5]} yDomain={[2, 9]} xLabel="complexity" yLabel="rating" color="var(--chart-4)" />
-      {:else}<p class="empty">No games in scope.</p>{/if}
     </div>
   </section>
 
@@ -106,7 +121,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel span2">
     <header><h4>Top categories</h4><span class="sub">count in scope</span></header>
     <div class="body">
       {#if topCats.length}
@@ -125,7 +140,8 @@
   .tile .v { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
   .tnum { font-variant-numeric: tabular-nums; }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .span2 { grid-column: 1 / -1; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .span2 { grid-column: auto; } }
   .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: var(--space-md); min-width: 0; }
   .panel header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
   .panel h4 { margin: 0; font-size: 0.82rem; font-weight: 650; }
