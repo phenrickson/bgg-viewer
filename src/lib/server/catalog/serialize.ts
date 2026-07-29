@@ -7,7 +7,13 @@
  * emit the smaller Parquet+zstd — DuckDB-WASM reads either.)
  */
 import { Table, vectorFromArray, tableToIPC, Utf8, Int32, Float64, List, Field } from 'apache-arrow';
-import { SCALAR_COLUMNS, SCALAR_NAMES, LIST_COLUMNS, type ScalarKind } from './columns';
+import {
+	SCALAR_COLUMNS,
+	SCALAR_NAMES,
+	LIST_COLUMNS,
+	INT_LIST_COLUMNS,
+	type ScalarKind
+} from './columns';
 
 export type CatalogRow = Record<string, unknown>;
 
@@ -30,6 +36,7 @@ function scalarVector(rows: CatalogRow[], name: string, kind: ScalarKind) {
 }
 
 const listType = () => new List(new Field('item', new Utf8(), true));
+const intListType = () => new List(new Field('item', new Int32(), true));
 
 function listVector(rows: CatalogRow[], name: string) {
 	return vectorFromArray(
@@ -38,10 +45,21 @@ function listVector(rows: CatalogRow[], name: string) {
 	);
 }
 
+/** Integer-list facets (player counts) — BigQuery may wrap array elements as INT64 objects. */
+function intListVector(rows: CatalogRow[], name: string) {
+	return vectorFromArray(
+		rows.map((r) =>
+			Array.isArray(r[name]) ? (r[name] as unknown[]).map((v) => num(v)).filter((n) => n != null) : []
+		),
+		intListType()
+	);
+}
+
 export function rowsToArrowIPC(rows: CatalogRow[]): Uint8Array {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const columns: Record<string, any> = {};
 	for (const name of SCALAR_NAMES) columns[name] = scalarVector(rows, name, SCALAR_COLUMNS[name]);
 	for (const name of LIST_COLUMNS) columns[name] = listVector(rows, name);
+	for (const name of INT_LIST_COLUMNS) columns[name] = intListVector(rows, name);
 	return tableToIPC(new Table(columns), 'stream');
 }

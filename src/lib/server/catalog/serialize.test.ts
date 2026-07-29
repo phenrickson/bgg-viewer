@@ -10,13 +10,17 @@ const rows = [
 		geek_rating: 6.91,
 		average_rating: 7.09,
 		average_weight: 2.29,
-		complexity: 2.29,
 		users_rated: { value: '135151' }, // BigQuery INT64 wrapper
 		min_players: 3,
 		max_players: 4,
 		categories: ['Economic', 'Negotiation'],
 		mechanics: ['Trading', 'Dice Rolling'],
-		families: []
+		families: [],
+		designers: ['Klaus Teuber'],
+		artists: [],
+		publishers: ['Kosmos', 'Catan Studio'],
+		best_player_counts: [4],
+		recommended_player_counts: [{ value: '3' }, { value: '4' }] // INT64 wrappers in an array
 	},
 	{
 		game_id: 822,
@@ -25,13 +29,17 @@ const rows = [
 		geek_rating: 7.3,
 		average_rating: 7.4,
 		average_weight: 1.9,
-		complexity: 1.9,
 		users_rated: 120000,
 		min_players: 2,
 		max_players: 5,
 		categories: ['City Building'],
 		mechanics: [],
-		families: ['Carcassonne']
+		families: ['Carcassonne'],
+		designers: ['Klaus-Jürgen Wrede'],
+		artists: ['Doris Matthäus'],
+		publishers: ['Hans im Glück'],
+		best_player_counts: [2],
+		recommended_player_counts: []
 	}
 ];
 
@@ -53,10 +61,22 @@ describe('rowsToArrowIPC', () => {
 		expect([...r0.categories]).toEqual(['Economic', 'Negotiation']);
 		expect([...r0.mechanics]).toEqual(['Trading', 'Dice Rolling']);
 		expect([...r0.families]).toEqual([]);
+		expect([...r0.publishers]).toEqual(['Kosmos', 'Catan Studio']);
+		expect([...r0.designers]).toEqual(['Klaus Teuber']);
 		// list columns type as List<Utf8> so DuckDB can list_contains() them
 		expect(t.schema.fields.find((f) => f.name === 'categories')!.type.toString()).toContain(
 			'List'
 		);
+	});
+
+	it('preserves player-count columns as int arrays (coercing INT64 wrappers)', () => {
+		const t = tableFromIPC(rowsToArrowIPC(rows));
+		const r0 = t.get(0)!.toJSON();
+		expect([...r0.best_player_counts]).toEqual([4]);
+		expect([...r0.recommended_player_counts]).toEqual([3, 4]); // wrappers → numbers
+		const r1 = t.get(1)!.toJSON();
+		expect([...r1.best_player_counts]).toEqual([2]);
+		expect([...r1.recommended_player_counts]).toEqual([]);
 	});
 
 	it('handles an empty result set', () => {
