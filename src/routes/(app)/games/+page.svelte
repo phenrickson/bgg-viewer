@@ -3,7 +3,6 @@
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
-  import HeadlinePlot from '$lib/catalog/views/HeadlinePlot.svelte';
   import Table from '$lib/catalog/views/Table.svelte';
   import SetSummary from '$lib/catalog/views/SetSummary.svelte';
 
@@ -33,6 +32,31 @@
 
   const where = $derived(ready ? toWhere(scope) : null);
 
+  // Live count for the scope-summary header — the one owner of the in-scope total.
+  let total = $state<number | null>(null);
+  let countToken = 0;
+  $effect(() => {
+    if (where == null) return;
+    const w = where;
+    const mine = ++countToken;
+    query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`)
+      .then((r) => mine === countToken && (total = r[0]?.n ?? 0))
+      .catch((e) => console.error('count failed', e));
+  });
+
+  // A compact human summary of the active scope, for the header.
+  const descriptor = $derived.by(() => {
+    const bits: string[] = [scope.universe === 'top10k' ? 'Top 10,000' : 'All rated'];
+    if (scope.yearMin != null || scope.yearMax != null)
+      bits.push(`${scope.yearMin ?? '…'}–${scope.yearMax ?? '…'}`);
+    if (scope.bestAt != null) bits.push(`best at ${scope.bestAt}`);
+    if (scope.categories.length) bits.push(scope.categories.join(', '));
+    if (scope.mechanics.length) bits.push(scope.mechanics.join(', '));
+    for (const e of [scope.designers, scope.artists, scope.publishers])
+      if (e.length) bits.push(e.join(', '));
+    return bits.join(' · ');
+  });
+
   // Mirror scope to the URL (shareable, reload-safe) without a navigation.
   $effect(() => {
     if (!ready) return;
@@ -53,19 +77,20 @@
 
     <div class="canvas">
       <div class="canvas-h">
-        <span class="muted">Explore · filtered in-browser</span>
+        <div class="scope-sum">
+          <b class="tnum">{total?.toLocaleString() ?? '…'}</b> games
+          <span class="desc">· {descriptor}</span>
+        </div>
       </div>
 
       {#if where != null}
-        <!-- The scoped set, understood then browsed: the plot (games, spatially) + the
-             summary vizs characterize the set; the table lists the games themselves. -->
+        <!-- The scoped set: aggregate charts characterize its shape; the table lists the
+             games themselves. All recomputed in-browser as the rail scope changes. -->
         <div class="stack">
-          <HeadlinePlot {where} />
-
           <SetSummary {where} />
 
           <section>
-            <h4 class="sect">Table <span class="sub">· the same games, as rows</span></h4>
+            <h4 class="sect">Games <span class="sub">· the set, as rows</span></h4>
             <Table {where} />
           </section>
         </div>
@@ -81,7 +106,10 @@
   @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } }
   .canvas { min-width: 0; }
   .canvas-h { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
-  .muted { color: var(--muted-foreground); font-size: 0.82rem; }
+  .scope-sum { font-size: 0.95rem; }
+  .scope-sum b { font-weight: 700; }
+  .scope-sum .desc { color: var(--muted-foreground); }
+  .tnum { font-variant-numeric: tabular-nums; }
   .stack { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
   .sect { margin: 0 0 var(--space-sm); font-size: 0.82rem; font-weight: 650; }
   .sect .sub { font-size: 0.7rem; color: var(--muted-foreground); font-weight: 400; }

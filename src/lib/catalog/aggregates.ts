@@ -24,6 +24,10 @@ export interface YearCount {
 	year: number;
 	n: number;
 }
+export interface PlayerCountBin {
+	count: number;
+	n: number;
+}
 export interface Facet {
 	c: string;
 	n: number;
@@ -61,6 +65,26 @@ export const ratingHistogramSql = (where: string): string =>
 	`SELECT (floor(average_rating / ${RATING_BIN}) * ${RATING_BIN}) AS bucket, COUNT(*)::INT AS n
 	 FROM catalog WHERE ${where} AND average_rating > 0
 	 GROUP BY bucket ORDER BY bucket`;
+
+/** Width of the complexity-distribution buckets, in weight points (1–5 scale). */
+export const WEIGHT_BIN = 0.25;
+
+/** Complexity (average_weight) distribution, bucketed to WEIGHT_BIN. */
+export const complexityHistogramSql = (where: string): string =>
+	`SELECT (floor(average_weight / ${WEIGHT_BIN}) * ${WEIGHT_BIN}) AS bucket, COUNT(*)::INT AS n
+	 FROM catalog WHERE ${where} AND average_weight > 0
+	 GROUP BY bucket ORDER BY bucket`;
+
+/**
+ * Best-at player-count distribution — how many games in scope are community-voted "best
+ * at" each player count. The differentiating aggregate: it visualizes the thing BGG can't.
+ * best_player_counts is an INT array; UNNEST must live in a subquery before GROUP BY.
+ */
+export const bestAtDistributionSql = (where: string): string =>
+	`SELECT v AS count, COUNT(*)::INT AS n
+	 FROM (SELECT UNNEST(best_player_counts) AS v FROM catalog WHERE ${where})
+	 WHERE v BETWEEN 1 AND 8
+	 GROUP BY v ORDER BY v`;
 
 /**
  * Floor for the games-per-year chart. BGG entries for ancient/public-domain games
