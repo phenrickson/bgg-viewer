@@ -27,10 +27,11 @@
     { key: 'rated', label: 'Ratings', num: true, sql: 'users_rated' },
     { key: 'players', label: 'Players', num: false, sql: 'min_players' }
   ];
-  const LIMIT = 250;
+  const PAGE_SIZE = 250;
 
   let sortKey = $state('geek');
   let desc = $state(true);
+  let page = $state(0);
   let rows = $state<Row[]>([]);
   let total = $state(0);
 
@@ -42,19 +43,32 @@
     }
   }
 
-  const orderExpr = $derived(COLS.find((c) => c.key === sortKey)?.sql ?? 'users_rated');
+  const orderExpr = $derived(COLS.find((c) => c.key === sortKey)?.sql ?? 'geek_rating');
+  const pages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+  const from = $derived(total === 0 ? 0 : page * PAGE_SIZE + 1);
+  const to = $derived(Math.min(total, (page + 1) * PAGE_SIZE));
+
+  // A new filter or sort always drops you back to the first page. This effect reads
+  // where/sort (not page), so paging itself doesn't retrigger it — no loop.
+  $effect(() => {
+    where;
+    sortKey;
+    desc;
+    page = 0;
+  });
 
   let token = 0;
   $effect(() => {
     const w = where;
     const ord = `${orderExpr} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
+    const offset = page * PAGE_SIZE;
     const mine = ++token;
     Promise.all([
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`),
       query<Row>(
         `SELECT game_id, name, year_published, geek_rating, average_rating,
                 average_weight, users_rated, min_players, max_players
-         FROM catalog WHERE ${w} ORDER BY ${ord} LIMIT ${LIMIT}`
+         FROM catalog WHERE ${w} ORDER BY ${ord} LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])
       .then(([c, r]) => {
@@ -72,7 +86,14 @@
 </script>
 
 <div class="meta">
-  showing {Math.min(total, LIMIT).toLocaleString()} of {total.toLocaleString()} · sorted by {COLS.find((c) => c.key === sortKey)?.label}
+  <span>{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()} · sorted by {COLS.find((c) => c.key === sortKey)?.label}</span>
+  <span class="pager">
+    <button disabled={page === 0} onclick={() => (page = 0)} title="First">«</button>
+    <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
+    <span class="pg tnum">Page {(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
+    <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
+    <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last">»</button>
+  </span>
 </div>
 
 <div class="tblwrap">
@@ -106,7 +127,12 @@
 </div>
 
 <style>
-  .meta { color: var(--muted-foreground); font-size: 0.78rem; margin-bottom: var(--space-sm); }
+  .meta { color: var(--muted-foreground); font-size: 0.78rem; margin-bottom: var(--space-sm); display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; }
+  .pager { display: inline-flex; align-items: center; gap: .3rem; }
+  .pager button { background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); cursor: pointer; font: inherit; font-size: 0.76rem; padding: .2rem .5rem; }
+  .pager button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .pager .pg { padding: 0 .4rem; color: var(--foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
   .tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
   table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }

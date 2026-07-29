@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Chart, Svg, Axis, Bars } from 'layerchart';
+  import { Chart, Svg, Axis, Bars, Highlight, Tooltip } from 'layerchart';
   import { scaleBand } from 'd3-scale';
 
   let {
@@ -9,14 +9,18 @@
     color = 'var(--chart-1)',
     xFormat,
     yFormat = (v: number) => v.toLocaleString(),
+    xTip = (v: unknown) => String(v),
+    unit = 'games',
     tickCount = 6
   }: {
     data: any[];
     x: string;
     y: string;
     color?: string;
-    xFormat?: (v: any) => string;
+    xFormat?: (v: any) => string; // axis-tick formatter (may blank labels to de-clutter)
     yFormat?: (v: number) => string;
+    xTip?: (v: any) => string; // tooltip formatter — always shows the real value
+    unit?: string; // what the y count measures, e.g. "games"
     tickCount?: number;
   } = $props();
 </script>
@@ -30,12 +34,23 @@
     yDomain={[0, null]}
     yNice
     padding={{ left: 40, bottom: 26, top: 6, right: 6 }}
+    tooltipContext={{ mode: 'band' }}
   >
     <Svg>
       <Axis placement="left" grid rule ticks={tickCount} format={yFormat} />
       <Axis placement="bottom" rule format={xFormat} />
       <Bars radius={2} strokeWidth={0} fill={color} />
+      <Highlight area />
     </Svg>
+
+    <Tooltip.Root>
+      {#snippet children({ data }: { data: Record<string, unknown> })}
+        <Tooltip.Header>{xTip(data[x])}</Tooltip.Header>
+        <Tooltip.List>
+          <Tooltip.Item label={unit} value={yFormat(Number(data[y]))} />
+        </Tooltip.List>
+      {/snippet}
+    </Tooltip.Root>
   </Chart>
 </div>
 

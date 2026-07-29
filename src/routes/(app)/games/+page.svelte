@@ -65,11 +65,10 @@
       </div>
 
       {#if where != null}
-        {#if view === 'overview'}
-          <Overview {where} />
-        {:else}
-          <Table {where} />
-        {/if}
+        <!-- Both views stay mounted; we just hide the inactive one. Switching keeps
+             each view's state (sort, page, chart data) instead of rebuilding + re-querying. -->
+        <div class:hidden={view !== 'overview'}><Overview {where} /></div>
+        <div class:hidden={view !== 'table'}><Table {where} /></div>
       {/if}
     </div>
   </div>
@@ -87,4 +86,5 @@
   .views button { background: var(--card); border: none; cursor: pointer; font: inherit; font-size: 0.82rem; color: var(--muted-foreground); padding: .35rem .9rem; }
   .views button + button { border-left: 1px solid var(--border); }
   .views button.on { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .hidden { display: none; }
 </style>
