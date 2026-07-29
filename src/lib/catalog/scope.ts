@@ -20,6 +20,10 @@ export interface Scope {
 	bestAt: number | null;
 	categories: string[];
 	mechanics: string[];
+	/** High-cardinality entity filters, chosen via type-ahead. OR within each entity. */
+	designers: string[];
+	artists: string[];
+	publishers: string[];
 	/** Base population (the "Universe"): top 10k by geek rating, or everything rated. */
 	universe: 'top10k' | 'rated';
 }
@@ -35,6 +39,9 @@ export const DEFAULT_SCOPE: Scope = {
 	bestAt: null,
 	categories: [],
 	mechanics: [],
+	designers: [],
+	artists: [],
+	publishers: [],
 	universe: 'top10k'
 };
 
@@ -64,6 +71,14 @@ export function toWhere(scope: Scope): string {
 	if (scope.bestAt != null) parts.push(`list_contains(best_player_counts, ${scope.bestAt})`);
 	for (const c of scope.categories) parts.push(`list_contains(categories, '${esc(c)}')`);
 	for (const m of scope.mechanics) parts.push(`list_contains(mechanics, '${esc(m)}')`);
+	// High-cardinality entity filters: OR within an entity ("by A or B"), AND across.
+	const entity = (col: string, sels: string[]) => {
+		if (sels.length)
+			parts.push('(' + sels.map((v) => `list_contains(${col}, '${esc(v)}')`).join(' OR ') + ')');
+	};
+	entity('designers', scope.designers);
+	entity('artists', scope.artists);
+	entity('publishers', scope.publishers);
 	const q = scope.q.trim().toLowerCase();
 	if (q.length >= 2) parts.push(`lower(name) LIKE '%${esc(q)}%'`);
 	return parts.length ? parts.join(' AND ') : 'TRUE';
@@ -82,6 +97,10 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
 	if (scope.categories.length) p.set('cats', scope.categories.join(','));
 	if (scope.mechanics.length) p.set('mechs', scope.mechanics.join(','));
+	// Entity names can contain commas, so use repeated params, not a joined list.
+	for (const d of scope.designers) p.append('des', d);
+	for (const a of scope.artists) p.append('art', a);
+	for (const pub of scope.publishers) p.append('pub', pub);
 	if (scope.universe !== 'top10k') p.set('u', scope.universe);
 	return p;
 }
@@ -104,6 +123,9 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		bestAt: finite(params.get('best')),
 		categories: list('cats'),
 		mechanics: list('mechs'),
+		designers: params.getAll('des'),
+		artists: params.getAll('art'),
+		publishers: params.getAll('pub'),
 		universe: params.get('u') === 'rated' ? 'rated' : 'top10k'
 	};
 }

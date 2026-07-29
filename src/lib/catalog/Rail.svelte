@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Scope } from './scope';
+  import EntityFilter from './EntityFilter.svelte';
 
   type Facet = { c: string; n: number };
   let {
@@ -96,6 +97,13 @@
       {/each}
     </div>
   {/if}
+
+  <div class="grp find">
+    <span class="lbl">Find <span class="hint">designer · artist · publisher</span></span>
+    <EntityFilter label="Designer" column="designers" bind:selected={scope.designers} />
+    <EntityFilter label="Artist" column="artists" bind:selected={scope.artists} />
+    <EntityFilter label="Publisher" column="publishers" bind:selected={scope.publishers} />
+  </div>
 </aside>
 
 <style>
@@ -105,6 +113,7 @@
   .reset { background: none; border: none; color: var(--primary); cursor: pointer; font: inherit; font-size: 0.78rem; padding: 0; }
   .tnum { font-variant-numeric: tabular-nums; }
   .grp { border-top: 1px solid var(--border); padding: .6rem 0; display: flex; flex-direction: column; gap: .4rem; }
+  .find { gap: .7rem; }
   .lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; }
   .lbl .hint { text-transform: none; letter-spacing: 0; font-weight: 400; opacity: .8; }
   .pair { display: flex; gap: .4rem; }

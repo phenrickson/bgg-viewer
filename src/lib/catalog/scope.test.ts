@@ -22,11 +22,16 @@ describe('toWhere', () => {
 			bestAt: 2,
 			categories: ['Economic'],
 			mechanics: ['Deck Building'],
+			designers: ['Uwe Rosenberg', 'Vital Lacerda'],
 			q: 'brass'
 		};
 		const w = toWhere(scope);
 		expect(w).toContain('year_published >= 2020');
 		expect(w).toContain('list_contains(best_player_counts, 2)');
+		// entity filter: OR within the entity
+		expect(w).toContain(
+			"(list_contains(designers, 'Uwe Rosenberg') OR list_contains(designers, 'Vital Lacerda'))"
+		);
 		expect(w).toContain('year_published <= 2025');
 		expect(w).toContain('average_weight >= 3');
 		expect(w).toContain('geek_rating >= 7');
@@ -65,6 +70,9 @@ describe('URL round-trip', () => {
 			bestAt: 2,
 			categories: ['Economic', 'City Building'],
 			mechanics: ['Trading'],
+			designers: ['Uwe Rosenberg', 'Vital Lacerda'],
+			artists: [],
+			publishers: ['Hans im Glück, GmbH'], // comma in name — round-trips via repeated params
 			universe: 'rated'
 		};
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);
