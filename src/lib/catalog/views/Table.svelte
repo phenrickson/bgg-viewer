@@ -29,7 +29,7 @@
   ];
   const LIMIT = 250;
 
-  let sortKey = $state('rated');
+  let sortKey = $state('geek');
   let desc = $state(true);
   let rows = $state<Row[]>([]);
   let total = $state(0);
