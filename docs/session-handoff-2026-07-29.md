@@ -97,8 +97,9 @@ the artifact size (measure the bump), and the rail/scope.
 ## Open threads with the user (not code tasks)
 - Overall **Overview layout** is still the user's to shape — the current arrangement
   (two scatters lead, bars, categories full-width) is a starting point, not final.
-- The user said "I need to tell you some things" re: filters and had more context to
-  share before the filter redesign — surface that before starting task #3.
+- The user wants to talk through **general requirements** in a future session before
+  the filter redesign (task #3) — it's a scoping/requirements conversation, not a
+  loose end. Start there fresh; don't infer requirements and build ahead of it.
 
 ## Key files
 - `src/routes/(app)/games/+page.svelte` — Explore shell, rail + view switcher, URL sync
