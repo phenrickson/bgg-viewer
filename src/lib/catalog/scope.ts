@@ -17,6 +17,13 @@ export interface Scope {
 	/** Average-rating window. Brushed directly on the shape strip's rating histogram. */
 	ratingMin: number | null;
 	ratingMax: number | null;
+	/**
+	 * How many people have rated it — `users_rated`, BGG's "Ratings" count. Deliberately not
+	 * named `ratingsMin`: one character from `ratingMin` above, which means something
+	 * completely different (how highly it's rated, not how widely it's known).
+	 */
+	usersRatedMin: number | null;
+	usersRatedMax: number | null;
 	geekMin: number | null;
 	players: number | null;
 	/** Community "best at N players" — the flagship filter BGG can't do. */
@@ -40,6 +47,8 @@ export const DEFAULT_SCOPE: Scope = {
 	weightMax: null,
 	ratingMin: null,
 	ratingMax: null,
+	usersRatedMin: null,
+	usersRatedMax: null,
 	geekMin: null,
 	players: null,
 	bestAt: null,
@@ -74,6 +83,8 @@ export function toWhere(scope: Scope): string {
 	if (scope.weightMax != null) parts.push(`average_weight <= ${scope.weightMax}`);
 	if (scope.ratingMin != null) parts.push(`average_rating >= ${scope.ratingMin}`);
 	if (scope.ratingMax != null) parts.push(`average_rating <= ${scope.ratingMax}`);
+	if (scope.usersRatedMin != null) parts.push(`users_rated >= ${scope.usersRatedMin}`);
+	if (scope.usersRatedMax != null) parts.push(`users_rated <= ${scope.usersRatedMax}`);
 	if (scope.geekMin != null) parts.push(`geek_rating >= ${scope.geekMin}`);
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
@@ -118,6 +129,37 @@ export interface FilterChip {
 	patch: Partial<Scope>;
 }
 
+/**
+ * Ratings counts span 30 to ~130,000, so a chip reading "12,500+" is noise where "12.5k+"
+ * is a fact you can take in at a glance. Kept exact below 1,000, where every digit matters.
+ */
+export function compactCount(n: number): string {
+	if (Math.abs(n) < 1000) return String(Math.round(n));
+	const k = n / 1000;
+	return `${Math.round(k * 10) / 10}k`.replace('.0k', 'k');
+}
+
+/**
+ * Snap a ratings count to a value someone would actually type: 1, 1.5, 2, 3, 5 or 7 × a power
+ * of ten. A log-scaled brush lands on arbitrary numbers — nobody wants "at least 1,259
+ * ratings", they want "at least 1,500" — and the snap is visible, because the histogram's
+ * selection edge redraws where the filter really sits.
+ *
+ * The 1.5 step is deliberate. With ten bins per decade the brush resolves ~26% steps, so a
+ * bare 1-2-3-5-7 ladder would leave the 1→2 gap coarser than the gesture: drags that visibly
+ * moved would snap back to the same number.
+ */
+export function niceCount(n: number): number {
+	if (!Number.isFinite(n) || n <= 0) return 0;
+	const exp = Math.floor(Math.log10(n));
+	const pow = Math.pow(10, exp);
+	const mantissa = n / pow;
+	const steps = [1, 1.5, 2, 3, 5, 7, 10];
+	let best = steps[0];
+	for (const s of steps) if (Math.abs(s - mantissa) < Math.abs(best - mantissa)) best = s;
+	return Math.round(best * pow);
+}
+
 export function activeFilters(scope: Scope): FilterChip[] {
 	const chips: FilterChip[] = [];
 	const range = (
@@ -146,6 +188,15 @@ export function activeFilters(scope: Scope): FilterChip[] {
 	const exact = (n: number) => String(Math.round(n * 100) / 100);
 	range('weight', 'complexity', scope.weightMin, scope.weightMax, 'weightMin', 'weightMax', exact);
 	range('rating', 'rating', scope.ratingMin, scope.ratingMax, 'ratingMin', 'ratingMax', exact);
+	range(
+		'usersRated',
+		'ratings',
+		scope.usersRatedMin,
+		scope.usersRatedMax,
+		'usersRatedMin',
+		'usersRatedMax',
+		compactCount
+	);
 	if (scope.geekMin != null)
 		chips.push({
 			id: 'geek',
@@ -196,6 +247,8 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.weightMax != null) p.set('wmax', String(scope.weightMax));
 	if (scope.ratingMin != null) p.set('rmin', String(scope.ratingMin));
 	if (scope.ratingMax != null) p.set('rmax', String(scope.ratingMax));
+	if (scope.usersRatedMin != null) p.set('urmin', String(scope.usersRatedMin));
+	if (scope.usersRatedMax != null) p.set('urmax', String(scope.usersRatedMax));
 	if (scope.geekMin != null) p.set('gmin', String(scope.geekMin));
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
@@ -225,6 +278,8 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		weightMax: finite(params.get('wmax')),
 		ratingMin: finite(params.get('rmin')),
 		ratingMax: finite(params.get('rmax')),
+		usersRatedMin: finite(params.get('urmin')),
+		usersRatedMax: finite(params.get('urmax')),
 		geekMin: finite(params.get('gmin')),
 		players: finite(params.get('p')),
 		bestAt: finite(params.get('best')),

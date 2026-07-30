@@ -5,23 +5,25 @@
    * This replaces the old Table|Summary lens. The lens made the set's shape something you
    * had to *leave the games to see*, so in practice nobody saw it; stacking full-height
    * chart panels above the table instead buried the games. A ~3rem strip is small enough to
-   * read as part of the header and still carries four distributions — and, crucially, the
+   * read as part of the header and still carries five distributions — and, crucially, the
    * charts are the *controls*: drag a histogram to set that range, click a best-at column to
-   * pick it. So the space earns its keep twice, and the rail loses four number inputs.
+   * pick it. So the space earns its keep twice, and the rail loses six number inputs.
    *
    * Each chart draws the whole universe as a muted silhouette behind the current scope, so
    * every filter answers "which slice did I just take, and is it shaped like the catalog?".
-   * `Taller` swaps in a reading height for the same four charts — one control, nothing hidden.
+   * `Taller` swaps in a reading height for the same five charts — one control, nothing hidden.
    */
   import { query } from '$lib/catalog/catalog.svelte';
   import {
     summarySql,
     ratingHistogramSql,
     complexityHistogramSql,
+    ratingsCountHistogramSql,
     gamesPerYearSql,
     bestAtDistributionSql,
     RATING_BIN,
     WEIGHT_BIN,
+    RATINGS_LOG_BIN,
     YEAR_DISPLAY_FLOOR,
     type Summary,
     type Bin,
@@ -31,7 +33,7 @@
   import MiniHistogram from '$lib/charts/MiniHistogram.svelte';
   import MiniColumns from '$lib/charts/MiniColumns.svelte';
   import type { HistBin } from '$lib/charts/types';
-  import type { Scope } from '$lib/catalog/scope';
+  import { compactCount, niceCount, type Scope } from '$lib/catalog/scope';
 
   let {
     where,
@@ -45,25 +47,34 @@
   type Shape = {
     rating: HistBin[];
     weight: HistBin[];
+    /** Bucket values are log10(users_rated) — see RATINGS_LOG_BIN. */
+    votes: HistBin[];
     year: HistBin[];
     bestAt: PlayerCountBin[];
   };
-  const EMPTY: Shape = { rating: [], weight: [], year: [], bestAt: [] };
+  const EMPTY: Shape = { rating: [], weight: [], votes: [], year: [], bestAt: [] };
 
   async function loadShape(w: string): Promise<Shape> {
-    const [rating, weight, year, bestAt] = await Promise.all([
+    const [rating, weight, votes, year, bestAt] = await Promise.all([
       query<Bin>(ratingHistogramSql(w)),
       query<Bin>(complexityHistogramSql(w)),
+      query<Bin>(ratingsCountHistogramSql(w)),
       query<YearCount>(gamesPerYearSql(w, YEAR_DISPLAY_FLOOR)),
       query<PlayerCountBin>(bestAtDistributionSql(w))
     ]);
     return {
       rating: rating.map((b) => ({ v: b.bucket, n: b.n })),
       weight: weight.map((b) => ({ v: b.bucket, n: b.n })),
+      votes: votes.map((b) => ({ v: b.bucket, n: b.n })),
       year: year.map((b) => ({ v: b.year, n: b.n })),
       bestAt
     };
   }
+
+  /** log10 value → a readable count ("3.0" → "1k"), for the ratings axis and its tooltip. */
+  const fromLog = (v: number) => compactCount(Math.pow(10, v));
+  /** Scope count → log10 for drawing, and back again (snapped) when the brush commits. */
+  const toLog = (n: number | null) => (n == null || n <= 0 ? null : Math.log10(n));
 
   let shape = $state<Shape>(EMPTY);
   let backdrop = $state<Shape>(EMPTY);
@@ -121,6 +132,9 @@
   };
   const ratingEnds = $derived(ends(backdrop.rating.length ? backdrop.rating : shape.rating, RATING_BIN, one));
   const weightEnds = $derived(ends(backdrop.weight.length ? backdrop.weight : shape.weight, WEIGHT_BIN, one));
+  const votesEnds = $derived(
+    ends(backdrop.votes.length ? backdrop.votes : shape.votes, RATINGS_LOG_BIN, fromLog)
+  );
   const yearEnds = $derived(ends(backdrop.year.length ? backdrop.year : shape.year, 1, int));
 </script>
 
@@ -183,7 +197,7 @@
       {/if}
     </div>
 
-    <div class="cell wide">
+    <div class="cell">
       <div class="chead">
         <b class="tnum">{summary?.median_year ? int(summary.median_year) : '—'}</b>
         <span class="lab">median year <span class="dim">{YEAR_DISPLAY_FLOOR}+ shown</span></span>
@@ -209,7 +223,34 @@
       {/if}
     </div>
 
-    <div class="cell narrow">
+    <!-- How widely known, as opposed to how highly rated: the axis that separates a hit from
+         a curiosity, and the reason "minimum ratings" is a filter people reach for. -->
+    <div class="cell">
+      <div class="chead">
+        <b class="tnum">{summary?.median_users_rated ? compactCount(summary.median_users_rated) : '—'}</b>
+        <span class="lab">median # ratings <span class="dim">log scale</span></span>
+      </div>
+      <MiniHistogram
+        bins={shape.votes}
+        backdrop={backdrop.votes}
+        binWidth={RATINGS_LOG_BIN}
+        min={toLog(scope.usersRatedMin)}
+        max={toLog(scope.usersRatedMax)}
+        height={H}
+        color="var(--chart-3)"
+        label="ratings-count distribution"
+        format={fromLog}
+        onbrush={(lo, hi) => {
+          scope.usersRatedMin = lo == null ? null : niceCount(Math.pow(10, lo));
+          scope.usersRatedMax = hi == null ? null : niceCount(Math.pow(10, hi));
+        }}
+      />
+      {#if votesEnds}
+        <div class="axis"><span>{votesEnds[0]}</span><span>{votesEnds[1]}</span></div>
+      {/if}
+    </div>
+
+    <div class="cell">
       <div class="chead">
         <b class="tnum">{modalBestAt ?? '—'}</b>
         <span class="lab">most often best at <span class="dim">click to filter</span></span>
@@ -271,16 +312,20 @@
     color: var(--primary);
   }
 
-  /* Widths follow bin count: 56 years need room, 8 player counts do not. */
+  /* Widths follow bin count: 58 years need room, 8 player counts do not. */
   .cells {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.35fr 0.85fr;
-    gap: var(--space-lg);
+    grid-template-columns: 1fr 1fr 1fr 1.3fr 0.8fr;
+    gap: var(--space-md) var(--space-lg);
   }
-  @media (max-width: 1000px) {
+  @media (max-width: 1280px) {
     .cells {
-      grid-template-columns: 1fr 1fr;
-      row-gap: var(--space-md);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 860px) {
+    .cells {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   @media (max-width: 560px) {

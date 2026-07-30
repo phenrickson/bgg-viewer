@@ -10,9 +10,10 @@
    *      things you reach for first, and the ones with no chart to live on.
    *   2. **Collapsed, counted** — categories, mechanics, families, people. A shut `<details>`
    *      with a badge is one line and still says "you have two of these set".
-   *   3. **Moved to the shape strip** — year, complexity, rating and best-at. Ranges are
-   *      easier to *see* than to type, so they're brushed on their own distributions; the
-   *      exact numbers stay here under "Exact numbers" for typing and for keyboard users.
+   *   3. **Moved to the shape strip** — year, complexity, rating, ratings count and best-at.
+   *      Ranges are easier to *see* than to type, so they're brushed on their own
+   *      distributions; the exact numbers stay here under "Exact numbers" for typing and for
+   *      keyboard users.
    *
    * `<details>` does the collapsing natively, so it's keyboard- and screen-reader-correct
    * with no JS, and the browser (not us) owns the open/close state.
@@ -39,6 +40,8 @@
       scope.weightMax,
       scope.ratingMin,
       scope.ratingMax,
+      scope.usersRatedMin,
+      scope.usersRatedMax,
       scope.geekMin
     ].filter((v) => v != null).length
   );
@@ -129,6 +132,13 @@
         <div class="pair">
           <input type="number" step="0.1" min="1" max="10" placeholder="min" aria-label="Average rating min" bind:value={scope.ratingMin} />
           <input type="number" step="0.1" min="1" max="10" placeholder="max" aria-label="Average rating max" bind:value={scope.ratingMax} />
+        </div>
+      </div>
+      <div class="num">
+        <span class="lbl sm">Ratings <span class="hint">how many people rated it</span></span>
+        <div class="pair">
+          <input type="number" step="10" min="0" placeholder="min" aria-label="Minimum number of ratings" bind:value={scope.usersRatedMin} />
+          <input type="number" step="10" min="0" placeholder="max" aria-label="Maximum number of ratings" bind:value={scope.usersRatedMax} />
         </div>
       </div>
       <div class="num">

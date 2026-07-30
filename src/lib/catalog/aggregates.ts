@@ -13,6 +13,7 @@ export interface Summary {
 	median_weight: number | null;
 	median_geek: number | null;
 	median_rating: number | null;
+	median_users_rated: number | null;
 	median_year: number | null;
 	year_min: number | null;
 	year_max: number | null;
@@ -74,6 +75,7 @@ export const summarySql = (where: string): string =>
 	   median(average_weight) FILTER (WHERE average_weight > 0) AS median_weight,
 	   median(geek_rating) FILTER (WHERE geek_rating > 0) AS median_geek,
 	   median(average_rating) FILTER (WHERE average_rating > 0) AS median_rating,
+	   median(users_rated) FILTER (WHERE users_rated > 0) AS median_users_rated,
 	   -- median, not min/max: BGG carries public-domain games at historical years (Go at
 	   -- -2200) that make a printed span nonsense. The median reads as "this set's era".
 	   median(year_published) FILTER (WHERE year_published >= ${YEAR_DISPLAY_FLOOR}) AS median_year,
@@ -94,6 +96,21 @@ export const WEIGHT_BIN = 0.25;
 export const complexityHistogramSql = (where: string): string =>
 	`SELECT (floor(average_weight / ${WEIGHT_BIN}) * ${WEIGHT_BIN}) AS bucket, COUNT(*)::INT AS n
 	 FROM catalog WHERE ${where} AND average_weight > 0
+	 GROUP BY bucket ORDER BY bucket`;
+
+/**
+ * Bucket width for the ratings-count histogram, **in powers of ten** — ten bins per decade.
+ * Ratings counts run from 30 to ~130,000, so a linear axis would pile 90% of the catalog into
+ * the leftmost bar and tell you nothing. Binning on log10 turns it into a readable curve, and
+ * the chart stays linear: it is the *data* that is log-scaled, not the component.
+ */
+export const RATINGS_LOG_BIN = 0.1;
+
+/** Ratings-count (`users_rated`) distribution, bucketed on log10. Buckets are log values. */
+export const ratingsCountHistogramSql = (where: string): string =>
+	`SELECT (floor(log10(users_rated) / ${RATINGS_LOG_BIN}) * ${RATINGS_LOG_BIN}) AS bucket,
+	        COUNT(*)::INT AS n
+	 FROM catalog WHERE ${where} AND users_rated > 0
 	 GROUP BY bucket ORDER BY bucket`;
 
 /**

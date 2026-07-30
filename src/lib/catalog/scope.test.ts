@@ -6,6 +6,8 @@ import {
 	scopeFromParams,
 	universeWhere,
 	activeFilters,
+	compactCount,
+	niceCount,
 	type Scope
 } from './scope';
 
@@ -60,6 +62,32 @@ describe('toWhere', () => {
 	});
 });
 
+describe('ratings-count helpers', () => {
+	it('formats counts compactly above a thousand and exactly below it', () => {
+		expect(compactCount(30)).toBe('30');
+		expect(compactCount(999)).toBe('999');
+		expect(compactCount(1000)).toBe('1k');
+		expect(compactCount(1259)).toBe('1.3k');
+		expect(compactCount(12500)).toBe('12.5k');
+		expect(compactCount(130000)).toBe('130k');
+	});
+
+	it('snaps a log-brushed count to a number someone would type', () => {
+		expect(niceCount(1259)).toBe(1500);
+		expect(niceCount(1100)).toBe(1000);
+		expect(niceCount(1800)).toBe(2000);
+		expect(niceCount(2600)).toBe(3000);
+		expect(niceCount(31)).toBe(30);
+		expect(niceCount(96000)).toBe(100000);
+	});
+
+	it('is defensive about non-positive input (log10 of 0 is -Infinity)', () => {
+		expect(niceCount(0)).toBe(0);
+		expect(niceCount(-5)).toBe(0);
+		expect(niceCount(NaN)).toBe(0);
+	});
+});
+
 describe('universeWhere', () => {
 	it('keeps the universe and drops every user filter (the strip backdrop)', () => {
 		const scoped: Scope = {
@@ -95,6 +123,16 @@ describe('activeFilters', () => {
 	it('clears both ends of a range with one chip', () => {
 		const [chip] = activeFilters({ ...DEFAULT_SCOPE, ratingMin: 7, ratingMax: 9 });
 		expect(chip.patch).toEqual({ ratingMin: null, ratingMax: null });
+	});
+
+	it('labels a ratings-count window compactly', () => {
+		expect(activeFilters({ ...DEFAULT_SCOPE, usersRatedMin: 1000 })[0]).toMatchObject({
+			kind: 'ratings',
+			label: '1k+'
+		});
+		const [both] = activeFilters({ ...DEFAULT_SCOPE, usersRatedMin: 500, usersRatedMax: 20000 });
+		expect(both.label).toBe('500–20k');
+		expect(both.patch).toEqual({ usersRatedMin: null, usersRatedMax: null });
 	});
 
 	it('labels a brushed bound exactly, not rounded to one decimal', () => {
@@ -136,6 +174,8 @@ describe('URL round-trip', () => {
 			weightMax: 4,
 			ratingMin: 7,
 			ratingMax: 9.5,
+			usersRatedMin: 1000,
+			usersRatedMax: 50000,
 			geekMin: 6.5,
 			players: 3,
 			bestAt: 2,
