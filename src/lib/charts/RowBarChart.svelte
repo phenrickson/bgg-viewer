@@ -25,7 +25,7 @@
   } = $props();
 </script>
 
-<div class="lc" style="height: {Math.max(data.length, 1) * 1.6 + 1.8}rem">
+<div class="lc">
   <Chart
     {data}
     x={value}
@@ -57,11 +57,12 @@
 <style>
   .lc {
     width: 100%;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
+    height: 100%;
+    color: var(--foreground);
+    font-size: 0.8rem;
   }
-  .lc :global(.tick text) { font-size: 0.75rem; }
   .lc :global(.tick text) {
+    font-size: 0.8rem;
     fill: var(--foreground);
   }
   .lc :global([class*='grid'] line) {

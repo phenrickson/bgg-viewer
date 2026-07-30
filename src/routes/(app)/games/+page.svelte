@@ -5,6 +5,7 @@
   import Rail from '$lib/catalog/Rail.svelte';
   import Table from '$lib/catalog/views/Table.svelte';
   import SetSummary from '$lib/catalog/views/SetSummary.svelte';
+  import SetComposition from '$lib/catalog/views/SetComposition.svelte';
 
   type Facet = { c: string; n: number };
 
@@ -92,6 +93,11 @@
           <section>
             <h4 class="sect">Games <span class="sub">· the set, as rows</span></h4>
             <Table {where} />
+          </section>
+
+          <section>
+            <h4 class="sect">What's in this set <span class="sub">· composition</span></h4>
+            <SetComposition {where} />
           </section>
         </div>
       {/if}

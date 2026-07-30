@@ -73,11 +73,11 @@
 <style>
   .lc {
     height: 100%;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
+    color: var(--foreground);
+    font-size: 0.8rem;
   }
-  .lc :global(.tick text) { font-size: 0.75rem; }
   .lc :global(.tick text) {
+    font-size: 0.8rem;
     fill: var(--muted-foreground);
   }
   .lc :global(.grid .tick line),
