@@ -131,13 +131,20 @@
     return r.min_players === hi ? `${hi}p` : `${r.min_players}–${hi}p`;
   }
 
-  /** "1–4p · Stefan Feld · Economic, Dice" — what the game *is*, under its title. */
+  /**
+   * "1–4p · Stefan Feld · Economic, Dice" — what the game *is*, under its title.
+   *
+   * Deliberately builds more than usually fits and lets the cell ellipsis it. That makes the
+   * line self-adjusting: a wide window spends its extra pixels on a third category and the
+   * rest of the design credit, a narrow one quietly drops them, and neither needs a
+   * breakpoint or a second render path.
+   */
   function meta(r: Row): string {
     const des = list(r.designers);
     const cats = list(r.categories);
     const bits = [playerRange(r)];
-    if (des.length) bits.push(des.length > 2 ? `${des[0]} +${des.length - 1}` : des.join(', '));
-    if (cats.length) bits.push(cats.slice(0, 2).join(', '));
+    if (des.length) bits.push(des.length > 3 ? `${des.slice(0, 2).join(', ')} +${des.length - 2}` : des.join(', '));
+    if (cats.length) bits.push(cats.slice(0, 3).join(', '));
     return bits.filter(Boolean).join(' · ');
   }
 
@@ -308,11 +315,24 @@
     flex: 1;
   }
 
-  /* One grid template shared by the header and every row, so they can't drift. */
+  /* One grid template shared by the header and every row, so they can't drift.
+     Every column takes a share of the surplus — `minmax(floor, Nfr)` — rather than a fixed
+     rem. With the title column as the only `1fr` it swallowed *all* the extra width on a wide
+     screen: at 2400px that left ~1000px of nothing between a game's name and its numbers,
+     which were crammed against the right edge. Spreading the surplus turns the same width into
+     ordinary table spacing, and the weights keep the proportions roughly as they are at
+     laptop width. */
   .row {
     display: grid;
     grid-template-columns:
-      2.6rem minmax(9rem, 1fr) 3rem 4.6rem 2.8rem 5.2rem 5.6rem 4.4rem;
+      minmax(2.4rem, 0.25fr)
+      minmax(11rem, 3.2fr)
+      minmax(3rem, 0.45fr)
+      minmax(4.6rem, 0.7fr)
+      minmax(2.8rem, 0.45fr)
+      minmax(5.2rem, 0.9fr)
+      minmax(5.6rem, 0.9fr)
+      minmax(4.4rem, 0.6fr);
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.34rem var(--space-md);
@@ -410,6 +430,15 @@
   .c-rating,
   .c-rated {
     font-size: 0.78rem;
+  }
+
+  /* The three encodings are capped, so a wide column gives them breathing room rather than
+     stretching them: a 290px five-segment meter reads as decoration, not as a 1-5 scale, and
+     a rating bar only compares down the column if its full length is the same on every row. */
+  .c-geek,
+  .c-weight,
+  .pips {
+    max-width: 7rem;
   }
 
   /* Rating: the number leads, the bar makes the column comparable at a glance. */
@@ -521,7 +550,13 @@
   /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
   @container (max-width: 62rem) {
     .row {
-      grid-template-columns: 2.6rem minmax(8rem, 1fr) 3rem 4.6rem 5.2rem 5.6rem;
+      grid-template-columns:
+        minmax(2.4rem, 0.25fr)
+        minmax(8rem, 3.2fr)
+        minmax(3rem, 0.45fr)
+        minmax(4.6rem, 0.7fr)
+        minmax(5.2rem, 0.9fr)
+        minmax(5.6rem, 0.9fr);
     }
     .c-rating,
     .c-rated {
