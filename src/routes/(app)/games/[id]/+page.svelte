@@ -56,21 +56,72 @@
   const backHref = $derived(backQs ? `/games?${backQs}` : '/games');
 
   // --- where this sits in the catalog --------------------------------------------------
-  // A bare 8.31 means nothing to anyone who doesn't know the scale. Rank does. Computed from
-  // the in-browser catalog *only if it is already warm* (you came via Explore or the search)
-  // — worth a sentence, not worth pulling a megabyte on a deep link.
-  let rank = $state<{ pos: number; of: number } | null>(null);
+  /**
+   * Every number on this page is meaningless without a scale: 8.44 is only impressive if you
+   * know what 8.44 is *for*. So each stat carries where it stands, and the headline carries
+   * two ranks — overall, and against the games it actually launched alongside, which is the
+   * fairer comparison for anything recent (a 2023 release competes with 2023, not with 1995).
+   *
+   * One pass over the in-browser catalog computes all of it, and only if the catalog is
+   * already warm — you came via Explore or the nav search. Worth a sentence, not worth
+   * pulling a megabyte on a deep link.
+   */
+  type Standing = {
+    geek_pos: number;
+    geek_n: number;
+    year_pos: number;
+    year_n: number;
+    geek_pct: number | null;
+    avg_pct: number | null;
+    rated_pct: number | null;
+    weight_pct: number | null;
+  };
+  let standing = $state<Standing | null>(null);
+
+  const finite = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
   $effect(() => {
-    const geek = Number(g.geek);
-    if (catalog.status !== 'ready' || !Number.isFinite(geek) || geek <= 0) return;
-    query<{ pos: number; of: number }>(
-      `SELECT (COUNT(*) FILTER (WHERE geek_rating > ${geek}) + 1)::INT AS pos,
-              COUNT(*) FILTER (WHERE geek_rating > 0)::INT AS of
+    const geek = finite(g.geek);
+    if (catalog.status !== 'ready' || geek == null || geek <= 0) return;
+    const year = finite(g.year);
+    const avg = finite(g.average) ?? -1;
+    const rated = finite(g.ratings) ?? -1;
+    const weight = finite(g.weight) ?? -1;
+    // Percentile = the share this beats, over the games where the measure exists at all;
+    // NULLIF keeps a missing measure as null rather than dividing by zero.
+    const pct = (col: string, v: number) =>
+      `100.0 * COUNT(*) FILTER (WHERE ${col} > 0 AND ${col} < ${v})
+         / NULLIF(COUNT(*) FILTER (WHERE ${col} > 0), 0)`;
+    query<Standing>(
+      `SELECT
+         (COUNT(*) FILTER (WHERE geek_rating > ${geek}) + 1)::INT AS geek_pos,
+         COUNT(*) FILTER (WHERE geek_rating > 0)::INT AS geek_n,
+         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geek}) + 1)::INT AS year_pos,
+         COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > 0)::INT AS year_n,
+         ${pct('geek_rating', geek)} AS geek_pct,
+         ${pct('average_rating', avg)} AS avg_pct,
+         ${pct('users_rated', rated)} AS rated_pct,
+         ${pct('average_weight', weight)} AS weight_pct
        FROM catalog WHERE users_rated >= 30`
     )
-      .then((r) => (rank = r[0] ?? null))
-      .catch((e) => console.error('rank lookup failed', e));
+      .then((r) => (standing = r[0] ?? null))
+      .catch((e) => console.error('standing lookup failed', e));
   });
+
+  /** "top 4%" — and below 1% keep a decimal, or every elite game reads as an identical "top 0%". */
+  function topPct(pctBelow: number | null | undefined): string | null {
+    if (pctBelow == null) return null;
+    const top = Math.max(0, 100 - pctBelow);
+    if (top < 1) return `top ${top < 0.1 ? '0.1' : top.toFixed(1)}%`;
+    return `top ${Math.round(top)}%`;
+  }
+  /** Complexity has no better end, so it gets a neutral phrasing rather than a ranking one. */
+  const heavierThan = $derived(
+    standing?.weight_pct == null ? null : `heavier than ${Math.round(standing.weight_pct)}%`
+  );
 
   /** The community's pick, so the chart can mark its own answer. */
   const bestRow = $derived(g.bestAt);
@@ -137,18 +188,35 @@
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="v tnum">{num(g.geek)}</div><div class="l">Geek rating</div></div>
-      <div class="stat"><div class="v tnum">{num(g.average)}</div><div class="l">Average</div></div>
-      <div class="stat"><div class="v tnum">{int(g.ratings)}</div><div class="l">Ratings</div></div>
+      <div class="stat">
+        <div class="v tnum">{num(g.geek)}</div>
+        <div class="l">Geek rating</div>
+        {#if topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum">{num(g.average)}</div>
+        <div class="l">Average</div>
+        {#if topPct(standing?.avg_pct)}<div class="of">{topPct(standing?.avg_pct)}</div>{/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum">{int(g.ratings)}</div>
+        <div class="l">Ratings</div>
+        {#if topPct(standing?.rated_pct)}<div class="of">{topPct(standing?.rated_pct)}</div>{/if}
+      </div>
       <div class="stat">
         <div class="v tnum">{num(g.weight, 1)}<small>/5</small></div>
         <div class="l">{weightLabel(g.weight) || 'Complexity'}</div>
-        {#if g.weightVotes}<div class="of">from {int(g.weightVotes)} votes</div>{/if}
+        <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after the
+             separator and stranded "votes" on its own. -->
+        {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
+        {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
       </div>
-      {#if rank}
+      {#if standing}
         <p class="rank">
-          Ranked <b class="tnum">#{rank.pos.toLocaleString()}</b> of
-          <span class="tnum">{rank.of.toLocaleString()}</span> rated games by geek rating.
+          Ranked <b class="tnum">#{standing.geek_pos.toLocaleString()}</b> of
+          <span class="tnum">{standing.geek_n.toLocaleString()}</span> rated games{#if g.year && standing.year_n > 1}, and
+            <b class="tnum">#{standing.year_pos.toLocaleString()}</b> of the
+            <span class="tnum">{standing.year_n.toLocaleString()}</span> released in {g.year}{/if}.
         </p>
       {/if}
     </div>
