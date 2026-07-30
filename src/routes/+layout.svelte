@@ -42,7 +42,10 @@
 </div>
 
 <style>
-  .app { min-height: 100svh; display: flex; flex-direction: column; }
+  /* A definite shell height, so a page can opt into filling it (Explore's two scrolling
+     columns) without reaching for viewport units of its own. `.content` owns the scroll,
+     so ordinary document-flow pages still behave normally. */
+  .app { height: 100svh; display: flex; flex-direction: column; }
   .appbar {
     display: flex; align-items: center; gap: var(--space-md);
     padding: var(--space-md) var(--space-lg);
@@ -69,8 +72,10 @@
     border-radius: var(--radius); width: 2rem; height: 2rem; cursor: pointer; line-height: 1;
   }
   .content {
-    flex: 1; min-width: 0;
+    flex: 1 1 auto; min-width: 0; min-height: 0;
+    overflow-y: auto;
     container-type: inline-size;
     padding: var(--space-lg);
   }
+  .appbar { flex: none; }
 </style>

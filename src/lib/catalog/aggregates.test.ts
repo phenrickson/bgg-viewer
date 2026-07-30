@@ -6,8 +6,11 @@ import {
 	scatterSql,
 	popularitySql,
 	topFacetSql,
+	facetSearchSql,
 	RATING_BIN,
-	SCATTER_LIMIT
+	SCATTER_LIMIT,
+	YEAR_FLOOR,
+	YEAR_DISPLAY_FLOOR
 } from './aggregates';
 
 const W = 'users_rated >= 25 AND year_published >= 2020';
@@ -58,6 +61,24 @@ describe('aggregate SQL builders', () => {
 		expect(sql).toContain('users_rated AS y');
 		expect(sql).toContain('users_rated > 0'); // required for a log y-scale
 		expect(sql).not.toContain('SAMPLE');
+	});
+
+	it('floors the year chart at the display floor when asked, not the data floor', () => {
+		expect(gamesPerYearSql(W)).toContain(`year_published >= ${YEAR_FLOOR}`);
+		expect(gamesPerYearSql(W, YEAR_DISPLAY_FLOOR)).toContain(
+			`year_published >= ${YEAR_DISPLAY_FLOOR}`
+		);
+	});
+
+	it('counts facets within scope and narrows them by an escaped term', () => {
+		const plain = facetSearchSql(W, 'categories');
+		expect(plain).toContain(W);
+		expect(plain).not.toContain('ILIKE');
+		const searched = facetSearchSql(W, 'categories', "war' OR 1=1", 5);
+		expect(searched).toContain("ILIKE '%war'' OR 1=1%'"); // quote doubled — a literal, not SQL
+		expect(searched).toContain('LIMIT 5');
+		// the term filters the unnested values, so it must sit outside the subquery
+		expect(searched.indexOf('ILIKE')).toBeGreaterThan(searched.indexOf('UNNEST'));
 	});
 
 	it('unnests the facet column inside a subquery before grouping', () => {

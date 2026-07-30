@@ -14,6 +14,9 @@ export interface Scope {
 	yearMax: number | null;
 	weightMin: number | null;
 	weightMax: number | null;
+	/** Average-rating window. Brushed directly on the shape strip's rating histogram. */
+	ratingMin: number | null;
+	ratingMax: number | null;
 	geekMin: number | null;
 	players: number | null;
 	/** Community "best at N players" — the flagship filter BGG can't do. */
@@ -35,6 +38,8 @@ export const DEFAULT_SCOPE: Scope = {
 	yearMax: null,
 	weightMin: null,
 	weightMax: null,
+	ratingMin: null,
+	ratingMax: null,
 	geekMin: null,
 	players: null,
 	bestAt: null,
@@ -67,6 +72,8 @@ export function toWhere(scope: Scope): string {
 	if (scope.yearMax != null) parts.push(`year_published <= ${scope.yearMax}`);
 	if (scope.weightMin != null) parts.push(`average_weight >= ${scope.weightMin}`);
 	if (scope.weightMax != null) parts.push(`average_weight <= ${scope.weightMax}`);
+	if (scope.ratingMin != null) parts.push(`average_rating >= ${scope.ratingMin}`);
+	if (scope.ratingMax != null) parts.push(`average_rating <= ${scope.ratingMax}`);
 	if (scope.geekMin != null) parts.push(`geek_rating >= ${scope.geekMin}`);
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
@@ -87,6 +94,96 @@ export function toWhere(scope: Scope): string {
 	return parts.length ? parts.join(' AND ') : 'TRUE';
 }
 
+/**
+ * The universe alone, with every user filter dropped — the *backdrop* set. The shape
+ * strip draws each distribution twice: this population in muted grey behind the current
+ * scope in colour, so a filter reads as "which slice of the whole did I just take" and
+ * the axis never shifts under the brush as you drag.
+ */
+export function universeWhere(scope: Scope): string {
+	return toWhere({ ...DEFAULT_SCOPE, universe: scope.universe });
+}
+
+/**
+ * The active filters as removable chips — the canvas header's "what have I done to this
+ * set" bar. One chip per *value* (each category is its own chip), each carrying the patch
+ * that removes just it, so undoing one constraint never disturbs the others. The universe
+ * is deliberately absent: it's a dial, not a filter, and can't be cleared to nothing.
+ */
+export interface FilterChip {
+	id: string;
+	/** Which control this came from — the chip's dim prefix, e.g. "best at". */
+	kind: string;
+	label: string;
+	patch: Partial<Scope>;
+}
+
+export function activeFilters(scope: Scope): FilterChip[] {
+	const chips: FilterChip[] = [];
+	const range = (
+		id: string,
+		kind: string,
+		min: number | null,
+		max: number | null,
+		minKey: keyof Scope,
+		maxKey: keyof Scope,
+		fmt: (n: number) => string = String
+	) => {
+		if (min == null && max == null) return;
+		const label =
+			min != null && max != null
+				? `${fmt(min)}–${fmt(max)}`
+				: min != null
+					? `${fmt(min)}+`
+					: `up to ${fmt(max!)}`;
+		chips.push({ id, kind, label, patch: { [minKey]: null, [maxKey]: null } as Partial<Scope> });
+	};
+
+	if (scope.q) chips.push({ id: 'q', kind: 'name', label: `“${scope.q}”`, patch: { q: '' } });
+	range('year', 'year', scope.yearMin, scope.yearMax, 'yearMin', 'yearMax');
+	const one = (n: number) => n.toFixed(1);
+	range('weight', 'complexity', scope.weightMin, scope.weightMax, 'weightMin', 'weightMax', one);
+	range('rating', 'rating', scope.ratingMin, scope.ratingMax, 'ratingMin', 'ratingMax', one);
+	if (scope.geekMin != null)
+		chips.push({
+			id: 'geek',
+			kind: 'geek',
+			label: `${scope.geekMin.toFixed(1)}+`,
+			patch: { geekMin: null }
+		});
+	if (scope.players != null)
+		chips.push({
+			id: 'players',
+			kind: 'plays with',
+			label: `${scope.players}${scope.players >= 6 ? '+' : ''}`,
+			patch: { players: null }
+		});
+	if (scope.bestAt != null)
+		chips.push({
+			id: 'bestAt',
+			kind: 'best at',
+			label: `${scope.bestAt}`,
+			patch: { bestAt: null }
+		});
+
+	const values = (key: 'categories' | 'mechanics' | 'designers' | 'artists' | 'publishers' | 'families', kind: string) => {
+		for (const v of scope[key])
+			chips.push({
+				id: `${key}:${v}`,
+				kind,
+				label: v,
+				patch: { [key]: scope[key].filter((x) => x !== v) } as Partial<Scope>
+			});
+	};
+	values('categories', 'category');
+	values('mechanics', 'mechanic');
+	values('designers', 'designer');
+	values('artists', 'artist');
+	values('publishers', 'publisher');
+	values('families', 'family');
+	return chips;
+}
+
 /** Serialize to URLSearchParams — only non-default values, for clean shareable URLs. */
 export function scopeToParams(scope: Scope): URLSearchParams {
 	const p = new URLSearchParams();
@@ -95,6 +192,8 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.yearMax != null) p.set('ymax', String(scope.yearMax));
 	if (scope.weightMin != null) p.set('wmin', String(scope.weightMin));
 	if (scope.weightMax != null) p.set('wmax', String(scope.weightMax));
+	if (scope.ratingMin != null) p.set('rmin', String(scope.ratingMin));
+	if (scope.ratingMax != null) p.set('rmax', String(scope.ratingMax));
 	if (scope.geekMin != null) p.set('gmin', String(scope.geekMin));
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
@@ -122,6 +221,8 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		yearMax: finite(params.get('ymax')),
 		weightMin: finite(params.get('wmin')),
 		weightMax: finite(params.get('wmax')),
+		ratingMin: finite(params.get('rmin')),
+		ratingMax: finite(params.get('rmax')),
 		geekMin: finite(params.get('gmin')),
 		players: finite(params.get('p')),
 		bestAt: finite(params.get('best')),

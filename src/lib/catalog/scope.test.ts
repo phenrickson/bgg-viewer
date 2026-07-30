@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from './scope';
+import {
+	DEFAULT_SCOPE,
+	toWhere,
+	scopeToParams,
+	scopeFromParams,
+	universeWhere,
+	activeFilters,
+	type Scope
+} from './scope';
 
 describe('toWhere', () => {
 	it('defaults to the Top 10,000 universe', () => {
@@ -52,6 +60,60 @@ describe('toWhere', () => {
 	});
 });
 
+describe('universeWhere', () => {
+	it('keeps the universe and drops every user filter (the strip backdrop)', () => {
+		const scoped: Scope = {
+			...DEFAULT_SCOPE,
+			universe: 'rated',
+			yearMin: 2020,
+			categories: ['Economic'],
+			bestAt: 2
+		};
+		expect(universeWhere(scoped)).toBe('users_rated >= 30');
+		expect(universeWhere(scoped)).not.toContain('year_published');
+	});
+
+	it('carries the Top 10,000 universe through', () => {
+		expect(universeWhere({ ...DEFAULT_SCOPE, yearMin: 2020 })).toBe(toWhere(DEFAULT_SCOPE));
+	});
+});
+
+describe('activeFilters', () => {
+	it('is empty for a pristine scope — the universe dial is not a filter', () => {
+		expect(activeFilters(DEFAULT_SCOPE)).toEqual([]);
+		expect(activeFilters({ ...DEFAULT_SCOPE, universe: 'rated' })).toEqual([]);
+	});
+
+	it('collapses a two-sided range into one chip and labels open ranges', () => {
+		const both = activeFilters({ ...DEFAULT_SCOPE, yearMin: 2015, yearMax: 2020 });
+		expect(both).toHaveLength(1);
+		expect(both[0].label).toBe('2015–2020');
+		expect(activeFilters({ ...DEFAULT_SCOPE, yearMin: 2015 })[0].label).toBe('2015+');
+		expect(activeFilters({ ...DEFAULT_SCOPE, yearMax: 2020 })[0].label).toBe('up to 2020');
+	});
+
+	it('clears both ends of a range with one chip', () => {
+		const [chip] = activeFilters({ ...DEFAULT_SCOPE, ratingMin: 7, ratingMax: 9 });
+		expect(chip.patch).toEqual({ ratingMin: null, ratingMax: null });
+	});
+
+	it('gives each list value its own chip, removing only that value', () => {
+		const chips = activeFilters({ ...DEFAULT_SCOPE, categories: ['Economic', 'Dice'] });
+		expect(chips.map((c) => c.label)).toEqual(['Economic', 'Dice']);
+		expect(chips[0].patch).toEqual({ categories: ['Dice'] });
+	});
+
+	it('labels the entity kinds distinctly so identical names stay legible', () => {
+		const chips = activeFilters({
+			...DEFAULT_SCOPE,
+			designers: ['Reiner Knizia'],
+			publishers: ['Reiner Knizia']
+		});
+		expect(chips.map((c) => c.kind)).toEqual(['designer', 'publisher']);
+		expect(new Set(chips.map((c) => c.id)).size).toBe(2); // ids must be unique per row key
+	});
+});
+
 describe('URL round-trip', () => {
 	it('serializes only non-default values', () => {
 		const p = scopeToParams(DEFAULT_SCOPE);
@@ -65,6 +127,8 @@ describe('URL round-trip', () => {
 			yearMax: null,
 			weightMin: 2,
 			weightMax: 4,
+			ratingMin: 7,
+			ratingMax: 9.5,
 			geekMin: 6.5,
 			players: 3,
 			bestAt: 2,

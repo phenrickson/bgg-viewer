@@ -1,40 +1,45 @@
 <script lang="ts">
+  /**
+   * Explore — the workspace. Three regions, and the reading order is the job order:
+   *
+   *   rail (what's in the set) → count + chips (what I asked for) → shape (what the set
+   *   looks like) → list (the games) → a row (one game).
+   *
+   * The Table|Summary lens is gone. Shape and games no longer take turns: the strip is a
+   * permanent ~5rem band that both *shows* the set's distributions and *is* the control for
+   * them, so nothing about the set is hidden behind a click and the rail sheds four number
+   * inputs. Everything still runs against the in-browser DuckDB catalog — no server hop on
+   * any interaction.
+   */
   import { onMount } from 'svelte';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
-  import { DEFAULT_SCOPE, toWhere, scopeToParams, scopeFromParams, type Scope } from '$lib/catalog/scope';
+  import {
+    DEFAULT_SCOPE,
+    toWhere,
+    universeWhere,
+    scopeToParams,
+    scopeFromParams,
+    type Scope
+  } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
-  import Table from '$lib/catalog/views/Table.svelte';
-  import SetSummary from '$lib/catalog/views/SetSummary.svelte';
-  import SetComposition from '$lib/catalog/views/SetComposition.svelte';
-
-  type Facet = { c: string; n: number };
+  import FilterChips from '$lib/catalog/FilterChips.svelte';
+  import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
+  import GameList from '$lib/catalog/views/GameList.svelte';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
-  let categories = $state<Facet[]>([]);
-  let mechanics = $state<Facet[]>([]);
   let ready = $state(false);
-  let view = $state<'table' | 'summary'>('table');
 
   onMount(async () => {
-    const params = new URLSearchParams(location.search);
-    scope = scopeFromParams(params);
+    scope = scopeFromParams(new URLSearchParams(location.search));
     await initCatalog();
-    if (catalog.status !== 'ready') return;
-    // UNNEST must be produced in a subquery before GROUP BY in DuckDB.
-    const facetSql = (col: string) =>
-      `SELECT c, COUNT(*)::INT AS n FROM (SELECT UNNEST(${col}) AS c FROM catalog) GROUP BY c ORDER BY n DESC LIMIT 15`;
-    try {
-      categories = await query<Facet>(facetSql('categories'));
-      mechanics = await query<Facet>(facetSql('mechanics'));
-    } catch (e) {
-      console.error('facet load failed', e); // non-critical — still show the workspace
-    }
-    ready = true;
+    ready = catalog.status === 'ready';
   });
 
   const where = $derived(ready ? toWhere(scope) : null);
+  /** The universe with filters stripped — the strip's comparison population. */
+  const baseWhere = $derived(ready ? universeWhere(scope) : null);
 
-  // Live count for the scope-summary header — the one owner of the in-scope total.
+  // The one owner of the in-scope total, so the header and the list can't disagree.
   let total = $state<number | null>(null);
   let countToken = 0;
   $effect(() => {
@@ -46,78 +51,152 @@
       .catch((e) => console.error('count failed', e));
   });
 
-  // A compact human summary of the active scope, for the header.
-  const descriptor = $derived.by(() => {
-    const bits: string[] = [scope.universe === 'top10k' ? 'Top 10,000' : 'All rated'];
-    if (scope.yearMin != null || scope.yearMax != null)
-      bits.push(`${scope.yearMin ?? '…'}–${scope.yearMax ?? '…'}`);
-    if (scope.bestAt != null) bits.push(`best at ${scope.bestAt}`);
-    if (scope.categories.length) bits.push(scope.categories.join(', '));
-    if (scope.mechanics.length) bits.push(scope.mechanics.join(', '));
-    for (const e of [scope.designers, scope.artists, scope.publishers, scope.families])
-      if (e.length) bits.push(e.join(', '));
-    return bits.join(' · ');
+  // The universe total, so the header can say "1,284 of 10,000" — a filter's effect is only
+  // legible against what it started from.
+  let universeTotal = $state<number | null>(null);
+  let baseCountToken = 0;
+  $effect(() => {
+    if (baseWhere == null) return;
+    const w = baseWhere;
+    const mine = ++baseCountToken;
+    query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`)
+      .then((r) => mine === baseCountToken && (universeTotal = r[0]?.n ?? 0))
+      .catch((e) => console.error('universe count failed', e));
   });
 
-  // Mirror scope to the URL (shareable, reload-safe) without a navigation.
+  const universeLabel = $derived(scope.universe === 'top10k' ? 'the top 10,000' : 'all rated games');
+  const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
+
+  // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
+  // handoff to the detail page: `Back to results` there reads this querystring back.
   $effect(() => {
     if (!ready) return;
     const qs = scopeToParams(scope).toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
+    try {
+      sessionStorage.setItem('explore:qs', qs);
+    } catch {
+      // private-mode / storage-disabled: the back link just falls back to a bare /games
+    }
   });
 </script>
 
 <svelte:head><title>Explore · bgg-viewer</title></svelte:head>
 
 {#if catalog.status === 'error'}
-  <p class="state err">Couldn't load the catalog: {catalog.error}</p>
+  <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
 {:else if !ready}
-  <p class="state">Loading the catalog into your browser…</p>
-{:else}
+  <div class="state">
+    <span class="spin"></span>
+    <p>Loading the catalog into your browser — this happens once.</p>
+  </div>
+{:else if where != null && baseWhere != null}
   <div class="workspace">
-    <Rail bind:scope {categories} {mechanics} onreset={() => (scope = { ...DEFAULT_SCOPE })} />
+    <Rail bind:scope {where} />
 
     <div class="canvas">
-      <div class="canvas-h">
-        <div class="scope-sum">
-          <b class="tnum">{total?.toLocaleString() ?? '…'}</b> games
-          <span class="desc">· {descriptor}</span>
-        </div>
-        <div class="lens">
-          <button class:on={view === 'table'} onclick={() => (view = 'table')}>▦ Table</button>
-          <button class:on={view === 'summary'} onclick={() => (view = 'summary')}>▤ Summary</button>
-        </div>
+      <div class="chead">
+        <p class="count">
+          <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
+          <span>{total === 1 ? 'game' : 'games'}</span>
+          <span class="dim">
+            {#if narrowed}
+              of <span class="tnum">{universeTotal?.toLocaleString()}</span>
+            {:else}
+              in {universeLabel}
+            {/if}
+          </span>
+        </p>
+        <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
       </div>
 
-      {#if where != null}
-        {#if view === 'table'}
-          <!-- Find games: the list is the emphasis. -->
-          <Table {where} />
-        {:else}
-          <!-- Examine the set: distributions + composition. In-browser, live on scope. -->
-          <div class="stack">
-            <SetSummary {where} />
-            <SetComposition {where} />
-          </div>
-        {/if}
-      {/if}
+      <ShapeStrip {where} {baseWhere} bind:scope />
+      <GameList {where} />
     </div>
   </div>
 {/if}
 
 <style>
-  .state { color: var(--muted-foreground); }
-  .state.err { color: var(--color-negative); }
-  .workspace { display: grid; grid-template-columns: 15rem 1fr; gap: var(--space-lg); align-items: start; }
-  @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } }
-  .canvas { min-width: 0; }
-  .canvas-h { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
-  .scope-sum { font-size: 0.95rem; }
-  .scope-sum b { font-weight: 700; }
-  .scope-sum .desc { color: var(--muted-foreground); }
-  .tnum { font-variant-numeric: tabular-nums; }
-  .lens { display: flex; gap: .2rem; margin-left: auto; background: var(--muted); padding: .2rem; border-radius: 9px; }
-  .lens button { font-size: 0.82rem; padding: .25rem .7rem; border-radius: 7px; border: none; background: none; color: var(--muted-foreground); cursor: pointer; font: inherit; }
-  .lens button.on { background: var(--card); color: var(--foreground); font-weight: 550; box-shadow: 0 1px 2px oklch(0 0 0 / .06); }
-  .stack { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+  .state {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--muted-foreground);
+  }
+  .state p {
+    margin: 0;
+  }
+  .state.err {
+    color: var(--color-negative);
+  }
+  .spin {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex: none;
+    border-radius: 50%;
+    border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+    border-top-color: var(--primary);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spin {
+      animation: none;
+    }
+  }
+
+  /* Two independently scrolling columns, each bounded by the shell's height — so a long
+     facet list never pushes the games off the screen. */
+  .workspace {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: var(--space-lg);
+    height: 100%;
+    min-height: 0;
+  }
+  .canvas {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    min-width: 0;
+    min-height: 0;
+    /* The list's column set responds to the canvas, not the viewport. */
+    container-type: inline-size;
+  }
+
+  .chead {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+  }
+  .count {
+    margin: 0;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .count b {
+    font-size: 1.4rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    margin-right: 0.15rem;
+  }
+  .count .dim {
+    color: var(--muted-foreground);
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Below the two-column threshold the workspace becomes an ordinary scrolling document. */
+  @media (max-width: 900px) {
+    .workspace {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+  }
 </style>

@@ -13,6 +13,7 @@ export interface Summary {
 	median_weight: number | null;
 	median_geek: number | null;
 	median_rating: number | null;
+	median_year: number | null;
 	year_min: number | null;
 	year_max: number | null;
 }
@@ -51,6 +52,21 @@ export const RATING_BIN = 0.25;
  */
 export const SCATTER_LIMIT = 60000;
 
+/**
+ * Floor for anything keyed on publication year. BGG entries for ancient/public-domain
+ * games carry historical years (Go = -2200, Chess = 1475, …) that stretch an axis and
+ * crush the modern era into a sliver — the hobby's distribution starts ~1900.
+ */
+export const YEAR_FLOOR = 1900;
+
+/**
+ * Where the year *chart* starts. The hobby's long pre-modern tail (a handful of games per
+ * year back to 1900) would eat half the axis for a fraction of a percent of the set and
+ * crush the era anyone is browsing. The year filter itself is unbounded — only the drawn
+ * domain, and the median-year headline, are floored.
+ */
+export const YEAR_DISPLAY_FLOOR = 1970;
+
 export const summarySql = (where: string): string =>
 	`SELECT
 	   COUNT(*)::INT AS total,
@@ -58,6 +74,9 @@ export const summarySql = (where: string): string =>
 	   median(average_weight) FILTER (WHERE average_weight > 0) AS median_weight,
 	   median(geek_rating) FILTER (WHERE geek_rating > 0) AS median_geek,
 	   median(average_rating) FILTER (WHERE average_rating > 0) AS median_rating,
+	   -- median, not min/max: BGG carries public-domain games at historical years (Go at
+	   -- -2200) that make a printed span nonsense. The median reads as "this set's era".
+	   median(year_published) FILTER (WHERE year_published >= ${YEAR_DISPLAY_FLOOR}) AS median_year,
 	   min(year_published)::INT AS year_min,
 	   max(year_published)::INT AS year_max
 	 FROM catalog WHERE ${where}`;
@@ -88,17 +107,10 @@ export const bestAtDistributionSql = (where: string): string =>
 	 WHERE v BETWEEN 1 AND 8
 	 GROUP BY v ORDER BY v`;
 
-/**
- * Floor for the games-per-year chart. BGG entries for ancient/public-domain games
- * carry historical years (Go = -2200, Chess = 1475, …) that stretch a band axis and
- * crush the modern era into a sliver — the hobby's distribution starts ~1900.
- */
-export const YEAR_FLOOR = 1900;
-
-/** Count of games per publication year since YEAR_FLOOR (nulls/ancient years dropped). */
-export const gamesPerYearSql = (where: string): string =>
+/** Count of games per publication year since `floor` (nulls/ancient years dropped). */
+export const gamesPerYearSql = (where: string, floor = YEAR_FLOOR): string =>
 	`SELECT year_published AS year, COUNT(*)::INT AS n
-	 FROM catalog WHERE ${where} AND year_published >= ${YEAR_FLOOR}
+	 FROM catalog WHERE ${where} AND year_published >= ${floor}
 	 GROUP BY year ORDER BY year`;
 
 /**
@@ -127,3 +139,22 @@ export const topFacetSql = (where: string, col: 'categories' | 'mechanics' | 'fa
 	`SELECT c, COUNT(*)::INT AS n
 	 FROM (SELECT UNNEST(${col}) AS c FROM catalog WHERE ${where})
 	 GROUP BY c ORDER BY n DESC LIMIT ${limit}`;
+
+/**
+ * Facet values *within the current scope*, optionally narrowed by a typed term — what the
+ * rail's category/mechanic lists show. Scope-aware counts mean the lists answer "what else
+ * is in this set" as you filter (and make a separate "top categories" chart redundant).
+ * `col` is a fixed identifier from our own code; `term` is user input, so it is escaped.
+ */
+export const facetSearchSql = (
+	where: string,
+	col: 'categories' | 'mechanics' | 'families',
+	term = '',
+	limit = 60
+): string => {
+	const t = term.trim().replace(/'/g, "''");
+	const match = t ? ` WHERE c ILIKE '%${t}%'` : '';
+	return `SELECT c, COUNT(*)::INT AS n
+	 FROM (SELECT UNNEST(${col}) AS c FROM catalog WHERE ${where})${match}
+	 GROUP BY c ORDER BY n DESC, c LIMIT ${limit}`;
+};
