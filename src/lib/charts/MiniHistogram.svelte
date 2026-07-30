@@ -3,10 +3,9 @@
    * A small histogram you filter by dragging across it.
    *
    * Two series share the frame: `backdrop` (the whole universe) as a muted silhouette and
-   * `bins` (the current scope) as solid bars. Each is scaled to its *own* max — the point of
-   * the pair is to compare **shape** ("my slice skews heavier than the catalog"), while
-   * magnitude is carried by the count text next to the chart. A shared scale would flatten a
-   * 2%-of-catalog selection into an unreadable sliver.
+   * `bins` (the current scope) as solid bars, both mapped through one scale — see `scale.ts`,
+   * which exists because the obvious alternative (each series to its own peak) draws a subset
+   * taller than the set it came from.
    *
    * Drag across the plot to set the range; a click (no drag) or the ✕ clears it. Brushing to
    * an outer edge emits `null` for that bound, i.e. "no limit" — so dragging past the left
@@ -21,6 +20,7 @@
    * the accessible path to the same scope fields, and the ✕ is a real button.
    */
   import type { HistBin } from './types';
+  import { barScale, type ScaleMode } from './scale';
 
   let {
     bins = [],
@@ -36,6 +36,7 @@
     maxEdge = 'exclusive',
     color = 'var(--chart-1)',
     height = 46,
+    scaleMode = 'count',
     label = 'distribution',
     format = (n: number) => String(n),
     onbrush
@@ -48,6 +49,7 @@
     maxEdge?: 'inclusive' | 'exclusive';
     color?: string;
     height?: number;
+    scaleMode?: ScaleMode;
     label?: string;
     format?: (n: number) => string;
     onbrush: (min: number | null, max: number | null) => void;
@@ -82,15 +84,14 @@
   const val = (x: number) => (dom ? dom.lo + ((x - PAD) / (plotW || 1)) * span : 0);
   const barW = $derived(Math.max(1, (binWidth / span) * plotW - 0.5));
 
-  const peak = (s: HistBin[]) => {
-    let m = 1;
-    for (const b of s) if (b.n > m) m = b.n;
-    return m;
-  };
-  const backPeak = $derived(peak(backdrop));
-  const binPeak = $derived(peak(bins));
+  /** Height mapping for both series — see `scale.ts` for why it must be one scale. */
+  const scale = $derived(barScale([backdrop, bins], scaleMode));
+  const backTotal = $derived(scale.totals[0]);
+  const binTotal = $derived(scale.totals[1]);
   /** A non-empty bin always draws at least 1px so a thin tail stays visible. */
-  const barH = (n: number, max: number) => (n > 0 ? Math.max(1, (n / max) * height) : 0);
+  const barH = (n: number, total: number) =>
+    n > 0 ? Math.max(1, scale.frac(n, total) * height) : 0;
+  const pctOf = (n: number, total: number) => (total > 0 ? (n / total) * 100 : 0);
 
   /** The window to shade: the live drag if any, else the committed scope bounds. */
   const window_ = $derived.by(() => {
@@ -161,6 +162,18 @@
     commit(a, b);
   }
 
+  /** Stepped outline across the backdrop's bar tops — one polyline, no per-bin nodes. */
+  const backPath = $derived.by(() => {
+    if (!dom || plotW <= 0 || !backdrop.length) return '';
+    const d: string[] = [];
+    for (const b of backdrop) {
+      const x0 = px(b.v);
+      const y = height - barH(b.n, backTotal);
+      d.push(`${d.length ? 'L' : 'M'}${x0.toFixed(1)} ${y.toFixed(1)}`, `L${(x0 + barW).toFixed(1)} ${y.toFixed(1)}`);
+    }
+    return d.join('');
+  });
+
   const active = $derived(min != null || max != null);
   const summary = $derived(
     active
@@ -171,8 +184,10 @@
 
 <div class="mh" bind:clientWidth={w} style:--h="{height}px">
   {#if hover && !drag}
+    <!-- The bar is a height on a shared scale; the exact count belongs here. -->
     <span class="tip" style:left="{hoverX}px" style:--edge={hoverX > w / 2 ? '100%' : '0%'}>
       {format(hover.v)}<span class="dim">·</span>{hover.n.toLocaleString()}
+      <span class="dim">({pctOf(hover.n, binTotal).toFixed(1)}%)</span>
     </span>
   {/if}
 
@@ -196,7 +211,7 @@
       <!-- the whole universe, as a shape to compare against -->
       <g class="back">
         {#each backdrop as b (b.v)}
-          <rect x={px(b.v)} y={height - barH(b.n, backPeak)} width={barW} height={barH(b.n, backPeak)} />
+          <rect x={px(b.v)} y={height - barH(b.n, backTotal)} width={barW} height={barH(b.n, backTotal)} />
         {/each}
       </g>
 
@@ -207,9 +222,16 @@
       <!-- the current scope -->
       <g class="fore" style:fill={color}>
         {#each bins as b (b.v)}
-          <rect x={px(b.v)} y={height - barH(b.n, binPeak)} width={barW} height={barH(b.n, binPeak)} />
+          <rect x={px(b.v)} y={height - barH(b.n, binTotal)} width={barW} height={barH(b.n, binTotal)} />
         {/each}
       </g>
+
+      <!-- The universe's outline, redrawn over the selection: where the scope's share is the
+           larger of the two its bars hide the silhouette entirely, and the reference curve is
+           the thing you are meant to be comparing against. -->
+      {#if backdrop.length && bins.length}
+        <path class="backline" d={backPath} />
+      {/if}
 
       {#if window_}
         <g class="edges">
@@ -256,6 +278,12 @@
     stroke: var(--primary);
     stroke-width: 1;
     shape-rendering: crispEdges;
+  }
+  .backline {
+    fill: none;
+    stroke: color-mix(in oklch, var(--muted-foreground) 62%, transparent);
+    stroke-width: 1;
+    stroke-linejoin: round;
   }
   .tip {
     position: absolute;

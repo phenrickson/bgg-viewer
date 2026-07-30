@@ -1,14 +1,14 @@
 <script lang="ts">
   /**
    * A small discrete distribution you filter by clicking a column — the categorical
-   * counterpart to [MiniHistogram](MiniHistogram.svelte). Same two-series idea (muted
-   * universe silhouette behind the solid current scope, each on its own scale, so the
-   * comparison is of shape) but the domain is a fixed list of buckets rather than a
-   * continuous axis, so selection is a pick, not a brush.
+   * counterpart to [MiniHistogram](MiniHistogram.svelte). Same two-series idea — a muted
+   * universe silhouette behind the solid current scope, both on one scale — but the domain is
+   * a fixed list of buckets rather than a continuous axis, so selection is a pick, not a brush.
    *
    * Every column is a real `<button>`, so this one *is* keyboard-reachable.
    */
   import type { ColBin } from './types';
+  import { barScale, type ScaleMode } from './scale';
 
   let {
     bins = [],
@@ -18,6 +18,7 @@
     selected = null,
     color = 'var(--chart-1)',
     height = 46,
+    scaleMode = 'count',
     label = (v: number) => String(v),
     title = (v: number, n: number) => `${v}: ${n.toLocaleString()}`,
     onpick
@@ -28,16 +29,24 @@
     selected?: number | null;
     color?: string;
     height?: number;
+    scaleMode?: ScaleMode;
     label?: (v: number) => string;
     title?: (v: number, n: number) => string;
     onpick: (v: number | null) => void;
   } = $props();
 
-  const peak = (s: ColBin[]) => Math.max(1, ...s.map((b) => b.n));
+  /**
+   * Height mapping shared with MiniHistogram — see `scale.ts`.
+   *
+   * The totals here are *votes*, not games: a game best at both 3 and 4 lands in two buckets.
+   * That is the right denominator for "what share of this set's best-at verdicts say 4".
+   */
   const at = (s: ColBin[], v: number) => s.find((b) => b.v === v)?.n ?? 0;
-  const backPeak = $derived(peak(backdrop));
-  const binPeak = $derived(peak(bins));
-  const pct = (n: number, max: number) => (n > 0 ? Math.max(2, (n / max) * 100) : 0);
+  const scale = $derived(barScale([backdrop, bins], scaleMode));
+  const backTotal = $derived(scale.totals[0]);
+  const binTotal = $derived(scale.totals[1]);
+  const pct = (n: number, total: number) =>
+    n > 0 ? Math.max(2, scale.frac(n, total) * 100) : 0;
 </script>
 
 <div class="mc" style:--h="{height}px" style:--c={color}>
@@ -54,8 +63,10 @@
       onclick={() => onpick(selected === v ? null : v)}
     >
       <span class="plot">
-        <i class="back" style:height="{pct(at(backdrop, v), backPeak)}%"></i>
-        <i class="fore" style:height="{pct(n, binPeak)}%"></i>
+        <i class="back" style:height="{pct(at(backdrop, v), backTotal)}%"></i>
+        <i class="fore" style:height="{pct(n, binTotal)}%"></i>
+        <!-- The universe's level, kept visible when the scope's share overdraws it. -->
+        <i class="backline" style:bottom="{pct(at(backdrop, v), backTotal)}%"></i>
       </span>
       <span class="lab">{label(v)}</span>
     </button>
@@ -99,6 +110,11 @@
   }
   .fore {
     background: var(--c);
+  }
+  .backline {
+    height: 1px;
+    border-radius: 0;
+    background: color-mix(in oklch, var(--muted-foreground) 62%, transparent);
   }
   .lab {
     font-size: 0.66rem;

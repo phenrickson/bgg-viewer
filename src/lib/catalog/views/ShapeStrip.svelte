@@ -4,7 +4,7 @@
    *
    * This replaces the old Table|Summary lens. The lens made the set's shape something you
    * had to *leave the games to see*, so in practice nobody saw it; stacking full-height
-   * chart panels above the table instead buried the games. A ~3rem strip is small enough to
+   * chart panels above the table instead buried the games. A ~5rem strip is small enough to
    * read as part of the header and still carries five distributions — and, crucially, the
    * charts are the *controls*: drag a histogram to set that range, click a best-at column to
    * pick it. So the space earns its keep twice, and the rail loses six number inputs.
@@ -12,6 +12,13 @@
    * Each chart draws the whole universe as a muted silhouette behind the current scope, so
    * every filter answers "which slice did I just take, and is it shaped like the catalog?".
    * `Taller` swaps in a reading height for the same five charts — one control, nothing hidden.
+   *
+   * `Count | Share` picks what bar height *means*, and the choice is exposed rather than
+   * guessed at because neither answer is universally right (see `charts/scale.ts`). Count is
+   * the default: heights are games, so your set sits inside the catalog's curve and filtering
+   * on the axis you are looking at lands the coloured bars exactly on the grey ones. Its cost
+   * is that a small scope flattens to the 1px floor — measured at 40 games in the top 10,000 —
+   * which is when Share, renormalising each series, is the one that can still be read.
    */
   import { query } from '$lib/catalog/catalog.svelte';
   import {
@@ -33,6 +40,7 @@
   import MiniHistogram from '$lib/charts/MiniHistogram.svelte';
   import MiniColumns from '$lib/charts/MiniColumns.svelte';
   import type { HistBin } from '$lib/charts/types';
+  import type { ScaleMode } from '$lib/charts/scale';
   import { compactCount, niceCount, type Scope } from '$lib/catalog/scope';
 
   let {
@@ -80,6 +88,7 @@
   let backdrop = $state<Shape>(EMPTY);
   let summary = $state<Summary | null>(null);
   let tall = $state(false);
+  let scaleMode = $state<ScaleMode>('count');
 
   // The backdrop only depends on the universe dial, so it survives every other filter change.
   let baseToken = 0;
@@ -141,9 +150,26 @@
 <section class="strip" class:tall>
   <div class="shead">
     <span class="ttl">Shape of this set <span class="hint">— drag a chart to filter</span></span>
-    <button class="taller" onclick={() => (tall = !tall)} aria-pressed={tall}>
-      {tall ? 'Shorter' : 'Taller'}
-    </button>
+    <div class="ctrls">
+      <!-- Height means one thing at a time, and which one is a real choice — see scale.ts. -->
+      <div class="seg" role="group" aria-label="Bar height">
+        <button
+          class:on={scaleMode === 'count'}
+          aria-pressed={scaleMode === 'count'}
+          title="Bar height is the number of games, on one scale for both series — your set sits inside the catalog's curve."
+          onclick={() => (scaleMode = 'count')}>Count</button
+        >
+        <button
+          class:on={scaleMode === 'share'}
+          aria-pressed={scaleMode === 'share'}
+          title="Bar height is each bin's share of its own set — use it when your set is too small to see against the catalog."
+          onclick={() => (scaleMode = 'share')}>Share</button
+        >
+      </div>
+      <button class="taller" onclick={() => (tall = !tall)} aria-pressed={tall}>
+        {tall ? 'Shorter' : 'Taller'}
+      </button>
+    </div>
   </div>
 
   <div class="cells">
@@ -159,6 +185,7 @@
         min={scope.ratingMin}
         max={scope.ratingMax}
         height={H}
+        {scaleMode}
         color="var(--chart-1)"
         label="average rating distribution"
         format={one}
@@ -184,6 +211,7 @@
         min={scope.weightMin}
         max={scope.weightMax}
         height={H}
+        {scaleMode}
         color="var(--chart-4)"
         label="complexity distribution"
         format={one}
@@ -210,6 +238,7 @@
         min={scope.yearMin}
         max={scope.yearMax}
         height={H}
+        {scaleMode}
         color="var(--chart-2)"
         label="games per year"
         format={int}
@@ -237,6 +266,7 @@
         min={toLog(scope.usersRatedMin)}
         max={toLog(scope.usersRatedMax)}
         height={H}
+        {scaleMode}
         color="var(--chart-3)"
         label="ratings-count distribution"
         format={fromLog}
@@ -261,6 +291,7 @@
         domain={BEST_AT_DOMAIN}
         selected={scope.bestAt}
         height={H}
+        {scaleMode}
         color="var(--chart-5)"
         title={(v, n) => `best at ${v} players — ${n.toLocaleString()} games in scope`}
         onpick={(v) => (scope.bestAt = v)}
@@ -297,6 +328,37 @@
     font-weight: 400;
   }
   /* NB: not `.grow` — that is a Tailwind utility (`flex-grow: 1`) and would stretch it. */
+  .ctrls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .seg {
+    display: flex;
+    gap: 0.15rem;
+    background: var(--muted);
+    border-radius: 7px;
+    padding: 0.1rem;
+  }
+  .seg button {
+    border: none;
+    background: none;
+    border-radius: 5px;
+    color: var(--muted-foreground);
+    font: inherit;
+    font-size: 0.7rem;
+    padding: 0.08rem 0.4rem;
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+  }
   .taller {
     border: 1px solid var(--border);
     border-radius: 6px;
