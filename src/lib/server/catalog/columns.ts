@@ -19,12 +19,14 @@ export const SCALAR_COLUMNS = {
 /**
  * Model output, carried in the artifact rather than fetched per game.
  *
- * The detail page already reads these from BigQuery on load, so putting them here is not
- * about that page — it's about the working set. An upcoming game has no ratings, so every
- * column Explore can currently sort or filter by is empty for exactly the games a visitor
- * most wants ranked. These make the unrated half of the catalog queryable: "upcoming games
- * the model likes", "most likely to actually land", sorted and filtered in the browser with
- * no server hop, like everything else in Explore.
+ * The detail page already reads these from BigQuery per game, so carrying them here is not
+ * about that page. They exist for the Predictions view — a separate workspace built around
+ * the model's forecasts, not extra columns bolted onto Explore. Explore's question is "find
+ * games matching criteria" and it asks it of games people have actually played; predictions
+ * are a different question about a different population, and mixing them would blur both.
+ *
+ * They ride in this artifact because the browser already holds it: the Predictions view then
+ * costs no second fetch and no server hop, exactly like Explore.
  *
  * Float32, not Float64. A predicted rating carries maybe three meaningful digits; storing
  * fifteen doubles the width of the five widest columns we'd be adding for no recoverable
