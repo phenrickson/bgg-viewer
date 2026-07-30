@@ -11,6 +11,7 @@ interface Features {
 	publishers: string[] | null;
 	categories: string[] | null;
 	mechanics: string[] | null;
+	families: string[] | null;
 	min_players: number | null;
 	max_players: number | null;
 	min_playtime: number | null;
@@ -20,10 +21,15 @@ interface Features {
 	average_rating: number | null;
 	users_rated: number | null;
 	average_weight: number | null;
+	/** How many people rated the complexity — a 1-vote weight and a 2,716-vote weight are
+	 *  not the same claim, and the page showed them identically. */
+	num_weights: number | null;
 	image: string | null;
 	thumbnail: string | null;
 	description: string | null;
 	player_counts: Array<Record<string, number | string>>;
+	/** When the warehouse last refreshed this game. Ratings move; the page should say when. */
+	last_updated: string | null;
 }
 
 interface SimilarRow {
@@ -42,7 +48,10 @@ function toViewModel(doc: GameDocument) {
 			count: String(p.player_count),
 			best,
 			recommended: rec,
-			notRecommended: Math.max(0, 100 - best - rec)
+			notRecommended: Math.max(0, 100 - best - rec),
+			// A percentage is only as good as its sample: "4+" often rests on a couple of dozen
+			// votes while "2" rests on thousands, and the bars alone can't tell you which.
+			votes: Number(p.total_votes) || 0
 		};
 	});
 	const bestAt = pcts.reduce<(typeof pcts)[number] | null>(
@@ -61,6 +70,7 @@ function toViewModel(doc: GameDocument) {
 		publishers: f.publishers ?? [],
 		categories: f.categories ?? [],
 		mechanics: f.mechanics ?? [],
+		families: f.families ?? [],
 		minPlayers: f.min_players,
 		maxPlayers: f.max_players,
 		minTime: f.min_playtime,
@@ -70,6 +80,8 @@ function toViewModel(doc: GameDocument) {
 		average: f.average_rating,
 		ratings: f.users_rated,
 		weight: f.average_weight,
+		weightVotes: f.num_weights ?? null,
+		lastUpdated: f.last_updated ?? null,
 		playerCounts: pcts,
 		bestAt: bestAt && bestAt.best > 0 ? bestAt.count : null,
 		similar: (doc.similar as unknown as SimilarRow[]).map((s) => ({

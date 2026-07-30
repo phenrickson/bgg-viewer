@@ -74,6 +74,17 @@
 
   /** The community's pick, so the chart can mark its own answer. */
   const bestRow = $derived(g.bestAt);
+
+  /**
+   * How stale this is. Ratings and weights move, and a page that shows four decimal-place
+   * numbers without saying when it looked is quietly overclaiming.
+   */
+  const freshness = $derived.by(() => {
+    if (!g.lastUpdated) return null;
+    const t = new Date(g.lastUpdated);
+    if (Number.isNaN(t.getTime())) return null;
+    return t.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  });
 </script>
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
@@ -84,7 +95,17 @@
       <span aria-hidden="true">←</span>
       {backQs ? 'Back to results' : 'Explore all games'}
     </a>
-    <span class="crumbs"><a href="/">Home</a> ／ <a href={backHref}>Explore</a> ／ <b>{g.name}</b></span>
+    <span class="crumbs">
+      <!-- A companion tool should point at its source of truth, not pretend to be it. -->
+      <a
+        class="bgg"
+        href="https://boardgamegeek.com/boardgame/{g.id}"
+        target="_blank"
+        rel="noopener noreferrer">View on BGG <span aria-hidden="true">↗</span></a
+      >
+      <span class="sep">·</span>
+      <a href="/">Home</a> ／ <a href={backHref}>Explore</a> ／ <b>{g.name}</b>
+    </span>
   </div>
 
   <!-- hero: identity + the four numbers -->
@@ -98,6 +119,11 @@
       <div class="id">
         <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
         {#if g.designers.length}<p class="byline">by {g.designers.join(', ')}</p>{/if}
+        {#if g.artists.length}
+          <p class="pubs">art by {g.artists.slice(0, 3).join(', ')}{g.artists.length > 3
+              ? ` +${g.artists.length - 3}`
+              : ''}</p>
+        {/if}
         {#if g.publishers.length}
           <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
         {/if}
@@ -117,6 +143,7 @@
       <div class="stat">
         <div class="v tnum">{num(g.weight, 1)}<small>/5</small></div>
         <div class="l">{weightLabel(g.weight) || 'Complexity'}</div>
+        {#if g.weightVotes}<div class="of">from {int(g.weightVotes)} votes</div>{/if}
       </div>
       {#if rank}
         <p class="rank">
@@ -142,7 +169,10 @@
                   <i class="pc-rec" style:width="{p.recommended}%"></i>
                   <i class="pc-not" style:width="{p.notRecommended}%"></i>
                 </div>
-                <div class="pct">{Math.round(p.best + p.recommended)}<small>%</small></div>
+                <div class="pct">
+                  {Math.round(p.best + p.recommended)}<small>%</small>
+                  {#if p.votes}<span class="votes tnum">{int(p.votes)}</span>{/if}
+                </div>
               </div>
             {/each}
           </div>
@@ -152,7 +182,7 @@
             <span><b class="sw not"></b>Not recommended</span>
             <!-- Two different questions, so say which is which: the ★ row is the most-voted
                  *best* count, while the % answers the broader "does it work at N at all". -->
-            <span class="note">% = best or recommended · ★ = most voted best</span>
+            <span class="note">% = best or recommended · grey = votes cast · ★ = most voted best</span>
           </div>
           {#if bestRow}
             <p class="verdict">Plays best with <b>{bestRow}</b>.</p>
@@ -174,7 +204,7 @@
         </section>
       {/if}
 
-      {#if g.categories.length || g.mechanics.length}
+      {#if g.categories.length || g.mechanics.length || g.families.length}
         <section class="card">
           {#if g.categories.length}
             <p class="sub">Categories</p>
@@ -183,6 +213,16 @@
           {#if g.mechanics.length}
             <p class="sub">Mechanics</p>
             <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+          {/if}
+          <!-- Families were in the warehouse payload and on this page nowhere at all, even
+               though Explore already filters on them — so a series was a dead end here. -->
+          {#if g.families.length}
+            <p class="sub">Series &amp; families</p>
+            <div class="chips">
+              {#each g.families as f (f)}
+                <a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>
+              {/each}
+            </div>
           {/if}
         </section>
       {/if}
@@ -216,6 +256,10 @@
       </section>
     </div>
   </div>
+
+  {#if freshness}
+    <p class="fresh">Warehouse data for this game last refreshed {freshness}.</p>
+  {/if}
 </Container>
 
 <style>
@@ -257,6 +301,40 @@
   .crumbs {
     font-size: 0.8rem;
     color: var(--muted-foreground);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+  .crumbs .bgg {
+    color: var(--primary);
+  }
+  .crumbs .bgg:hover {
+    text-decoration: underline;
+  }
+  .crumbs .sep {
+    opacity: 0.5;
+  }
+  .fresh {
+    margin: var(--space-lg) 0 0;
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    opacity: 0.75;
+  }
+  /* Sample size sits under its stat as its own line: inline, it wrapped mid-phrase and left
+     the separator stranded on the label. */
+  .stat .of {
+    font-size: 0.62rem;
+    color: var(--muted-foreground);
+    opacity: 0.75;
+    line-height: 1.2;
+    margin-top: 0.05rem;
+  }
+  .pc .votes {
+    display: block;
+    font-size: 0.62rem;
+    opacity: 0.65;
+    line-height: 1.1;
   }
   .crumbs a {
     color: var(--muted-foreground);
