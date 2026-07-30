@@ -6,9 +6,9 @@
    * pre-scoped Explore. Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
+  import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
+  import GameSearch from '$lib/catalog/GameSearch.svelte';
 
   // Kick the catalog warm in the background so Explore is ready when the user arrives there.
   onMount(() => {
@@ -26,31 +26,6 @@
     { label: 'Top rated, all-time', scope: { universe: 'rated' } },
     { label: 'Released 2024 onward', scope: { yearMin: 2024 } }
   ];
-
-  // Game name search → detail. Works once the catalog is warm (the onMount warm above).
-  type Hit = { game_id: number; name: string; year_published: number | null };
-  let q = $state('');
-  let hits = $state<Hit[]>([]);
-  let active = $state(false);
-  let token = 0;
-
-  $effect(() => {
-    const term = q.trim();
-    if (term.length < 2 || catalog.status !== 'ready') {
-      hits = [];
-      return;
-    }
-    const mine = ++token;
-    const esc = term.replace(/'/g, "''");
-    query<Hit>(
-      `SELECT game_id, name, year_published FROM catalog
-       WHERE name ILIKE '%${esc}%' ORDER BY geek_rating DESC NULLS LAST LIMIT 8`
-    )
-      .then((rows) => mine === token && (hits = rows))
-      .catch((e) => console.error('search failed', e));
-  });
-
-  const open = (id: number) => goto(`/games/${id}`);
 </script>
 
 <svelte:head><title>bgg-viewer</title></svelte:head>
@@ -72,30 +47,7 @@
     whole catalog in your browser — including the recommended and best player counts BGG
     can't sort by.</p>
 
-  <div class="search">
-    <div class="box">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
-      <input
-        type="text"
-        placeholder={catalog.status === 'ready' ? 'Jump to a game…' : 'Warming the catalog…'}
-        bind:value={q}
-        onfocus={() => (active = true)}
-        onblur={() => setTimeout(() => (active = false), 120)}
-      />
-    </div>
-    {#if active && hits.length}
-      <ul class="menu">
-        {#each hits as h}
-          <li>
-            <button onmousedown={() => open(h.game_id)}>
-              <span class="nm">{h.name}</span>
-              {#if h.year_published}<span class="yr tnum">{h.year_published}</span>{/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
+  <div class="search"><GameSearch /></div>
 
   <p class="try">Try a query</p>
   <div class="chips">
@@ -126,7 +78,6 @@
 
 <style>
   .land { max-width: 52rem; margin: 0 auto; padding: clamp(1rem, 3vw, 2.5rem) 0; }
-  .tnum { font-variant-numeric: tabular-nums; }
 
   .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
   .warming.ready { color: var(--foreground); }
@@ -139,15 +90,7 @@
   h1 em { font-style: normal; color: var(--primary); }
   .lede { font-size: 1.1rem; color: var(--muted-foreground); max-width: 40rem; margin: 0; }
 
-  .search { position: relative; margin: 1.6rem 0 .5rem; max-width: 34rem; }
-  .box { display: flex; align-items: center; gap: .6rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: .7rem .9rem; color: var(--muted-foreground); }
-  .box input { flex: 1; min-width: 0; border: none; background: none; color: var(--foreground); font: inherit; font-size: 1rem; }
-  .box input:focus { outline: none; }
-  .menu { position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: .25rem; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 24px oklch(0 0 0 / .14); max-height: 20rem; overflow: auto; }
-  .menu button { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; background: none; border: none; border-radius: 6px; padding: .45rem .5rem; font: inherit; color: var(--foreground); cursor: pointer; }
-  .menu button:hover { background: var(--muted); }
-  .menu .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
-  .menu .yr { color: var(--muted-foreground); font-size: 0.82rem; }
+  .search { margin: 1.6rem 0 .5rem; max-width: 34rem; }
 
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2.2rem; }

@@ -13,6 +13,7 @@
   let categories = $state<Facet[]>([]);
   let mechanics = $state<Facet[]>([]);
   let ready = $state(false);
+  let view = $state<'table' | 'summary'>('table');
 
   onMount(async () => {
     const params = new URLSearchParams(location.search);
@@ -82,24 +83,23 @@
           <b class="tnum">{total?.toLocaleString() ?? '…'}</b> games
           <span class="desc">· {descriptor}</span>
         </div>
+        <div class="lens">
+          <button class:on={view === 'table'} onclick={() => (view = 'table')}>▦ Table</button>
+          <button class:on={view === 'summary'} onclick={() => (view = 'summary')}>▤ Summary</button>
+        </div>
       </div>
 
       {#if where != null}
-        <!-- The scoped set: aggregate charts characterize its shape; the table lists the
-             games themselves. All recomputed in-browser as the rail scope changes. -->
-        <div class="stack">
-          <SetSummary {where} />
-
-          <section>
-            <h4 class="sect">Games <span class="sub">· the set, as rows</span></h4>
-            <Table {where} />
-          </section>
-
-          <section>
-            <h4 class="sect">What's in this set <span class="sub">· composition</span></h4>
+        {#if view === 'table'}
+          <!-- Find games: the list is the emphasis. -->
+          <Table {where} />
+        {:else}
+          <!-- Examine the set: distributions + composition. In-browser, live on scope. -->
+          <div class="stack">
+            <SetSummary {where} />
             <SetComposition {where} />
-          </section>
-        </div>
+          </div>
+        {/if}
       {/if}
     </div>
   </div>
@@ -116,7 +116,8 @@
   .scope-sum b { font-weight: 700; }
   .scope-sum .desc { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
+  .lens { display: flex; gap: .2rem; margin-left: auto; background: var(--muted); padding: .2rem; border-radius: 9px; }
+  .lens button { font-size: 0.82rem; padding: .25rem .7rem; border-radius: 7px; border: none; background: none; color: var(--muted-foreground); cursor: pointer; font: inherit; }
+  .lens button.on { background: var(--card); color: var(--foreground); font-weight: 550; box-shadow: 0 1px 2px oklch(0 0 0 / .06); }
   .stack { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
-  .sect { margin: 0 0 var(--space-sm); font-size: 0.82rem; font-weight: 650; }
-  .sect .sub { font-size: 0.7rem; color: var(--muted-foreground); font-weight: 400; }
 </style>

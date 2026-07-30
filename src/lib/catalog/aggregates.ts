@@ -12,6 +12,7 @@ export interface Summary {
 	upcoming: number; // in-scope games without a settled rating (users_rated < 30)
 	median_weight: number | null;
 	median_geek: number | null;
+	median_rating: number | null;
 	year_min: number | null;
 	year_max: number | null;
 }
@@ -56,6 +57,7 @@ export const summarySql = (where: string): string =>
 	   COUNT(*) FILTER (WHERE users_rated < 30)::INT AS upcoming,
 	   median(average_weight) FILTER (WHERE average_weight > 0) AS median_weight,
 	   median(geek_rating) FILTER (WHERE geek_rating > 0) AS median_geek,
+	   median(average_rating) FILTER (WHERE average_rating > 0) AS median_rating,
 	   min(year_published)::INT AS year_min,
 	   max(year_published)::INT AS year_max
 	 FROM catalog WHERE ${where}`;

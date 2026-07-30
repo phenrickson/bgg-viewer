@@ -145,7 +145,7 @@
   .pager button:disabled { opacity: .4; cursor: default; }
   .pager .pg { padding: 0 .4rem; color: var(--foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
-  .tblwrap { max-height: 40rem; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  .tblwrap { max-height: calc(100dvh - 12rem); overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
   table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
   thead th { text-align: left; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; z-index: 1; padding: 0; }
   thead th.num { text-align: right; }

@@ -37,7 +37,7 @@
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
 
-<div class="crumbs"><a href="/">Explore</a> ／ <b>{g.name}</b></div>
+<div class="crumbs"><a href="/">Home</a> ／ <a href="/games">Explore</a> ／ <b>{g.name}</b></div>
 
 <div class="split">
   <!-- identity -->

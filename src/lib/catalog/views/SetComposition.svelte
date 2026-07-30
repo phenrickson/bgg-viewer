@@ -71,6 +71,6 @@
   .panel header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
   .panel h4 { margin: 0; font-size: 0.82rem; font-weight: 650; }
   .panel .sub { font-size: 0.68rem; color: var(--muted-foreground); }
-  .body.chart { height: 17rem; }
+  .body.chart { height: 20rem; }
   .empty { color: var(--muted-foreground); font-size: 0.82rem; text-align: center; padding: var(--space-lg) 0; }
 </style>
