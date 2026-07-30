@@ -11,6 +11,7 @@ import { rowsToArrowIPC, type CatalogRow } from './serialize';
 const PROJECT = env.GCP_PROJECT_ID || 'bgg-data-warehouse';
 const FEATURES_TABLE = `${PROJECT}.analytics.games_features`;
 const BEST_PLAYER_COUNTS_TABLE = `${PROJECT}.analytics.best_player_counts`;
+const PREDICTIONS_TABLE = `${PROJECT}.predictions.bgg_predictions`;
 
 let _bq: BigQuery | null = null;
 function bq(): BigQuery {
@@ -19,7 +20,7 @@ function bq(): BigQuery {
 
 export async function fetchWorkingSet(client: BigQuery = bq()): Promise<CatalogRow[]> {
 	const [rows] = await client.query({
-		query: catalogQuerySql(FEATURES_TABLE, BEST_PLAYER_COUNTS_TABLE)
+		query: catalogQuerySql(FEATURES_TABLE, BEST_PLAYER_COUNTS_TABLE, PREDICTIONS_TABLE)
 	});
 	return rows as CatalogRow[];
 }

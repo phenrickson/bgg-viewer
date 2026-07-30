@@ -16,10 +16,40 @@ export const SCALAR_COLUMNS = {
 	max_players: 'int'
 } as const;
 
-export type ScalarKind = (typeof SCALAR_COLUMNS)[keyof typeof SCALAR_COLUMNS];
+/**
+ * Model output, carried in the artifact rather than fetched per game.
+ *
+ * The detail page already reads these from BigQuery on load, so putting them here is not
+ * about that page — it's about the working set. An upcoming game has no ratings, so every
+ * column Explore can currently sort or filter by is empty for exactly the games a visitor
+ * most wants ranked. These make the unrated half of the catalog queryable: "upcoming games
+ * the model likes", "most likely to actually land", sorted and filtered in the browser with
+ * no server hop, like everything else in Explore.
+ *
+ * Float32, not Float64. A predicted rating carries maybe three meaningful digits; storing
+ * fifteen doubles the width of the five widest columns we'd be adding for no recoverable
+ * information. `bgg_predictions` is year-filtered, so most rows are null — which costs a
+ * validity bit and compresses to almost nothing.
+ */
+export const PREDICTION_COLUMNS = {
+	predicted_hurdle_prob: 'float32',
+	predicted_geek_rating: 'float32',
+	predicted_rating: 'float32',
+	predicted_complexity: 'float32',
+	predicted_users_rated: 'int'
+} as const;
+
+export type PredictionName = keyof typeof PREDICTION_COLUMNS;
+export const PREDICTION_NAMES = Object.keys(PREDICTION_COLUMNS) as PredictionName[];
+
+/** Every scalar the Arrow schema carries, whichever table it came from. */
+export const ALL_SCALAR_COLUMNS = { ...SCALAR_COLUMNS, ...PREDICTION_COLUMNS } as const;
+
+export type ScalarKind = (typeof ALL_SCALAR_COLUMNS)[keyof typeof ALL_SCALAR_COLUMNS];
 export type ScalarName = keyof typeof SCALAR_COLUMNS;
 
 export const SCALAR_NAMES = Object.keys(SCALAR_COLUMNS) as ScalarName[];
+export const ALL_SCALAR_NAMES = [...SCALAR_NAMES, ...PREDICTION_NAMES] as string[];
 
 /** String-list facets — `list_contains()`-able in DuckDB. Sourced from games_features arrays. */
 export const LIST_COLUMNS = [
@@ -39,7 +69,7 @@ export const LIST_COLUMNS = [
 export const INT_LIST_COLUMNS = ['best_player_counts', 'recommended_player_counts'] as const;
 
 export const ALL_COLUMN_NAMES = [
-	...SCALAR_NAMES,
+	...ALL_SCALAR_NAMES,
 	...LIST_COLUMNS,
 	...INT_LIST_COLUMNS
 ] as string[];
@@ -49,8 +79,12 @@ export const ALL_COLUMN_NAMES = [
  * year is computed in SQL (`CURRENT_DATE()`) so it's always right without depending on
  * the server's clock.
  */
+/*
+ * Alias-qualified: `bgg_predictions` carries its own `year_published`, so an unqualified
+ * predicate became ambiguous the moment that table joined in.
+ */
 export const WORKING_SET_WHERE =
-	'users_rated >= 30 OR year_published >= EXTRACT(YEAR FROM CURRENT_DATE())';
+	'f.users_rated >= 30 OR f.year_published >= EXTRACT(YEAR FROM CURRENT_DATE())';
 
 /** Comma-string (e.g. "2, 4") → `ARRAY<INT64>`; NULL/blank → `[]`. */
 function playerCountArray(col: string): string {
@@ -67,13 +101,21 @@ function playerCountArray(col: string): string {
  * `ORDER BY game_id` makes row order deterministic, so identical data serializes to
  * identical bytes — keeping the content-hash version (ETag) stable across rebuilds.
  */
-export function catalogQuerySql(featuresTable: string, bestPlayerCountsTable: string): string {
+export function catalogQuerySql(
+	featuresTable: string,
+	bestPlayerCountsTable: string,
+	predictionsTable: string
+): string {
 	const cols = [...SCALAR_NAMES, ...LIST_COLUMNS].map((c) => `f.${c}`).join(', ');
-	return `SELECT ${cols},
+	// LEFT JOIN: `bgg_predictions` is year-filtered and holds one row per scored game, so a
+	// missing row is the normal case and must not drop the game from the catalog.
+	const preds = PREDICTION_NAMES.map((c) => `p.${c}`).join(', ');
+	return `SELECT ${cols}, ${preds},
 		${playerCountArray('best_player_counts')},
 		${playerCountArray('recommended_player_counts')}
 	FROM \`${featuresTable}\` f
 	LEFT JOIN \`${bestPlayerCountsTable}\` bpc USING (game_id)
+	LEFT JOIN \`${predictionsTable}\` p USING (game_id)
 	WHERE ${WORKING_SET_WHERE}
 	ORDER BY game_id`;
 }

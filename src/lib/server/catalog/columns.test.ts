@@ -8,19 +8,31 @@ import {
 } from './columns';
 
 describe('catalogQuerySql', () => {
-	const sql = catalogQuerySql('proj.analytics.games_features', 'proj.analytics.best_player_counts');
+	const sql = catalogQuerySql(
+		'proj.analytics.games_features',
+		'proj.analytics.best_player_counts',
+		'proj.predictions.bgg_predictions'
+	);
 
 	it('selects every catalog column and nothing wider', () => {
 		for (const name of ALL_COLUMN_NAMES) expect(sql).toContain(name);
 		expect(sql).not.toContain('SELECT *');
 		expect(sql).not.toContain('description'); // heavy field stays out
-		expect(sql).not.toContain('complexity'); // dropped (duplicate of average_weight)
+		// The features table's own `complexity` stays dropped (duplicate of average_weight).
+		// Qualified, because `predicted_complexity` is a different column and belongs here.
+		expect(sql).not.toContain('f.complexity');
 	});
 
 	it('joins best_player_counts for the player-count arrays', () => {
 		expect(sql).toContain('proj.analytics.best_player_counts');
 		expect(sql).toContain('SPLIT(bpc.best_player_counts');
 		expect(sql).toContain('SPLIT(bpc.recommended_player_counts');
+	});
+
+	it('left-joins predictions so unscored games are kept', () => {
+		expect(sql).toContain('LEFT JOIN `proj.predictions.bgg_predictions` p USING (game_id)');
+		expect(sql).toContain('p.predicted_hurdle_prob');
+		expect(sql).toContain('p.predicted_geek_rating');
 	});
 
 	it('filters to the working set (rated OR current-year-onward)', () => {
