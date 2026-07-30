@@ -774,10 +774,18 @@
     font-weight: 400;
   }
 
+  /* Most games have four or five rows and never scroll. A few support up to "30+", which is
+     31 bars — enough to push the description, the tags and the whole right column off the
+     screen. Cap it at roughly a dozen rows and let the rest scroll in place. */
   .pcs {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    /* Room for the scrollbar so it never sits on top of the percentages. */
+    padding-right: 0.15rem;
+    scrollbar-width: thin;
   }
   .pc {
     display: grid;

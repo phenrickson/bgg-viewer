@@ -86,19 +86,30 @@ function toPredictions(raw: Record<string, unknown> | null) {
 
 function toViewModel(doc: GameDocument) {
 	const f = doc.features as unknown as Features;
-	const pcts = (f.player_counts ?? []).map((p) => {
-		const best = Number(p.best_percentage) || 0;
-		const rec = Number(p.recommended_percentage) || 0;
-		return {
-			count: String(p.player_count),
-			best,
-			recommended: rec,
-			notRecommended: Math.max(0, 100 - best - rec),
-			// A percentage is only as good as its sample: "4+" often rests on a couple of dozen
-			// votes while "2" rests on thousands, and the bars alone can't tell you which.
-			votes: Number(p.total_votes) || 0
-		};
-	});
+	// `player_count` is a string, and the warehouse orders by it as one — so a game with more
+	// than nine supported counts listed them 1, 10, 11 … 19, 2, 20 … 3, 30, 30+, 4, 5, 6. Sort
+	// numerically here, with the open-ended "30+" bucket sitting just past its own number.
+	const rank = (c: string) => {
+		const n = parseInt(c, 10);
+		if (!Number.isFinite(n)) return Number.MAX_SAFE_INTEGER;
+		return c.includes('+') ? n + 0.5 : n;
+	};
+	const pcts = (f.player_counts ?? [])
+		.slice()
+		.sort((a, b) => rank(String(a.player_count)) - rank(String(b.player_count)))
+		.map((p) => {
+			const best = Number(p.best_percentage) || 0;
+			const rec = Number(p.recommended_percentage) || 0;
+			return {
+				count: String(p.player_count),
+				best,
+				recommended: rec,
+				notRecommended: Math.max(0, 100 - best - rec),
+				// A percentage is only as good as its sample: "4+" often rests on a couple of dozen
+				// votes while "2" rests on thousands, and the bars alone can't tell you which.
+				votes: Number(p.total_votes) || 0
+			};
+		});
 	const bestAt = pcts.reduce<(typeof pcts)[number] | null>(
 		(top, p) => (!top || p.best > top.best ? p : top),
 		null
