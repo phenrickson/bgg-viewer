@@ -97,6 +97,13 @@ describe('activeFilters', () => {
 		expect(chip.patch).toEqual({ ratingMin: null, ratingMax: null });
 	});
 
+	it('labels a brushed bound exactly, not rounded to one decimal', () => {
+		// The strip brushes in 0.25 steps; "3.3–4.8" would contradict the applied filter.
+		const [chip] = activeFilters({ ...DEFAULT_SCOPE, weightMin: 3.25, weightMax: 4.75 });
+		expect(chip.label).toBe('3.25–4.75');
+		expect(activeFilters({ ...DEFAULT_SCOPE, weightMin: 3 })[0].label).toBe('3+');
+	});
+
 	it('gives each list value its own chip, removing only that value', () => {
 		const chips = activeFilters({ ...DEFAULT_SCOPE, categories: ['Economic', 'Dice'] });
 		expect(chips.map((c) => c.label)).toEqual(['Economic', 'Dice']);

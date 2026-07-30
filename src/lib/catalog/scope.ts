@@ -141,14 +141,16 @@ export function activeFilters(scope: Scope): FilterChip[] {
 
 	if (scope.q) chips.push({ id: 'q', kind: 'name', label: `“${scope.q}”`, patch: { q: '' } });
 	range('year', 'year', scope.yearMin, scope.yearMax, 'yearMin', 'yearMax');
-	const one = (n: number) => n.toFixed(1);
-	range('weight', 'complexity', scope.weightMin, scope.weightMax, 'weightMin', 'weightMax', one);
-	range('rating', 'rating', scope.ratingMin, scope.ratingMax, 'ratingMin', 'ratingMax', one);
+	// Show the bound that is actually applied. Rounding 3.25 to "3.3" would have the chip
+	// contradict the filter — and the shape strip brushes in quarter steps.
+	const exact = (n: number) => String(Math.round(n * 100) / 100);
+	range('weight', 'complexity', scope.weightMin, scope.weightMax, 'weightMin', 'weightMax', exact);
+	range('rating', 'rating', scope.ratingMin, scope.ratingMax, 'ratingMin', 'ratingMax', exact);
 	if (scope.geekMin != null)
 		chips.push({
 			id: 'geek',
 			kind: 'geek',
-			label: `${scope.geekMin.toFixed(1)}+`,
+			label: `${exact(scope.geekMin)}+`,
 			patch: { geekMin: null }
 		});
 	if (scope.players != null)

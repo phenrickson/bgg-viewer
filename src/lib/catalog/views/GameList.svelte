@@ -475,7 +475,9 @@
     font-size: 0.72rem;
     line-height: 1.3;
     border-radius: 3px;
-    color: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+    /* "Not recommended" still has to be *perceivable*, not just dimmer than the rest —
+       especially on a light background, where 45% all but disappeared. */
+    color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
   }
   .pip.rec {
     color: var(--foreground);

@@ -93,7 +93,7 @@
     border-radius: 2px 2px 0 0;
   }
   .back {
-    background: var(--border);
+    background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
   }
   .fore {
     background: var(--c);

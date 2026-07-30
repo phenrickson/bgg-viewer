@@ -217,12 +217,16 @@
   svg.dragging {
     cursor: ew-resize;
   }
+  /* Tinted from the text colour, not `--border`: the border token is near-invisible on a
+     light background, and the silhouette has to be readable in both themes. */
   .back rect {
-    fill: var(--border);
+    fill: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
   }
   /* `.fore rect` takes its fill from the inline series colour. */
+  /* Kept faint: once a brush is committed, the *coloured* bars already mark the window —
+     the shade and its edges only have to pin the exact bounds, including empty edge bins. */
   .shade {
-    fill: color-mix(in oklch, var(--primary) 12%, transparent);
+    fill: color-mix(in oklch, var(--primary) 8%, transparent);
   }
   .edges line {
     stroke: var(--primary);
