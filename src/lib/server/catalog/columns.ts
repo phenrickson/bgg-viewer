@@ -17,21 +17,19 @@ export const SCALAR_COLUMNS = {
 } as const;
 
 /**
- * Model output, carried in the artifact rather than fetched per game.
+ * Model output. Every game in this catalog carries its prediction — including games the
+ * model was fitted on, which are not forecasts and must be readable as such. That
+ * distinction belongs in a status flag on the prediction row, emitted by the scorer (which
+ * knows which model version produced it); it is NOT yet in `bgg_predictions`, so the column
+ * is absent here until the pipeline emits it. See docs/predictions-plan.md.
  *
- * The detail page already reads these from BigQuery per game, so carrying them here is not
- * about that page. They exist for the Predictions view — a separate workspace built around
- * the model's forecasts, not extra columns bolted onto Explore. Explore's question is "find
- * games matching criteria" and it asks it of games people have actually played; predictions
- * are a different question about a different population, and mixing them would blur both.
- *
- * They ride in this artifact because the browser already holds it: the Predictions view then
- * costs no second fetch and no server hop, exactly like Explore.
+ * This is separate from the Predictions view, which explores UPCOMING games — a year-scoped
+ * population, not a ratings-scoped one — and gets its own artifact loaded on demand so a
+ * session that never opens it never pays for it.
  *
  * Float32, not Float64. A predicted rating carries maybe three meaningful digits; storing
- * fifteen doubles the width of the five widest columns we'd be adding for no recoverable
- * information. `bgg_predictions` is year-filtered, so most rows are null — which costs a
- * validity bit and compresses to almost nothing.
+ * fifteen doubles the width of the five widest columns for no recoverable information.
+ * Measured cost of carrying all five here: +128 KB gzipped, +2.9%.
  */
 export const PREDICTION_COLUMNS = {
 	predicted_hurdle_prob: 'float32',
