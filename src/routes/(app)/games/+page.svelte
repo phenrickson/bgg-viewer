@@ -192,11 +192,20 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Below the two-column threshold the workspace becomes an ordinary scrolling document. */
+  /* Below the two-column threshold the workspace becomes an ordinary scrolling document —
+     but the rail keeps its own bounded scroll there, or a stacked rail would push the games
+     a screen and a half down the page. (A proper narrow layout wants the filters behind a
+     drawer with the results first; this keeps them both in reach until that exists.) */
   @media (max-width: 900px) {
     .workspace {
       grid-template-columns: 1fr;
       height: auto;
+    }
+    .workspace :global(.rail) {
+      max-height: 20rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-md);
     }
   }
 </style>

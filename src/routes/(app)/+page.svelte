@@ -56,24 +56,20 @@
     {/each}
   </div>
 
-  <div class="entries">
-    <a class="entry" href="/games">
-      <b>Explore the catalog <span class="tag ready">ready</span></b>
-      <p>Filter to a set, then see it as charts and a table.</p>
-    </a>
-    <span class="entry dim">
-      <b>Upcoming predictions <span class="tag soon">soon</span></b>
-      <p>What the model expects for games not yet rated.</p>
-    </span>
-    <span class="entry dim">
-      <b>Similarity map <span class="tag soon">soon</span></b>
-      <p>Find games near one you love, by embedding distance.</p>
-    </span>
-    <span class="entry dim">
-      <b>Your collection <span class="tag soon">soon</span></b>
-      <p>Bring your own shelf into the same lenses.</p>
-    </span>
-  </div>
+  <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
+       so three quarters of the landing page advertised things that don't work yet; as a row
+       of muted pills they still say where this is going without competing for the click. -->
+  <a class="door" href="/games">
+    <span class="door-t">Explore the catalog <span class="arw">→</span></span>
+    <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
+  </a>
+
+  <p class="soon-lead">Coming next</p>
+  <ul class="soon">
+    <li><b>Upcoming predictions</b><span>What the model expects for games not yet rated.</span></li>
+    <li><b>Similarity map</b><span>Find games near one you love, by embedding distance.</span></li>
+    <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
+  </ul>
 </div>
 
 <style>
@@ -98,13 +94,18 @@
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
 
-  .entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-md); }
-  .entry { text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: .3rem; }
-  .entry:not(.dim):hover { border-color: var(--primary); }
-  .entry.dim { opacity: .6; }
-  .entry b { font-size: 0.95rem; font-weight: 650; display: flex; align-items: center; gap: .4rem; }
-  .entry p { margin: 0; font-size: 0.82rem; color: var(--muted-foreground); }
-  .tag { font-size: 0.62rem; text-transform: uppercase; letter-spacing: .05em; padding: .05rem .35rem; border-radius: 5px; font-weight: 600; }
-  .tag.ready { background: color-mix(in oklch, var(--color-positive, oklch(0.62 0.14 150)) 20%, transparent); color: var(--color-positive, oklch(0.62 0.14 150)); }
-  .tag.soon { background: var(--muted); color: var(--muted-foreground); }
+  .door { display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
+    background: color-mix(in oklch, var(--primary) 10%, var(--card));
+    border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+    border-radius: var(--radius); padding: var(--space-lg); }
+  .door:hover { background: color-mix(in oklch, var(--primary) 16%, var(--card)); border-color: var(--primary); }
+  .door-t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
+  .door-t .arw { opacity: .7; }
+  .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
+
+  .soon-lead { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.8rem 0 .55rem; }
+  .soon { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-md); }
+  .soon li { display: flex; flex-direction: column; gap: .15rem; border-top: 1px solid var(--border); padding-top: .5rem; }
+  .soon b { font-size: 0.85rem; font-weight: 600; color: var(--muted-foreground); }
+  .soon span { font-size: 0.78rem; color: var(--muted-foreground); opacity: .75; line-height: 1.35; }
 </style>
