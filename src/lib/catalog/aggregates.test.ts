@@ -5,7 +5,6 @@ import {
 	gamesPerYearSql,
 	scatterSql,
 	popularitySql,
-	topFacetSql,
 	facetSearchSql,
 	RATING_BIN,
 	SCATTER_LIMIT,
@@ -23,7 +22,7 @@ describe('aggregate SQL builders', () => {
 			gamesPerYearSql(W),
 			scatterSql(W),
 			popularitySql(W),
-			topFacetSql(W, 'categories')
+			facetSearchSql(W, 'categories')
 		]) {
 			expect(sql).toContain(W);
 			expect(sql).toContain('FROM catalog');
@@ -82,7 +81,7 @@ describe('aggregate SQL builders', () => {
 	});
 
 	it('unnests the facet column inside a subquery before grouping', () => {
-		const sql = topFacetSql(W, 'mechanics', 8);
+		const sql = facetSearchSql(W, 'mechanics', '', 8);
 		expect(sql).toMatch(/FROM \(SELECT UNNEST\(mechanics\)/);
 		expect(sql).toContain('LIMIT 8');
 		// the outer GROUP BY must come after the subquery, not around a bare UNNEST

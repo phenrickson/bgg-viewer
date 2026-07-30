@@ -132,15 +132,6 @@ export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
 	 LIMIT ${limit}`;
 
 /**
- * Top facet values within scope. `col` is a fixed identifier (categories/mechanics/
- * families), never user input — UNNEST must live in a subquery before GROUP BY.
- */
-export const topFacetSql = (where: string, col: 'categories' | 'mechanics' | 'families', limit = 12): string =>
-	`SELECT c, COUNT(*)::INT AS n
-	 FROM (SELECT UNNEST(${col}) AS c FROM catalog WHERE ${where})
-	 GROUP BY c ORDER BY n DESC LIMIT ${limit}`;
-
-/**
  * Facet values *within the current scope*, optionally narrowed by a typed term — what the
  * rail's category/mechanic lists show. Scope-aware counts mean the lists answer "what else
  * is in this set" as you filter (and make a separate "top categories" chart redundant).
