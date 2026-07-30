@@ -82,7 +82,11 @@
   const val = (x: number) => (dom ? dom.lo + ((x - PAD) / (plotW || 1)) * span : 0);
   const barW = $derived(Math.max(1, (binWidth / span) * plotW - 0.5));
 
-  const peak = (s: HistBin[]) => Math.max(1, ...s.map((b) => b.n));
+  const peak = (s: HistBin[]) => {
+    let m = 1;
+    for (const b of s) if (b.n > m) m = b.n;
+    return m;
+  };
   const backPeak = $derived(peak(backdrop));
   const binPeak = $derived(peak(bins));
   /** A non-empty bin always draws at least 1px so a thin tail stays visible. */
@@ -108,7 +112,11 @@
     if (!dom) return;
     const lo = clamp(snap(Math.min(a, b), 'lo'), dom.lo, dom.hi);
     const hi = clamp(snap(Math.max(a, b), 'hi'), dom.lo, dom.hi);
-    if (hi - lo < binWidth - EPS) return onbrush(null, null); // a tap, not a range → clear
+    // A click with no drag does nothing. Two tempting alternatives are both worse: clearing
+    // would let a stray click while reading a tooltip throw away the range you just set, and
+    // selecting the single bin under the cursor is almost never what anyone wants from a
+    // quarter-point bucket. Setting is a drag, clearing is the ✕ — neither happens by accident.
+    if (hi - lo < binWidth - EPS) return;
     const openLeft = lo <= dom.lo + EPS;
     const openRight = hi >= dom.hi - EPS;
     onbrush(
@@ -117,23 +125,32 @@
     );
   }
 
+  /**
+   * Pointer x within the plot. Measured off the `<svg>`'s own box rather than `offsetX`:
+   * `offsetX` is relative to the *event target*, which is whichever bar `<rect>` the pointer
+   * happens to be over, so it reads near-zero on every bar. (The drag is immune — pointer
+   * capture retargets its events to the svg — which is exactly why the bug hides in hover.)
+   */
+  const localX = (e: PointerEvent) =>
+    e.clientX - (e.currentTarget as SVGElement).getBoundingClientRect().left;
+
   function onPointerDown(e: PointerEvent) {
     if (!dom || e.button !== 0) return;
     (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
-    const v = val(e.offsetX);
+    const v = val(localX(e));
     drag = { a: v, b: v };
     hover = null;
   }
 
   function onPointerMove(e: PointerEvent) {
     if (!dom) return;
+    const x = localX(e);
     if (drag) {
-      drag = { ...drag, b: val(e.offsetX) };
+      drag = { ...drag, b: val(x) };
       return;
     }
-    const v = val(e.offsetX);
-    hoverX = e.offsetX;
-    const lo = snap(v, 'lo');
+    hoverX = x;
+    const lo = snap(val(x), 'lo');
     hover = bins.find((b) => Math.abs(b.v - lo) < EPS) ?? { v: lo, n: 0 };
   }
 
@@ -172,6 +189,7 @@
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
+    onpointercancel={() => (drag = null)}
     onpointerleave={() => (hover = null)}
   >
     {#if dom && plotW > 0}
@@ -213,6 +231,12 @@
   svg {
     display: block;
     overflow: visible;
+  }
+  /* All interaction belongs to the <svg>; the marks must never become the event target. */
+  svg g,
+  svg rect,
+  svg line {
+    pointer-events: none;
   }
   svg.dragging {
     cursor: ew-resize;

@@ -43,12 +43,14 @@
 <div class="mc" style:--h="{height}px" style:--c={color}>
   {#each domain as v (v)}
     {@const n = at(bins, v)}
+    <!-- Disabled when empty: picking a bucket with no games could only yield no games. -->
     <button
       class="col"
       class:on={selected === v}
       class:empty={n === 0}
       aria-pressed={selected === v}
       title={title(v, n)}
+      disabled={n === 0 && selected !== v}
       onclick={() => onpick(selected === v ? null : v)}
     >
       <span class="plot">
