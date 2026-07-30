@@ -230,6 +230,7 @@
 
 <style>
   .strip {
+    flex: none; /* never squeezed when the games list is taller than the workspace */
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);

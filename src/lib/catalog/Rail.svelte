@@ -156,6 +156,11 @@
     display: flex;
     flex-direction: column;
   }
+  /* Positioned so the hidden label anchors here rather than escaping to the page — see the
+     note in GameList.svelte, where a hundred of these stretched the document's scroll height. */
+  .find {
+    position: relative;
+  }
   .vh {
     position: absolute;
     width: 1px;

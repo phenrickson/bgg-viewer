@@ -237,7 +237,10 @@
 </div>
 
 <style>
+  /* `flex: none` on everything above the list, so shrinking the workspace squeezes the rows
+     rather than crushing the count, the pager or the charts. */
   .bar {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -285,11 +288,15 @@
     color: var(--foreground);
   }
 
+  /* Grows to its rows, then stops at the space available — `flex: 1` instead would stretch a
+     five-result panel to the full viewport, leaving a screen of empty bordered card that
+     reads as "something failed to load". `0 1 auto` sizes to content but still shrinks (and
+     hands the overflow to `.rows`) once the list is longer than the workspace. */
   .listwrap {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    flex: 1;
+    flex: 0 1 auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);
@@ -460,6 +467,15 @@
     display: flex;
     gap: 0.1rem;
     font-variant-numeric: tabular-nums;
+  }
+  /* `position: relative` is load-bearing, not decoration: without a positioned ancestor the
+     absolutely-positioned `.vh` below is laid out against the initial containing block, at
+     its *static* position — so the hidden text in row 100 sits ~4,400px down the document and
+     is not clipped by the list's own scroll container. A hundred invisible 1px spans then
+     stretch `documentElement.scrollHeight` to ~4,700px against a 1,000px viewport, and the
+     page gains thousands of pixels of empty scroll below the app. */
+  .c-best {
+    position: relative;
   }
   .vh {
     position: absolute;
