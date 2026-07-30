@@ -115,16 +115,63 @@
   function topPct(pctBelow: number | null | undefined): string | null {
     if (pctBelow == null) return null;
     const top = Math.max(0, 100 - pctBelow);
-    if (top < 1) return `top ${top < 0.1 ? '0.1' : top.toFixed(1)}%`;
-    return `top ${Math.round(top)}%`;
+    // Decide the branch on the *rounded* value: 0.95 rendered as "top 1.0%" alongside a
+    // neighbouring "top 1%" looked like two different measurements of the same thing.
+    const tenth = Math.round(top * 10) / 10;
+    if (tenth >= 1) return `top ${Math.max(1, Math.round(top))}%`;
+    return `top ${tenth < 0.1 ? '0.1' : tenth.toFixed(1)}%`;
   }
-  /** Complexity has no better end, so it gets a neutral phrasing rather than a ranking one. */
-  const heavierThan = $derived(
-    standing?.weight_pct == null ? null : `heavier than ${Math.round(standing.weight_pct)}%`
-  );
+  /**
+   * Complexity has no better end, so it gets a neutral phrasing rather than a ranking one.
+   * Rounded, 99.7 became "heavier than 100%" — a claim the query can't make, since the game
+   * sits in the denominator and never in the numerator. Above 99 it truncates to a tenth,
+   * which can understate but never overclaim.
+   */
+  const heavierThan = $derived.by(() => {
+    const p = standing?.weight_pct;
+    if (p == null) return null;
+    const shown = p >= 99 ? Math.min(99.9, Math.floor(p * 10) / 10) : Math.round(p);
+    return `heavier than ${shown}%`;
+  });
 
   /** The community's pick, so the chart can mark its own answer. */
   const bestRow = $derived(g.bestAt);
+
+  /**
+   * "Best at 2" was the whole answer this page gave, and it's the smaller half of the
+   * question. A game that is best at 2 but *also works* at 1 and 3 is a different purchase
+   * from one that is best at 2 and unplayable otherwise — and the bars said so, faintly,
+   * while the top line didn't say it at all.
+   *
+   * BGG classifies each count by which of its three vote shares wins, so that's the rule
+   * here too: plurality, ties resolving toward the more favourable verdict.
+   */
+  type PC = (typeof g.playerCounts)[number];
+  function verdictOf(p: PC): 'best' | 'rec' | 'not' {
+    if (!p.votes) return 'not';
+    if (p.best >= p.recommended && p.best >= p.notRecommended) return 'best';
+    if (p.recommended >= p.notRecommended) return 'rec';
+    return 'not';
+  }
+  /** "1, 3" but "1–4" — a run of three or more reads worse spelled out than bridged. */
+  function compact(counts: string[]): string {
+    const out: string[] = [];
+    for (let i = 0; i < counts.length; ) {
+      let j = i;
+      const plain = (s: string) => !s.includes('+') && Number.isFinite(Number(s));
+      while (j + 1 < counts.length && plain(counts[j]) && plain(counts[j + 1]) &&
+             Number(counts[j + 1]) === Number(counts[j]) + 1) j++;
+      out.push(j > i + 1 ? `${counts[i]}–${counts[j]}` : counts.slice(i, j + 1).join(', '));
+      i = j + 1;
+    }
+    return out.join(', ');
+  }
+  const verdicts = $derived(new Map(g.playerCounts.map((p) => [p.count, verdictOf(p)])));
+  const bestCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'best').map((p) => p.count));
+  const recCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'rec').map((p) => p.count));
+  /** The top line leads with the ★ row so the fact and the chart's mark can't disagree. */
+  const bestLabel = $derived(bestCounts.length ? compact(bestCounts) : bestRow);
+  const recLabel = $derived(recCounts.length ? compact(recCounts) : null);
 
   /**
    * How stale this is. Ratings and weights move, and a page that shows four decimal-place
@@ -182,7 +229,8 @@
           <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
           <div><span>Play time</span><b>{range(g.minTime, g.maxTime, ' min')}</b></div>
           {#if g.minAge}<div><span>Age</span><b>{g.minAge}+</b></div>{/if}
-          {#if bestRow}<div><span>Best at</span><b class="hl">{bestRow}</b></div>{/if}
+          {#if bestLabel}<div><span>Best at</span><b class="hl">{bestLabel}</b></div>{/if}
+          {#if recLabel}<div><span>Recommended at</span><b>{recLabel}</b></div>{/if}
         </div>
       </div>
     </div>
@@ -212,12 +260,20 @@
         {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
       </div>
       {#if standing}
-        <p class="rank">
-          Ranked <b class="tnum">#{standing.geek_pos.toLocaleString()}</b> of
-          <span class="tnum">{standing.geek_n.toLocaleString()}</span> rated games{#if g.year && standing.year_n > 1}, and
-            <b class="tnum">#{standing.year_pos.toLocaleString()}</b> of the
-            <span class="tnum">{standing.year_n.toLocaleString()}</span> released in {g.year}{/if}.
-        </p>
+        <!-- Two ranks, two lines. As one sentence the second half read as a subordinate
+             clause of the first, when it's the more useful of the two for anything recent. -->
+        <div class="ranks">
+          <p>
+            <b class="tnum">#{standing.geek_pos.toLocaleString()}</b>
+            <span>of <span class="tnum">{standing.geek_n.toLocaleString()}</span> rated games</span>
+          </p>
+          {#if g.year && standing.year_n > 1}
+            <p>
+              <b class="tnum">#{standing.year_pos.toLocaleString()}</b>
+              <span>of <span class="tnum">{standing.year_n.toLocaleString()}</span> released in {g.year}</span>
+            </p>
+          {/if}
+        </div>
       {/if}
     </div>
   </section>
@@ -252,8 +308,15 @@
                  *best* count, while the % answers the broader "does it work at N at all". -->
             <span class="note">% = best or recommended · grey = votes cast · ★ = most voted best</span>
           </div>
-          {#if bestRow}
-            <p class="verdict">Plays best with <b>{bestRow}</b>.</p>
+          {#if bestLabel || recLabel}
+            <dl class="verdict">
+              {#if bestLabel}
+                <div><dt><b class="sw best"></b>Plays best with</dt><dd>{bestLabel}</dd></div>
+              {/if}
+              {#if recLabel}
+                <div><dt><b class="sw rec"></b>Recommended with</dt><dd>{recLabel}</dd></div>
+              {/if}
+            </dl>
           {/if}
         {:else}
           <div class="empty">No player-count votes for this game.</div>
@@ -390,19 +453,23 @@
     opacity: 0.75;
   }
   /* Sample size sits under its stat as its own line: inline, it wrapped mid-phrase and left
-     the separator stranded on the label. */
+     the separator stranded on the label.
+
+     Sized to be *read*, not merely present. These were 0.62rem — small enough that the
+     percentile, which is the only thing making the number above it mean anything, arrived as
+     visual noise. There is no space pressure in this column; the whole point of the block is
+     the comparison, so the comparison gets legible type. */
   .stat .of {
-    font-size: 0.62rem;
+    font-size: 0.78rem;
     color: var(--muted-foreground);
-    opacity: 0.75;
-    line-height: 1.2;
-    margin-top: 0.05rem;
+    line-height: 1.3;
+    margin-top: 0.15rem;
   }
   .pc .votes {
     display: block;
-    font-size: 0.62rem;
-    opacity: 0.65;
-    line-height: 1.1;
+    font-size: 0.7rem;
+    opacity: 0.75;
+    line-height: 1.2;
   }
   .crumbs a {
     color: var(--muted-foreground);
@@ -526,20 +593,33 @@
     color: var(--muted-foreground);
   }
   .stat .l {
-    font-size: 0.66rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted-foreground);
     margin-top: 0.1rem;
   }
-  .rank {
+  .ranks {
     grid-column: 1 / -1;
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--muted-foreground);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-md);
   }
-  .rank b {
+  .ranks p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .ranks b {
     color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 750;
+    letter-spacing: -0.01em;
   }
 
   .cols {
@@ -666,13 +746,46 @@
     margin-left: auto;
     opacity: 0.8;
   }
+  /* The chart's conclusion, stated. Two rows so "best" and "merely works" stay distinct
+     claims, each carrying the same swatch as its bar segment — the colour is a back-
+     reference, never the signal on its own. */
   .verdict {
+    margin: 0.9rem 0 0;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .verdict div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .verdict dt {
     font-size: 0.86rem;
     color: var(--muted-foreground);
-    margin: 0.7rem 0 0;
   }
-  .verdict b {
+  .verdict dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
     color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .verdict .sw {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 3px;
+    vertical-align: -1px;
+    margin-right: 0.35rem;
+  }
+  .verdict .sw.best {
+    background: var(--color-positive);
+  }
+  .verdict .sw.rec {
+    background: var(--chart-2);
   }
 
   .desc {
