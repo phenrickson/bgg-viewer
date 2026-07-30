@@ -1,3 +1,24 @@
+/**
+ * Content measure — how wide a region is allowed to get before extra width stops helping.
+ *
+ * Lives here, not in a route, because it is a property of the *kind* of surface rather than of
+ * any one page: a reading column, a record page and a two-pane workspace each have a width past
+ * which they get worse, and those three answers should be stated once. A `max-width` in a
+ * page's `<style>` is the same decision made privately, with a number nobody else can find.
+ */
+export const MEASURE = {
+	/** A reading column — prose, hero copy. Long lines are hard to track back from. */
+	prose: '52rem',
+	/** A record page: headline, stats, supporting panels. */
+	content: '80rem',
+	/** A two-pane workspace — a filter rail beside a dense list. */
+	wide: '112rem',
+	/** Opt out: canvases, maps, anything whose job is to be as big as the screen. */
+	full: 'none'
+} as const;
+export type Measure = keyof typeof MEASURE;
+export const measure = (m: Measure = 'content') => MEASURE[m] ?? MEASURE.content;
+
 export const COL_MIN = { sm: '9.375rem', md: '14.375rem', lg: '21.25rem', xl: '27.5rem' } as const;
 export type ColMin = keyof typeof COL_MIN;
 export const GAP = { sm: 'var(--space-sm)', md: 'var(--space-md)', lg: 'var(--space-lg)' } as const;

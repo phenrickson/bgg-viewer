@@ -25,6 +25,7 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
+  import { Container } from '$lib/components/ui/layout';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let ready = $state(false);
@@ -91,29 +92,31 @@
     <p>Loading the catalog into your browser — this happens once.</p>
   </div>
 {:else if where != null && baseWhere != null}
-  <div class="workspace">
-    <Rail bind:scope {where} />
+  <Container size="wide" fill>
+    <div class="workspace">
+      <Rail bind:scope {where} />
 
-    <div class="canvas">
-      <div class="chead">
-        <p class="count">
-          <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
-          <span>{total === 1 ? 'game' : 'games'}</span>
-          <span class="dim">
-            {#if narrowed}
-              of <span class="tnum">{universeTotal?.toLocaleString()}</span>
-            {:else}
-              in {universeLabel}
-            {/if}
-          </span>
-        </p>
-        <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+      <div class="canvas">
+        <div class="chead">
+          <p class="count">
+            <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
+            <span>{total === 1 ? 'game' : 'games'}</span>
+            <span class="dim">
+              {#if narrowed}
+                of <span class="tnum">{universeTotal?.toLocaleString()}</span>
+              {:else}
+                in {universeLabel}
+              {/if}
+            </span>
+          </p>
+          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+        </div>
+
+        <ShapeStrip {where} {baseWhere} bind:scope />
+        <GameList {where} />
       </div>
-
-      <ShapeStrip {where} {baseWhere} bind:scope />
-      <GameList {where} />
     </div>
-  </div>
+  </Container>
 {/if}
 
 <style>
@@ -151,6 +154,7 @@
 
   /* Two independently scrolling columns, each bounded by the shell's height — so a long
      facet list never pushes the games off the screen. */
+  /* Width and fill-height belong to <Container size="wide" fill> — see layout/tokens.ts. */
   .workspace {
     display: grid;
     grid-template-columns: 16rem minmax(0, 1fr);

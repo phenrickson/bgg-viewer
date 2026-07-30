@@ -15,6 +15,7 @@
   import { onMount } from 'svelte';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import { decodeEntities } from '$lib/utils/html-entities';
+  import { Container } from '$lib/components/ui/layout';
 
   let { data } = $props();
   const g = $derived(data.game);
@@ -77,143 +78,145 @@
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
 
-<div class="nav">
-  <a class="back" href={backHref}>
-    <span aria-hidden="true">←</span>
-    {backQs ? 'Back to results' : 'Explore all games'}
-  </a>
-  <span class="crumbs"><a href="/">Home</a> ／ <a href={backHref}>Explore</a> ／ <b>{g.name}</b></span>
-</div>
+<Container size="content">
+  <div class="nav">
+    <a class="back" href={backHref}>
+      <span aria-hidden="true">←</span>
+      {backQs ? 'Back to results' : 'Explore all games'}
+    </a>
+    <span class="crumbs"><a href="/">Home</a> ／ <a href={backHref}>Explore</a> ／ <b>{g.name}</b></span>
+  </div>
 
-<!-- hero: identity + the four numbers -->
-<section class="hero card">
-  <div class="idw">
-    {#if g.image}
-      <img class="cover" src={g.image} alt="{g.name} box art" loading="lazy" />
-    {:else}
-      <div class="cover ph">{g.name?.[0] ?? '?'}</div>
-    {/if}
-    <div class="id">
-      <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
-      {#if g.designers.length}<p class="byline">by {g.designers.join(', ')}</p>{/if}
-      {#if g.publishers.length}
-        <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
+  <!-- hero: identity + the four numbers -->
+  <section class="hero card">
+    <div class="idw">
+      {#if g.image}
+        <img class="cover" src={g.image} alt="{g.name} box art" loading="lazy" />
+      {:else}
+        <div class="cover ph">{g.name?.[0] ?? '?'}</div>
       {/if}
-      <div class="facts tnum">
-        <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
-        <div><span>Play time</span><b>{range(g.minTime, g.maxTime, ' min')}</b></div>
-        {#if g.minAge}<div><span>Age</span><b>{g.minAge}+</b></div>{/if}
-        {#if bestRow}<div><span>Best at</span><b class="hl">{bestRow}</b></div>{/if}
+      <div class="id">
+        <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
+        {#if g.designers.length}<p class="byline">by {g.designers.join(', ')}</p>{/if}
+        {#if g.publishers.length}
+          <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
+        {/if}
+        <div class="facts tnum">
+          <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
+          <div><span>Play time</span><b>{range(g.minTime, g.maxTime, ' min')}</b></div>
+          {#if g.minAge}<div><span>Age</span><b>{g.minAge}+</b></div>{/if}
+          {#if bestRow}<div><span>Best at</span><b class="hl">{bestRow}</b></div>{/if}
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="stats">
-    <div class="stat"><div class="v tnum">{num(g.geek)}</div><div class="l">Geek rating</div></div>
-    <div class="stat"><div class="v tnum">{num(g.average)}</div><div class="l">Average</div></div>
-    <div class="stat"><div class="v tnum">{int(g.ratings)}</div><div class="l">Ratings</div></div>
-    <div class="stat">
-      <div class="v tnum">{num(g.weight, 1)}<small>/5</small></div>
-      <div class="l">{weightLabel(g.weight) || 'Complexity'}</div>
+    <div class="stats">
+      <div class="stat"><div class="v tnum">{num(g.geek)}</div><div class="l">Geek rating</div></div>
+      <div class="stat"><div class="v tnum">{num(g.average)}</div><div class="l">Average</div></div>
+      <div class="stat"><div class="v tnum">{int(g.ratings)}</div><div class="l">Ratings</div></div>
+      <div class="stat">
+        <div class="v tnum">{num(g.weight, 1)}<small>/5</small></div>
+        <div class="l">{weightLabel(g.weight) || 'Complexity'}</div>
+      </div>
+      {#if rank}
+        <p class="rank">
+          Ranked <b class="tnum">#{rank.pos.toLocaleString()}</b> of
+          <span class="tnum">{rank.of.toLocaleString()}</span> rated games by geek rating.
+        </p>
+      {/if}
     </div>
-    {#if rank}
-      <p class="rank">
-        Ranked <b class="tnum">#{rank.pos.toLocaleString()}</b> of
-        <span class="tnum">{rank.of.toLocaleString()}</span> rated games by geek rating.
-      </p>
-    {/if}
-  </div>
-</section>
+  </section>
 
-<div class="cols">
-  <div class="stack">
-    <!-- the differentiator, high on the page -->
-    <section class="card">
-      <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
-      {#if g.playerCounts.length}
-        <div class="pcs tnum">
-          {#each g.playerCounts as p (p.count)}
-            <div class="pc" class:top={p.count === bestRow}>
-              <div class="n">{p.count}</div>
-              <div class="pc-bar" title="{p.count}: {num(p.best, 0)}% best, {num(p.recommended, 0)}% recommended">
-                <i class="pc-best" style:width="{p.best}%"></i>
-                <i class="pc-rec" style:width="{p.recommended}%"></i>
-                <i class="pc-not" style:width="{p.notRecommended}%"></i>
+  <div class="cols">
+    <div class="stack">
+      <!-- the differentiator, high on the page -->
+      <section class="card">
+        <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
+        {#if g.playerCounts.length}
+          <div class="pcs tnum">
+            {#each g.playerCounts as p (p.count)}
+              <div class="pc" class:top={p.count === bestRow}>
+                <div class="n">{p.count}</div>
+                <div class="pc-bar" title="{p.count}: {num(p.best, 0)}% best, {num(p.recommended, 0)}% recommended">
+                  <i class="pc-best" style:width="{p.best}%"></i>
+                  <i class="pc-rec" style:width="{p.recommended}%"></i>
+                  <i class="pc-not" style:width="{p.notRecommended}%"></i>
+                </div>
+                <div class="pct">{Math.round(p.best + p.recommended)}<small>%</small></div>
               </div>
-              <div class="pct">{Math.round(p.best + p.recommended)}<small>%</small></div>
-            </div>
-          {/each}
-        </div>
-        <div class="legend">
-          <span><b class="sw best"></b>Best</span>
-          <span><b class="sw rec"></b>Recommended</span>
-          <span><b class="sw not"></b>Not recommended</span>
-          <!-- Two different questions, so say which is which: the ★ row is the most-voted
-               *best* count, while the % answers the broader "does it work at N at all". -->
-          <span class="note">% = best or recommended · ★ = most voted best</span>
-        </div>
-        {#if bestRow}
-          <p class="verdict">Plays best with <b>{bestRow}</b>.</p>
-        {/if}
-      {:else}
-        <div class="empty">No player-count votes for this game.</div>
-      {/if}
-    </section>
-
-    {#if description}
-      <section class="card">
-        <p class="sub">About</p>
-        <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
-        {#if description.length > CLAMP_AT}
-          <button class="link" onclick={() => (showAll = !showAll)}>
-            {showAll ? 'Show less' : 'Read more'}
-          </button>
+            {/each}
+          </div>
+          <div class="legend">
+            <span><b class="sw best"></b>Best</span>
+            <span><b class="sw rec"></b>Recommended</span>
+            <span><b class="sw not"></b>Not recommended</span>
+            <!-- Two different questions, so say which is which: the ★ row is the most-voted
+                 *best* count, while the % answers the broader "does it work at N at all". -->
+            <span class="note">% = best or recommended · ★ = most voted best</span>
+          </div>
+          {#if bestRow}
+            <p class="verdict">Plays best with <b>{bestRow}</b>.</p>
+          {/if}
+        {:else}
+          <div class="empty">No player-count votes for this game.</div>
         {/if}
       </section>
-    {/if}
 
-    {#if g.categories.length || g.mechanics.length}
+      {#if description}
+        <section class="card">
+          <p class="sub">About</p>
+          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
+          {#if description.length > CLAMP_AT}
+            <button class="link" onclick={() => (showAll = !showAll)}>
+              {showAll ? 'Show less' : 'Read more'}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
+      {#if g.categories.length || g.mechanics.length}
+        <section class="card">
+          {#if g.categories.length}
+            <p class="sub">Categories</p>
+            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
+          {/if}
+          {#if g.mechanics.length}
+            <p class="sub">Mechanics</p>
+            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+          {/if}
+        </section>
+      {/if}
+    </div>
+
+    <div class="stack">
       <section class="card">
-        {#if g.categories.length}
-          <p class="sub">Categories</p>
-          <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
-        {/if}
-        {#if g.mechanics.length}
-          <p class="sub">Mechanics</p>
-          <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+        <p class="sub">Similar games <span class="sub-note">· by embedding distance</span></p>
+        {#if g.similar.length}
+          <div class="sim">
+            {#each g.similar as s (s.id)}
+              <a href="/games/{s.id}">
+                <span class="mono">{s.name?.[0] ?? '?'}</span>
+                <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
+                <span class="score tnum">{num(s.similarity)}</span>
+              </a>
+            {/each}
+          </div>
+        {:else}
+          <div class="empty">No similar games computed.</div>
         {/if}
       </section>
-    {/if}
-  </div>
 
-  <div class="stack">
-    <section class="card">
-      <p class="sub">Similar games <span class="sub-note">· by embedding distance</span></p>
-      {#if g.similar.length}
-        <div class="sim">
-          {#each g.similar as s (s.id)}
-            <a href="/games/{s.id}">
-              <span class="mono">{s.name?.[0] ?? '?'}</span>
-              <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-              <span class="score tnum">{num(s.similarity)}</span>
-            </a>
-          {/each}
-        </div>
-      {:else}
-        <div class="empty">No similar games computed.</div>
-      {/if}
-    </section>
-
-    <section class="card">
-      <p class="sub">Model prediction</p>
-      {#if g.hasPrediction}
-        <div class="empty">Prediction available — rendering comes with the predictions view.</div>
-      {:else}
-        <div class="empty">No prediction — {g.name} falls outside the model’s coverage window.</div>
-      {/if}
-    </section>
+      <section class="card">
+        <p class="sub">Model prediction</p>
+        {#if g.hasPrediction}
+          <div class="empty">Prediction available — rendering comes with the predictions view.</div>
+        {:else}
+          <div class="empty">No prediction — {g.name} falls outside the model’s coverage window.</div>
+        {/if}
+      </section>
+    </div>
   </div>
-</div>
+</Container>
 
 <style>
   .tnum {

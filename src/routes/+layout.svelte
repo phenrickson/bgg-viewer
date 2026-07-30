@@ -4,6 +4,7 @@
   import { ModeWatcher, toggleMode } from 'mode-watcher';
   import { page } from '$app/stores';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
+  import { Container } from '$lib/components/ui/layout';
 
   let { data, children } = $props();
 
@@ -15,26 +16,30 @@
 <ModeWatcher />
 
 <div class="app">
+  <!-- The bar's surface spans the window; its contents share the widest content measure, so
+       the brand lines up with the page beneath it instead of drifting into the gutter. -->
   <header class="appbar">
-    <a class="brand" href="/">bgg-viewer</a>
-    <nav class="mainnav">
-      <a href="/" class:active={!onExplore}>Home</a>
-      <a href="/games" class:active={onExplore}>Explore</a>
-    </nav>
-    {#if data.user}
-      <div class="navsearch"><GameSearch compact /></div>
-    {/if}
-    <nav class="actions">
+    <Container size="wide" class="appbar-inner">
+      <a class="brand" href="/">bgg-viewer</a>
+      <nav class="mainnav">
+        <a href="/" class:active={!onExplore}>Home</a>
+        <a href="/games" class:active={onExplore}>Explore</a>
+      </nav>
       {#if data.user}
-        <span class="who">{data.user.display_name || data.user.email}</span>
-        <form method="POST" action="/logout">
-          <button class="link" type="submit">Log out</button>
-        </form>
-      {:else}
-        <a class="link" href="/login">Log in</a>
+        <div class="navsearch"><GameSearch compact /></div>
       {/if}
-      <button class="toggle" type="button" onclick={toggleMode} aria-label="Toggle light/dark theme">◐</button>
-    </nav>
+      <nav class="actions">
+        {#if data.user}
+          <span class="who">{data.user.display_name || data.user.email}</span>
+          <form method="POST" action="/logout">
+            <button class="link" type="submit">Log out</button>
+          </form>
+        {:else}
+          <a class="link" href="/login">Log in</a>
+        {/if}
+        <button class="toggle" type="button" onclick={toggleMode} aria-label="Toggle light/dark theme">◐</button>
+      </nav>
+    </Container>
   </header>
   <main class="content">
     {@render children()}
@@ -47,10 +52,14 @@
      so ordinary document-flow pages still behave normally. */
   .app { height: 100svh; display: flex; flex-direction: column; }
   .appbar {
-    display: flex; align-items: center; gap: var(--space-md);
     padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--border);
     background: var(--card);
+  }
+  .appbar :global(.appbar-inner) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
   }
   .brand { font-weight: 600; color: var(--foreground); text-decoration: none; }
   .mainnav { display: flex; gap: .2rem; margin-left: .4rem; }

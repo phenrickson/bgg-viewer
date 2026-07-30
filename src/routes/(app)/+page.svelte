@@ -9,6 +9,7 @@
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
+  import { Container } from '$lib/components/ui/layout';
 
   // Kick the catalog warm in the background so Explore is ready when the user arrives there.
   onMount(() => {
@@ -30,50 +31,52 @@
 
 <svelte:head><title>bgg-viewer</title></svelte:head>
 
-<div class="land">
-  <span class="warming" class:ready={catalog.status === 'ready'}>
-    {#if catalog.status === 'ready'}
-      <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
-    {:else if catalog.status === 'error'}
-      Catalog failed to load
-    {:else}
-      <span class="spin"></span> Warming the catalog…
-    {/if}
-  </span>
+<Container size="prose">
+    <div class="land">
+    <span class="warming" class:ready={catalog.status === 'ready'}>
+      {#if catalog.status === 'ready'}
+        <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
+      {:else if catalog.status === 'error'}
+        Catalog failed to load
+      {:else}
+        <span class="spin"></span> Warming the catalog…
+      {/if}
+    </span>
 
-  <!-- PLACEHOLDER copy -->
-  <h1>Explore board games <em>as a set</em>.</h1>
-  <p class="lede">[Placeholder lede — Phil writes copy.] Search, filter, and visualize the
-    whole catalog in your browser — including the recommended and best player counts BGG
-    can't sort by.</p>
+    <!-- PLACEHOLDER copy -->
+    <h1>Explore board games <em>as a set</em>.</h1>
+    <p class="lede">[Placeholder lede — Phil writes copy.] Search, filter, and visualize the
+      whole catalog in your browser — including the recommended and best player counts BGG
+      can't sort by.</p>
 
-  <div class="search"><GameSearch /></div>
+    <div class="search"><GameSearch /></div>
 
-  <p class="try">Try a query</p>
-  <div class="chips">
-    {#each chips as c}
-      <a class="chip" href={exploreHref(c.scope)}>{c.label} <span class="arw">→</span></a>
-    {/each}
-  </div>
+    <p class="try">Try a query</p>
+    <div class="chips">
+      {#each chips as c}
+        <a class="chip" href={exploreHref(c.scope)}>{c.label} <span class="arw">→</span></a>
+      {/each}
+    </div>
 
-  <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
-       so three quarters of the landing page advertised things that don't work yet; as a row
-       of muted pills they still say where this is going without competing for the click. -->
-  <a class="door" href="/games">
-    <span class="door-t">Explore the catalog <span class="arw">→</span></span>
-    <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
-  </a>
+    <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
+         so three quarters of the landing page advertised things that don't work yet; as a row
+         of muted pills they still say where this is going without competing for the click. -->
+    <a class="door" href="/games">
+      <span class="door-t">Explore the catalog <span class="arw">→</span></span>
+      <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
+    </a>
 
-  <p class="soon-lead">Coming next</p>
-  <ul class="soon">
-    <li><b>Upcoming predictions</b><span>What the model expects for games not yet rated.</span></li>
-    <li><b>Similarity map</b><span>Find games near one you love, by embedding distance.</span></li>
-    <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
-  </ul>
-</div>
+    <p class="soon-lead">Coming next</p>
+    <ul class="soon">
+      <li><b>Upcoming predictions</b><span>What the model expects for games not yet rated.</span></li>
+      <li><b>Similarity map</b><span>Find games near one you love, by embedding distance.</span></li>
+      <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
+    </ul>
+    </div>
+</Container>
 
 <style>
-  .land { max-width: 52rem; margin: 0 auto; padding: clamp(1rem, 3vw, 2.5rem) 0; }
+  .land { padding: clamp(1rem, 3vw, 2.5rem) 0; }
 
   .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
   .warming.ready { color: var(--foreground); }
