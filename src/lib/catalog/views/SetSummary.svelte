@@ -70,7 +70,6 @@
 
   let open = $state(true);
   const fmt = (n: number | null | undefined, d = 2) => (n == null ? '—' : n.toFixed(d));
-  const onlyDecade = (v: number) => (v % 10 === 0 ? String(v) : '');
   const onlyWhole = (v: number) => (Number.isInteger(v) ? String(v) : '');
   const chartYears = $derived(
     perYear.length ? `${perYear[0].year}–${perYear[perYear.length - 1].year}` : '—'
@@ -89,63 +88,65 @@
   <span class="sub">· distributions & top facets{loading ? ' · updating…' : ''}</span>
 </button>
 
-{#if open}
-<div class="grid">
-  <section class="panel">
-    <header><h4>Rating distribution</h4><span class="sub">average rating</span></header>
-    <div class="body chart">
-      {#if ratingBins.length}
-        <BarChart data={ratingBins} x="bucket" y="n" color="var(--chart-1)" xFormat={onlyWhole} />
-      {:else}<p class="empty">No rated games in scope.</p>{/if}
-    </div>
-  </section>
+<div class="panels" class:hidden={!open}>
+  <div class="grid dist">
+    <section class="panel">
+      <header><h4>Rating distribution</h4><span class="sub">average rating</span></header>
+      <div class="body chart">
+        {#if ratingBins.length}
+          <BarChart data={ratingBins} x="bucket" y="n" color="var(--chart-1)" xFormat={onlyWhole} />
+        {:else}<p class="empty">No rated games in scope.</p>{/if}
+      </div>
+    </section>
 
-  <section class="panel">
-    <header><h4>Complexity distribution</h4><span class="sub">average weight, 1–5</span></header>
-    <div class="body chart">
-      {#if weightBins.length}
-        <BarChart data={weightBins} x="bucket" y="n" color="var(--chart-4)" xFormat={onlyWhole} />
-      {:else}<p class="empty">No weighted games in scope.</p>{/if}
-    </div>
-  </section>
+    <section class="panel">
+      <header><h4>Complexity distribution</h4><span class="sub">weight, 1–5</span></header>
+      <div class="body chart">
+        {#if weightBins.length}
+          <BarChart data={weightBins} x="bucket" y="n" color="var(--chart-4)" xFormat={onlyWhole} />
+        {:else}<p class="empty">No weighted games in scope.</p>{/if}
+      </div>
+    </section>
 
-  <section class="panel">
-    <header><h4>Games per year</h4><span class="sub">{chartYears}</span></header>
-    <div class="body chart">
-      {#if perYear.length}
-        <BarChart data={perYear} x="year" y="n" color="var(--chart-2)" xFormat={onlyDecade} />
-      {:else}<p class="empty">No games in scope.</p>{/if}
-    </div>
-  </section>
+    <section class="panel">
+      <header><h4>Games per year</h4><span class="sub">{chartYears}</span></header>
+      <div class="body chart">
+        {#if perYear.length}
+          <BarChart data={perYear} x="year" y="n" color="var(--chart-2)" />
+        {:else}<p class="empty">No games in scope.</p>{/if}
+      </div>
+    </section>
 
-  <section class="panel">
-    <header><h4>Best at</h4><span class="sub">community-voted player count</span></header>
-    <div class="body chart">
-      {#if bestAt.length}
-        <BarChart data={bestAt} x="count" y="n" color="var(--chart-5)" xFormat={onlyWhole} />
-      {:else}<p class="empty">No player-count votes in scope.</p>{/if}
-    </div>
-  </section>
+    <section class="panel">
+      <header><h4>Best at</h4><span class="sub">player count</span></header>
+      <div class="body chart">
+        {#if bestAt.length}
+          <BarChart data={bestAt} x="count" y="n" color="var(--chart-5)" xFormat={onlyWhole} />
+        {:else}<p class="empty">No player-count votes in scope.</p>{/if}
+      </div>
+    </section>
+  </div>
 
-  <section class="panel">
-    <header><h4>Top categories</h4><span class="sub">count in scope</span></header>
-    <div class="body">
-      {#if topCats.length}
-        <RowBarChart data={topCats} label="c" value="n" color="var(--chart-3)" />
-      {:else}<p class="empty">No categories in scope.</p>{/if}
-    </div>
-  </section>
+  <div class="grid facets">
+    <section class="panel">
+      <header><h4>Top categories</h4><span class="sub">count in scope</span></header>
+      <div class="body">
+        {#if topCats.length}
+          <RowBarChart data={topCats} label="c" value="n" color="var(--chart-3)" />
+        {:else}<p class="empty">No categories in scope.</p>{/if}
+      </div>
+    </section>
 
-  <section class="panel">
-    <header><h4>Top mechanics</h4><span class="sub">count in scope</span></header>
-    <div class="body">
-      {#if topMechs.length}
-        <RowBarChart data={topMechs} label="c" value="n" color="var(--chart-3)" />
-      {:else}<p class="empty">No mechanics in scope.</p>{/if}
-    </div>
-  </section>
+    <section class="panel">
+      <header><h4>Top mechanics</h4><span class="sub">count in scope</span></header>
+      <div class="body">
+        {#if topMechs.length}
+          <RowBarChart data={topMechs} label="c" value="n" color="var(--chart-3)" />
+        {:else}<p class="empty">No mechanics in scope.</p>{/if}
+      </div>
+    </section>
+  </div>
 </div>
-{/if}
 
 <style>
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-sm); margin-bottom: var(--space-md); }
@@ -157,11 +158,15 @@
   .disclosure .caret { color: var(--muted-foreground); transition: transform 0.12s ease; }
   .disclosure .caret.open { transform: rotate(90deg); }
   .disclosure .sub { font-size: 0.72rem; font-weight: 400; color: var(--muted-foreground); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-md); }
+  .panels.hidden { display: none; }
+  .grid { display: grid; gap: var(--space-md); }
+  .dist { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+  .facets { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--space-md); }
+  @media (max-width: 720px) { .facets { grid-template-columns: 1fr; } }
   .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: var(--space-md); min-width: 0; }
   .panel header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
   .panel h4 { margin: 0; font-size: 0.8rem; font-weight: 650; }
   .panel .sub { font-size: 0.68rem; color: var(--muted-foreground); }
-  .body.chart { height: 9.5rem; }
+  .body.chart { height: 11rem; }
   .empty { color: var(--muted-foreground); font-size: 0.82rem; text-align: center; padding: var(--space-lg) 0; }
 </style>

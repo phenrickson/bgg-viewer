@@ -2,6 +2,12 @@
   import { Chart, Svg, Axis, Bars, Highlight, Tooltip } from 'layerchart';
   import { scaleBand } from 'd3-scale';
 
+  const kfmt = (v: number) => {
+    const n = Number(v);
+    if (Math.abs(n) >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1).replace(/\.0$/, '') + 'k';
+    return String(n);
+  };
+
   let {
     data,
     label,
@@ -31,7 +37,7 @@
     tooltipContext={{ mode: 'band' }}
   >
     <Svg>
-      <Axis placement="bottom" grid rule ticks={5} format={(v: number) => v.toLocaleString()} />
+      <Axis placement="bottom" grid rule ticks={4} format={kfmt} />
       <Axis placement="left" rule={false} />
       <Bars radius={2} strokeWidth={0} fill={color} />
       <Highlight area />
@@ -52,8 +58,9 @@
   .lc {
     width: 100%;
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
   }
+  .lc :global(.tick text) { font-size: 0.75rem; }
   .lc :global(.tick text) {
     fill: var(--foreground);
   }
