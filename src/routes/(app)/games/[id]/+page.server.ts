@@ -39,6 +39,51 @@ interface SimilarRow {
 	distance: number;
 }
 
+/**
+ * The five model outputs, plus who produced each. `bgg_predictions` is year-filtered, so a
+ * missing row means "outside the scoring window", not "the model declined to guess".
+ *
+ * The hurdle is the gate: BGG holds ~140k games and only ~30k of them ever accumulate enough
+ * ratings to earn a geek rating, so `predicted_hurdle_prob` is P(this game gets one at all).
+ * The other four are what to expect *if* it does — which is why they render subordinate to it.
+ */
+const TARGETS = ['hurdle', 'geek_rating', 'rating', 'complexity', 'users_rated'] as const;
+
+function toPredictions(raw: Record<string, unknown> | null) {
+	if (!raw) return null;
+	const n = (k: string) => {
+		const v = Number(raw[k]);
+		return Number.isFinite(v) ? v : null;
+	};
+	// Model *versions* arrive as numbers, not strings — a `typeof === 'string'` guard silently
+	// dropped every one of them, which is how the first render attributed five models by name
+	// and no version at all.
+	const s = (k: string) => {
+		const v = raw[k];
+		return v == null || v === '' ? null : String(v);
+	};
+
+	// One model per target, each its own name and version. They don't collapse to a single
+	// line, so the page discloses them rather than pretending there's one "the model".
+	const models = TARGETS.map((t) => ({
+		target: t,
+		name: s(`${t}_model_name`),
+		version: s(`${t}_model_version`),
+		experiment: s(`${t}_experiment`)
+	})).filter((m) => m.name);
+
+	return {
+		hurdle: n('predicted_hurdle_prob'),
+		geek: n('predicted_geek_rating'),
+		rating: n('predicted_rating'),
+		complexity: n('predicted_complexity'),
+		usersRated: n('predicted_users_rated'),
+		scoredAt: s('score_ts'),
+		firstScoredAt: s('first_prediction_ts'),
+		models
+	};
+}
+
 function toViewModel(doc: GameDocument) {
 	const f = doc.features as unknown as Features;
 	const pcts = (f.player_counts ?? []).map((p) => {
@@ -90,7 +135,7 @@ function toViewModel(doc: GameDocument) {
 			year: s.year_published,
 			similarity: 1 - s.distance
 		})),
-		hasPrediction: doc.predictions != null
+		predictions: toPredictions(doc.predictions)
 	};
 }
 

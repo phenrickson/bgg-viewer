@@ -24,6 +24,14 @@
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
 
+  /**
+   * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
+   * and "nobody has weighted this". Rendered raw, an unscored game claimed a geek rating of
+   * 0.00 and a complexity of 0.0/5 labelled "Light", which is exactly the kind of number the
+   * prediction panel below exists to replace.
+   */
+  const pos = (n: number | null | undefined) => (n != null && n > 0 ? n : null);
+
   function weightLabel(w: number | null): string {
     if (w == null) return '';
     if (w < 2) return 'Light';
@@ -173,16 +181,66 @@
   const bestLabel = $derived(bestCounts.length ? compact(bestCounts) : bestRow);
   const recLabel = $derived(recCounts.length ? compact(recCounts) : null);
 
+  const fmtDate = (v: string | null | undefined): string | null => {
+    if (!v) return null;
+    const t = new Date(v);
+    if (Number.isNaN(t.getTime())) return null;
+    return t.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
   /**
    * How stale this is. Ratings and weights move, and a page that shows four decimal-place
    * numbers without saying when it looked is quietly overclaiming.
    */
-  const freshness = $derived.by(() => {
-    if (!g.lastUpdated) return null;
-    const t = new Date(g.lastUpdated);
-    if (Number.isNaN(t.getTime())) return null;
-    return t.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  });
+  const freshness = $derived(fmtDate(g.lastUpdated));
+
+  // --- what the model expects -----------------------------------------------------------
+  /**
+   * The hurdle is the gate, so it leads: BGG holds ~140k games and only ~30k ever gather
+   * enough ratings to earn a geek rating. `predicted_hurdle_prob` is the chance this game
+   * becomes one of them, and the other four numbers are what to expect *if* it does — stated
+   * flat, side by side, they'd read as four equally-confident facts about a game that may
+   * never be rated at all.
+   *
+   * For a game that already has a geek rating the panel inverts into a scorecard: the same
+   * estimates against what actually happened. Same data, and the honest use of it once the
+   * question it was answering has been settled.
+   *
+   * All copy here is PLACEHOLDER — Phil writes the final strings.
+   */
+  const p = $derived(g.predictions);
+  const isRated = $derived((g.geek ?? 0) > 0);
+
+  /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters most. */
+  function probText(v: number | null): string {
+    if (v == null) return '—';
+    const pc = v * 100;
+    if (pc < 1) return '<1%';
+    if (pc < 10) return `${pc.toFixed(1)}%`;
+    return `${Math.round(pc)}%`;
+  }
+
+  const predRows = $derived(
+    p == null
+      ? []
+      : (
+          [
+            { k: 'Geek rating', v: p.geek, actual: g.geek, digits: 2 },
+            { k: 'Average', v: p.rating, actual: g.average, digits: 2 },
+            { k: 'Ratings', v: p.usersRated, actual: g.ratings, digits: 0 },
+            { k: 'Complexity', v: p.complexity, actual: g.weight, digits: 1 }
+          ] as const
+        ).filter((r) => r.v != null)
+  );
+  const fmtPred = (v: number | null, digits: number) => (digits === 0 ? int(v) : num(v, digits));
+  /** `users_rated` → `Ratings`, so the disclosure names targets the way the panel above does. */
+  const TARGET_LABEL: Record<string, string> = {
+    hurdle: 'Rated at all',
+    geek_rating: 'Geek rating',
+    rating: 'Average',
+    users_rated: 'Ratings',
+    complexity: 'Complexity'
+  };
 </script>
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
@@ -237,12 +295,12 @@
 
     <div class="stats">
       <div class="stat">
-        <div class="v tnum">{num(g.geek)}</div>
+        <div class="v tnum">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
         {#if topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
       </div>
       <div class="stat">
-        <div class="v tnum">{num(g.average)}</div>
+        <div class="v tnum">{num(pos(g.average))}</div>
         <div class="l">Average</div>
         {#if topPct(standing?.avg_pct)}<div class="of">{topPct(standing?.avg_pct)}</div>{/if}
       </div>
@@ -252,8 +310,8 @@
         {#if topPct(standing?.rated_pct)}<div class="of">{topPct(standing?.rated_pct)}</div>{/if}
       </div>
       <div class="stat">
-        <div class="v tnum">{num(g.weight, 1)}<small>/5</small></div>
-        <div class="l">{weightLabel(g.weight) || 'Complexity'}</div>
+        <div class="v tnum">{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
+        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
         <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after the
              separator and stranded "votes" on its own. -->
         {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
@@ -377,12 +435,70 @@
         {/if}
       </section>
 
-      <section class="card">
-        <p class="sub">Model prediction</p>
-        {#if g.hasPrediction}
-          <div class="empty">Prediction available — rendering comes with the predictions view.</div>
+      <!-- For a game with no ratings yet this panel is the only thing on the page with
+           anything to say about it, so it leads the column; once the game is rated the real
+           numbers are upstairs and this becomes a footnote about the model. -->
+      <section class="card" style:order={p && !isRated ? -1 : 2}>
+        <p class="sub">
+          {isRated ? 'What the model expected' : 'Model prediction'}
+          {#if fmtDate(p?.scoredAt)}<span class="sub-note">· scored {fmtDate(p?.scoredAt)}</span>{/if}
+        </p>
+
+        {#if !p}
+          <div class="empty">No prediction — {g.name} falls outside the model’s scoring window.</div>
         {:else}
-          <div class="empty">No prediction — {g.name} falls outside the model’s coverage window.</div>
+          {#if p.hurdle != null}
+            <div class="hurdle" class:settled={isRated}>
+              <div class="hrow">
+                <span class="hv tnum">{probText(p.hurdle)}</span>
+                <!-- PLACEHOLDER copy -->
+                <span class="hk"
+                  >{isRated ? 'was its modelled chance of being rated' : 'chance of being rated'}</span
+                >
+              </div>
+              <div class="hbar" role="presentation">
+                <i style:width="{Math.min(100, Math.max(0, p.hurdle * 100))}%"></i>
+              </div>
+              <!-- PLACEHOLDER copy. The number is meaningless without this: most games never
+                   clear the bar, so a small percentage is ordinary rather than damning. -->
+              <p class="hnote">
+                Most BGG games never gather enough ratings to earn a geek rating.
+                {#if isRated}This one did.{/if}
+              </p>
+            </div>
+          {/if}
+
+          {#if predRows.length}
+            <!-- PLACEHOLDER copy -->
+            <p class="pk">{isRated ? 'Estimate vs. actual' : 'If it is rated, expect'}</p>
+            <div class="preds tnum" class:cmp={isRated}>
+              {#if isRated}
+                <span class="ph"></span><span class="ph">Est.</span><span class="ph">Actual</span>
+              {/if}
+              {#each predRows as r (r.k)}
+                <span class="pl">{r.k}</span>
+                <span class="pv">{fmtPred(r.v, r.digits)}</span>
+                {#if isRated}<span class="pa">{fmtPred(r.actual, r.digits)}</span>{/if}
+              {/each}
+            </div>
+          {/if}
+
+          <!-- A prediction nobody can attribute is a rumour — but each target has its own
+               model, and five near-identical name+version strings crowded out the numbers
+               they belonged to. Collapsed by default, complete when opened. -->
+          {#if p.models.length}
+            <details class="attrib">
+              <summary>{p.models.length} models</summary>
+              <dl>
+                {#each p.models as m (m.target)}
+                  <div>
+                    <dt>{TARGET_LABEL[m.target] ?? m.target}</dt>
+                    <dd>{m.name}{m.version ? ` v${m.version}` : ''}</dd>
+                  </div>
+                {/each}
+              </dl>
+            </details>
+          {/if}
         {/if}
       </section>
     </div>
@@ -895,6 +1011,145 @@
     font-size: 0.76rem;
     color: var(--muted-foreground);
     flex: none;
+  }
+
+  /* The gate, sized like the claim it is. Everything below it is conditional on this number,
+     so it gets the weight and the bar; the estimates get plain rows. */
+  .hurdle {
+    border: 1px solid color-mix(in oklch, var(--chart-2) 30%, var(--border));
+    background: color-mix(in oklch, var(--chart-2) 7%, transparent);
+    border-radius: var(--radius);
+    padding: var(--space-md);
+  }
+  .hurdle.settled {
+    /* The question is answered; the estimate is history, not a forecast. */
+    border-color: var(--border);
+    background: transparent;
+    padding-inline: 0;
+    padding-top: 0;
+  }
+  .hrow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .hv {
+    font-size: 1.7rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--chart-2);
+  }
+  .hurdle.settled .hv {
+    font-size: 1.15rem;
+    color: var(--muted-foreground);
+  }
+  .hk {
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+  }
+  .hbar {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+    margin-top: 0.55rem;
+  }
+  .hbar i {
+    display: block;
+    height: 100%;
+    background: var(--chart-2);
+    /* A vanishing sliver still has to be visible, or 0.4% and 0% look identical. */
+    min-width: 2px;
+  }
+  .hurdle.settled .hbar {
+    height: 0.3rem;
+  }
+  .hnote {
+    margin: 0.5rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .pk {
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    margin: var(--space-md) 0 0.4rem;
+  }
+  .preds {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.3rem 0.75rem;
+    align-items: baseline;
+  }
+  .preds.cmp {
+    grid-template-columns: 1fr auto auto;
+  }
+  .preds .ph {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+  .preds .pl {
+    font-size: 0.84rem;
+    color: var(--muted-foreground);
+  }
+  /* The estimate is the muted one and the fact is the solid one — on a rated game the page
+     should not present a guess with the same confidence as the measurement beside it. */
+  .preds .pv {
+    font-size: 0.95rem;
+    font-weight: 650;
+    text-align: right;
+    min-width: 3.4rem;
+  }
+  .preds.cmp .pv {
+    font-weight: 550;
+    color: var(--muted-foreground);
+  }
+  .preds .pa {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: right;
+    min-width: 3.4rem;
+  }
+  .attrib {
+    margin-top: var(--space-md);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+  }
+  .attrib summary {
+    cursor: pointer;
+    opacity: 0.8;
+  }
+  .attrib summary:hover {
+    color: var(--primary);
+  }
+  .attrib dl {
+    margin: 0.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .attrib dl div {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: space-between;
+  }
+  .attrib dt {
+    opacity: 0.8;
+    flex: none;
+  }
+  .attrib dd {
+    margin: 0;
+    text-align: right;
+    word-break: break-word;
+    font-variant-numeric: tabular-nums;
   }
 
   .empty {
