@@ -45,9 +45,8 @@
 
     <!-- PLACEHOLDER copy -->
     <h1>Explore board games <em>as a set</em>.</h1>
-    <p class="lede">[Placeholder lede — Phil writes copy.] Search, filter, and visualize the
-      whole catalog in your browser — including the recommended and best player counts BGG
-      can't sort by.</p>
+    <p class="lede">Looking for a game? Search, filter, and visualize the
+      the world of board games in your browser.</p>
 
     <div class="search"><GameSearch /></div>
 
