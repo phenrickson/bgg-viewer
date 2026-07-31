@@ -16,10 +16,12 @@
     initCatalog();
   });
 
-  const exploreHref = (overrides: Partial<Scope>) =>
-    `/games?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
+  // Example queries now land in Discover, not Explore — the chips ask small questions, and
+  // Discover is the room sized for them. Explore is one click further on.
+  const discoverHref = (overrides: Partial<Scope>) =>
+    `/discover?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
 
-  // Example queries — each deep-links into a pre-scoped Explore. Labels are placeholder.
+  // Example queries — each deep-links into a pre-scoped Discover. Labels are placeholder.
   const chips: { label: string; scope: Partial<Scope> }[] = [
     { label: 'Best at 2 players', scope: { bestAt: 2 } },
     { label: 'Best at 6 players', scope: { bestAt: 6 } },
@@ -53,7 +55,7 @@
     <p class="try">Try a query</p>
     <div class="chips">
       {#each chips as c}
-        <a class="chip" href={exploreHref(c.scope)}>{c.label} <span class="arw">→</span></a>
+        <a class="chip" href={discoverHref(c.scope)}>{c.label} <span class="arw">→</span></a>
       {/each}
     </div>
 

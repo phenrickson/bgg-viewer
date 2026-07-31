@@ -8,7 +8,11 @@
 
   let { data, children } = $props();
 
-  const onExplore = $derived($page.url.pathname.startsWith('/games'));
+  // Three-way, because "Home" is no longer simply "not Explore".
+  const path = $derived($page.url.pathname);
+  const onExplore = $derived(path.startsWith('/games'));
+  const onDiscover = $derived(path.startsWith('/discover'));
+  const onHome = $derived(!onExplore && !onDiscover);
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -22,7 +26,8 @@
     <Container size="wide" class="appbar-inner">
       <a class="brand" href="/">bgg-viewer</a>
       <nav class="mainnav">
-        <a href="/" class:active={!onExplore}>Home</a>
+        <a href="/" class:active={onHome}>Home</a>
+        <a href="/discover" class:active={onDiscover}>Discover</a>
         <a href="/games" class:active={onExplore}>Explore</a>
       </nav>
       {#if data.user}
