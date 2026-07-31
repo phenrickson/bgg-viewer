@@ -4,9 +4,10 @@
  * DuckDB runs. Numeric bounds are coerced to finite numbers; string facets/search are
  * escaped, so the compiled SQL is injection-safe.
  *
- * "Best at N players" would need player-count vote data that isn't in the catalog
- * artifact; we filter on "supports N players" (min/max) instead — a live module could
- * add best-at later.
+ * `players` and `bestAt` are different questions and both are answerable here: `players`
+ * asks whether the box supports N (min/max), while `bestAt` asks whether the community
+ * voted N *best* — `best_player_counts` is in the artifact, so the flagship filter needs
+ * no live module.
  */
 export interface Scope {
 	q: string;

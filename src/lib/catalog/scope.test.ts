@@ -10,6 +10,7 @@ import {
 	niceCount,
 	type Scope
 } from './scope';
+import { CATEGORY_CHIPS, COMPLEXITY_BANDS, toggleCategory, bandPatch } from '$lib/discover/dials';
 
 describe('toWhere', () => {
 	it('defaults to the Top 10,000 universe', () => {
@@ -193,5 +194,31 @@ describe('URL round-trip', () => {
 	it('records the universe only when it is not the Top 10,000 default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
+	});
+});
+
+describe('a Discover-shaped scope', () => {
+	it('survives a params round-trip', () => {
+		const war = CATEGORY_CHIPS.find((c) => c.label === 'Wargame')!;
+		const coop = CATEGORY_CHIPS.find((c) => c.label === 'Cooperative')!;
+		const heavy = COMPLEXITY_BANDS[4];
+
+		let s: Scope = { ...DEFAULT_SCOPE };
+		s = { ...s, ...toggleCategory(s, war) };
+		s = { ...s, ...toggleCategory(s, coop) };
+		s = { ...s, ...bandPatch(s, heavy) };
+		s = { ...s, bestAt: 2 };
+
+		const back = scopeFromParams(scopeToParams(s));
+		expect(back.categories).toEqual(['Wargame']);
+		expect(back.mechanics).toEqual(['Cooperative Game']);
+		expect(back.weightMin).toBe(3.5);
+		expect(back.weightMax).toBeNull();
+		expect(back.bestAt).toBe(2);
+	});
+
+	it('compiles best-at to a list_contains predicate', () => {
+		const where = toWhere({ ...DEFAULT_SCOPE, bestAt: 3 });
+		expect(where).toContain('list_contains(best_player_counts, 3)');
 	});
 });
