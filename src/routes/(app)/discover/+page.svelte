@@ -23,6 +23,7 @@
   } from '$lib/catalog/scope';
   import DialStrip from '$lib/discover/DialStrip.svelte';
   import GameRow from '$lib/discover/GameRow.svelte';
+  import { discoverScopeFromParams } from '$lib/discover/dials';
   import type { DiscoverGame } from '$lib/discover/types';
   import { Container } from '$lib/components/ui/layout';
 
@@ -46,7 +47,8 @@
   let failed = $state(false);
 
   onMount(() => {
-    scope = { ...DISCOVER_DEFAULT, ...scopeFromParams($page.url.searchParams) };
+    const params = $page.url.searchParams;
+    scope = discoverScopeFromParams(params, scopeFromParams(params));
     initCatalog();
   });
 

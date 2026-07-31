@@ -10,7 +10,13 @@ import {
 	niceCount,
 	type Scope
 } from './scope';
-import { CATEGORY_CHIPS, COMPLEXITY_BANDS, toggleCategory, bandPatch } from '$lib/discover/dials';
+import {
+	CATEGORY_CHIPS,
+	COMPLEXITY_BANDS,
+	toggleCategory,
+	bandPatch,
+	discoverScopeFromParams
+} from '$lib/discover/dials';
 
 describe('toWhere', () => {
 	it('defaults to the Top 10,000 universe', () => {
@@ -194,6 +200,31 @@ describe('URL round-trip', () => {
 	it('records the universe only when it is not the Top 10,000 default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
+	});
+});
+
+describe('discoverScopeFromParams', () => {
+	// `scopeFromParams` always returns a COMPLETE Scope, filling in its own `top10k` default
+	// for `universe` when `u` is absent from the URL — so an absent param and an explicit
+	// `?u=top10k` are indistinguishable once parsed. Discover's default is `rated` ("top
+	// rated, all-time"), so it must check the raw param, not the parsed value, to tell the
+	// two apart. Regression for a bug where the top10k default silently overwrote `rated`.
+	it('defaults to rated when the URL has no universe param', () => {
+		const params = new URLSearchParams('');
+		const parsed = scopeFromParams(params);
+		expect(discoverScopeFromParams(params, parsed).universe).toBe('rated');
+	});
+
+	it('honours an explicit ?u=rated', () => {
+		const params = new URLSearchParams('u=rated');
+		const parsed = scopeFromParams(params);
+		expect(discoverScopeFromParams(params, parsed).universe).toBe('rated');
+	});
+
+	it('honours an explicit ?u=top10k', () => {
+		const params = new URLSearchParams('u=top10k');
+		const parsed = scopeFromParams(params);
+		expect(discoverScopeFromParams(params, parsed).universe).toBe('top10k');
 	});
 });
 

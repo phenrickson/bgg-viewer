@@ -75,6 +75,18 @@ export const COMPLEXITY_BANDS: ComplexityBand[] = [
   { label: 'Heavy', min: 3.5, max: null }
 ];
 
+/**
+ * Discover's URL-to-scope entry point. `scopeFromParams` always returns a COMPLETE `Scope`
+ * — including its own `top10k` default for `universe` when the `u` param is absent — so an
+ * absent param is indistinguishable from an explicit `?u=top10k` once parsed. Discover needs
+ * to tell those apart: with nothing in the URL it defaults to `rated` (the "top rated,
+ * all-time" promise), but an explicit `?u=top10k` carried in from a link must be honoured.
+ * Hence checking `params.has('u')` rather than trusting the parsed value.
+ */
+export function discoverScopeFromParams(params: URLSearchParams, parsed: Scope): Scope {
+  return params.has('u') ? parsed : { ...parsed, universe: 'rated' };
+}
+
 export function isCategoryOn(scope: Scope, chip: CategoryChip): boolean {
   return scope[chip.field].includes(chip.value);
 }
