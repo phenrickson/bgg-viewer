@@ -48,7 +48,7 @@
 
   onMount(() => {
     const params = $page.url.searchParams;
-    scope = discoverScopeFromParams(params, scopeFromParams(params));
+    scope = discoverScopeFromParams(params);
     initCatalog();
   });
 

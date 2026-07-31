@@ -211,20 +211,17 @@ describe('discoverScopeFromParams', () => {
 	// two apart. Regression for a bug where the top10k default silently overwrote `rated`.
 	it('defaults to rated when the URL has no universe param', () => {
 		const params = new URLSearchParams('');
-		const parsed = scopeFromParams(params);
-		expect(discoverScopeFromParams(params, parsed).universe).toBe('rated');
+		expect(discoverScopeFromParams(params).universe).toBe('rated');
 	});
 
 	it('honours an explicit ?u=rated', () => {
 		const params = new URLSearchParams('u=rated');
-		const parsed = scopeFromParams(params);
-		expect(discoverScopeFromParams(params, parsed).universe).toBe('rated');
+		expect(discoverScopeFromParams(params).universe).toBe('rated');
 	});
 
 	it('honours an explicit ?u=top10k', () => {
 		const params = new URLSearchParams('u=top10k');
-		const parsed = scopeFromParams(params);
-		expect(discoverScopeFromParams(params, parsed).universe).toBe('top10k');
+		expect(discoverScopeFromParams(params).universe).toBe('top10k');
 	});
 });
 

@@ -8,6 +8,7 @@
  * Keep this list short. A fourth dial is the failure mode Discover exists to avoid.
  */
 import type { Scope } from '$lib/catalog/scope';
+import { scopeFromParams } from '$lib/catalog/scope';
 
 export interface CategoryChip {
   label: string;
@@ -83,7 +84,8 @@ export const COMPLEXITY_BANDS: ComplexityBand[] = [
  * all-time" promise), but an explicit `?u=top10k` carried in from a link must be honoured.
  * Hence checking `params.has('u')` rather than trusting the parsed value.
  */
-export function discoverScopeFromParams(params: URLSearchParams, parsed: Scope): Scope {
+export function discoverScopeFromParams(params: URLSearchParams): Scope {
+  const parsed = scopeFromParams(params);
   return params.has('u') ? parsed : { ...parsed, universe: 'rated' };
 }
 
