@@ -8,7 +8,8 @@ import {
   isCategoryOn,
   isBandOn,
   bandPatch,
-  complexityLabel
+  complexityLabel,
+  complexityBandIndex
 } from './dials';
 
 describe('category chips', () => {
@@ -95,9 +96,17 @@ describe('complexity bands', () => {
   });
 });
 
-describe('complexityLabel', () => {
-  it('returns null for an unrated weight', () => {
+describe('complexityLabel and complexityBandIndex', () => {
+  it('returns null label and 0 index for null weight', () => {
     expect(complexityLabel(null)).toBeNull();
+    expect(complexityBandIndex(null)).toBe(0);
+  });
+
+  it('returns null label and 0 index for non-finite weight', () => {
+    expect(complexityLabel(NaN)).toBeNull();
+    expect(complexityBandIndex(NaN)).toBe(0);
+    expect(complexityLabel(Infinity)).toBeNull();
+    expect(complexityBandIndex(Infinity)).toBe(0);
   });
 
   it('labels each band, with boundaries falling in the upper band', () => {
@@ -107,5 +116,27 @@ describe('complexityLabel', () => {
     expect(complexityLabel(3.0)).toBe('Medium-Heavy');
     expect(complexityLabel(3.5)).toBe('Heavy');
     expect(complexityLabel(4.9)).toBe('Heavy');
+  });
+
+  it('returns matching band index for each boundary value', () => {
+    expect(complexityBandIndex(1.2)).toBe(1); // Light
+    expect(complexityBandIndex(2.0)).toBe(2); // Medium-Light
+    expect(complexityBandIndex(2.5)).toBe(3); // Medium
+    expect(complexityBandIndex(3.0)).toBe(4); // Medium-Heavy
+    expect(complexityBandIndex(3.5)).toBe(5); // Heavy
+    expect(complexityBandIndex(4.9)).toBe(5); // Heavy
+  });
+
+  it('agrees on label and step for boundary and below-1 values', () => {
+    const testValues = [0.5, 2.0, 2.5, 3.0, 3.5];
+    for (const weight of testValues) {
+      const label = complexityLabel(weight);
+      const index = complexityBandIndex(weight);
+      if (label === null) {
+        expect(index).toBe(0);
+      } else {
+        expect(COMPLEXITY_BANDS[index - 1].label).toBe(label);
+      }
+    }
   });
 });

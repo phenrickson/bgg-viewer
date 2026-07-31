@@ -99,15 +99,25 @@ export function bandPatch(scope: Scope, band: ComplexityBand): Partial<Scope> {
 }
 
 /**
+ * Find the band index for a given weight. Returns 0 if null or non-finite;
+ * use the return value to determine whether to render a badge at all (0 = no badge).
+ */
+export function complexityBandIndex(weight: number | null): number {
+  if (weight == null || !Number.isFinite(weight)) return 0;
+  for (let i = 0; i < COMPLEXITY_BANDS.length; i++) {
+    const b = COMPLEXITY_BANDS[i];
+    const aboveMin = b.min == null || weight >= b.min;
+    const belowMax = b.max == null || weight < b.max;
+    if (aboveMin && belowMax) return i + 1; // 1-indexed: 1..5 for bands, 0 for null/invalid
+  }
+  return COMPLEXITY_BANDS.length; // Fallback to last band (index 4 → return 5)
+}
+
+/**
  * A weight as the word Discover shows instead of the number. Null weight → null, so the
  * caller renders nothing rather than a misleading "Light".
  */
 export function complexityLabel(weight: number | null): string | null {
-  if (weight == null || !Number.isFinite(weight)) return null;
-  for (const b of COMPLEXITY_BANDS) {
-    const aboveMin = b.min == null || weight >= b.min;
-    const belowMax = b.max == null || weight < b.max;
-    if (aboveMin && belowMax) return b.label;
-  }
-  return COMPLEXITY_BANDS[COMPLEXITY_BANDS.length - 1].label;
+  const idx = complexityBandIndex(weight);
+  return idx === 0 ? null : COMPLEXITY_BANDS[idx - 1].label;
 }

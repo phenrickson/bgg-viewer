@@ -13,20 +13,19 @@
    */
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
-  import { complexityLabel } from './dials';
+  import { complexityLabel, complexityBandIndex } from './dials';
   import type { DiscoverGame } from './types';
 
   let { game }: { game: DiscoverGame } = $props();
 
   const weight = $derived(complexityLabel(game.average_weight));
-  /** Band index 1–5, driving the badge's tint step. */
-  const weightStep = $derived(
-    game.average_weight == null ? 0 : Math.min(5, Math.max(1, Math.ceil(game.average_weight)))
-  );
+  /** Band index 1–5, driving the badge's tint step. Derived from the same source as weight. */
+  const weightStep = $derived(complexityBandIndex(game.average_weight));
   const cats = $derived((game.categories ? Array.from(game.categories) : []).slice(0, 3));
   /** Initials stand in for box art until the artifact question is settled. */
   const initials = $derived(
     game.name
+      .trim()
       .split(/\s+/)
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? '')
