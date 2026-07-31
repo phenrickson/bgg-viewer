@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { warehouseClient, GameNotFoundError, type GameDocument } from '$lib/server/warehouse';
+import { isOffline } from '$lib/server/offline';
 import type { PageServerLoad } from './$types';
 
 /** The subset of `features` this page reads — the raw bag is otherwise untyped. */
@@ -158,9 +159,14 @@ export const load: PageServerLoad = async ({ params }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) throw error(404, 'Not a valid game id.');
 
+	// Offline: there is no warehouse to ask, so hand the browser the id and let it answer
+	// from the catalog it already has in DuckDB. Returning `game: null` rather than throwing
+	// is what gives the client a chance to render at all.
+	if (isOffline()) return { game: null, id, offline: true as const };
+
 	try {
 		const game = toViewModel(await warehouseClient().getGame(id));
-		return { game };
+		return { game, id, offline: false as const };
 	} catch (e) {
 		if (e instanceof GameNotFoundError) throw error(404, `Game ${id} not found.`);
 		throw e;
