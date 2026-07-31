@@ -1,7 +1,8 @@
 /**
  * Materialize the catalog artifact from BigQuery: one narrow scan of the working set
- * (~38k rows, ~30 MB) → Arrow IPC bytes. Run at most on a TTL by the cache, never per
- * request. Uses the same `analytics` dataset the warehouse serves from.
+ * (~38k rows, ~40 MB) → Arrow IPC bytes. Run at most on a TTL by the cache, never per
+ * request. Reads the same `analytics` dataset the warehouse serves from, plus
+ * `predictions` for the model columns.
  */
 import { BigQuery } from '@google-cloud/bigquery';
 import { env } from '$env/dynamic/private';
