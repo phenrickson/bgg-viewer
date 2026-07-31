@@ -8,19 +8,83 @@ Built from the conventions in the `front-end-design` starter kit (copied into
 `.claude/skills/` and owned here). Stack: SvelteKit 2 (SSR, adapter-node),
 Tailwind v4 + OKLCH tokens, Svelte 5 runes, TanStack, LayerChart.
 
-## Develop
+## Getting started
 
-Requires Node ≥ 20, [pnpm](https://pnpm.io) (`winget install pnpm.pnpm`), and
-[just](https://github.com/casey/just) (`winget install Casey.Just`).
+### 1. Prerequisites
+
+| Tool | Version | Purpose | macOS | Windows |
+| --- | --- | --- | --- | --- |
+| [Node](https://nodejs.org) | ≥ 20 | runtime (enforced by `engines` on install) | `brew install node` | `winget install OpenJS.NodeJS` |
+| [pnpm](https://pnpm.io/installation) | ≥ 10 | package manager | `brew install pnpm` | `winget install pnpm.pnpm` |
+| [just](https://github.com/casey/just#installation) | ≥ 1.4 | task runner | `brew install just` | `winget install Casey.Just` |
+| [gcloud](https://cloud.google.com/sdk/docs/install) | any | BigQuery access — see step 3 | `brew install --cask google-cloud-sdk` | `winget install Google.CloudSDK` |
+
+Already have these, or manage Node with mise/fnm/nvm? Use what you have — nothing here
+pins a version. Run `just doctor` after step 2 to confirm what you ended up with.
+
+### 2. Clone and install
 
 ```sh
-just            # list recipes
-just setup      # install dependencies
-just dev        # dev server
+git clone https://github.com/phenrickson/bgg-viewer.git
+cd bgg-viewer
+just setup          # pnpm install
+just doctor         # print toolchain versions
+```
+
+### 3. Configure the environment
+
+```sh
+cp .env.example .env
+```
+
+`.env` is gitignored. The minimum for a browsable local app:
+
+```sh
+# Skips the app's login screen (dev builds only). Any email works — no account needed.
+DEV_AUTH_EMAIL=you@example.com
+GCP_PROJECT_ID=bgg-data-warehouse
+```
+
+There are two separate credential layers, and `DEV_AUTH_EMAIL` only removes the first:
+
+| | Needed with `DEV_AUTH_EMAIL`? |
+| --- | --- |
+| **App account** — a row in `core.users`, plus `SESSION_SECRET` + `REGISTRATION_CODE` | No. A session user is fabricated in-memory; `core.users` is never read. |
+| **GCP credentials** — ADC for BigQuery | **Yes, always.** The catalog is read from BigQuery regardless of how you signed in. |
+
+So you still need Google Cloud access — read on `bgg-data-warehouse.analytics.games_features`
+via [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc):
+
+```sh
+gcloud auth application-default login
+```
+
+Without it the app boots and renders the shell, but the catalog request (`/api/catalog`)
+fails and `/games` stays empty. First load runs one ~30 MB BigQuery scan, then caches
+in-process for 6 hours.
+
+To exercise the real login/register flow instead, unset `DEV_AUTH_EMAIL` and set
+`SESSION_SECRET` (any long random string) and `REGISTRATION_CODE` — that path reads and
+writes `core.users` in the same BigQuery project, so it needs the same ADC. Game detail
+pages that proxy the warehouse read API additionally need `WAREHOUSE_API_URL`. See
+[.env.example](.env.example) for the full annotated list.
+
+### 4. Run it
+
+```sh
+just dev        # dev server on http://localhost:5173 (auto-opens)
+```
+
+### Everyday commands
+
+```sh
+just            # list all recipes
 just check      # svelte-check (types)
 just test       # vitest unit tests
 just build      # production build (adapter-node)
+just start      # serve the build (PORT overrides; default 3000)
 just verify     # types + tests + build — run before every PR
+just clean      # remove .svelte-kit and build
 ```
 
 ## Docs
