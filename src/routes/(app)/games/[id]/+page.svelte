@@ -14,11 +14,29 @@
    */
   import { onMount } from 'svelte';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
+  import { gameFromCatalogRow, type CatalogGameRow } from '$lib/catalog/game-from-catalog';
   import { decodeEntities } from '$lib/utils/html-entities';
   import { Container } from '$lib/components/ui/layout';
 
   let { data } = $props();
-  const g = $derived(data.game);
+
+  /**
+   * Offline the server has no warehouse to ask, so it hands over the id and this page answers
+   * from the catalog already loaded in DuckDB — the same copy Explore just used to get here.
+   * Nothing is re-fetched or re-parsed; it's a single-row lookup.
+   */
+  let fromCatalog = $state<ReturnType<typeof gameFromCatalogRow> | null>(null);
+
+  $effect(() => {
+    if (!data.offline || catalog.status !== 'ready' || fromCatalog) return;
+    query<CatalogGameRow>(`SELECT * FROM catalog WHERE game_id = ${data.id} LIMIT 1`)
+      .then((rows) => {
+        if (rows[0]) fromCatalog = gameFromCatalogRow(rows[0]);
+      })
+      .catch((e) => console.error('offline game lookup failed', e));
+  });
+
+  const g = $derived(data.game ?? fromCatalog);
 
   const num = (n: number | null, digits = 2) =>
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -46,7 +64,7 @@
     if (a == null) return `${b}${unit}`;
     return `${a}–${b}${unit}`;
   }
-  const description = $derived(decodeEntities(g.description));
+  const description = $derived(decodeEntities(g?.description ?? null));
   /** Long enough that clamping it actually hides something worth a button. */
   const CLAMP_AT = 620;
   let showAll = $state(false);
@@ -92,8 +110,9 @@
   };
 
   $effect(() => {
+    if (!g || catalog.status !== 'ready') return;
     const geek = finite(g.geek);
-    if (catalog.status !== 'ready' || geek == null || geek <= 0) return;
+    if (geek == null || geek <= 0) return;
     const year = finite(g.year);
     const avg = finite(g.average) ?? -1;
     const rated = finite(g.ratings) ?? -1;
@@ -143,7 +162,7 @@
   });
 
   /** The community's pick, so the chart can mark its own answer. */
-  const bestRow = $derived(g.bestAt);
+  const bestRow = $derived(g?.bestAt ?? null);
 
   /**
    * "Best at 2" was the whole answer this page gave, and it's the smaller half of the
@@ -154,7 +173,7 @@
    * BGG classifies each count by which of its three vote shares wins, so that's the rule
    * here too: plurality, ties resolving toward the more favourable verdict.
    */
-  type PC = (typeof g.playerCounts)[number];
+  type PC = NonNullable<typeof g>['playerCounts'][number];
   function verdictOf(p: PC): 'best' | 'rec' | 'not' {
     if (!p.votes) return 'not';
     if (p.best >= p.recommended && p.best >= p.notRecommended) return 'best';
@@ -174,9 +193,9 @@
     }
     return out.join(', ');
   }
-  const verdicts = $derived(new Map(g.playerCounts.map((p) => [p.count, verdictOf(p)])));
-  const bestCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'best').map((p) => p.count));
-  const recCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'rec').map((p) => p.count));
+  const verdicts = $derived(new Map((g?.playerCounts ?? []).map((p) => [p.count, verdictOf(p)])));
+  const bestCounts = $derived((g?.playerCounts ?? []).filter((p) => verdicts.get(p.count) === 'best').map((p) => p.count));
+  const recCounts = $derived((g?.playerCounts ?? []).filter((p) => verdicts.get(p.count) === 'rec').map((p) => p.count));
   /** The top line leads with the ★ row so the fact and the chart's mark can't disagree. */
   const bestLabel = $derived(bestCounts.length ? compact(bestCounts) : bestRow);
   const recLabel = $derived(recCounts.length ? compact(recCounts) : null);
@@ -192,7 +211,7 @@
    * How stale this is. Ratings and weights move, and a page that shows four decimal-place
    * numbers without saying when it looked is quietly overclaiming.
    */
-  const freshness = $derived(fmtDate(g.lastUpdated));
+  const freshness = $derived(fmtDate(g?.lastUpdated ?? null));
 
   // --- what the model expects -----------------------------------------------------------
   /**
@@ -208,8 +227,8 @@
    *
    * All copy here is PLACEHOLDER — Phil writes the final strings.
    */
-  const p = $derived(g.predictions);
-  const isRated = $derived((g.geek ?? 0) > 0);
+  const p = $derived(g?.predictions ?? null);
+  const isRated = $derived((g?.geek ?? 0) > 0);
   /**
    * Whether the model was fitted on this game. Three states, not two — NULL means the row
    * predates the flag and hasn't been rescored yet, so the page says nothing rather than
@@ -234,7 +253,7 @@
   }
 
   const predRows = $derived(
-    p == null
+    p == null || g == null
       ? []
       : (
           [
@@ -256,8 +275,24 @@
   };
 </script>
 
-<svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
+<svelte:head><title>{g ? `${g.name} · ` : ''}bgg-viewer</title></svelte:head>
 
+{#if !g}
+  <!-- Offline, waiting on the catalog to warm (or the game isn't in the working set). The
+       online path never lands here: the server load either returns a game or throws 404. -->
+  <Container size="content">
+    <p class="await">
+      {#if catalog.status === 'error'}
+        <!-- PLACEHOLDER copy — Phil writes the final strings. -->
+        Catalog failed to load, so this game can't be shown offline.
+      {:else if catalog.status === 'ready'}
+        Game {data.id} isn't in the offline catalog.
+      {:else}
+        Loading from the offline catalog…
+      {/if}
+    </p>
+  </Container>
+{:else}
 <Container size="content">
   <div class="nav">
     <a class="back" href={backHref}>
@@ -443,6 +478,11 @@
               </a>
             {/each}
           </div>
+        {:else if data.offline}
+          <!-- PLACEHOLDER copy — Phil writes the final strings. "Not computed" is a claim about
+               the data; offline the embeddings exist and are simply out of reach, which is a
+               different thing and shouldn't read as an empty result. -->
+          <div class="empty">Similar games need the warehouse — unavailable offline.</div>
         {:else}
           <div class="empty">No similar games computed.</div>
         {/if}
@@ -529,9 +569,24 @@
   {#if freshness}
     <p class="fresh">Warehouse data for this game last refreshed {freshness}.</p>
   {/if}
+
+  {#if data.offline}
+    <!-- PLACEHOLDER copy — Phil writes the final strings. Says which fields are missing and
+         why, so a thinner page reads as offline rather than as broken data. -->
+    <p class="fresh">
+      Offline — built from the cached catalog. Description, box art, play time, similar games,
+      and per-count vote totals need the warehouse.
+    </p>
+  {/if}
 </Container>
+{/if}
 
 <style>
+  .await {
+    color: var(--muted-foreground);
+    padding: var(--space-lg) 0;
+  }
+
   .tnum {
     font-variant-numeric: tabular-nums;
   }

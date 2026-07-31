@@ -4,6 +4,18 @@ import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	/**
+	 * duckdb-wasm ships prebuilt workers whose sourcemaps point into `@duckdb/apache-arrow`,
+	 * outside their own package. Pre-bundling them makes esbuild warn once per referenced file
+	 * — ~117 lines that bury the dev server's localhost URL. The warnings are harmless, but
+	 * they go straight to stderr rather than through Vite's logger, so filtering them is not
+	 * possible; excluding the package from dep optimization avoids generating them instead.
+	 * duckdb-wasm loads its workers as separate bundles at runtime and doesn't need
+	 * pre-bundling to work.
+	 */
+	optimizeDeps: {
+		exclude: ['@duckdb/duckdb-wasm']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
