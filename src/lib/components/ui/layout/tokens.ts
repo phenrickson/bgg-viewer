@@ -9,6 +9,12 @@
 export const MEASURE = {
 	/** A reading column — prose, hero copy. Long lines are hard to track back from. */
 	prose: '52rem',
+	/**
+	 * A list of records — rows carrying a few fields each. Wider than prose, because a row
+	 * is not a sentence and cramping it truncates real content; narrower than a record page,
+	 * because a list still scans top-to-bottom and a long row loses its own left edge.
+	 */
+	list: '64rem',
 	/** A record page: headline, stats, supporting panels. */
 	content: '80rem',
 	/** A two-pane workspace — a filter rail beside a dense list. */

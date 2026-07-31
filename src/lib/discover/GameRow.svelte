@@ -54,14 +54,16 @@
 </a>
 
 <style>
-  /* `minmax(floor, Nfr)` on the flexible columns, not a lone `1fr` on the middle one.
-     With all the stretch in one column, every spare pixel pooled into a single gap between
-     the categories and the rating — on a wide window that was ~900px of nothing, which is
-     exactly the failure `GameList.svelte` documents and solves the same way. Spreading the
-     surplus turns extra width into ordinary spacing instead. */
+  /* Fixed art, flexible middle, fixed rating. The rating column was `minmax(4.5rem, 1fr)`,
+     i.e. stretching, which left the number and its bar drifting in the middle of a column
+     wider than they are and unaligned with anything. It is a fixed 4.5rem now so it hugs the
+     right edge and the bars line up down the list.
+     A lone `1fr` in the middle is only dangerous when the page is unbounded — on a full-bleed
+     window it pooled ~900px into one gap (the failure `GameList.svelte` documents). The list
+     is capped at the `content` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(14rem, 6fr) minmax(4.5rem, 1fr);
+    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);

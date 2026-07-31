@@ -102,8 +102,13 @@
 
 <svelte:head><title>Discover · bgg-viewer</title></svelte:head>
 
-<Container size="content">
-  <div class="page">
+<!-- ONE measure, so everything shares a left edge.
+     An earlier pass put the hero in `prose` and the list in a wider container, meaning to
+     make the results "step out". With a short headline above a full-width card the two
+     margins just read as misalignment — the page wobbled instead of stepping. The landing
+     page is calm precisely because every element starts at the same x. -->
+<div class="page">
+  <Container size="list">
     <!-- PLACEHOLDER copy -->
     <h1>Find your next <em>game night</em>.</h1>
     <p class="lede">Answer as few or as many as you like — the list below narrows as you go.</p>
@@ -157,7 +162,8 @@
     </div>
 
     <!-- The end of Discover's arc, not a utility link. Built like the landing page's door,
-         so Home → Discover → Explore reads as one journey with a handoff at each step. -->
+         so Home → Discover → Explore reads as one journey with a handoff at each step.
+         Kept at the list's measure, not the prose one: it belongs to the answer. -->
     <a class="door" href={exploreHref}>
       <span class="door-t">Want to go deeper? <span class="arw">→</span></span>
       <span class="door-p">
@@ -168,8 +174,8 @@
         {/if}
       </span>
     </a>
-  </div>
-</Container>
+  </Container>
+</div>
 
 <style>
   /* Content-driven, not fill-height. Bounding the list to DISCOVER_LIMIT rows made the
@@ -178,8 +184,10 @@
      rather than hiding below a nested scroller. */
   .page {
     display: flex; flex-direction: column;
-    gap: var(--space-lg); padding: clamp(1rem, 3vw, 2.5rem) 0 var(--space-xl);
+    gap: var(--space-xl); padding: clamp(1rem, 3vw, 2.5rem) 0 var(--space-xl);
   }
+  /* The results sit further from the questions than the questions do from each other, so
+     the step out to the wider measure lands as a section break rather than a wobble. */
 
   /* Matches the landing page's hero, so the two pages read as one voice. */
   h1 {
@@ -193,7 +201,9 @@
     margin: -0.4rem 0 var(--space-sm);
   }
 
-  .results { display: flex; flex-direction: column; }
+  /* Sits further from the questions than they do from each other, so stepping out to the
+     wider measure lands as a section break rather than a wobble. */
+  .results { display: flex; flex-direction: column; margin-bottom: var(--space-lg); }
 
   .head {
     display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
