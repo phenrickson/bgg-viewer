@@ -54,9 +54,14 @@
 </a>
 
 <style>
+  /* `minmax(floor, Nfr)` on the flexible columns, not a lone `1fr` on the middle one.
+     With all the stretch in one column, every spare pixel pooled into a single gap between
+     the categories and the rating — on a wide window that was ~900px of nothing, which is
+     exactly the failure `GameList.svelte` documents and solves the same way. Spreading the
+     surplus turns extra width into ordinary spacing instead. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem;
+    grid-template-columns: 3.5rem minmax(14rem, 6fr) minmax(4.5rem, 1fr);
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -88,18 +93,26 @@
 
   .l2 { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 
-  /* Complexity as an ordered tint ramp. The WORD carries the meaning; the tint only
-     reinforces it, so the scale survives a colourblind reader and a greyscale print. Kept
-     to an outline rather than a solid fill so it never outshouts the game's name. */
+  /* Complexity as an ordered ramp in ONE hue.
+     The first attempt stepped through `--chart-2..--chart-1`, which put purple at Medium,
+     orange at Medium-Heavy and blue at Heavy: that palette is *categorical*, so it read as
+     three unrelated kinds rather than as a scale that climbs. An ordered quantity needs an
+     ordered encoding, so the ramp now holds the primary hue fixed and varies only
+     intensity — Light barely tinted, Heavy fully saturated. The WORD still carries the
+     meaning; the tint only reinforces it, which keeps the scale legible in greyscale and to
+     a colourblind reader. Outline rather than solid fill so it never outshouts the title. */
   .cx {
     flex: none; font-size: 0.7rem; font-weight: 550; white-space: nowrap;
     padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid;
+    color: color-mix(in oklch, var(--primary) calc(45% + var(--step) * 11%), var(--muted-foreground));
+    border-color: color-mix(in oklch, var(--primary) calc(18% + var(--step) * 9%), transparent);
+    background: color-mix(in oklch, var(--primary) calc(4% + var(--step) * 3%), transparent);
   }
-  .cx[data-step='1'] { color: var(--chart-2); border-color: color-mix(in oklch, var(--chart-2) 45%, transparent); background: color-mix(in oklch, var(--chart-2) 10%, transparent); }
-  .cx[data-step='2'] { color: var(--chart-3); border-color: color-mix(in oklch, var(--chart-3) 45%, transparent); background: color-mix(in oklch, var(--chart-3) 10%, transparent); }
-  .cx[data-step='3'] { color: var(--chart-4); border-color: color-mix(in oklch, var(--chart-4) 45%, transparent); background: color-mix(in oklch, var(--chart-4) 10%, transparent); }
-  .cx[data-step='4'] { color: var(--chart-5); border-color: color-mix(in oklch, var(--chart-5) 45%, transparent); background: color-mix(in oklch, var(--chart-5) 10%, transparent); }
-  .cx[data-step='5'] { color: var(--chart-1); border-color: color-mix(in oklch, var(--chart-1) 55%, transparent); background: color-mix(in oklch, var(--chart-1) 14%, transparent); }
+  .cx[data-step='1'] { --step: 1; }
+  .cx[data-step='2'] { --step: 2; }
+  .cx[data-step='3'] { --step: 3; }
+  .cx[data-step='4'] { --step: 4; }
+  .cx[data-step='5'] { --step: 5; }
 
   .cats {
     font-size: 0.73rem; color: var(--muted-foreground);

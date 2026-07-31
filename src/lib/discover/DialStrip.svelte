@@ -23,7 +23,7 @@
 
 <div class="strip">
   <div class="row">
-    <p class="label" id="dial-cat">Categories</p>
+    <p class="q" id="dial-cat">What kind of game?</p>
     <div class="chips" role="group" aria-labelledby="dial-cat">
       {#each CATEGORY_CHIPS as c (c.label)}
         {@const on = isCategoryOn(scope, c)}
@@ -39,16 +39,16 @@
   </div>
 
   <div class="row">
-    <p class="label" id="dial-players">Players</p>
+    <p class="q" id="dial-players">How many players?</p>
     <div class="chips" role="group" aria-labelledby="dial-players">
       {#each PLAYER_CHIPS as p (p.bestAt)}
         {@const on = scope.bestAt === p.bestAt}
         <button
           type="button"
-          class="chip num"
+          class="chip"
           class:on
           aria-pressed={on}
-          aria-label="Best at {p.label} players"
+          aria-label="Best at {p.bestAt} players"
           onclick={() => onpatch({ bestAt: on ? null : p.bestAt })}
         >{p.label}</button>
       {/each}
@@ -56,7 +56,7 @@
   </div>
 
   <div class="row">
-    <p class="label" id="dial-weight">Complexity</p>
+    <p class="q" id="dial-weight">How complex?</p>
     <div class="chips" role="group" aria-labelledby="dial-weight">
       {#each COMPLEXITY_BANDS as b (b.label)}
         {@const on = isBandOn(scope, b)}
@@ -73,13 +73,17 @@
 </div>
 
 <style>
-  .strip { display: flex; flex-direction: column; gap: var(--space-md); }
-  .row { display: flex; flex-direction: column; gap: 0.45rem; }
+  .strip { display: flex; flex-direction: column; gap: var(--space-lg); }
+  .row { display: flex; flex-direction: column; gap: 0.6rem; }
 
-  /* Matches the landing page's `.try` eyebrow exactly. */
-  .label {
-    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--muted-foreground); font-weight: 600; margin: 0;
+  /* A question, not a field label.
+     These were `.try`-style uppercase eyebrows — "CATEGORIES", "PLAYERS" — which read as a
+     filing system and made the page a filter toolbar. Discover's premise is that it *asks*
+     you three things, so the questions are set as content, in the landing page's voice,
+     with the chips as their answers. */
+  .q {
+    font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em;
+    color: var(--foreground); margin: 0;
   }
 
   .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -104,6 +108,6 @@
     font-weight: 600;
   }
 
-  /* Single digits look accidental at chip width unless given a floor. */
-  .num { min-width: 2.75rem; text-align: center; }
+  /* No `.num` rule: player chips read as answers ("2 players"), not bare digits, so they
+     no longer need a width floor to stop looking accidental. */
 </style>

@@ -47,13 +47,21 @@ export const CATEGORY_CHIPS: CategoryChip[] = [
  * filter BGG itself cannot do, which is why it earns a whole dial on a three-dial page.
  */
 export const PLAYER_CHIPS: { label: string; bestAt: number }[] = [
-  { label: '1', bestAt: 1 },
-  { label: '2', bestAt: 2 },
-  { label: '3', bestAt: 3 },
-  { label: '4', bestAt: 4 },
-  { label: '5', bestAt: 5 },
-  { label: '6', bestAt: 6 }
+  { label: 'Just me', bestAt: 1 },
+  { label: '2 players', bestAt: 2 },
+  { label: '3 players', bestAt: 3 },
+  { label: '4 players', bestAt: 4 },
+  { label: '5 players', bestAt: 5 },
+  { label: '6 players', bestAt: 6 }
 ];
+
+/**
+ * How many games Discover shows. It is a recommendation, not a result set — a bare digit
+ * answers a question nobody asked, and 30,000 rows is Explore's job. The count line still
+ * reports the true match total, and the door at the foot of the page carries the scope
+ * there, so nothing is hidden by the bound.
+ */
+export const DISCOVER_LIMIT = 25;
 
 export interface ComplexityBand {
   label: string;

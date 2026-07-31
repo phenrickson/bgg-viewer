@@ -22,15 +22,9 @@
   } from '$lib/catalog/scope';
   import DialStrip from '$lib/discover/DialStrip.svelte';
   import GameRow from '$lib/discover/GameRow.svelte';
-  import { discoverScopeFromParams } from '$lib/discover/dials';
+  import { discoverScopeFromParams, DISCOVER_LIMIT } from '$lib/discover/dials';
   import type { DiscoverGame } from '$lib/discover/types';
   import { Container } from '$lib/components/ui/layout';
-
-  /**
-   * How many games Discover will show before the only way further is Explore. Discover is a
-   * sampler, not a result set; the count and the hand-off tell the truth about the rest.
-   */
-  const LIMIT = 200;
 
   /**
    * Discover defaults to the whole rated population rather than the top-10k slice, so that
@@ -85,7 +79,7 @@
                 best_player_counts, recommended_player_counts, categories
          FROM catalog WHERE ${where}
          ORDER BY geek_rating DESC NULLS LAST, game_id
-         LIMIT ${LIMIT}`
+         LIMIT ${DISCOVER_LIMIT}`
       )
     ])
       .then(([c, r]) => {
@@ -108,78 +102,105 @@
 
 <svelte:head><title>Discover · bgg-viewer</title></svelte:head>
 
-<div class="page">
-  <Container size="wide">
-    <DialStrip {scope} onpatch={patch} />
-  </Container>
+<Container size="content">
+  <div class="page">
+    <!-- PLACEHOLDER copy -->
+    <h1>Find your next <em>game night</em>.</h1>
+    <p class="lede">Answer as few or as many as you like — the list below narrows as you go.</p>
 
-  <Container size="wide" class="listcontainer">
-    <div class="head">
-      <span class="count">
-        {#if catalog.status !== 'ready' || (loading && !rows.length)}
-          Finding games…
+    <DialStrip {scope} onpatch={patch} />
+
+    <div class="results">
+      <div class="head">
+        <span class="count">
+          {#if catalog.status !== 'ready' || (loading && !rows.length)}
+            Finding games…
+          {:else if total === 0}
+            No matches
+          {:else}
+            Showing <b>{Math.min(total, DISCOVER_LIMIT)}</b>
+            of <b>{total.toLocaleString()}</b>
+            {total === 1 ? 'match' : 'matches'}
+            <span class="dim">· top rated first</span>
+          {/if}
+        </span>
+
+        {#if extraFilters.length}
+          <span class="extras">
+            {#each extraFilters as f (f.id)}
+              <button type="button" class="ext" onclick={() => patch(f.patch)}>
+                <span class="dim">{f.kind}</span> {f.label} <span class="x">×</span>
+              </button>
+            {/each}
+          </span>
+        {/if}
+      </div>
+
+      <div class="listwrap">
+        {#if catalog.status === 'error' || failed}
+          <p class="msg">
+            Couldn’t load the catalog.
+            <button type="button" class="retry" onclick={() => initCatalog()}>Try again</button>
+          </p>
+        {:else if catalog.status !== 'ready'}
+          <p class="msg">Warming the catalog…</p>
+        {:else if !rows.length && !loading}
+          <p class="msg">No games match all of these. Try turning one of the chips off.</p>
         {:else}
-          <b>{total.toLocaleString()}</b>
-          {total === 1 ? 'game' : 'games'}
-          <span class="dim">· top rated first</span>
+          <div class="rows">
+            {#each rows as g (g.game_id)}
+              <GameRow game={g} />
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- The end of Discover's arc, not a utility link. Built like the landing page's door,
+         so Home → Discover → Explore reads as one journey with a handoff at each step. -->
+    <a class="door" href={exploreHref}>
+      <span class="door-t">Want to go deeper? <span class="arw">→</span></span>
+      <span class="door-p">
+        {#if total > DISCOVER_LIMIT}
+          Open all {total.toLocaleString()} in Explore — filter, sort, and see the shape of the set.
+        {:else}
+          Open this set in Explore — filter, sort, and see the shape of the whole catalog.
         {/if}
       </span>
-
-      {#if extraFilters.length}
-        <span class="extras">
-          {#each extraFilters as f (f.id)}
-            <button type="button" class="ext" onclick={() => patch(f.patch)}>
-              <span class="dim">{f.kind}</span> {f.label} <span class="x">×</span>
-            </button>
-          {/each}
-        </span>
-      {/if}
-
-      {#if total > 0}
-        <a class="all" href={exploreHref}>See all {total.toLocaleString()} in Explore →</a>
-      {/if}
-    </div>
-
-    <div class="listwrap">
-      {#if catalog.status === 'error' || failed}
-        <p class="msg">
-          Couldn’t load the catalog.
-          <button type="button" class="retry" onclick={() => initCatalog()}>Try again</button>
-        </p>
-      {:else if catalog.status !== 'ready'}
-        <p class="msg">Warming the catalog…</p>
-      {:else if !rows.length && !loading}
-        <p class="msg">No games match all of these. Try turning one of the chips off.</p>
-      {:else}
-        <div class="rows">
-          {#each rows as g (g.game_id)}
-            <GameRow game={g} />
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </Container>
-</div>
+    </a>
+  </div>
+</Container>
 
 <style>
-  /* Fill-height: the shell owns the only viewport height, this page fills it and lets the
-     list scroll inside. No `vh` here. */
+  /* Content-driven, not fill-height. Bounding the list to DISCOVER_LIMIT rows made the
+     internal scroll pointless — 25 rows is content, so the page just flows and the document
+     scrolls, which is also what lets the door at the foot be reached by scrolling to the end
+     rather than hiding below a nested scroller. */
   .page {
-    display: flex; flex-direction: column; min-height: 0; flex: 1;
-    gap: var(--space-lg); padding: var(--space-lg) 0;
-  }
-  .page :global(.listcontainer) {
-    display: flex; flex-direction: column; min-height: 0; flex: 1;
+    display: flex; flex-direction: column;
+    gap: var(--space-lg); padding: clamp(1rem, 3vw, 2.5rem) 0 var(--space-xl);
   }
 
+  /* Matches the landing page's hero, so the two pages read as one voice. */
+  h1 {
+    font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem));
+    font-weight: 750; letter-spacing: -0.03em; line-height: 1.05;
+    margin: 0; text-wrap: balance;
+  }
+  h1 em { font-style: normal; color: var(--primary); }
+  .lede {
+    font-size: 1.1rem; color: var(--muted-foreground); max-width: 40rem;
+    margin: -0.4rem 0 var(--space-sm);
+  }
+
+  .results { display: flex; flex-direction: column; }
+
   .head {
-    flex: none; display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
+    display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
     font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: var(--space-sm);
   }
   .count b { color: var(--foreground); font-weight: 650; font-variant-numeric: tabular-nums; }
   .dim { color: var(--muted-foreground); }
-  .all { margin-left: auto; color: var(--primary); text-decoration: none; font-weight: 550; }
-  .all:hover { text-decoration: underline; }
 
   .extras { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
   .ext {
@@ -190,15 +211,13 @@
   .ext:hover { border-color: var(--primary); color: var(--primary); }
   .ext .x { opacity: 0.6; }
 
-  /* `0 1 auto`, never `1`: a five-result set must size to its five rows. Stretching it to
-     fill the workspace leaves a screen of empty bordered card, which reads as "something
-     failed to load" rather than "here are your five games". */
+  /* Sizes to its rows. With the set bounded there is no internal scroll to manage, so a
+     five-result answer is five rows tall — never a screen of empty bordered card, which
+     reads as "something failed to load" rather than "here are your five games". */
   .listwrap {
-    display: flex; flex-direction: column; min-height: 0; flex: 0 1 auto;
     border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--card); overflow: hidden;
   }
-  .rows { overflow-y: auto; min-height: 0; flex: 1; }
 
   .msg {
     padding: var(--space-xl) var(--space-lg); text-align: center;
@@ -208,4 +227,24 @@
     font: inherit; margin-left: 0.4rem; cursor: pointer;
     background: none; border: none; color: var(--primary); text-decoration: underline;
   }
+
+  /* Lifted from the landing page's `.door`, deliberately: the same affordance in the same
+     shape, so "the way onward" looks identical wherever you meet it. */
+  .door {
+    display: flex; flex-direction: column; gap: 0.25rem;
+    text-decoration: none; color: inherit;
+    background: color-mix(in oklch, var(--primary) 10%, var(--card));
+    border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+    border-radius: var(--radius); padding: var(--space-lg);
+    margin-top: var(--space-sm);
+  }
+  .door:hover {
+    background: color-mix(in oklch, var(--primary) 16%, var(--card));
+    border-color: var(--primary);
+  }
+  .door-t {
+    font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary);
+  }
+  .door-t .arw { opacity: 0.7; }
+  .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
 </style>
