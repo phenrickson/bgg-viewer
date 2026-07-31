@@ -34,6 +34,24 @@
       .join(', ')
   );
 
+  /**
+   * The rating meter's domain. Geek rating is Bayesian and squeezed into roughly 5.5–8.8, so
+   * a 0–10 scale would leave every game's meter sitting in the same narrow band and comparing
+   * nothing. Fixed, not scaled to the current page: a meter that re-scales per result set
+   * makes every page look identical and destroys comparison between them.
+   */
+  const GEEK_LO = 5.5;
+  const GEEK_HI = 8.8;
+  const SEGMENTS = 5;
+
+  /** Fill of the i-th (0-based) segment, 0–100. */
+  function ratingSeg(i: number): number {
+    const v = game.geek_rating;
+    if (v == null) return 0;
+    const filled = ((v - GEEK_LO) / (GEEK_HI - GEEK_LO)) * SEGMENTS;
+    return Math.max(0, Math.min(1, filled - i)) * 100;
+  }
+
   const weight = $derived(complexityLabel(game.average_weight));
   /** Band index 1–5, driving the badge's tint step. Derived from the same source as weight. */
   const weightStep = $derived(complexityBandIndex(game.average_weight));
@@ -65,24 +83,29 @@
     </span>
   </span>
 
-  <!-- Two columns, not one cluster: each label owns a fixed slot, so "BEST AT" sits at the
-       same x on every row whether or not the game has a RECOMMENDED AT beside it. -->
+  <!-- Two columns, not one cluster: each label owns a fixed slot, so "BEST" sits at the same
+       x on every row whether or not the game has a "RECOMMENDED" beside it. -->
   <span class="fact">
     {#if bestAt}
-      <span class="lbl">Best at</span>
+      <span class="lbl">Best</span>
       <b class="hl">{bestAt}</b>
     {/if}
   </span>
   <span class="fact">
     {#if recAt}
-      <span class="lbl">Recommended at</span>
+      <span class="lbl">Recommended</span>
       <b>{recAt}</b>
     {/if}
   </span>
 
   <span class="rate">
     {#if game.geek_rating != null}
-      <span class="rv">{game.geek_rating.toFixed(1)}<span class="of">/10</span></span>
+      <span class="rv">{game.geek_rating.toFixed(1)}</span>
+      <span class="meter" aria-hidden="true">
+        {#each [0, 1, 2, 3, 4] as i (i)}
+          <i><b style:width="{ratingSeg(i)}%"></b></i>
+        {/each}
+      </span>
     {:else}
       <span class="rv none">—</span>
     {/if}
@@ -90,16 +113,15 @@
 </a>
 
 <style>
-  /* Fixed art, flexible middle, fixed rating. The rating column was `minmax(4.5rem, 1fr)`,
-     i.e. stretching, which left the number and its bar drifting in the middle of a column
-     wider than they are and unaligned with anything. It is a fixed 4.5rem now so it hugs the
-     right edge and the bars line up down the list.
+  /* Fixed art, flexible title, then three fixed columns. Everything except the title is a
+     fixed width so the labels, numbers and meters form columns you can read down; only the
+     title absorbs slack.
      A lone `1fr` in the middle is only dangerous when the page is unbounded — on a full-bleed
      window it pooled ~900px into one gap (the failure `GameList.svelte` documents). The list
-     is capped at the `content` measure, so the surplus it can absorb is small and bounded. */
+     is capped at the `list` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(0, 1fr) 5.5rem 8.5rem 4.25rem;
+    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -133,7 +155,7 @@
 
   /* Fixed columns, in the space the layout was wasting between the categories and the
      rating. `auto` widths let each row size to its own numbers, so "2, 3" and "2" pushed the
-     labels to different offsets and a game with no RECOMMENDED AT shifted BEST AT rightward —
+     labels to different offsets and a game with no RECOMMENDED shifted BEST rightward —
      nothing lined up down the list. Fixed slots make the labels a column you can read
      vertically. Matches `.facts` on the game detail page. */
   .fact { align-self: center; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
@@ -145,18 +167,23 @@
   .fact b { font-weight: 650; }
   .hl { color: var(--primary); }
 
-  /* "7.9/10", not "7.95" over a bar.
-     The bar ran on a fixed 5.5–8.8 domain — chosen because geek rating is Bayesian and
-     squeezed into that range — but the domain was invisible, so a half-full bar meant nothing
-     to a reader who does not already know BGG's scale. A number against its maximum needs no
-     legend, and two significant digits are all a rating supports anyway. */
+  /* The number leads; the meter gives it a scale to sit on.
+     Five segments rather than one continuous bar, because segments are countable — a bar
+     half-filled on an invisible 5.5–8.8 domain told a reader nothing, whereas "three of five
+     lit" is a quantity even without knowing the endpoints. */
   .rate { justify-self: end; text-align: right; }
   .rv {
+    display: block;
     font-size: 0.95rem; font-weight: 650; color: var(--foreground);
-    font-variant-numeric: tabular-nums; white-space: nowrap;
+    font-variant-numeric: tabular-nums; line-height: 1.15;
   }
-  .rv .of { font-size: 0.72rem; font-weight: 500; color: var(--muted-foreground); }
   .rv.none { color: var(--muted-foreground); font-weight: 500; }
+  .meter { display: flex; gap: 1.5px; margin-top: 0.25rem; }
+  .meter i {
+    flex: 1; height: 0.3rem; border-radius: 1.5px; overflow: hidden;
+    background: color-mix(in oklch, var(--border) 80%, transparent);
+  }
+  .meter b { display: block; height: 100%; background: var(--chart-1); }
 
   /* Complexity as an ordered ramp in ONE hue.
      The first attempt stepped through `--chart-2..--chart-1`, which put purple at Medium,
@@ -192,7 +219,7 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 5.5rem 4.25rem; }
+    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 4rem; }
     .fact:nth-of-type(2) { display: none; }
   }
 </style>
