@@ -37,10 +37,26 @@ doctor:
 
 # --- Operate ---------------------------------------------------------------
 
-# Run the dev server (auto-opens the browser on a pinned port).
+# No --open: it resolves the browser through $BROWSER rather than the macOS default handler, so
+# it opened the wrong one. Vite prints the URL — click that.
+#
 # Leading `-` ignores the exit code — Ctrl-C stopping the server is not a failure.
+# Run the dev server (http://localhost:5173).
 dev:
-    -pnpm exec vite dev --open --port 5173
+    -pnpm exec vite dev --port 5173
+
+# Offline: serves the catalog from .cache/catalog.arrow.gz and renders game pages from it, so
+# no request reaches BigQuery or the warehouse. Run `just dev` once with network access first
+# to populate the cache. Inline `VAR=x cmd` is bash-only, hence the per-platform variants.
+# Run the dev server with no network, off the cached catalog.
+[unix]
+dev-offline:
+    -OFFLINE=1 pnpm exec vite dev --port 5173
+
+# Run the dev server with no network, off the cached catalog.
+[windows]
+dev-offline:
+    -$env:OFFLINE = '1'; pnpm exec vite dev --port 5173
 
 # Ctrl-C only works from the terminal that owns the server; killing whatever holds the port
 # also reaches one orphaned from its terminal.
