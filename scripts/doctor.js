@@ -28,29 +28,47 @@ else warn('neither DEV_AUTH_EMAIL nor SESSION_SECRET set — every page will red
 const project = value('GCP_PROJECT_ID') || 'bgg-data-warehouse';
 ok(`GCP_PROJECT_ID=${project}`);
 
-// The real test: mint a token from ADC and confirm the catalog table is readable. A
-// dry-run query costs nothing and still exercises auth + permissions.
+// The real test: mint a token from ADC and confirm every table the catalog joins is
+// readable. Dry-run queries cost nothing and still exercise auth + permissions. Checked
+// one table at a time so a failure names the table you actually lack access to —
+// `predictions` is a separate dataset and can be granted separately from `analytics`.
+const CATALOG_TABLES = [
+	'analytics.games_features',
+	'analytics.best_player_counts',
+	'predictions.bgg_predictions'
+];
+
 console.log('\ngcp credentials');
-try {
-	const { BigQuery } = await import('@google-cloud/bigquery');
-	const bq = new BigQuery({ projectId: project });
-	await bq.createQueryJob({
-		query: `SELECT 1 FROM \`${project}.analytics.games_features\` LIMIT 1`,
-		dryRun: true
-	});
-	ok(`ADC works and ${project}.analytics.games_features is readable`);
-} catch (err) {
-	const msg = String(err?.message ?? err);
-	if (/Could not load the default credentials|Unable to detect|does not exist, or it is not a file|ENOENT/i.test(msg)) {
-		warn('no ADC found — run `gcloud auth application-default login`');
-	} else if (/Permission denied|Access Denied|403/i.test(msg)) {
-		warn(`ADC found, but no read access to ${project}.analytics.games_features`);
-	} else if (/Not found|404/i.test(msg)) {
-		warn(`ADC works, but ${project}.analytics.games_features was not found`);
-	} else {
-		warn(`BigQuery check failed: ${msg.split('\n')[0]}`);
+let noCreds = false;
+let failed = false;
+for (const table of CATALOG_TABLES) {
+	try {
+		const { BigQuery } = await import('@google-cloud/bigquery');
+		const bq = new BigQuery({ projectId: project });
+		await bq.createQueryJob({
+			query: `SELECT 1 FROM \`${project}.${table}\` LIMIT 1`,
+			dryRun: true
+		});
+		ok(`${table} readable`);
+	} catch (err) {
+		const msg = String(err?.message ?? err);
+		failed = true;
+		if (/Could not load the default credentials|Unable to detect|does not exist, or it is not a file|ENOENT/i.test(msg)) {
+			// Credentials are absent, not table-specific — report once and stop retrying.
+			warn('no ADC found — run `gcloud auth application-default login`');
+			noCreds = true;
+		} else if (/Permission denied|Access Denied|403/i.test(msg)) {
+			warn(`${table} — no read access`);
+		} else if (/Not found|404/i.test(msg)) {
+			warn(`${table} — not found`);
+		} else {
+			warn(`${table} — check failed: ${msg.split('\n')[0]}`);
+		}
 	}
-	console.log('    /games stays empty until this resolves; the rest of the app still runs.');
+	if (noCreds) break;
+}
+if (failed) {
+	console.log('    The catalog fails to load until this resolves; the rest of the app still runs.');
 }
 
 console.log();

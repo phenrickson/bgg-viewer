@@ -52,16 +52,22 @@ There are two separate credential layers, and `DEV_AUTH_EMAIL` only removes the 
 | **App account** — a row in `core.users`, plus `SESSION_SECRET` + `REGISTRATION_CODE` | No. A session user is fabricated in-memory; `core.users` is never read. |
 | **GCP credentials** — ADC for BigQuery | **Yes, always.** The catalog is read from BigQuery regardless of how you signed in. |
 
-So you still need Google Cloud access — read on `bgg-data-warehouse.analytics.games_features`
-via [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc):
+So you still need Google Cloud access via
+[Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc):
 
 ```sh
 gcloud auth application-default login
 ```
 
-Without it the app boots and renders the shell, but the catalog request (`/api/catalog`)
-fails and `/games` stays empty. First load runs one ~30 MB BigQuery scan, then caches
-in-process for 6 hours.
+The catalog artifact joins three tables, so you need read on all of them:
+
+- `analytics.games_features`
+- `analytics.best_player_counts`
+- `predictions.bgg_predictions`
+
+Without access the app still boots and renders — the catalog request (`/api/catalog`)
+fails and the page shows "Catalog failed to load". First load runs one ~40 MB BigQuery
+scan, then caches in-process for 6 hours. `just doctor` checks this before you start.
 
 To exercise the real login/register flow instead, unset `DEV_AUTH_EMAIL` and set
 `SESSION_SECRET` (any long random string) and `REGISTRATION_CODE` — that path reads and
