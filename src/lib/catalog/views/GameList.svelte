@@ -17,6 +17,8 @@
    * page on screen. Column keys map to fixed SQL expressions — never user input.
    */
   import { query } from '$lib/catalog/catalog.svelte';
+  import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
+  import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
 
   let { where }: { where: string } = $props();
 
@@ -47,17 +49,6 @@
     { key: 'rated', label: 'Ratings', align: 'r', sql: 'users_rated' }
   ];
   const PAGE_SIZE = 100;
-
-  /**
-   * Fixed domain for the rating bar. Geek rating is Bayesian, so it is squeezed into roughly
-   * 5.5–8.7 — scaling to the page's own range instead would make every page look the same
-   * and break comparison between them.
-   */
-  const GEEK_LO = 5.5;
-  const GEEK_HI = 8.8;
-
-  /** How many player counts the best-at strip shows before collapsing to "+". */
-  const PIP_MAX = 6;
 
   let sortKey = $state('geek');
   let desc = $state(true);
@@ -119,8 +110,6 @@
 
   const num = (n: number | null, d = 2) => (n == null ? '—' : n.toFixed(d));
   const list = <T,>(a: T[] | null): T[] => (a ? Array.from(a) : []);
-  const geekPct = (g: number | null) =>
-    g == null ? 0 : Math.max(0, Math.min(100, ((g - GEEK_LO) / (GEEK_HI - GEEK_LO)) * 100));
   /** Fill of the i-th (0-based) segment of the 1–5 complexity meter. */
   const segPct = (w: number | null, i: number) =>
     w == null ? 0 : Math.max(0, Math.min(1, w - i)) * 100;
@@ -148,15 +137,6 @@
     return bits.filter(Boolean).join(' · ');
   }
 
-  function pipTitle(r: Row): string {
-    const b = list(r.best_player_counts);
-    const rec = list(r.recommended_player_counts).filter((n) => !b.includes(n));
-    if (!b.length && !rec.length) return 'no player-count votes';
-    const parts = [];
-    if (b.length) parts.push(`best at ${b.join(', ')}`);
-    if (rec.length) parts.push(`also recommended at ${rec.join(', ')}`);
-    return parts.join('; ');
-  }
 </script>
 
 <div class="bar">
@@ -194,8 +174,6 @@
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
-      {@const best = list(r.best_player_counts)}
-      {@const rec = list(r.recommended_player_counts)}
       <a class="row" href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
 
@@ -206,10 +184,7 @@
 
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
 
-        <span class="c-geek">
-          <span class="gv tnum">{num(r.geek_rating)}</span>
-          <span class="gbar"><i style:width="{geekPct(r.geek_rating)}%"></i></span>
-        </span>
+        <span class="c-geek"><RatingBar value={r.geek_rating} /></span>
 
         <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
@@ -222,15 +197,8 @@
           <span class="wv tnum">{num(r.average_weight, 1)}</span>
         </span>
 
-        <span class="c-best" title={pipTitle(r)}>
-          <!-- Numerals styled by vote are a visual encoding; screen readers get the prose. -->
-          <span class="vh">{pipTitle(r)}</span>
-          <span class="pips" aria-hidden="true">
-            {#each Array.from({ length: PIP_MAX }, (_, k) => k + 1) as n (n)}
-              <span class="pip" class:best={best.includes(n)} class:rec={!best.includes(n) && rec.includes(n)}>{n}</span>
-            {/each}
-            <span class="pip more" class:vis={best.concat(rec).some((n) => n > PIP_MAX)}>+</span>
-          </span>
+        <span class="c-best">
+          <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
         </span>
 
         <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
@@ -432,34 +400,10 @@
     font-size: 0.78rem;
   }
 
-  /* The three encodings are capped, so a wide column gives them breathing room rather than
-     stretching them: a 290px five-segment meter reads as decoration, not as a 1-5 scale, and
-     a rating bar only compares down the column if its full length is the same on every row. */
-  .c-geek,
-  .c-weight,
-  .pips {
+  /* The encodings are capped, so a wide column gives them breathing room rather than
+     stretching them: a 290px five-segment meter reads as decoration, not as a 1-5 scale. */
+  .c-weight {
     max-width: 7rem;
-  }
-
-  /* Rating: the number leads, the bar makes the column comparable at a glance. */
-  .c-geek .gv {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    line-height: 1.15;
-  }
-  .gbar {
-    display: block;
-    height: 3px;
-    border-radius: 2px;
-    background: color-mix(in oklch, var(--border) 80%, transparent);
-    overflow: hidden;
-  }
-  .gbar i {
-    display: block;
-    height: 100%;
-    background: var(--chart-1);
-    border-radius: 2px;
   }
 
   /* Complexity: five segments for the 1–5 scale it measures. */
@@ -491,54 +435,6 @@
     color: var(--muted-foreground);
   }
 
-  /* Best/recommended-at: the numerals are their own legend. */
-  .pips {
-    display: flex;
-    gap: 0.1rem;
-    font-variant-numeric: tabular-nums;
-  }
-  /* `position: relative` is load-bearing, not decoration: without a positioned ancestor the
-     absolutely-positioned `.vh` below is laid out against the initial containing block, at
-     its *static* position — so the hidden text in row 100 sits ~4,400px down the document and
-     is not clipped by the list's own scroll container. A hundred invisible 1px spans then
-     stretch `documentElement.scrollHeight` to ~4,700px against a 1,000px viewport, and the
-     page gains thousands of pixels of empty scroll below the app. */
-  .c-best {
-    position: relative;
-  }
-  .vh {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .pip {
-    flex: 1;
-    text-align: center;
-    font-size: 0.72rem;
-    line-height: 1.3;
-    border-radius: 3px;
-    /* "Not recommended" still has to be *perceivable*, not just dimmer than the rest —
-       especially on a light background, where 45% all but disappeared. */
-    color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
-  }
-  .pip.rec {
-    color: var(--foreground);
-  }
-  .pip.best {
-    color: var(--primary);
-    font-weight: 750;
-    background: color-mix(in oklch, var(--primary) 13%, transparent);
-  }
-  .pip.more {
-    visibility: hidden;
-    flex: 0 0 0.6rem;
-  }
-  .pip.more.vis {
-    visibility: visible;
-  }
 
   .empty {
     padding: var(--space-xl) var(--space-lg);
