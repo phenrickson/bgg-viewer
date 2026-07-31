@@ -73,8 +73,11 @@
 </div>
 
 <style>
+  /* Proximity does the grouping: a question sits tight to the chips that answer it (0.55rem)
+     and far from the next question (--space-lg). Even spacing made the label float between
+     two chip rows, belonging to neither. */
   .strip { display: flex; flex-direction: column; gap: var(--space-lg); }
-  .row { display: flex; flex-direction: column; gap: 0.6rem; }
+  .row { display: flex; flex-direction: column; gap: 0.55rem; }
 
   /* A question, not a field label.
      These were `.try`-style uppercase eyebrows — "CATEGORIES", "PLAYERS" — which read as a

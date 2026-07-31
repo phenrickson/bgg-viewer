@@ -184,7 +184,7 @@
      rather than hiding below a nested scroller. */
   .page {
     display: flex; flex-direction: column;
-    gap: var(--space-xl); padding: clamp(1rem, 3vw, 2.5rem) 0 var(--space-xl);
+    gap: var(--space-xl); padding: clamp(1.5rem, 4vw, 3rem) 0 var(--space-xl);
   }
   /* The results sit further from the questions than the questions do from each other, so
      the step out to the wider measure lands as a section break rather than a wobble. */
@@ -198,16 +198,20 @@
   h1 em { font-style: normal; color: var(--primary); }
   .lede {
     font-size: 1.1rem; color: var(--muted-foreground); max-width: 40rem;
-    margin: -0.4rem 0 var(--space-sm);
+    /* Sits under its own headline (0.6rem), then a full gap before the questions begin, so
+       the hero reads as one block rather than as the first item in a flat list. */
+    margin: 0.6rem 0 var(--space-xl);
   }
 
   /* Sits further from the questions than they do from each other, so stepping out to the
      wider measure lands as a section break rather than a wobble. */
   .results { display: flex; flex-direction: column; margin-bottom: var(--space-lg); }
 
+  /* Belongs to the list beneath it, not to the chips above — hence tight below, and the
+     `.page` gap doing the separating above. */
   .head {
     display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
-    font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: var(--space-sm);
+    font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: 0.55rem;
   }
   .count b { color: var(--foreground); font-weight: 650; font-variant-numeric: tabular-nums; }
   .dim { color: var(--muted-foreground); }
