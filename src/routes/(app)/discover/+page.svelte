@@ -15,7 +15,6 @@
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
-    scopeFromParams,
     scopeToParams,
     toWhere,
     activeFilters,
