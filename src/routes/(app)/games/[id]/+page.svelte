@@ -210,6 +210,19 @@
    */
   const p = $derived(g.predictions);
   const isRated = $derived((g.geek ?? 0) > 0);
+  /**
+   * Whether the model was fitted on this game. Three states, not two — NULL means the row
+   * predates the flag and hasn't been rescored yet, so the page says nothing rather than
+   * implying a forecast. The cutoff year rides along so the claim is checkable.
+   */
+  const inSample = $derived(p?.sampleStatus === 'in_sample');
+  const sampleNote = $derived(
+    p?.sampleStatus == null
+      ? null
+      : inSample
+        ? `Fitted — this game was in the model’s training data${p.trainingCutoff ? ` (through ${p.trainingCutoff})` : ''}.`
+        : `Forecast — published after the model’s training cutoff${p.trainingCutoff ? ` of ${p.trainingCutoff}` : ''}.`
+  );
 
   /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters most. */
   function probText(v: number | null): string {
@@ -481,6 +494,15 @@
                 {#if isRated}<span class="pa">{fmtPred(r.actual, r.digits)}</span>{/if}
               {/each}
             </div>
+          {/if}
+
+          <!-- Phil wants in-sample predictions visible precisely because they show model
+               behaviour — so this labels, it doesn't hide or hedge. -->
+          {#if sampleNote}
+            <p class="sample" class:fitted={inSample}>
+              <b class="tag">{inSample ? 'In sample' : 'Out of sample'}</b>
+              <span>{sampleNote}</span>
+            </p>
           {/if}
 
           <!-- A prediction nobody can attribute is a rumour — but each target has its own
@@ -1124,6 +1146,34 @@
     text-align: right;
     min-width: 3.4rem;
   }
+  /* A label, not a warning: neutral by default, and the fitted case reads as a fact about
+     the model rather than a caveat about the number. */
+  .sample {
+    margin: var(--space-md) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+  .sample .tag {
+    flex: none;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .sample.fitted .tag {
+    border-color: color-mix(in oklch, var(--chart-2) 45%, var(--border));
+    background: color-mix(in oklch, var(--chart-2) 12%, transparent);
+  }
+
   .attrib {
     margin-top: var(--space-md);
     padding-top: 0.5rem;

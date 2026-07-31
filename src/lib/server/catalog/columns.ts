@@ -36,7 +36,19 @@ export const PREDICTION_COLUMNS = {
 	predicted_geek_rating: 'float32',
 	predicted_rating: 'float32',
 	predicted_complexity: 'float32',
-	predicted_users_rated: 'int'
+	predicted_users_rated: 'int',
+	/**
+	 * `in_sample` / `out_of_sample`, emitted by the scorer from the model registration it
+	 * loaded — never derived here, or it would silently go stale at the next refit.
+	 *
+	 * NULL is a third state and not the same as `out_of_sample`: 6,086 working-set games
+	 * (including every upcoming one) carry a prediction from before the flag existed and
+	 * self-heal through change detection. Anything reading this must treat NULL as "not yet
+	 * known", not as a forecast.
+	 */
+	sample_status: 'string',
+	/** The cutoff the scoring model was fitted through — makes the flag auditable, not a claim. */
+	training_cutoff_year: 'int'
 } as const;
 
 export type PredictionName = keyof typeof PREDICTION_COLUMNS;

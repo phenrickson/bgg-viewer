@@ -80,6 +80,10 @@ function toPredictions(raw: Record<string, unknown> | null) {
 		usersRated: n('predicted_users_rated'),
 		scoredAt: s('score_ts'),
 		firstScoredAt: s('first_prediction_ts'),
+		// NULL is "not scored since the flag existed", not "out of sample" — those rows
+		// self-heal through change detection, so the page says nothing rather than guessing.
+		sampleStatus: s('sample_status'),
+		trainingCutoff: n('training_cutoff_year'),
 		models
 	};
 }
