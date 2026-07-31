@@ -205,7 +205,14 @@
 
   /* Sits further from the questions than they do from each other, so stepping out to the
      wider measure lands as a section break rather than a wobble. */
-  .results { display: flex; flex-direction: column; margin-bottom: var(--space-lg); }
+  /* The answer, set apart from the questions.
+     `.page`'s gap does not reach here — everything below the hero lives inside the
+     Container, so the hero, the dials and this block are siblings *within* it, not flex
+     children of `.page`. The break has to be stated on the element itself. */
+  .results {
+    display: flex; flex-direction: column;
+    margin-top: var(--space-xl); margin-bottom: var(--space-lg);
+  }
 
   /* Belongs to the list beneath it, not to the chips above — hence tight below, and the
      `.page` gap doing the separating above. */

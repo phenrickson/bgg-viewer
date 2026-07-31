@@ -22,24 +22,30 @@ export interface CategoryChip {
  * Six chips, every value verified present in the cached artifact (35,265 rows) with its
  * game count. Counts are why this set and not another:
  *
- *   Wargame 5,344 · Fantasy 4,768 · Party Game 3,590 · Cooperative Game 3,425 ·
- *   Abstract Strategy 2,518 · Economic 2,274
+ *   Fantasy 4,768 · Party Game 3,590 · Cooperative Game 3,425 · Economic 2,274 ·
+ *   Abstract Strategy 2,518 · Wargame 5,344
  *
  * A balanced 2.3k–5.3k band, so no chip dominates. `Card Game` was considered and rejected:
  * at 11,517 games spanning every kind of play, it barely narrows anything.
  *
- * "Cooperative" is a MECHANIC, not a category — hence `field`. Earlier drafts also proposed
+ * Ordered by breadth of appeal, not by count: this is the first thing a newcomer reads, and
+ * opening on Wargame sets a specialist tone for a page whose job is to feel welcoming. It
+ * goes last for the same reason, despite having the largest count of the six.
+ *
+ * `label` is not `value`: "Party" reads better beside single-word neighbours than the
+ * artifact's "Party Game" does. "Cooperative" is a MECHANIC, not a category — hence `field`.
+ * Earlier drafts also proposed
  * Strategy / Family / Thematic on the theory that BGG's subdomains live in `families`; they
  * do not (that column holds Kickstarter tags, admin flags, and component notes), so those
  * labels have no backing values and are absent.
  */
 export const CATEGORY_CHIPS: CategoryChip[] = [
-  { label: 'Wargame', field: 'categories', value: 'Wargame' },
   { label: 'Fantasy', field: 'categories', value: 'Fantasy' },
-  { label: 'Party Game', field: 'categories', value: 'Party Game' },
+  { label: 'Party', field: 'categories', value: 'Party Game' },
   { label: 'Cooperative', field: 'mechanics', value: 'Cooperative Game' },
+  { label: 'Economic', field: 'categories', value: 'Economic' },
   { label: 'Abstract', field: 'categories', value: 'Abstract Strategy' },
-  { label: 'Economic', field: 'categories', value: 'Economic' }
+  { label: 'Wargame', field: 'categories', value: 'Wargame' }
 ];
 
 /**

@@ -11,12 +11,28 @@
    * The thumbnail is a STUB. `thumbnail` is not in the catalog artifact, and whether to add
    * it is a measured decision deferred until this layout has earned it.
    */
-  import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
-  import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import { complexityLabel, complexityBandIndex } from './dials';
   import type { DiscoverGame } from './types';
 
   let { game }: { game: DiscoverGame } = $props();
+
+  const sorted = (a: number[] | null): number[] =>
+    a ? Array.from(a).sort((x, y) => x - y) : [];
+
+  /**
+   * The community's player-count vote, stated in the same words the game detail page's hero
+   * uses. Encoding it as pips or filled cells was tried twice and failed the same test both
+   * times: nothing on the page said which mark meant "best", so it needed a key nobody had.
+   *
+   * `recAt` excludes anything already in `bestAt` — BGG marks some counts both, and listing a
+   * number under both labels reads as a contradiction.
+   */
+  const bestAt = $derived(sorted(game.best_player_counts).join(', '));
+  const recAt = $derived(
+    sorted(game.recommended_player_counts)
+      .filter((n) => !sorted(game.best_player_counts).includes(n))
+      .join(', ')
+  );
 
   const weight = $derived(complexityLabel(game.average_weight));
   /** Band index 1–5, driving the badge's tint step. Derived from the same source as weight. */
@@ -42,7 +58,6 @@
       {#if game.year_published != null}<span class="yr">{game.year_published}</span>{/if}
     </span>
     <span class="l2">
-      <PlayerPips best={game.best_player_counts} recommended={game.recommended_player_counts} />
       {#if weight}
         <span class="cx" data-step={weightStep}>{weight}</span>
       {/if}
@@ -50,7 +65,28 @@
     </span>
   </span>
 
-  <span class="rate"><RatingBar value={game.geek_rating} /></span>
+  <!-- Two columns, not one cluster: each label owns a fixed slot, so "BEST AT" sits at the
+       same x on every row whether or not the game has a RECOMMENDED AT beside it. -->
+  <span class="fact">
+    {#if bestAt}
+      <span class="lbl">Best at</span>
+      <b class="hl">{bestAt}</b>
+    {/if}
+  </span>
+  <span class="fact">
+    {#if recAt}
+      <span class="lbl">Recommended at</span>
+      <b>{recAt}</b>
+    {/if}
+  </span>
+
+  <span class="rate">
+    {#if game.geek_rating != null}
+      <span class="rv">{game.geek_rating.toFixed(1)}<span class="of">/10</span></span>
+    {:else}
+      <span class="rv none">—</span>
+    {/if}
+  </span>
 </a>
 
 <style>
@@ -63,7 +99,7 @@
      is capped at the `content` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem;
+    grid-template-columns: 3.5rem minmax(0, 1fr) 5.5rem 8.5rem 4.25rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -95,6 +131,33 @@
 
   .l2 { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 
+  /* Fixed columns, in the space the layout was wasting between the categories and the
+     rating. `auto` widths let each row size to its own numbers, so "2, 3" and "2" pushed the
+     labels to different offsets and a game with no RECOMMENDED AT shifted BEST AT rightward —
+     nothing lined up down the list. Fixed slots make the labels a column you can read
+     vertically. Matches `.facts` on the game detail page. */
+  .fact { align-self: center; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .lbl {
+    display: block; color: var(--muted-foreground);
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .fact b { font-weight: 650; }
+  .hl { color: var(--primary); }
+
+  /* "7.9/10", not "7.95" over a bar.
+     The bar ran on a fixed 5.5–8.8 domain — chosen because geek rating is Bayesian and
+     squeezed into that range — but the domain was invisible, so a half-full bar meant nothing
+     to a reader who does not already know BGG's scale. A number against its maximum needs no
+     legend, and two significant digits are all a rating supports anyway. */
+  .rate { justify-self: end; text-align: right; }
+  .rv {
+    font-size: 0.95rem; font-weight: 650; color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .rv .of { font-size: 0.72rem; font-weight: 500; color: var(--muted-foreground); }
+  .rv.none { color: var(--muted-foreground); font-weight: 500; }
+
   /* Complexity as an ordered ramp in ONE hue.
      The first attempt stepped through `--chart-2..--chart-1`, which put purple at Medium,
      orange at Medium-Heavy and blue at Heavy: that palette is *categorical*, so it read as
@@ -122,7 +185,14 @@
   }
 
   /* Narrow canvases drop the categories rather than squeezing the pips. */
-  @container (max-width: 40rem) {
+  /* Shed in order of least value: the categories first, then the recommended-at column, so
+     the game's name and its best-at count — the two things Discover exists to surface —
+     survive the narrowest layout. */
+  @container (max-width: 46rem) {
     .cats { display: none; }
+  }
+  @container (max-width: 34rem) {
+    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 5.5rem 4.25rem; }
+    .fact:nth-of-type(2) { display: none; }
   }
 </style>
