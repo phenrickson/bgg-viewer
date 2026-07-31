@@ -64,9 +64,14 @@ thing on both routes; only the presentation differs.
 
 The six category chips are **hand-authored label → `Partial<Scope>` patches**, not raw
 category values. This is deliberate: the labels a board-gamer recognizes do not all live in
-one artifact column. "Party Game" is a `categories` value, "Cooperative" is a `mechanics`
-value, and "Strategy" / "Family" / "Thematic" are BGG *subdomains* that live in `families`.
-A literal mapping to `scope.categories` would force us to choose unrecognizable labels.
+one artifact column — "Party Game" is a `categories` value, "Cooperative" is a `mechanics`
+value. The map absorbs that difference so the labels can stay short.
+
+**Verified against the cached artifact (35,265 rows) — not assumed.** An earlier draft
+proposed Strategy / Family / Thematic on the theory that BGG's subdomains live in `families`.
+They do not: `families` holds Kickstarter tags, admin flags, digital implementations, and
+component notes ("Crowdfunding: Kickstarter", "Admin: Upcoming Releases", "Components:
+Miniatures"). Those three labels have **no backing values** and are dropped.
 
 The map lives in one exported const so the six labels can be changed in one edit:
 
@@ -79,7 +84,20 @@ export const COMPLEXITY_BANDS: { label: string; min: number|null; max: number|nu
 
 Starting values (all placeholder, all one edit to change):
 
-- **Categories** — Strategy, Family, Party, Thematic, Abstract, Cooperative.
+- **Categories** — six chips, every value verified present in the artifact with its game
+  count. `Card Game` was considered and rejected: at 11,517 games spanning every kind of
+  play, it barely narrows anything. The six sit in a balanced 2.3k–5.3k band, so no chip
+  dominates the others.
+
+  | Label | Scope field | Value | Games |
+  |---|---|---|---|
+  | Wargame | `categories` | `Wargame` | 5,344 |
+  | Fantasy | `categories` | `Fantasy` | 4,768 |
+  | Party Game | `categories` | `Party Game` | 3,590 |
+  | Cooperative | `mechanics` | `Cooperative Game` | 3,425 |
+  | Abstract | `categories` | `Abstract Strategy` | 2,518 |
+  | Economic | `categories` | `Economic` | 2,274 |
+
 - **Players** — 1, 2, 3, 4, 5, 6+. Each sets `bestAt`, i.e. *"the community says this game is
   best at N,"* which is the flagship filter BGG itself cannot do.
 - **Complexity** — Light (`< 2.0`), Medium-Light (`2.0–2.5`), Medium (`2.5–3.0`),
@@ -296,10 +314,9 @@ its absence adds thousands of pixels of phantom page scroll.
 
 ## Open questions
 
-- **The six category labels.** Recorded above as Strategy / Family / Party / Thematic /
-  Abstract / Cooperative, resolving across `families`, `categories`, and `mechanics`. This is
-  the set discussed, not a verified one — the exact underlying values need checking against
-  the artifact during implementation, and the labels are one edit to change.
+- ~~**The six category labels.**~~ **Resolved.** Every value is verified against the cached
+  artifact with its game count (table above). Still one edit to change if they read wrong on
+  screen.
 - **Multi-select category semantics.** AND is what `toWhere()` does today and what this spec
   assumes. OR ("Strategy *or* Thematic") may match user expectation better on a page this
   casual. Testable once it is on screen; changing it would mean a Discover-specific predicate
