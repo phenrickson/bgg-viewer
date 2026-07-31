@@ -1,10 +1,36 @@
 <script lang="ts">
+  /**
+   * One game — the third step of the loop, and the one that has to hand you back out again.
+   *
+   * Reading order follows what you actually want after clicking a row: *is this the game I
+   * meant* (cover, title, byline) → *how good and how heavy* (the stat strip) → *does it work
+   * at my table* (the player-count chart, the thing BGG can't sort by and so the reason this
+   * page exists) → *what is it like* (about, categories) → *what else is like it* (similar).
+   *
+   * "Back to results" carries the Explore scope you came from, held in sessionStorage by the
+   * Explore page. Without it, backing out of a game dropped you on an unfiltered /games and
+   * you had to rebuild the set — which broke the "and do it again for other games" half of
+   * the loop far more than anything on this page.
+   */
+  import { onMount } from 'svelte';
+  import { catalog, query } from '$lib/catalog/catalog.svelte';
+  import { decodeEntities } from '$lib/utils/html-entities';
+  import { Container } from '$lib/components/ui/layout';
+
   let { data } = $props();
   const g = $derived(data.game);
 
   const num = (n: number | null, digits = 2) =>
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
+
+  /**
+   * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
+   * and "nobody has weighted this". Rendered raw, an unscored game claimed a geek rating of
+   * 0.00 and a complexity of 0.0/5 labelled "Light", which is exactly the kind of number the
+   * prediction panel below exists to replace.
+   */
+  const pos = (n: number | null | undefined) => (n != null && n > 0 ? n : null);
 
   function weightLabel(w: number | null): string {
     if (w == null) return '';
@@ -20,165 +46,1176 @@
     if (a == null) return `${b}${unit}`;
     return `${a}–${b}${unit}`;
   }
+  const description = $derived(decodeEntities(g.description));
+  /** Long enough that clamping it actually hides something worth a button. */
+  const CLAMP_AT = 620;
+  let showAll = $state(false);
+
+  // --- back out ------------------------------------------------------------------------
+  // Written by the Explore page on every scope change; absent on a deep link or a fresh tab.
+  let backQs = $state('');
+  onMount(() => {
+    try {
+      backQs = sessionStorage.getItem('explore:qs') ?? '';
+    } catch {
+      // storage disabled — fall through to a bare /games
+    }
+  });
+  const backHref = $derived(backQs ? `/games?${backQs}` : '/games');
+
+  // --- where this sits in the catalog --------------------------------------------------
+  /**
+   * Every number on this page is meaningless without a scale: 8.44 is only impressive if you
+   * know what 8.44 is *for*. So each stat carries where it stands, and the headline carries
+   * two ranks — overall, and against the games it actually launched alongside, which is the
+   * fairer comparison for anything recent (a 2023 release competes with 2023, not with 1995).
+   *
+   * One pass over the in-browser catalog computes all of it, and only if the catalog is
+   * already warm — you came via Explore or the nav search. Worth a sentence, not worth
+   * pulling a megabyte on a deep link.
+   */
+  type Standing = {
+    geek_pos: number;
+    geek_n: number;
+    year_pos: number;
+    year_n: number;
+    geek_pct: number | null;
+    avg_pct: number | null;
+    rated_pct: number | null;
+    weight_pct: number | null;
+  };
+  let standing = $state<Standing | null>(null);
+
+  const finite = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  $effect(() => {
+    const geek = finite(g.geek);
+    if (catalog.status !== 'ready' || geek == null || geek <= 0) return;
+    const year = finite(g.year);
+    const avg = finite(g.average) ?? -1;
+    const rated = finite(g.ratings) ?? -1;
+    const weight = finite(g.weight) ?? -1;
+    // Percentile = the share this beats, over the games where the measure exists at all;
+    // NULLIF keeps a missing measure as null rather than dividing by zero.
+    const pct = (col: string, v: number) =>
+      `100.0 * COUNT(*) FILTER (WHERE ${col} > 0 AND ${col} < ${v})
+         / NULLIF(COUNT(*) FILTER (WHERE ${col} > 0), 0)`;
+    query<Standing>(
+      `SELECT
+         (COUNT(*) FILTER (WHERE geek_rating > ${geek}) + 1)::INT AS geek_pos,
+         COUNT(*) FILTER (WHERE geek_rating > 0)::INT AS geek_n,
+         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geek}) + 1)::INT AS year_pos,
+         COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > 0)::INT AS year_n,
+         ${pct('geek_rating', geek)} AS geek_pct,
+         ${pct('average_rating', avg)} AS avg_pct,
+         ${pct('users_rated', rated)} AS rated_pct,
+         ${pct('average_weight', weight)} AS weight_pct
+       FROM catalog WHERE users_rated >= 30`
+    )
+      .then((r) => (standing = r[0] ?? null))
+      .catch((e) => console.error('standing lookup failed', e));
+  });
+
+  /** "top 4%" — and below 1% keep a decimal, or every elite game reads as an identical "top 0%". */
+  function topPct(pctBelow: number | null | undefined): string | null {
+    if (pctBelow == null) return null;
+    const top = Math.max(0, 100 - pctBelow);
+    // Decide the branch on the *rounded* value: 0.95 rendered as "top 1.0%" alongside a
+    // neighbouring "top 1%" looked like two different measurements of the same thing.
+    const tenth = Math.round(top * 10) / 10;
+    if (tenth >= 1) return `top ${Math.max(1, Math.round(top))}%`;
+    return `top ${tenth < 0.1 ? '0.1' : tenth.toFixed(1)}%`;
+  }
+  /**
+   * Complexity has no better end, so it gets a neutral phrasing rather than a ranking one.
+   * Rounded, 99.7 became "heavier than 100%" — a claim the query can't make, since the game
+   * sits in the denominator and never in the numerator. Above 99 it truncates to a tenth,
+   * which can understate but never overclaim.
+   */
+  const heavierThan = $derived.by(() => {
+    const p = standing?.weight_pct;
+    if (p == null) return null;
+    const shown = p >= 99 ? Math.min(99.9, Math.floor(p * 10) / 10) : Math.round(p);
+    return `heavier than ${shown}%`;
+  });
+
+  /** The community's pick, so the chart can mark its own answer. */
+  const bestRow = $derived(g.bestAt);
+
+  /**
+   * "Best at 2" was the whole answer this page gave, and it's the smaller half of the
+   * question. A game that is best at 2 but *also works* at 1 and 3 is a different purchase
+   * from one that is best at 2 and unplayable otherwise — and the bars said so, faintly,
+   * while the top line didn't say it at all.
+   *
+   * BGG classifies each count by which of its three vote shares wins, so that's the rule
+   * here too: plurality, ties resolving toward the more favourable verdict.
+   */
+  type PC = (typeof g.playerCounts)[number];
+  function verdictOf(p: PC): 'best' | 'rec' | 'not' {
+    if (!p.votes) return 'not';
+    if (p.best >= p.recommended && p.best >= p.notRecommended) return 'best';
+    if (p.recommended >= p.notRecommended) return 'rec';
+    return 'not';
+  }
+  /** "1, 3" but "1–4" — a run of three or more reads worse spelled out than bridged. */
+  function compact(counts: string[]): string {
+    const out: string[] = [];
+    for (let i = 0; i < counts.length; ) {
+      let j = i;
+      const plain = (s: string) => !s.includes('+') && Number.isFinite(Number(s));
+      while (j + 1 < counts.length && plain(counts[j]) && plain(counts[j + 1]) &&
+             Number(counts[j + 1]) === Number(counts[j]) + 1) j++;
+      out.push(j > i + 1 ? `${counts[i]}–${counts[j]}` : counts.slice(i, j + 1).join(', '));
+      i = j + 1;
+    }
+    return out.join(', ');
+  }
+  const verdicts = $derived(new Map(g.playerCounts.map((p) => [p.count, verdictOf(p)])));
+  const bestCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'best').map((p) => p.count));
+  const recCounts = $derived(g.playerCounts.filter((p) => verdicts.get(p.count) === 'rec').map((p) => p.count));
+  /** The top line leads with the ★ row so the fact and the chart's mark can't disagree. */
+  const bestLabel = $derived(bestCounts.length ? compact(bestCounts) : bestRow);
+  const recLabel = $derived(recCounts.length ? compact(recCounts) : null);
+
+  const fmtDate = (v: string | null | undefined): string | null => {
+    if (!v) return null;
+    const t = new Date(v);
+    if (Number.isNaN(t.getTime())) return null;
+    return t.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  /**
+   * How stale this is. Ratings and weights move, and a page that shows four decimal-place
+   * numbers without saying when it looked is quietly overclaiming.
+   */
+  const freshness = $derived(fmtDate(g.lastUpdated));
+
+  // --- what the model expects -----------------------------------------------------------
+  /**
+   * The hurdle is the gate, so it leads: BGG holds ~140k games and only ~30k ever gather
+   * enough ratings to earn a geek rating. `predicted_hurdle_prob` is the chance this game
+   * becomes one of them, and the other four numbers are what to expect *if* it does — stated
+   * flat, side by side, they'd read as four equally-confident facts about a game that may
+   * never be rated at all.
+   *
+   * For a game that already has a geek rating the panel inverts into a scorecard: the same
+   * estimates against what actually happened. Same data, and the honest use of it once the
+   * question it was answering has been settled.
+   *
+   * All copy here is PLACEHOLDER — Phil writes the final strings.
+   */
+  const p = $derived(g.predictions);
+  const isRated = $derived((g.geek ?? 0) > 0);
+  /**
+   * Whether the model was fitted on this game. Three states, not two — NULL means the row
+   * predates the flag and hasn't been rescored yet, so the page says nothing rather than
+   * implying a forecast. The cutoff year rides along so the claim is checkable.
+   */
+  const inSample = $derived(p?.sampleStatus === 'in_sample');
+  const sampleNote = $derived(
+    p?.sampleStatus == null
+      ? null
+      : inSample
+        ? `Fitted — this game was in the model’s training data${p.trainingCutoff ? ` (through ${p.trainingCutoff})` : ''}.`
+        : `Forecast — published after the model’s training cutoff${p.trainingCutoff ? ` of ${p.trainingCutoff}` : ''}.`
+  );
+
+  /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters most. */
+  function probText(v: number | null): string {
+    if (v == null) return '—';
+    const pc = v * 100;
+    if (pc < 1) return '<1%';
+    if (pc < 10) return `${pc.toFixed(1)}%`;
+    return `${Math.round(pc)}%`;
+  }
+
+  const predRows = $derived(
+    p == null
+      ? []
+      : (
+          [
+            { k: 'Geek rating', v: p.geek, actual: g.geek, digits: 2 },
+            { k: 'Average', v: p.rating, actual: g.average, digits: 2 },
+            { k: 'Ratings', v: p.usersRated, actual: g.ratings, digits: 0 },
+            { k: 'Complexity', v: p.complexity, actual: g.weight, digits: 1 }
+          ] as const
+        ).filter((r) => r.v != null)
+  );
+  const fmtPred = (v: number | null, digits: number) => (digits === 0 ? int(v) : num(v, digits));
+  /** `users_rated` → `Ratings`, so the disclosure names targets the way the panel above does. */
+  const TARGET_LABEL: Record<string, string> = {
+    hurdle: 'Rated at all',
+    geek_rating: 'Geek rating',
+    rating: 'Average',
+    users_rated: 'Ratings',
+    complexity: 'Complexity'
+  };
 </script>
 
 <svelte:head><title>{g.name} · bgg-viewer</title></svelte:head>
 
-<div class="crumbs"><a href="/">Explore</a> ／ <b>{g.name}</b></div>
+<Container size="content">
+  <div class="nav">
+    <a class="back" href={backHref}>
+      <span aria-hidden="true">←</span>
+      {backQs ? 'Back to results' : 'Explore all games'}
+    </a>
+    <span class="crumbs">
+      <!-- A companion tool should point at its source of truth, not pretend to be it. -->
+      <a
+        class="bgg"
+        href="https://boardgamegeek.com/boardgame/{g.id}"
+        target="_blank"
+        rel="noopener noreferrer">View on BGG <span aria-hidden="true">↗</span></a
+      >
+      <span class="sep">·</span>
+      <a href="/">Home</a> ／ <a href={backHref}>Explore</a> ／ <b>{g.name}</b>
+    </span>
+  </div>
 
-<div class="split">
-  <!-- identity -->
-  <div class="card">
-    <div class="info-top">
-      <div class="cover">{g.name?.[0] ?? '?'}</div>
-      <div>
+  <!-- hero: identity + the four numbers -->
+  <section class="hero card">
+    <div class="idw">
+      {#if g.image}
+        <img class="cover" src={g.image} alt="{g.name} box art" loading="lazy" />
+      {:else}
+        <div class="cover ph">{g.name?.[0] ?? '?'}</div>
+      {/if}
+      <div class="id">
         <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
-        {#if g.designers.length}
-          <p class="byline">by {g.designers.join(', ')}</p>
+        {#if g.designers.length}<p class="byline">by {g.designers.join(', ')}</p>{/if}
+        {#if g.artists.length}
+          <p class="pubs">art by {g.artists.slice(0, 3).join(', ')}{g.artists.length > 3
+              ? ` +${g.artists.length - 3}`
+              : ''}</p>
         {/if}
-        <div class="meta-row tnum">
+        {#if g.publishers.length}
+          <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
+        {/if}
+        <div class="facts tnum">
           <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
           <div><span>Play time</span><b>{range(g.minTime, g.maxTime, ' min')}</b></div>
           {#if g.minAge}<div><span>Age</span><b>{g.minAge}+</b></div>{/if}
-          <div><span>Weight</span><b>{num(g.weight)} <small>/ 5</small></b></div>
+          {#if bestLabel}<div><span>Best at</span><b class="hl">{bestLabel}</b></div>{/if}
+          {#if recLabel}<div><span>Recommended at</span><b>{recLabel}</b></div>{/if}
         </div>
       </div>
     </div>
 
-    {#if g.categories.length}
-      <p class="sub">Categories</p>
-      <div class="chips">{#each g.categories as c}<span class="chip cat">{c}</span>{/each}</div>
-    {/if}
-    {#if g.mechanics.length}
-      <p class="sub">Mechanics</p>
-      <div class="chips">{#each g.mechanics as m}<span class="chip">{m}</span>{/each}</div>
-    {/if}
-  </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="v tnum">{num(pos(g.geek))}</div>
+        <div class="l">Geek rating</div>
+        {#if topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum">{num(pos(g.average))}</div>
+        <div class="l">Average</div>
+        {#if topPct(standing?.avg_pct)}<div class="of">{topPct(standing?.avg_pct)}</div>{/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum">{int(g.ratings)}</div>
+        <div class="l">Ratings</div>
+        {#if topPct(standing?.rated_pct)}<div class="of">{topPct(standing?.rated_pct)}</div>{/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum">{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
+        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
+        <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after the
+             separator and stranded "votes" on its own. -->
+        {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
+        {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
+      </div>
+      {#if standing}
+        <!-- Two ranks, two lines. As one sentence the second half read as a subordinate
+             clause of the first, when it's the more useful of the two for anything recent. -->
+        <div class="ranks">
+          <p>
+            <b class="tnum">#{standing.geek_pos.toLocaleString()}</b>
+            <span>of <span class="tnum">{standing.geek_n.toLocaleString()}</span> rated games</span>
+          </p>
+          {#if g.year && standing.year_n > 1}
+            <p>
+              <b class="tnum">#{standing.year_pos.toLocaleString()}</b>
+              <span>of <span class="tnum">{standing.year_n.toLocaleString()}</span> released in {g.year}</span>
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </section>
 
-  <!-- KPIs -->
-  <div class="kpis">
-    <div class="kpi"><div class="v tnum">{num(g.geek)}</div><div class="l">Geek rating</div></div>
-    <div class="kpi"><div class="v tnum">{num(g.average)}</div><div class="l">Average</div></div>
-    <div class="kpi"><div class="v tnum">{int(g.ratings)}</div><div class="l">Ratings</div></div>
-    <div class="kpi"><div class="v tnum">{num(g.weight)} <small>{weightLabel(g.weight)}</small></div><div class="l">Complexity</div></div>
-  </div>
-</div>
-
-<div class="sections">
-  <!-- player counts -->
-  <div class="card">
-    <p class="sub">Player-count recommendations</p>
-    {#if g.playerCounts.length}
-      <div class="tnum">
-        {#each g.playerCounts as p}
-          <div class="pc-row">
-            <div class="n">{p.count}</div>
-            <div class="pc-bar" title="{p.count}: {num(p.best,0)}% best / {num(p.recommended,0)}% rec">
-              <i class="pc-best" style="width:{p.best}%"></i>
-              <i class="pc-rec" style="width:{p.recommended}%"></i>
-              <i class="pc-not" style="width:{p.notRecommended}%"></i>
-            </div>
+  <div class="cols">
+    <div class="stack">
+      <!-- the differentiator, high on the page -->
+      <section class="card">
+        <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
+        {#if g.playerCounts.length}
+          <div class="pcs tnum">
+            {#each g.playerCounts as p (p.count)}
+              <div class="pc" class:top={p.count === bestRow}>
+                <div class="n">{p.count}</div>
+                <div class="pc-bar" title="{p.count}: {num(p.best, 0)}% best, {num(p.recommended, 0)}% recommended">
+                  <i class="pc-best" style:width="{p.best}%"></i>
+                  <i class="pc-rec" style:width="{p.recommended}%"></i>
+                  <i class="pc-not" style:width="{p.notRecommended}%"></i>
+                </div>
+                <div class="pct">
+                  {Math.round(p.best + p.recommended)}<small>%</small>
+                  {#if p.votes}<span class="votes tnum">{int(p.votes)}</span>{/if}
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
-      </div>
-      <div class="pc-legend">
-        <span><b style="background:var(--color-positive)"></b>Best</span>
-        <span><b style="background:var(--chart-2)"></b>Recommended</span>
-        <span><b style="background:color-mix(in oklch,var(--color-negative) 55%,var(--muted))"></b>Not recommended</span>
-      </div>
-      {#if g.bestAt}<p class="best-at">Community says <b>best at {g.bestAt} players</b>.</p>{/if}
-    {:else}
-      <div class="empty">No player-count votes for this game.</div>
-    {/if}
-  </div>
+          <div class="legend">
+            <span><b class="sw best"></b>Best</span>
+            <span><b class="sw rec"></b>Recommended</span>
+            <span><b class="sw not"></b>Not recommended</span>
+            <!-- Two different questions, so say which is which: the ★ row is the most-voted
+                 *best* count, while the % answers the broader "does it work at N at all". -->
+            <span class="note">% = best or recommended · grey = votes cast · ★ = most voted best</span>
+          </div>
+          {#if bestLabel || recLabel}
+            <dl class="verdict">
+              {#if bestLabel}
+                <div><dt><b class="sw best"></b>Plays best with</dt><dd>{bestLabel}</dd></div>
+              {/if}
+              {#if recLabel}
+                <div><dt><b class="sw rec"></b>Recommended with</dt><dd>{recLabel}</dd></div>
+              {/if}
+            </dl>
+          {/if}
+        {:else}
+          <div class="empty">No player-count votes for this game.</div>
+        {/if}
+      </section>
 
-  <div>
-    <div class="card" style="margin-bottom:var(--space-lg)">
-      <p class="sub">Similar games <span class="sub-note">· by embedding distance</span></p>
-      {#if g.similar.length}
-        <div class="sim">
-          {#each g.similar as s}
-            <a href="/games/{s.id}">
-              <span class="mono">{s.name?.[0] ?? '?'}</span>
-              <span><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-              <span class="score">{num(s.similarity)}</span>
-            </a>
-          {/each}
-        </div>
-      {:else}
-        <div class="empty">No similar games computed.</div>
+      {#if description}
+        <section class="card">
+          <p class="sub">About</p>
+          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
+          {#if description.length > CLAMP_AT}
+            <button class="link" onclick={() => (showAll = !showAll)}>
+              {showAll ? 'Show less' : 'Read more'}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
+      {#if g.categories.length || g.mechanics.length || g.families.length}
+        <section class="card">
+          {#if g.categories.length}
+            <p class="sub">Categories</p>
+            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
+          {/if}
+          {#if g.mechanics.length}
+            <p class="sub">Mechanics</p>
+            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+          {/if}
+          <!-- Families were in the warehouse payload and on this page nowhere at all, even
+               though Explore already filters on them — so a series was a dead end here. -->
+          {#if g.families.length}
+            <p class="sub">Series &amp; families</p>
+            <div class="chips">
+              {#each g.families as f (f)}
+                <a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>
+              {/each}
+            </div>
+          {/if}
+        </section>
       {/if}
     </div>
 
-    <div class="card">
-      <p class="sub">Model prediction</p>
-      {#if g.hasPrediction}
-        <div class="empty">Prediction available — rendering comes with the predictions view.</div>
-      {:else}
-        <div class="empty">No prediction — {g.name} falls outside the model's coverage window.</div>
-      {/if}
+    <div class="stack">
+      <section class="card">
+        <p class="sub">Similar games <span class="sub-note">· by embedding distance</span></p>
+        {#if g.similar.length}
+          <div class="sim">
+            {#each g.similar as s (s.id)}
+              <a href="/games/{s.id}">
+                <span class="mono">{s.name?.[0] ?? '?'}</span>
+                <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
+                <span class="score tnum">{num(s.similarity)}</span>
+              </a>
+            {/each}
+          </div>
+        {:else}
+          <div class="empty">No similar games computed.</div>
+        {/if}
+      </section>
+
+      <!-- For a game with no ratings yet this panel is the only thing on the page with
+           anything to say about it, so it leads the column; once the game is rated the real
+           numbers are upstairs and this becomes a footnote about the model. -->
+      <section class="card" style:order={p && !isRated ? -1 : 2}>
+        <p class="sub">
+          {isRated ? 'What the model expected' : 'Model prediction'}
+          {#if fmtDate(p?.scoredAt)}<span class="sub-note">· scored {fmtDate(p?.scoredAt)}</span>{/if}
+        </p>
+
+        {#if !p}
+          <div class="empty">No prediction — {g.name} falls outside the model’s scoring window.</div>
+        {:else}
+          {#if p.hurdle != null}
+            <div class="hurdle" class:settled={isRated}>
+              <div class="hrow">
+                <span class="hv tnum">{probText(p.hurdle)}</span>
+                <!-- PLACEHOLDER copy -->
+                <span class="hk"
+                  >{isRated ? 'was its modelled chance of being rated' : 'chance of being rated'}</span
+                >
+              </div>
+              <div class="hbar" role="presentation">
+                <i style:width="{Math.min(100, Math.max(0, p.hurdle * 100))}%"></i>
+              </div>
+              <!-- PLACEHOLDER copy. The number is meaningless without this: most games never
+                   clear the bar, so a small percentage is ordinary rather than damning. -->
+              <p class="hnote">
+                Most BGG games never gather enough ratings to earn a geek rating.
+                {#if isRated}This one did.{/if}
+              </p>
+            </div>
+          {/if}
+
+          {#if predRows.length}
+            <!-- PLACEHOLDER copy -->
+            <p class="pk">{isRated ? 'Estimate vs. actual' : 'If it is rated, expect'}</p>
+            <div class="preds tnum" class:cmp={isRated}>
+              {#if isRated}
+                <span class="ph"></span><span class="ph">Est.</span><span class="ph">Actual</span>
+              {/if}
+              {#each predRows as r (r.k)}
+                <span class="pl">{r.k}</span>
+                <span class="pv">{fmtPred(r.v, r.digits)}</span>
+                {#if isRated}<span class="pa">{fmtPred(r.actual, r.digits)}</span>{/if}
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Phil wants in-sample predictions visible precisely because they show model
+               behaviour — so this labels, it doesn't hide or hedge. -->
+          {#if sampleNote}
+            <p class="sample" class:fitted={inSample}>
+              <b class="tag">{inSample ? 'In sample' : 'Out of sample'}</b>
+              <span>{sampleNote}</span>
+            </p>
+          {/if}
+
+          <!-- A prediction nobody can attribute is a rumour — but each target has its own
+               model, and five near-identical name+version strings crowded out the numbers
+               they belonged to. Collapsed by default, complete when opened. -->
+          {#if p.models.length}
+            <details class="attrib">
+              <summary>{p.models.length} models</summary>
+              <dl>
+                {#each p.models as m (m.target)}
+                  <div>
+                    <dt>{TARGET_LABEL[m.target] ?? m.target}</dt>
+                    <dd>{m.name}{m.version ? ` v${m.version}` : ''}</dd>
+                  </div>
+                {/each}
+              </dl>
+            </details>
+          {/if}
+        {/if}
+      </section>
     </div>
   </div>
-</div>
+
+  {#if freshness}
+    <p class="fresh">Warehouse data for this game last refreshed {freshness}.</p>
+  {/if}
+</Container>
 
 <style>
-  .crumbs { font-size: 0.82rem; color: var(--muted-foreground); margin-bottom: var(--space-md); }
-  .crumbs a { color: var(--muted-foreground); text-decoration: none; }
-  .crumbs a:hover { color: var(--primary); }
-  .crumbs b { color: var(--foreground); }
-  .tnum { font-variant-numeric: tabular-nums; }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-lg);
+  }
 
-  .split { display: grid; grid-template-columns: 1.55fr 1fr; gap: var(--space-lg); }
-  @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); }
+  /* Back out first, breadcrumb second: leaving is the common action, not orienting. */
+  .nav {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-md);
+  }
+  .back {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    border: 1px solid color-mix(in oklch, var(--primary) 32%, var(--border));
+    background: color-mix(in oklch, var(--primary) 8%, transparent);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+  .back:hover {
+    background: color-mix(in oklch, var(--primary) 16%, transparent);
+  }
+  .crumbs {
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+  .crumbs .bgg {
+    color: var(--primary);
+  }
+  .crumbs .bgg:hover {
+    text-decoration: underline;
+  }
+  .crumbs .sep {
+    opacity: 0.5;
+  }
+  .fresh {
+    margin: var(--space-lg) 0 0;
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    opacity: 0.75;
+  }
+  /* Sample size sits under its stat as its own line: inline, it wrapped mid-phrase and left
+     the separator stranded on the label.
 
-  .info-top { display: flex; gap: var(--space-lg); }
-  .cover { width: 104px; height: 104px; flex: none; border-radius: 10px; border: 1px solid var(--border);
-    background: radial-gradient(circle at 30% 30%, oklch(0.64 0.17 45 / .28), transparent 60%),
+     Sized to be *read*, not merely present. These were 0.62rem — small enough that the
+     percentile, which is the only thing making the number above it mean anything, arrived as
+     visual noise. There is no space pressure in this column; the whole point of the block is
+     the comparison, so the comparison gets legible type. */
+  .stat .of {
+    font-size: 0.78rem;
+    color: var(--muted-foreground);
+    line-height: 1.3;
+    margin-top: 0.15rem;
+  }
+  .pc .votes {
+    display: block;
+    font-size: 0.7rem;
+    opacity: 0.75;
+    line-height: 1.2;
+  }
+  .crumbs a {
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--primary);
+  }
+  .crumbs b {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(15rem, 1fr);
+    gap: var(--space-lg);
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+  }
+  .idw {
+    display: flex;
+    gap: var(--space-lg);
+    min-width: 0;
+  }
+  .cover {
+    width: 132px;
+    flex: none;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    object-fit: contain;
+    background: var(--muted);
+  }
+  .cover.ph {
+    width: 108px;
+    height: 108px;
+    background:
+      radial-gradient(circle at 30% 30%, oklch(0.64 0.17 45 / 0.28), transparent 60%),
       repeating-linear-gradient(60deg, var(--muted) 0 14px, transparent 14px 28px), var(--card);
-    display: grid; place-items: center; font-weight: 800; font-size: 2rem; color: var(--primary); letter-spacing: -0.03em; }
-  .title { margin: 0; font-size: var(--text-heading); font-weight: 700; letter-spacing: -0.02em; }
-  .title .yr { color: var(--muted-foreground); font-weight: 500; }
-  .byline { color: var(--muted-foreground); font-size: 0.88rem; margin: .15rem 0 0; }
-  .meta-row { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-top: var(--space-md); font-size: 0.85rem; }
-  .meta-row div span { color: var(--muted-foreground); display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; }
-  .meta-row div b { font-weight: 600; }
-  .meta-row small { color: var(--muted-foreground); font-weight: 400; }
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 2rem;
+    color: var(--primary);
+    letter-spacing: -0.03em;
+  }
+  .id {
+    min-width: 0;
+  }
+  .title {
+    margin: 0;
+    font-size: var(--text-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .title .yr {
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .byline {
+    color: var(--muted-foreground);
+    font-size: 0.88rem;
+    margin: 0.15rem 0 0;
+  }
+  .pubs {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    margin: 0.1rem 0 0;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    margin-top: var(--space-md);
+    font-size: 0.85rem;
+  }
+  .facts div span {
+    color: var(--muted-foreground);
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .facts div b {
+    font-weight: 650;
+  }
+  .facts .hl {
+    color: var(--primary);
+  }
 
-  .sub { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin: var(--space-md) 0 .5rem; font-weight: 600; }
-  .sub-note { text-transform: none; letter-spacing: 0; font-weight: 400; }
-  .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
-  .chip { font-size: 0.76rem; padding: .2rem .55rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--background); }
-  .chip.cat { border-color: color-mix(in oklch, var(--primary) 40%, var(--border)); color: var(--primary); }
+  /* Four numbers on one plane, with the rank line that gives them a scale. */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-md) 0.5rem;
+    border-left: 1px solid var(--border);
+    padding-left: var(--space-lg);
+  }
+  @media (max-width: 860px) {
+    .stats {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--border);
+      padding-top: var(--space-md);
+    }
+  }
+  .stat .v {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .stat .v small {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+  .stat .l {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    margin-top: 0.1rem;
+  }
+  .ranks {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-md);
+  }
+  .ranks p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .ranks b {
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+  }
 
-  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
-  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-md) var(--space-lg); }
-  .kpi .v { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
-  .kpi .v small { font-size: 0.8rem; font-weight: 500; color: var(--muted-foreground); }
-  .kpi .l { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); margin-top: .1rem; }
+  .cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .cols {
+      grid-template-columns: 1fr;
+    }
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-width: 0;
+  }
 
-  .sections { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--space-lg); margin-top: var(--space-lg); }
-  @media (max-width: 720px) { .sections { grid-template-columns: 1fr; } }
+  .sub {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-foreground);
+    margin: 0 0 0.6rem;
+    font-weight: 600;
+  }
+  .sub + .chips + .sub {
+    margin-top: var(--space-md);
+  }
+  .sub-note {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
 
-  .pc-row { display: grid; grid-template-columns: 2.2rem 1fr; align-items: center; gap: .7rem; margin-bottom: .5rem; }
-  .pc-row .n { font-weight: 600; font-size: 0.9rem; text-align: right; }
-  .pc-bar { display: flex; height: 1.05rem; border-radius: 5px; overflow: hidden; background: var(--muted); }
-  .pc-bar i { display: block; height: 100%; }
-  .pc-best { background: var(--color-positive); }
-  .pc-rec { background: var(--chart-2); }
-  .pc-not { background: color-mix(in oklch, var(--color-negative) 55%, var(--muted)); }
-  .pc-legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.75rem; color: var(--muted-foreground); margin-top: .7rem; }
-  .pc-legend b { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; vertical-align: -1px; margin-right: .3rem; }
-  .best-at { font-size: 0.85rem; color: var(--muted-foreground); margin-top: .6rem; }
-  .best-at b { color: var(--foreground); }
+  /* Most games have four or five rows and never scroll. A few support up to "30+", which is
+     31 bars — enough to push the description, the tags and the whole right column off the
+     screen. Cap it at roughly a dozen rows and let the rest scroll in place. */
+  .pcs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    /* Room for the scrollbar so it never sits on top of the percentages. */
+    padding-right: 0.15rem;
+    scrollbar-width: thin;
+  }
+  .pc {
+    display: grid;
+    grid-template-columns: 2rem 1fr 2.6rem;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .pc .n {
+    font-weight: 600;
+    font-size: 0.88rem;
+    text-align: right;
+    color: var(--muted-foreground);
+  }
+  /* The community's answer is named in prose below and marked here — never colour alone. */
+  .pc.top .n {
+    color: var(--primary);
+    font-weight: 750;
+  }
+  .pc.top .n::after {
+    content: ' ★';
+    font-size: 0.6rem;
+    vertical-align: 0.15em;
+  }
+  .pc-bar {
+    display: flex;
+    height: 1rem;
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--muted);
+  }
+  .pc-bar i {
+    display: block;
+    height: 100%;
+  }
+  .pc-best {
+    background: var(--color-positive);
+  }
+  .pc-rec {
+    background: var(--chart-2);
+  }
+  .pc-not {
+    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+  }
+  .pc .pct {
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+  .pc .pct small {
+    font-size: 0.62rem;
+  }
+  .pc.top .pct {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    margin-top: 0.7rem;
+  }
+  .legend .sw {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 3px;
+    vertical-align: -1px;
+    margin-right: 0.3rem;
+  }
+  .legend .sw.best {
+    background: var(--color-positive);
+  }
+  .legend .sw.rec {
+    background: var(--chart-2);
+  }
+  .legend .sw.not {
+    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+  }
+  .legend .note {
+    margin-left: auto;
+    opacity: 0.8;
+  }
+  /* The chart's conclusion, stated. Two rows so "best" and "merely works" stay distinct
+     claims, each carrying the same swatch as its bar segment — the colour is a back-
+     reference, never the signal on its own. */
+  .verdict {
+    margin: 0.9rem 0 0;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .verdict div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .verdict dt {
+    font-size: 0.86rem;
+    color: var(--muted-foreground);
+  }
+  .verdict dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .verdict .sw {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 3px;
+    vertical-align: -1px;
+    margin-right: 0.35rem;
+  }
+  .verdict .sw.best {
+    background: var(--color-positive);
+  }
+  .verdict .sw.rec {
+    background: var(--chart-2);
+  }
 
-  .sim { display: flex; flex-direction: column; gap: .4rem; }
-  .sim a { display: flex; align-items: center; gap: .7rem; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; background: var(--background); }
-  .sim a:hover { border-color: var(--primary); }
-  .sim .mono { width: 2rem; height: 2rem; border-radius: 6px; background: var(--muted); display: grid; place-items: center; font-weight: 700; color: var(--muted-foreground); flex: none; }
-  .sim .nm { font-weight: 550; font-size: 0.9rem; }
-  .sim .yr { color: var(--muted-foreground); font-size: 0.78rem; }
-  .sim .score { margin-left: auto; font-size: 0.78rem; color: var(--primary); font-weight: 600; }
+  .desc {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--foreground);
+    margin: 0;
+    white-space: pre-line;
+  }
+  .desc.clamped {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 7;
+    line-clamp: 7;
+    overflow: hidden;
+  }
+  .link {
+    margin-top: 0.5rem;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--primary);
+    cursor: pointer;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
 
-  .empty { border: 1px dashed var(--border); border-radius: var(--radius); padding: var(--space-lg); text-align: center; color: var(--muted-foreground); font-size: 0.86rem; }
+  /* Tags are links: one click from "what is this" back to "what else is like this". */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .chip {
+    font-size: 0.76rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    background: var(--background);
+    text-decoration: none;
+  }
+  .chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .chip.cat {
+    border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+    color: var(--primary);
+  }
+
+  .sim {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .sim a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--background);
+    min-width: 0;
+  }
+  .sim a:hover {
+    border-color: var(--primary);
+  }
+  .sim .mono {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 6px;
+    background: var(--muted);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    flex: none;
+  }
+  .sim .nmw {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sim .nm {
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .sim a:hover .nm {
+    color: var(--primary);
+  }
+  .sim .yr {
+    color: var(--muted-foreground);
+    font-size: 0.76rem;
+  }
+  .sim .score {
+    margin-left: auto;
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    flex: none;
+  }
+
+  /* The gate, sized like the claim it is. Everything below it is conditional on this number,
+     so it gets the weight and the bar; the estimates get plain rows. */
+  .hurdle {
+    border: 1px solid color-mix(in oklch, var(--chart-2) 30%, var(--border));
+    background: color-mix(in oklch, var(--chart-2) 7%, transparent);
+    border-radius: var(--radius);
+    padding: var(--space-md);
+  }
+  .hurdle.settled {
+    /* The question is answered; the estimate is history, not a forecast. */
+    border-color: var(--border);
+    background: transparent;
+    padding-inline: 0;
+    padding-top: 0;
+  }
+  .hrow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .hv {
+    font-size: 1.7rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--chart-2);
+  }
+  .hurdle.settled .hv {
+    font-size: 1.15rem;
+    color: var(--muted-foreground);
+  }
+  .hk {
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+  }
+  .hbar {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+    margin-top: 0.55rem;
+  }
+  .hbar i {
+    display: block;
+    height: 100%;
+    background: var(--chart-2);
+    /* A vanishing sliver still has to be visible, or 0.4% and 0% look identical. */
+    min-width: 2px;
+  }
+  .hurdle.settled .hbar {
+    height: 0.3rem;
+  }
+  .hnote {
+    margin: 0.5rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .pk {
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    margin: var(--space-md) 0 0.4rem;
+  }
+  .preds {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.3rem 0.75rem;
+    align-items: baseline;
+  }
+  .preds.cmp {
+    grid-template-columns: 1fr auto auto;
+  }
+  .preds .ph {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+  .preds .pl {
+    font-size: 0.84rem;
+    color: var(--muted-foreground);
+  }
+  /* The estimate is the muted one and the fact is the solid one — on a rated game the page
+     should not present a guess with the same confidence as the measurement beside it. */
+  .preds .pv {
+    font-size: 0.95rem;
+    font-weight: 650;
+    text-align: right;
+    min-width: 3.4rem;
+  }
+  .preds.cmp .pv {
+    font-weight: 550;
+    color: var(--muted-foreground);
+  }
+  .preds .pa {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: right;
+    min-width: 3.4rem;
+  }
+  /* A label, not a warning: neutral by default, and the fitted case reads as a fact about
+     the model rather than a caveat about the number. */
+  .sample {
+    margin: var(--space-md) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+  .sample .tag {
+    flex: none;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .sample.fitted .tag {
+    border-color: color-mix(in oklch, var(--chart-2) 45%, var(--border));
+    background: color-mix(in oklch, var(--chart-2) 12%, transparent);
+  }
+
+  .attrib {
+    margin-top: var(--space-md);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+  }
+  .attrib summary {
+    cursor: pointer;
+    opacity: 0.8;
+  }
+  .attrib summary:hover {
+    color: var(--primary);
+  }
+  .attrib dl {
+    margin: 0.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .attrib dl div {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: space-between;
+  }
+  .attrib dt {
+    opacity: 0.8;
+    flex: none;
+  }
+  .attrib dd {
+    margin: 0;
+    text-align: right;
+    word-break: break-word;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-lg);
+    text-align: center;
+    color: var(--muted-foreground);
+    font-size: 0.84rem;
+  }
 </style>

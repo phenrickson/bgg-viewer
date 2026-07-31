@@ -1,0 +1,452 @@
+<title>bgg-viewer — Explore workspace &amp; landing mockup</title>
+<style>
+  /* Tokens verbatim from the app's app.css — previews the real design language. */
+  :root {
+    --radius: 0.625rem;
+    --space-sm: 0.5rem; --space-md: 0.75rem; --space-lg: 1.25rem; --space-xl: 2rem;
+    --background: oklch(0.99 0.004 80); --foreground: oklch(0.22 0.02 260);
+    --card: oklch(1 0 0); --primary: oklch(0.64 0.17 45);
+    --primary-foreground: oklch(0.99 0.01 80); --muted: oklch(0.96 0.006 80);
+    --muted-foreground: oklch(0.50 0.02 260); --border: oklch(0.91 0.008 80);
+    --chart-1: oklch(0.62 0.14 250); --chart-2: oklch(0.78 0.13 75);
+    --chart-3: oklch(0.65 0.12 170); --chart-4: oklch(0.62 0.12 300);
+    --chart-5: oklch(0.65 0.15 25);
+    --positive: oklch(0.62 0.14 150); --negative: oklch(0.60 0.17 25);
+    --page: oklch(0.955 0.006 80);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.19 0.02 260); --foreground: oklch(0.94 0.006 80);
+      --card: oklch(0.23 0.02 260); --primary: oklch(0.70 0.16 48);
+      --primary-foreground: oklch(0.18 0.02 260); --muted: oklch(0.27 0.02 260);
+      --muted-foreground: oklch(0.68 0.02 260); --border: oklch(0.32 0.02 260);
+      --page: oklch(0.15 0.02 260);
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: oklch(0.19 0.02 260); --foreground: oklch(0.94 0.006 80);
+    --card: oklch(0.23 0.02 260); --primary: oklch(0.70 0.16 48);
+    --primary-foreground: oklch(0.18 0.02 260); --muted: oklch(0.27 0.02 260);
+    --muted-foreground: oklch(0.68 0.02 260); --border: oklch(0.32 0.02 260);
+    --page: oklch(0.15 0.02 260);
+  }
+  :root[data-theme="light"] {
+    --background: oklch(0.99 0.004 80); --foreground: oklch(0.22 0.02 260);
+    --card: oklch(1 0 0); --primary: oklch(0.64 0.17 45);
+    --primary-foreground: oklch(0.99 0.01 80); --muted: oklch(0.96 0.006 80);
+    --muted-foreground: oklch(0.50 0.02 260); --border: oklch(0.91 0.008 80);
+    --page: oklch(0.955 0.006 80);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--foreground);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 78rem; margin: 0 auto; padding: var(--space-xl) var(--space-lg) 4rem; }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  .doc-h { margin-bottom: var(--space-xl); }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; font-weight: 600; color: var(--primary); margin: 0 0 .5rem; }
+  .doc-h h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 .35rem; text-wrap: balance; }
+  .doc-h p { margin: 0; color: var(--muted-foreground); max-width: 50rem; }
+  .doc-h p + p { margin-top: .5rem; }
+  .divider { border: 0; border-top: 1px solid var(--border); margin: 3rem 0 0; }
+  .part { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .12em; color: var(--primary); font-weight: 700; margin: 2.5rem 0 .2rem; }
+  .screen-label { display: flex; align-items: baseline; gap: .6rem; margin: 1.4rem 0 var(--space-md); flex-wrap: wrap; }
+  .screen-label h2 { font-size: 1.15rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .screen-label span { color: var(--muted-foreground); font-size: 0.85rem; }
+
+  .chrome { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 12px 30px oklch(0 0 0 / 0.06); background: var(--background); }
+  .chrome-bar { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; background: var(--muted); border-bottom: 1px solid var(--border); }
+  .dots { display: flex; gap: .35rem; }
+  .dots i { width: .7rem; height: .7rem; border-radius: 50%; background: var(--border); display: block; }
+  .addr { flex: 1; font: 0.78rem ui-monospace, "Cascadia Code", Menlo, monospace; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); border-radius: 6px; padding: .25rem .6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .appbar { display: flex; align-items: center; gap: var(--space-lg); padding: .7rem var(--space-lg); border-bottom: 1px solid var(--border); background: var(--card); }
+  .brand { font-weight: 700; letter-spacing: -0.01em; }
+  .brand b { color: var(--primary); }
+  .nav { display: flex; gap: .2rem; margin-left: .4rem; flex-wrap: wrap; }
+  .nav a { font-size: 0.88rem; color: var(--muted-foreground); text-decoration: none; padding: .3rem .6rem; border-radius: 7px; }
+  .nav a.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+  .nav a.soon { opacity: .5; }
+  .nav a.soon::after { content: "soon"; font-size: 0.6rem; text-transform: uppercase; letter-spacing: .05em; margin-left: .3rem; color: var(--primary); vertical-align: super; }
+  .spacer { flex: 1; }
+  .who { font-size: 0.85rem; color: var(--muted-foreground); }
+  .icon-btn { width: 1.9rem; height: 1.9rem; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--foreground); cursor: pointer; }
+
+  /* ============ LANDING ============ */
+  .land { padding: clamp(1.5rem, 4vw, 3.2rem) var(--space-lg) 2.4rem; background:
+    radial-gradient(120% 90% at 84% -10%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 60%),
+    var(--background); }
+  .land-inner { max-width: 52rem; margin: 0 auto; }
+  .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem .28rem .55rem; }
+  .warming .spin { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .warming .spin { animation: none; } }
+  .warming b { color: var(--foreground); font-weight: 600; }
+  .land h1 { font-size: clamp(1.8rem, 1.1rem + 3vw, 3rem); font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 1.1rem 0 .5rem; text-wrap: balance; }
+  .land h1 em { font-style: normal; color: var(--primary); }
+  .land .lede { font-size: clamp(1rem, .9rem + .5vw, 1.2rem); color: var(--muted-foreground); max-width: 40rem; margin: 0; }
+  .bigsearch { display: flex; align-items: center; gap: .6rem; margin: 1.6rem 0 .5rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: .7rem .9rem; box-shadow: 0 1px 2px oklch(0 0 0 / .04); max-width: 34rem; }
+  .bigsearch svg { flex: none; color: var(--muted-foreground); }
+  .bigsearch span { color: var(--muted-foreground); font-size: 1rem; flex: 1; }
+  .bigsearch kbd { font: 0.72rem ui-monospace, Menlo, monospace; color: var(--muted-foreground); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: .1rem .35rem; }
+  .search-note { font-size: 0.76rem; color: var(--muted-foreground); margin: 0 0 1.6rem; }
+  .search-note b { color: var(--foreground); font-weight: 550; }
+  .try-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 0 0 .55rem; }
+  .qchips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2.2rem; }
+  .qchip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
+  .qchip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
+  .qchip .arw { opacity: .6; }
+  .entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-md); }
+  .entry { text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: .3rem; }
+  .entry:hover { border-color: var(--primary); }
+  .entry .ico { width: 2.1rem; height: 2.1rem; border-radius: 8px; display: grid; place-items: center; background: color-mix(in oklch, var(--primary) 12%, var(--muted)); color: var(--primary); margin-bottom: .3rem; }
+  .entry.dim { opacity: .62; }
+  .entry b { font-size: 0.95rem; font-weight: 650; display: flex; align-items: center; gap: .4rem; }
+  .entry p { margin: 0; font-size: 0.82rem; color: var(--muted-foreground); }
+  .tag { font-size: 0.62rem; text-transform: uppercase; letter-spacing: .05em; padding: .05rem .35rem; border-radius: 5px; vertical-align: 1px; font-weight: 600; }
+  .tag.live { background: color-mix(in oklch, var(--positive) 20%, transparent); color: var(--positive); }
+  .tag.soon { background: var(--muted); color: var(--muted-foreground); }
+
+  /* ============ EXPLORE WORKSPACE ============ */
+  .work { display: grid; grid-template-columns: 15rem 1fr; }
+  @media (max-width: 900px) { .work { grid-template-columns: 1fr; } }
+  .rail { border-right: 1px solid var(--border); background: var(--card); padding: var(--space-md) var(--space-md) var(--space-lg); }
+  .rail-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .3rem; }
+  .rail-h h3 { margin: 0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); }
+  .rail-h a { font-size: 0.75rem; color: var(--primary); text-decoration: none; }
+  .rail-tag { font-size: 0.68rem; color: var(--muted-foreground); margin: 0 0 .7rem; }
+  .rail-tag b { color: var(--primary); font-weight: 600; }
+  .uni-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); margin: 0 0 .35rem; font-weight: 600; }
+  .universe { display: flex; gap: .3rem; margin-bottom: .3rem; background: var(--muted); padding: .2rem; border-radius: 8px; }
+  .universe span { flex: 1; text-align: center; font-size: 0.78rem; padding: .28rem; border-radius: 6px; color: var(--muted-foreground); }
+  .universe span.on { background: var(--card); color: var(--foreground); font-weight: 600; box-shadow: 0 1px 2px oklch(0 0 0 / .06); }
+  .uni-note { font-size: 0.66rem; color: var(--muted-foreground); margin: 0 0 .8rem; }
+  .rail .search { display: flex; align-items: center; gap: .4rem; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--background); padding: .4rem .6rem; color: var(--muted-foreground); font-size: 0.82rem; margin-bottom: .5rem; }
+  .fgroup { border-top: 1px solid var(--border); padding: .55rem 0; }
+  .fgroup > div:first-child { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 550; }
+  .fgroup .caret { color: var(--muted-foreground); font-size: .74rem; font-weight: 400; }
+  .fgroup .body { margin-top: .5rem; }
+  .rangebar { height: .3rem; background: var(--muted); border-radius: 3px; position: relative; margin: .8rem .2rem .3rem; }
+  .rangebar i { position: absolute; height: 100%; background: var(--primary); border-radius: 3px; }
+  .rangebar b { position: absolute; top: 50%; width: .7rem; height: .7rem; border-radius: 50%; background: var(--card); border: 2px solid var(--primary); transform: translate(-50%, -50%); }
+  .rangelbl { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted-foreground); }
+  .check { display: flex; align-items: center; gap: .45rem; font-size: 0.82rem; padding: .18rem 0; color: var(--foreground); }
+  .check i { width: .85rem; height: .85rem; border: 1px solid var(--border); border-radius: 3px; display: block; flex: none; }
+  .check.on i { background: var(--primary); border-color: var(--primary); }
+  .check .ct { margin-left: auto; color: var(--muted-foreground); font-size: 0.72rem; }
+  .seg { display: flex; gap: .3rem; margin-top: .3rem; flex-wrap: wrap; }
+  .seg span { font-size: 0.76rem; border: 1px solid var(--border); border-radius: 6px; padding: .2rem .45rem; color: var(--muted-foreground); }
+  .seg span.on { border-color: var(--primary); color: var(--primary); background: color-mix(in oklch, var(--primary) 10%, transparent); }
+
+  .canvas { padding: var(--space-lg); min-width: 0; }
+  .canvas-h { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
+  .scope-sum { font-size: 0.92rem; }
+  .scope-sum b { font-weight: 650; }
+  .scope-sum span { color: var(--muted-foreground); }
+  .lens { display: flex; gap: .2rem; margin-left: auto; background: var(--muted); padding: .2rem; border-radius: 9px; }
+  .lens span { font-size: 0.82rem; padding: .25rem .65rem; border-radius: 7px; color: var(--muted-foreground); display: inline-flex; align-items: center; gap: .35rem; }
+  .lens span.on { background: var(--card); color: var(--foreground); font-weight: 550; box-shadow: 0 1px 2px oklch(0 0 0 / .06); }
+  .save { font-size: 0.82rem; color: var(--primary); border: 1px solid color-mix(in oklch, var(--primary) 40%, var(--border)); border-radius: 7px; padding: .28rem .6rem; background: transparent; }
+
+  /* the linked pair */
+  .linked { display: flex; flex-direction: column; gap: var(--space-lg); }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-md) var(--space-md) var(--space-lg); display: flex; flex-direction: column; min-width: 0; }
+  .panel-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: var(--space-md); }
+  .panel-h h4 { margin: 0; font-size: 0.9rem; font-weight: 600; }
+  .panel-h .ctrl { font-size: 0.74rem; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 6px; padding: .12rem .4rem; }
+  .panel-h .ctrl b { color: var(--foreground); font-weight: 550; }
+
+  /* scatter (games as a plot) */
+  .plotwrap { position: relative; flex: 1; }
+  .scatter { position: relative; height: 22rem; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: .3rem .2rem .2rem 1.6rem; }
+  .scatter .yaxt { position: absolute; left: -1.5rem; top: 0; bottom: 0; width: 1.4rem; }
+  .scatter .yaxt span { position: absolute; right: .15rem; font-size: 0.62rem; color: var(--muted-foreground); transform: translateY(50%); }
+  .scatter i { position: absolute; width: .52rem; height: .52rem; border-radius: 50%; transform: translate(-50%, 50%); background: color-mix(in oklch, var(--chart-1) 42%, transparent); }
+  .scatter i.in { background: var(--chart-1); }
+  .scatter i.sel { width: .7rem; height: .7rem; background: var(--chart-1); box-shadow: 0 0 0 3px color-mix(in oklch, var(--chart-1) 30%, transparent), 0 0 0 4px var(--card); z-index: 3; }
+  .brush { position: absolute; border: 1.5px dashed var(--primary); background: color-mix(in oklch, var(--primary) 9%, transparent); border-radius: 4px; z-index: 2; }
+  .brush-tag { position: absolute; top: -.1rem; transform: translateY(-100%); left: 0; font-size: 0.68rem; font-weight: 600; color: var(--primary-foreground); background: var(--primary); border-radius: 5px; padding: .12rem .4rem; white-space: nowrap; }
+  .axis-x { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--muted-foreground); margin: .3rem .2rem 0 1.6rem; }
+  .axis-cap { font-size: 0.68rem; color: var(--muted-foreground); text-align: center; margin-top: .15rem; }
+
+  /* table (games as rows) */
+  .tbl-scroll { flex: 1; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  thead th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; padding: .5rem .6rem; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; }
+  thead th.num, td.num { text-align: right; }
+  thead th.sortable b { color: var(--foreground); }
+  thead th .sc { color: var(--primary); }
+  tbody td { padding: .48rem .6rem; border-bottom: 1px solid var(--border); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr.hi { background: color-mix(in oklch, var(--chart-1) 12%, var(--card)); }
+  tbody tr.hi td:first-child { box-shadow: inset 2px 0 0 var(--chart-1); }
+  tbody .nm { font-weight: 550; }
+  .pill { font-size: 0.72rem; padding: .05rem .4rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); }
+  .tbl-foot { display: flex; align-items: center; justify-content: space-between; margin-top: .6rem; font-size: 0.76rem; color: var(--muted-foreground); }
+  .tbl-foot b { color: var(--foreground); }
+
+  .link-note { font-size: 0.8rem; color: var(--muted-foreground); margin-top: var(--space-lg); padding-left: .8rem; border-left: 2px solid var(--primary); }
+  .link-note b { color: var(--foreground); }
+
+  /* set summary (secondary lens) */
+  .summary { margin-top: var(--space-lg); border: 1px dashed var(--border); border-radius: var(--radius); background: color-mix(in oklch, var(--muted) 40%, var(--card)); overflow: hidden; }
+  .summary-h { display: flex; align-items: center; gap: .5rem; padding: .6rem var(--space-md); font-size: 0.82rem; color: var(--muted-foreground); }
+  .summary-h b { color: var(--foreground); font-weight: 600; }
+  .summary-h .caret { margin-left: auto; }
+  .summary-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-md); padding: 0 var(--space-md) var(--space-md); }
+  .mini-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem .7rem; }
+  .mini-panel h5 { margin: 0 0 .5rem; font-size: 0.76rem; font-weight: 600; color: var(--muted-foreground); }
+  .hist { display: flex; align-items: flex-end; gap: .22rem; height: 4.6rem; }
+  .hist .bar { flex: 1; background: color-mix(in oklch, var(--chart-1) 78%, transparent); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .rows { display: flex; flex-direction: column; gap: .3rem; }
+  .hrow { display: grid; grid-template-columns: 4.4rem 1fr auto; align-items: center; gap: .4rem; font-size: 0.74rem; }
+  .hrow .lab { color: var(--muted-foreground); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hrow .track { height: .6rem; background: var(--muted); border-radius: 3px; overflow: hidden; }
+  .hrow .track i { display: block; height: 100%; background: var(--chart-3); border-radius: 3px; }
+  .hrow .n { color: var(--muted-foreground); font-size: 0.7rem; min-width: 2rem; text-align: right; }
+
+  .callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-md); margin-top: var(--space-md); }
+  .callout { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-md) var(--space-lg); }
+  .callout h4 { margin: 0 0 .3rem; font-size: 0.88rem; }
+  .callout p { margin: 0; font-size: 0.82rem; color: var(--muted-foreground); }
+  .callout .k { color: var(--primary); font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <div class="doc-h">
+    <p class="eyebrow">bgg-viewer · proposed direction</p>
+    <h1>The landing page &amp; a linked Explore workspace</h1>
+    <p>A reaction mockup built on the app's real design tokens, continuing
+      <code>layout-ia-mockup.html</code>. Two ideas to review: <b>(1)</b> a landing page that
+      orients the user and quietly warms the game catalog in the background, and <b>(2)</b> an
+      Explore canvas where the same set of games is shown as a <b>plot and a table at once</b>,
+      linked — brush the plot, the table follows.</p>
+    <p>The idea it serves: a simple way to search and explore board games <em>as a set</em> — not one at a time.</p>
+  </div>
+
+  <p class="part">Screen 1 · Landing — orient, and warm the catalog</p>
+  <div class="screen-label"><h2>Home</h2><span>useful before the catalog finishes loading — search &amp; detail are point lookups that don't wait on it</span></div>
+  <div class="chrome">
+    <div class="chrome-bar"><div class="dots"><i></i><i></i><i></i></div>
+      <div class="addr">bgg-viewer.app/</div></div>
+    <div class="appbar">
+      <div class="brand">bgg<b>·</b>viewer</div>
+      <nav class="nav">
+        <a class="active" href="#">Explore</a><a class="soon" href="#">Predictions</a>
+        <a class="soon" href="#">Similarity</a><a class="soon" href="#">Collection</a>
+      </nav>
+      <div class="spacer"></div>
+      <span class="who">phenrickson</span>
+      <button class="icon-btn" aria-label="Toggle theme">◐</button>
+    </div>
+    <div class="land">
+      <div class="land-inner">
+        <span class="warming"><span class="spin"></span>Warming the catalog… <b>~1s</b> · 37,633 games</span>
+        <h1>Explore board games <em>as a set</em> — not one at a time.</h1>
+        <p class="lede">Search, filter, and visualize the whole catalog — combine recommended player
+          counts, complexity, ratings, and year however you like, and see the results as a plot and a
+          table together.</p>
+
+        <div class="bigsearch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <span>Jump to a game…</span>
+          <kbd>/</kbd>
+        </div>
+        <p class="search-note">Search and game pages work <b>instantly</b> — they don't wait on the catalog to warm.</p>
+
+        <p class="try-lbl">Try a query</p>
+        <div class="qchips">
+          <a class="qchip" href="#">Recommended at 6 players <span class="arw">→</span></a>
+          <a class="qchip" href="#">Highest complexity, last 10 years <span class="arw">→</span></a>
+          <a class="qchip" href="#">Strategy games best at 2 <span class="arw">→</span></a>
+          <a class="qchip" href="#">Top rated since 2020 <span class="arw">→</span></a>
+          <a class="qchip" href="#">Family games under 45 min <span class="arw">→</span></a>
+        </div>
+
+        <div class="entries">
+          <a class="entry" href="#">
+            <span class="ico" aria-hidden="true">▦</span>
+            <b>Explore the catalog <span class="tag live">ready</span></b>
+            <p>Filter to a set, then see it as a linked plot and table.</p>
+          </a>
+          <a class="entry dim" href="#">
+            <span class="ico" aria-hidden="true">◈</span>
+            <b>Upcoming predictions <span class="tag soon">soon</span></b>
+            <p>What the model expects for games not yet rated.</p>
+          </a>
+          <a class="entry dim" href="#">
+            <span class="ico" aria-hidden="true">✳</span>
+            <b>Similarity map <span class="tag soon">soon</span></b>
+            <p>Find games near one you love, by embedding distance.</p>
+          </a>
+          <a class="entry dim" href="#">
+            <span class="ico" aria-hidden="true">❑</span>
+            <b>Your collection <span class="tag soon">soon</span></b>
+            <p>Bring your own shelf into the same lenses.</p>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="part" style="margin-top:3rem">Screen 2 · Explore — one set, seen two ways at once</p>
+  <div class="screen-label"><h2>The linked workspace</h2><span>rail = the query · plot + table = the answer, brushable and cross-highlighted</span></div>
+  <div class="chrome">
+    <div class="chrome-bar"><div class="dots"><i></i><i></i><i></i></div>
+      <div class="addr">bgg-viewer.app/games?year=2015-2025&amp;complexity=3-5&amp;cat=strategy</div></div>
+    <div class="appbar">
+      <div class="brand">bgg<b>·</b>viewer</div>
+      <nav class="nav">
+        <a class="active" href="#">Explore</a><a class="soon" href="#">Predictions</a>
+        <a class="soon" href="#">Similarity</a><a class="soon" href="#">Collection</a>
+      </nav>
+      <div class="spacer"></div>
+      <span class="who">phenrickson</span>
+      <button class="icon-btn" aria-label="Toggle theme">◐</button>
+    </div>
+    <div class="work">
+      <aside class="rail">
+        <div class="uni-lbl">Universe</div>
+        <div class="universe"><span class="on">Top 10,000</span><span>All rated</span></div>
+        <p class="uni-note">The corpus the query runs over — the smaller set draws crisper; the larger shows the long tail.</p>
+        <div class="rail-h"><h3>Scope</h3><a href="#">Reset</a></div>
+        <p class="rail-tag">The <b>query</b> — carried in the URL, shareable</p>
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          Search titles…
+        </div>
+        <div class="fgroup"><div>Year <span class="caret">2015 – 2025</span></div>
+          <div class="body"><div class="rangebar"><i style="left:40%;right:0"></i><b style="left:40%"></b><b style="left:100%"></b></div>
+            <div class="rangelbl tnum"><span>2015</span><span>2025</span></div></div></div>
+        <div class="fgroup"><div>Complexity <span class="caret">3.0 – 5.0</span></div>
+          <div class="body"><div class="rangebar"><i style="left:50%;right:0"></i><b style="left:50%"></b><b style="left:100%"></b></div>
+            <div class="rangelbl tnum"><span>3.0</span><span>5.0</span></div></div></div>
+        <div class="fgroup"><div>Geek rating <span class="caret">any</span></div>
+          <div class="body"><div class="rangebar"><i style="left:0;right:0"></i><b style="left:0"></b><b style="left:100%"></b></div>
+            <div class="rangelbl tnum"><span>1</span><span>10</span></div></div></div>
+        <div class="fgroup"><div>Players + best at <span class="caret">▾</span></div>
+          <div class="body"><div class="seg"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6+</span></div></div></div>
+        <div class="fgroup"><div>Categories <span class="caret">▾</span></div>
+          <div class="body">
+            <label class="check on"><i></i>Strategy<span class="ct">1,284</span></label>
+            <label class="check"><i></i>Economic<span class="ct">312</span></label>
+            <label class="check"><i></i>Fantasy<span class="ct">288</span></label>
+            <label class="check"><i></i>Wargame<span class="ct">241</span></label></div></div>
+        <div class="fgroup"><div>Mechanics <span class="caret">▾</span></div></div>
+      </aside>
+
+      <div class="canvas">
+        <div class="canvas-h">
+          <div class="scope-sum"><b class="tnum">1,284</b> games <span>· strategy · 2015–2025 · complexity 3–5</span></div>
+          <div class="lens">
+            <span class="on">▦ Explore</span><span>▤ Summary</span>
+          </div>
+          <button class="save">Save view</button>
+        </div>
+
+        <div class="linked">
+          <!-- games as a plot -->
+          <div class="panel">
+            <div class="panel-h"><h4>Plot <span style="font-weight:400;color:var(--muted-foreground)">· the games, spatially</span></h4><span class="ctrl">y <b>geek</b> · x <b>weight</b></span></div>
+            <div class="plotwrap">
+              <div class="scatter">
+                <div class="yaxt tnum"><span style="top:6%">8.5</span><span style="top:34%">7.5</span><span style="top:62%">6.5</span><span style="top:90%">5.5</span></div>
+                <!-- out-of-brush points (dim) -->
+                <i style="left:6%;bottom:14%"></i><i style="left:11%;bottom:22%"></i><i style="left:16%;bottom:12%"></i>
+                <i style="left:20%;bottom:30%"></i><i style="left:14%;bottom:40%"></i><i style="left:24%;bottom:20%"></i>
+                <i style="left:30%;bottom:48%"></i><i style="left:9%;bottom:33%"></i><i style="left:22%;bottom:52%"></i>
+                <i style="left:84%;bottom:40%"></i><i style="left:90%;bottom:33%"></i><i style="left:88%;bottom:58%"></i>
+                <i style="left:79%;bottom:26%"></i><i style="left:93%;bottom:50%"></i><i style="left:82%;bottom:70%"></i>
+                <i style="left:36%;bottom:22%"></i><i style="left:42%;bottom:16%"></i><i style="left:70%;bottom:24%"></i>
+                <i style="left:74%;bottom:14%"></i><i style="left:33%;bottom:30%"></i>
+                <!-- brush region -->
+                <div class="brush" style="left:44%;bottom:52%;width:34%;height:34%">
+                  <span class="brush-tag">Brushed 42</span>
+                </div>
+                <!-- in-brush points (solid) -->
+                <i class="in" style="left:48%;bottom:60%"></i><i class="in" style="left:52%;bottom:70%"></i>
+                <i class="in" style="left:57%;bottom:64%"></i><i class="in sel" style="left:62%;bottom:78%"></i>
+                <i class="in" style="left:66%;bottom:68%"></i><i class="in" style="left:70%;bottom:74%"></i>
+                <i class="in" style="left:54%;bottom:58%"></i><i class="in" style="left:60%;bottom:66%"></i>
+                <i class="in" style="left:73%;bottom:62%"></i><i class="in" style="left:50%;bottom:76%"></i>
+              </div>
+              <div class="axis-x tnum"><span>1.0</span><span>2.0</span><span>3.0</span><span>4.0</span><span>5.0</span></div>
+              <div class="axis-cap">Complexity (weight) →  ·  each dot is a game · hover for its name, click to open it</div>
+            </div>
+          </div>
+
+          <!-- games as a table -->
+          <div class="panel">
+            <div class="panel-h"><h4>Table <span style="font-weight:400;color:var(--muted-foreground)">· the same games, as rows</span></h4><span class="ctrl">brushed · sorted <b>geek ↓</b></span></div>
+            <div class="tbl-scroll">
+              <table class="tnum">
+                <thead><tr>
+                  <th class="sortable"><b>Game</b></th><th class="num">Year</th>
+                  <th class="num sortable"><span class="sc">Geek ↓</span></th><th class="num">Weight</th><th>Best</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="hi"><td class="nm">Brass: Birmingham</td><td class="num">2018</td><td class="num">8.4</td><td class="num">3.9</td><td><span class="pill">4</span></td></tr>
+                  <tr><td class="nm">Ark Nova</td><td class="num">2021</td><td class="num">8.3</td><td class="num">3.8</td><td><span class="pill">2</span></td></tr>
+                  <tr><td class="nm">Terraforming Mars</td><td class="num">2016</td><td class="num">8.2</td><td class="num">3.2</td><td><span class="pill">3</span></td></tr>
+                  <tr><td class="nm">A Feast for Odin</td><td class="num">2016</td><td class="num">7.9</td><td class="num">3.9</td><td><span class="pill">3</span></td></tr>
+                  <tr><td class="nm">Great Western Trail</td><td class="num">2016</td><td class="num">7.9</td><td class="num">3.7</td><td><span class="pill">3</span></td></tr>
+                  <tr><td class="nm">Barrage</td><td class="num">2019</td><td class="num">7.8</td><td class="num">4.1</td><td><span class="pill">4</span></td></tr>
+                  <tr><td class="nm">Anachrony</td><td class="num">2017</td><td class="num">7.6</td><td class="num">3.9</td><td><span class="pill">3</span></td></tr>
+                  <tr><td class="nm">Maracaibo</td><td class="num">2019</td><td class="num">7.6</td><td class="num">3.7</td><td><span class="pill">3</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="tbl-foot"><span>Showing <b>42</b> brushed of <b>1,284</b></span><span>Click a row → game detail</span></div>
+          </div>
+        </div>
+
+        <p class="link-note"><b>Two levels, on purpose.</b> The <b>rail</b> is the durable query (URL-carried,
+          shareable) — it decides <i>which</i> games. The <b>brush</b> is a light, throwaway lens
+          <i>within</i> the answer — drag a region of the plot and the table narrows to it; hover a row and
+          its dot lights up. Clear the brush in one click; the query stays put.</p>
+
+        <!-- secondary lens -->
+        <div class="summary">
+          <div class="summary-h">▤ <b>Set summary</b> — what kind of games are these? <span style="opacity:.7">(a secondary lens — aggregate shape, not the headline)</span> <span class="caret">▾</span></div>
+          <div class="summary-body">
+            <div class="mini-panel">
+              <h5>Geek rating distribution</h5>
+              <div class="hist">
+                <div class="bar" style="height:10%"></div><div class="bar" style="height:22%"></div>
+                <div class="bar" style="height:44%"></div><div class="bar" style="height:70%"></div>
+                <div class="bar" style="height:100%"></div><div class="bar" style="height:78%"></div>
+                <div class="bar" style="height:46%"></div><div class="bar" style="height:20%"></div>
+              </div>
+            </div>
+            <div class="mini-panel">
+              <h5>Games per year</h5>
+              <div class="rows tnum">
+                <div class="hrow"><span class="lab">2021</span><span class="track"><i style="width:100%"></i></span><span class="n">318</span></div>
+                <div class="hrow"><span class="lab">2022</span><span class="track"><i style="width:88%"></i></span><span class="n">281</span></div>
+                <div class="hrow"><span class="lab">2019</span><span class="track"><i style="width:74%"></i></span><span class="n">236</span></div>
+                <div class="hrow"><span class="lab">2023</span><span class="track"><i style="width:62%"></i></span><span class="n">198</span></div>
+              </div>
+            </div>
+            <div class="mini-panel">
+              <h5>Top categories in set</h5>
+              <div class="rows tnum">
+                <div class="hrow"><span class="lab">Economic</span><span class="track"><i style="width:100%;background:var(--chart-1)"></i></span><span class="n">312</span></div>
+                <div class="hrow"><span class="lab">Fantasy</span><span class="track"><i style="width:92%;background:var(--chart-1)"></i></span><span class="n">288</span></div>
+                <div class="hrow"><span class="lab">Wargame</span><span class="track"><i style="width:77%;background:var(--chart-1)"></i></span><span class="n">241</span></div>
+                <div class="hrow"><span class="lab">Card Game</span><span class="track"><i style="width:66%;background:var(--chart-1)"></i></span><span class="n">207</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callouts">
+          <div class="callout"><h4>Why linked, not tabbed</h4><p>The client-side DuckDB catalog makes a brush re-query cost <span class="k">~15ms</span> — so the plot and table can move together for free. A toggle would under-use what's built.</p></div>
+          <div class="callout"><h4>Predictions live elsewhere</h4><p>Per your call, the model gets its own <span class="k">/predictions</span> room — Explore stays about querying the catalog, uncluttered by overlays.</p></div>
+          <div class="callout"><h4>The plot is the bridge</h4><p>A scatter of the actual games is the games <span class="k">and</span> their shape at once — which is why it, not the histograms, is the headline.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
