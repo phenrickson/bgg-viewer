@@ -20,15 +20,20 @@ default:
 
 # --- Setup / doctor --------------------------------------------------------
 
-# Install dependencies.
-setup:
+# Install dependencies and scaffold .env (safe to re-run).
+setup: && env
     pnpm install
 
-# Print toolchain versions (sanity check the environment).
+# Create .env from .env.example, generating SESSION_SECRET. Never clobbers an existing .env.
+env:
+    node scripts/setup-env.js
+
+# Print toolchain versions and check local config (env vars, GCP credentials).
 doctor:
     node -v
     pnpm -v
     just --version
+    node scripts/doctor.js
 
 # --- Operate ---------------------------------------------------------------
 
@@ -37,15 +42,21 @@ doctor:
 dev:
     -pnpm exec vite dev --open --port 5173
 
-# Stop the dev server. Ctrl-C only works from the terminal that owns it; this kills whatever
-# holds the port, so it also reaches a server orphaned from its terminal.
+# Ctrl-C only works from the terminal that owns the server; killing whatever holds the port
+# also reaches one orphaned from its terminal.
+#
 # try/catch, not -ErrorAction SilentlyContinue: that suppresses the message but still exits
 # non-zero, so `just stop` with nothing running reported a failed recipe.
+#
+# just describes a recipe with the LAST comment line above it, so the description goes last
+# and each platform variant repeats it — the listing shows one `stop`, not the rationale.
+# Stop the dev server (kills whatever is listening on 5173).
 [windows]
 stop:
     @try { Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction Stop | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force; "stopped pid $($_.OwningProcess)" } } catch { "nothing listening on 5173" }
 
 # Leading `-`: lsof exits non-zero when it finds nothing, which is not a failure here.
+# Stop the dev server (kills whatever is listening on 5173).
 [unix]
 stop:
     -@lsof -ti tcp:5173 -sTCP:LISTEN | xargs -r kill
