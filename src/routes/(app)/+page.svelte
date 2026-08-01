@@ -16,18 +16,38 @@
     initCatalog();
   });
 
-  // Example queries now land in Discover, not Explore — the chips ask small questions, and
-  // Discover is the room sized for them. Explore is one click further on.
-  const discoverHref = (overrides: Partial<Scope>) =>
-    `/discover?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
+  const href = (room: 'discover' | 'games', overrides: Partial<Scope>) =>
+    `/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
 
-  // Example queries — each deep-links into a pre-scoped Discover. Labels are placeholder.
-  const chips: { label: string; scope: Partial<Scope> }[] = [
-    { label: 'Best at 2 players', scope: { bestAt: 2 } },
-    { label: 'Best at 6 players', scope: { bestAt: 6 } },
-    { label: 'Heavyweights since 2015', scope: { weightMin: 3.5, yearMin: 2015 } },
-    { label: 'Top rated, all-time', scope: { universe: 'rated' } },
-    { label: 'Released 2024 onward', scope: { yearMin: 2024 } }
+  /**
+   * Each chip goes to the room that can actually hold its question.
+   *
+   * A scope Discover has no dial for still *filters* correctly there, but it arrives as a
+   * read-only context chip the user cannot adjust — so sending "heavyweights since 2015" to
+   * Discover drops someone into a page whose three controls are all irrelevant to what they
+   * just asked. Those belong in Explore, where year and complexity are real controls.
+   *
+   * The split doubles as the site's own explanation of the two rooms: simple questions land
+   * somewhere simple, precise ones land in the workshop.
+   *
+   * Labels are placeholder.
+   */
+  const chips: { label: string; room: 'discover' | 'games'; scope: Partial<Scope> }[] = [
+    // Answerable with Discover's three dials.
+    { label: 'Best at 2 players', room: 'discover', scope: { bestAt: 2 } },
+    { label: 'Best at 6 players', room: 'discover', scope: { bestAt: 6 } },
+    { label: 'Light party games', room: 'discover', scope: { categories: ['Party Game'], weightMax: 2.0 } },
+    { label: 'Co-op for 4', room: 'discover', scope: { mechanics: ['Cooperative Game'], bestAt: 4 } },
+    // Need controls only Explore has (year, ratings count, universe).
+    { label: 'Heavyweights since 2015', room: 'games', scope: { weightMin: 3.5, yearMin: 2015 } },
+    { label: 'Released 2024 onward', room: 'games', scope: { yearMin: 2024 } },
+    /*
+     * Thresholds measured, not guessed: geek rating is Bayesian, so a game with few ratings
+     * is pulled hard toward the mean and simply cannot reach a high one. `geekMin: 7.5` with
+     * `usersRatedMax: 2000` — the obvious-looking pair — returns exactly ZERO games, because
+     * the two conditions exclude each other by construction. 6.5 / 5,000 returns 502.
+     */
+    { label: 'Hidden gems', room: 'games', scope: { geekMin: 6.5, usersRatedMax: 5000 } }
   ];
 </script>
 
@@ -55,7 +75,7 @@
     <p class="try">Try a query</p>
     <div class="chips">
       {#each chips as c}
-        <a class="chip" href={discoverHref(c.scope)}>{c.label} <span class="arw">→</span></a>
+        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
       {/each}
     </div>
 
