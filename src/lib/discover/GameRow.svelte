@@ -99,6 +99,7 @@
   </span>
 
   <span class="rate">
+    <span class="lbl">Rating</span>
     {#if game.geek_rating != null}
       <span class="rv">{game.geek_rating.toFixed(1)}</span>
       <span class="meter" aria-hidden="true">
@@ -121,7 +122,7 @@
      is capped at the `list` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4rem;
+    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4.5rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -170,8 +171,11 @@
   /* The number leads; the meter gives it a scale to sit on.
      Five segments rather than one continuous bar, because segments are countable — a bar
      half-filled on an invisible 5.5–8.8 domain told a reader nothing, whereas "three of five
-     lit" is a quantity even without knowing the endpoints. */
-  .rate { justify-self: end; text-align: right; }
+     lit" is a quantity even without knowing the endpoints.
+     Labelled like the two columns beside it — it was the only unlabelled number on the row,
+     so nothing said what "8.4" measured. Centred, because the label is wider than the number
+     it heads: right-aligning left "7.7" hanging off the end of "RATING" instead of under it. */
+  .rate { justify-self: stretch; text-align: center; }
   .rv {
     display: block;
     font-size: 0.95rem; font-weight: 650; color: var(--foreground);
@@ -219,7 +223,7 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 4rem; }
+    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
     .fact:nth-of-type(2) { display: none; }
   }
 </style>
