@@ -30,11 +30,12 @@
     return () => clearTimeout(t);
   });
 
-  // Three-way, because "Home" is no longer simply "not Explore".
+  // One flag per destination, because "Home" is no longer simply "not Explore".
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
-  const onHome = $derived(!onExplore && !onDiscover);
+  const onAbout = $derived(path.startsWith('/about'));
+  const onHome = $derived(!onExplore && !onDiscover && !onAbout);
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -59,6 +60,9 @@
         <div class="navsearch"><GameSearch compact /></div>
       {/if}
       <nav class="actions">
+        <!-- Reference, not a destination: it sits with the account actions rather than beside
+             Home/Discover/Explore, which are the three rooms the app is actually about. -->
+        <a class="sub" href="/about" class:active={onAbout}>About</a>
         {#if data.user}
           <span class="who">{data.user.display_name || data.user.email}</span>
           <form method="POST" action="/logout">
@@ -124,6 +128,11 @@
   .actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; }
   .actions form { margin: 0; }
   .who { color: var(--muted-foreground); font-size: 0.875rem; }
+  .sub {
+    font-size: 0.875rem; color: var(--muted-foreground); text-decoration: none;
+  }
+  .sub:hover { color: var(--foreground); }
+  .sub.active { color: var(--foreground); font-weight: 550; }
   .link {
     background: none; border: none; padding: 0; cursor: pointer;
     color: var(--primary); font: inherit; text-decoration: none;

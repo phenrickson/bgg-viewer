@@ -22,7 +22,6 @@
   } from '$lib/catalog/scope';
   import DialStrip from '$lib/discover/DialStrip.svelte';
   import GameRow from '$lib/discover/GameRow.svelte';
-  import SetShape from '$lib/discover/SetShape.svelte';
   import { discoverScopeFromParams, DISCOVER_LIMIT } from '$lib/discover/dials';
   import type { DiscoverGame } from '$lib/discover/types';
   import { Container } from '$lib/components/ui/layout';
@@ -215,13 +214,9 @@
       </div>
     </div>
 
-    {#if catalog.status === 'ready' && total > 0}
-      <SetShape {scope} />
-    {/if}
-
-    <!-- The end of Discover's arc, not a utility link. Built like the landing page's door,
-         so Home → Discover → Explore reads as one journey with a handoff at each step.
-         Kept at the list's measure, not the prose one: it belongs to the answer. -->
+    <!-- Directly under the table, where the games end. Below the scrollytelling it competed
+         with the scroll and retreated further with every page of rows appended; here the
+         handoff to Explore sits exactly where someone finishes with the list. -->
     <a class="door" href={exploreHref}>
       <span class="door-t">Want to go deeper? <span class="arw">→</span></span>
       <span class="door-p">
