@@ -22,6 +22,7 @@
   } from '$lib/catalog/scope';
   import DialStrip from '$lib/discover/DialStrip.svelte';
   import GameRow from '$lib/discover/GameRow.svelte';
+  import SetShape from '$lib/discover/SetShape.svelte';
   import { discoverScopeFromParams, DISCOVER_LIMIT } from '$lib/discover/dials';
   import type { DiscoverGame } from '$lib/discover/types';
   import { Container } from '$lib/components/ui/layout';
@@ -65,10 +66,58 @@
     )
   );
 
+  /**
+   * How many more rows each "scroll to the end" pull adds.
+   *
+   * Discover opens on DISCOVER_LIMIT because it is a recommendation, not a result set — but
+   * refusing to go further made the bound feel like a wall. Appending in pages keeps the
+   * opening screen calm while letting someone who is genuinely browsing keep going.
+   *
+   * Progressive rather than rendering everything: one chip can match ~3,000 games (Party,
+   * Co-op and best-at-2 all do) and no filters at all matches 30,811. At roughly fifteen DOM
+   * nodes a row that is 45,000 nodes for one chip and ~460,000 for none — a long synchronous
+   * layout on every single chip click, since each toggle rebuilds the list. This way the cost
+   * is proportional to what has actually been scrolled past.
+   */
+  const PAGE = 50;
+
+  /** How many rows the query currently asks for. Reset to DISCOVER_LIMIT on every scope change. */
+  let limit = $state(DISCOVER_LIMIT);
+  /** The sentinel below the list; when it comes into view, pull the next page. */
+  let sentinel = $state<HTMLElement | null>(null);
+  /** The scrolling panel — the observer's root, since the list scrolls inside it, not the page. */
+  let listwrap = $state<HTMLElement | null>(null);
+
+  const hasMore = $derived(rows.length < total);
+
+  // A new scope is a new question — start it at the opening bound rather than however far the
+  // last one had been scrolled.
+  $effect(() => {
+    scope;
+    limit = DISCOVER_LIMIT;
+  });
+
+  $effect(() => {
+    if (!sentinel || !listwrap || !hasMore || loading) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) limit += PAGE;
+      },
+      // Rooted on the panel, not the viewport — the list scrolls inside it, so a
+      // viewport-rooted observer would fire once and then never again. The margin starts the
+      // next page a panel-height early, so rows are usually there before the scroll reaches
+      // them.
+      { root: listwrap, rootMargin: '400px' }
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  });
+
   let token = 0;
   $effect(() => {
     if (catalog.status !== 'ready') return;
     const where = toWhere(scope);
+    const n = limit;
     const mine = ++token;
     loading = true;
     failed = false;
@@ -79,7 +128,7 @@
                 best_player_counts, recommended_player_counts, categories
          FROM catalog WHERE ${where}
          ORDER BY geek_rating DESC NULLS LAST, game_id
-         LIMIT ${DISCOVER_LIMIT}`
+         LIMIT ${n}`
       )
     ])
       .then(([c, r]) => {
@@ -123,7 +172,7 @@
           {:else if total === 0}
             No matches
           {:else}
-            Showing <b>{Math.min(total, DISCOVER_LIMIT)}</b>
+            Showing <b>{rows.length.toLocaleString()}</b>
             of <b>{total.toLocaleString()}</b>
             {total === 1 ? 'match' : 'matches'}
             <span class="dim">· top rated first</span>
@@ -141,7 +190,7 @@
         {/if}
       </div>
 
-      <div class="listwrap">
+      <div class="listwrap" bind:this={listwrap}>
         {#if catalog.status === 'error' || failed}
           <p class="msg">
             Couldn’t load the catalog.
@@ -153,13 +202,22 @@
           <p class="msg">No games match all of these. Try turning one of the chips off.</p>
         {:else}
           <div class="rows">
-            {#each rows as g (g.game_id)}
-              <GameRow game={g} />
+            {#each rows as g, i (g.game_id)}
+              <GameRow game={g} rank={i + 1} />
             {/each}
           </div>
+          {#if hasMore}
+            <div class="more" bind:this={sentinel}>
+              {loading ? 'Loading more…' : `${(total - rows.length).toLocaleString()} more`}
+            </div>
+          {/if}
         {/if}
       </div>
     </div>
+
+    {#if catalog.status === 'ready' && total > 0}
+      <SetShape {scope} />
+    {/if}
 
     <!-- The end of Discover's arc, not a utility link. Built like the landing page's door,
          so Home → Discover → Explore reads as one journey with a handoff at each step.
@@ -232,17 +290,34 @@
   .ext:hover { border-color: var(--primary); color: var(--primary); }
   .ext .x { opacity: 0.6; }
 
-  /* Sizes to its rows. With the set bounded there is no internal scroll to manage, so a
-     five-result answer is five rows tall — never a screen of empty bordered card, which
-     reads as "something failed to load" rather than "here are your five games". */
+  /* A window onto a longer list, not the list itself.
+     Capped at six rows and scrolling internally, so the games can run to thousands while the
+     PAGE keeps scrolling past them to the distributions below. Letting the list grow the page
+     instead meant anything under it was unreachable on a large set — and the door retreated
+     further with every row appended.
+     `max-height`, not `height`: a five-result answer is still five rows tall rather than a
+     screen of empty bordered card, which reads as "something failed to load". */
   .listwrap {
+    /* ~12 rows at 3.75rem each. 24rem was tried first and showed five and a sliver, which
+       read as cramped rather than as a window onto more. Twelve gives the list real presence
+       while still leaving the distributions in view below it on an ordinary screen. */
+    max-height: 45rem; overflow-y: auto;
     border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--card); overflow: hidden;
+    background: var(--card);
+    /* Anchoring stops the viewport jumping when a page of rows is appended above the fold. */
+    overflow-anchor: auto;
   }
 
   .msg {
     padding: var(--space-xl) var(--space-lg); text-align: center;
     color: var(--muted-foreground); font-size: 0.88rem;
+  }
+
+  /* Both the "N more" note and the scroll target that pulls the next page. */
+  .more {
+    padding: var(--space-md); text-align: center;
+    font-size: 0.78rem; color: var(--muted-foreground);
+    border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
   .retry {
     font: inherit; margin-left: 0.4rem; cursor: pointer;

@@ -15,7 +15,7 @@
   import { complexityLabel, complexityBandIndex } from './dials';
   import type { DiscoverGame } from './types';
 
-  let { game }: { game: DiscoverGame } = $props();
+  let { game, rank }: { game: DiscoverGame; rank: number } = $props();
 
   /**
    * Is THIS row the one being navigated to? The shell shows a global progress bar, but that
@@ -77,6 +77,9 @@
 </script>
 
 <a class="row" class:opening {href} aria-busy={opening}>
+  <!-- Position in the returned set. In a panel that scrolls through thousands, this is the
+       only thing telling you whether you are at the top of the list or deep inside it. -->
+  <span class="rk tnum">{rank.toLocaleString()}</span>
   <span class="thumb" aria-hidden="true">{initials}</span>
 
   <span class="main">
@@ -131,13 +134,20 @@
      is capped at the `list` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4.5rem;
+    grid-template-columns: 2.25rem 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4.5rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
     text-decoration: none;
     color: inherit;
     border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+    /* Skip layout and paint for rows scrolled out of the panel. `contain-intrinsic-size`
+       supplies a placeholder height so the scrollbar stays stable as rows enter and leave —
+       without it the thumb jitters, because the container keeps re-measuring. Cheap, and it
+       keeps a few thousand rows responsive; it does not reduce the DOM node count, which is
+       why the list still pages in rather than rendering everything at once. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 3.75rem;
   }
   .row:last-child { border-bottom: none; }
   .row:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
@@ -153,6 +163,13 @@
   .row.opening .nm { color: var(--primary); }
   .row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .row > span { min-width: 0; }
+
+  /* Quiet — it is a position marker, not a score. Tabular so the digits stay in column as
+     the numbers grow through the hundreds and thousands. */
+  .rk {
+    text-align: right; font-size: 0.78rem; color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
 
   .thumb {
     width: 3.5rem; height: 3.5rem; border-radius: 6px;
@@ -242,7 +259,7 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
+    .row { grid-template-columns: 2.25rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
     .fact:nth-of-type(2) { display: none; }
   }
 </style>
