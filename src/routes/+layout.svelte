@@ -2,11 +2,33 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { ModeWatcher, toggleMode } from 'mode-watcher';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
 
   let { data, children } = $props();
+
+  /**
+   * Game pages load from the warehouse API in a blocking server load, so a click on a cold
+   * row does nothing visible until the round-trip returns — the click reads as dropped.
+   * Hover preloading (`data-sveltekit-preload-data` in app.html) usually beats the click, but
+   * not on a fast click or a cold cache, and that gap is exactly when feedback is needed.
+   *
+   * Deliberately delayed: a bar that flashes for the 80ms a warm navigation takes is more
+   * distracting than no bar at all. It appears only once a navigation has lasted long enough
+   * to feel like waiting.
+   */
+  const SHOW_AFTER_MS = 180;
+  let pending = $state(false);
+
+  $effect(() => {
+    if (!$navigating) {
+      pending = false;
+      return;
+    }
+    const t = setTimeout(() => (pending = true), SHOW_AFTER_MS);
+    return () => clearTimeout(t);
+  });
 
   // Three-way, because "Home" is no longer simply "not Explore".
   const path = $derived($page.url.pathname);
@@ -20,6 +42,9 @@
 <ModeWatcher />
 
 <div class="app">
+  {#if pending}
+    <div class="loading" role="status" aria-label="Loading page"></div>
+  {/if}
   <!-- The bar's surface spans the window; its contents share the widest content measure, so
        the brand lines up with the page beneath it instead of drifting into the gutter. -->
   <header class="appbar">
@@ -56,6 +81,29 @@
      columns) without reaching for viewport units of its own. `.content` owns the scroll,
      so ordinary document-flow pages still behave normally. */
   .app { height: 100svh; display: flex; flex-direction: column; }
+
+  /* An indeterminate sliver across the top of the shell. Indeterminate rather than a real
+     progress value because the wait is one opaque round-trip to the warehouse — a bar that
+     invents a percentage is lying about knowledge it doesn't have. */
+  .loading {
+    position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 50;
+    background: color-mix(in oklch, var(--primary) 18%, transparent);
+    overflow: hidden;
+  }
+  .loading::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--primary);
+    transform-origin: 0 50%;
+    animation: slide 1.1s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%) scaleX(0.4); }
+    50%  { transform: translateX(20%) scaleX(0.6); }
+    100% { transform: translateX(100%) scaleX(0.4); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loading::after { animation: none; opacity: 0.7; }
+  }
   .appbar {
     padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--border);

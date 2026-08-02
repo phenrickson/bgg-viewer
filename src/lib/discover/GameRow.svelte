@@ -11,10 +11,19 @@
    * The thumbnail is a STUB. `thumbnail` is not in the catalog artifact, and whether to add
    * it is a measured decision deferred until this layout has earned it.
    */
+  import { navigating } from '$app/stores';
   import { complexityLabel, complexityBandIndex } from './dials';
   import type { DiscoverGame } from './types';
 
   let { game }: { game: DiscoverGame } = $props();
+
+  /**
+   * Is THIS row the one being navigated to? The shell shows a global progress bar, but that
+   * says "something is loading" — it doesn't confirm which game was clicked. Marking the
+   * specific row keeps the answer where the user's eye already is.
+   */
+  const href = $derived(`/games/${game.game_id}`);
+  const opening = $derived($navigating?.to?.url.pathname === href);
 
   const sorted = (a: number[] | null): number[] =>
     a ? Array.from(a).sort((x, y) => x - y) : [];
@@ -67,7 +76,7 @@
   );
 </script>
 
-<a class="row" href="/games/{game.game_id}">
+<a class="row" class:opening {href} aria-busy={opening}>
   <span class="thumb" aria-hidden="true">{initials}</span>
 
   <span class="main">
@@ -132,6 +141,16 @@
   }
   .row:last-child { border-bottom: none; }
   .row:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
+
+  /* The clicked row holds the hover tint and gains a left edge, so the click is acknowledged
+     on the thing that was clicked — the global bar says "loading", this says "loading THIS".
+     Pointer-events off stops a second click re-firing a navigation already in flight. */
+  .row.opening {
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    box-shadow: inset 2px 0 0 var(--primary);
+    pointer-events: none;
+  }
+  .row.opening .nm { color: var(--primary); }
   .row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .row > span { min-width: 0; }
 
