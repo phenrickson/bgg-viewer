@@ -103,16 +103,52 @@
     weight_pct: number | null;
   };
   let standing = $state<Standing | null>(null);
+  /**
+   * Whether this game has a geek rating at all. Gates the two figures that are meaningless
+   * without one — the "top N%" under Geek rating, and the "#N of M rated games" ranks —
+   * while leaving the average, ratings-count and complexity percentiles to render, since
+   * those are true for an unrated game.
+   */
+  let isRanked = $state(false);
 
   const finite = (v: unknown) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
 
+  /**
+   * Discards a response whose game is no longer the one on screen. Without it a slow lookup
+   * for the game you just left can land after the next one's and print its rank here.
+   */
+  let standingToken = 0;
+
   $effect(() => {
+    /*
+     * Clear FIRST, on every run. `standing` is this game's rank and percentiles, so the
+     * moment the game changes the old numbers are wrong — and every `return` below is a path
+     * that used to leave them on screen. An unrated game (geek_rating = 0) navigated to from
+     * a rated one kept the previous game's "top 7%" and "#2,115 of 30,809 rated games" beside
+     * its own "—", attributing another game's standing to it.
+     */
+    standing = null;
+    isRanked = false;
+    const mine = ++standingToken;
+
     if (!g || catalog.status !== 'ready') return;
+    /*
+     * Zero is the warehouse's "not ranked yet", not a rating of zero. This used to return
+     * early, but that threw away percentiles the game genuinely has: an unrated game still
+     * has an average, a ratings count and a complexity, and "heavier than 60%" was true and
+     * useful on exactly the page that was hiding it. So the lookup still runs; `geekPos`
+     * below is what gets suppressed, because a rank among *rated* games is the one figure an
+     * unrated game cannot have.
+     */
     const geek = finite(g.geek);
-    if (geek == null || geek <= 0) return;
+    const ranked = geek != null && geek > 0;
+    isRanked = ranked;
+    /* -1 when unranked: the geek columns below still evaluate, but nothing downstream reads
+       them, and it keeps the SQL a single shape rather than two. */
+    const geekV = ranked ? geek : -1;
     const year = finite(g.year);
     const avg = finite(g.average) ?? -1;
     const rated = finite(g.ratings) ?? -1;
@@ -124,18 +160,24 @@
          / NULLIF(COUNT(*) FILTER (WHERE ${col} > 0), 0)`;
     query<Standing>(
       `SELECT
-         (COUNT(*) FILTER (WHERE geek_rating > ${geek}) + 1)::INT AS geek_pos,
+         (COUNT(*) FILTER (WHERE geek_rating > ${geekV}) + 1)::INT AS geek_pos,
          COUNT(*) FILTER (WHERE geek_rating > 0)::INT AS geek_n,
-         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geek}) + 1)::INT AS year_pos,
+         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geekV}) + 1)::INT AS year_pos,
          COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > 0)::INT AS year_n,
-         ${pct('geek_rating', geek)} AS geek_pct,
+         ${pct('geek_rating', geekV)} AS geek_pct,
          ${pct('average_rating', avg)} AS avg_pct,
          ${pct('users_rated', rated)} AS rated_pct,
          ${pct('average_weight', weight)} AS weight_pct
        FROM catalog WHERE users_rated >= 30`
     )
-      .then((r) => (standing = r[0] ?? null))
-      .catch((e) => console.error('standing lookup failed', e));
+      .then((r) => {
+        if (mine !== standingToken) return; // a newer game is on screen
+        standing = r[0] ?? null;
+      })
+      .catch((e) => {
+        if (mine !== standingToken) return;
+        console.error('standing lookup failed', e);
+      });
   });
 
   /** "top 4%" — and below 1% keep a decimal, or every elite game reads as an identical "top 0%". */
@@ -345,7 +387,9 @@
       <div class="stat">
         <div class="v tnum">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
-        {#if topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
+        <!-- Only when the game HAS a geek rating: a percentile among rated games is exactly
+             the figure an unrated game cannot have, and it printed beside its own "—". -->
+        {#if isRanked && topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
       </div>
       <div class="stat">
         <div class="v tnum">{num(pos(g.average))}</div>
@@ -365,7 +409,7 @@
         {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
         {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
       </div>
-      {#if standing}
+      {#if standing && isRanked}
         <!-- Two ranks, two lines. As one sentence the second half read as a subordinate
              clause of the first, when it's the more useful of the two for anything recent. -->
         <div class="ranks">
