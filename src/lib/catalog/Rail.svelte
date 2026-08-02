@@ -42,7 +42,8 @@
       scope.ratingMax,
       scope.usersRatedMin,
       scope.usersRatedMax,
-      scope.geekMin
+      scope.geekMin,
+      scope.geekMax
     ].filter((v) => v != null).length
   );
 </script>
@@ -142,8 +143,13 @@
         </div>
       </div>
       <div class="num">
-        <span class="lbl sm">Geek rating ≥</span>
-        <input type="number" step="0.1" min="1" max="10" placeholder="any" aria-label="Geek rating minimum" bind:value={scope.geekMin} />
+        <!-- A pair, like every other numeric control here. Min-only made a rank BAND
+             ("well regarded but outside the famous tier") impossible to state or to clear. -->
+        <span class="lbl sm">Geek rating</span>
+        <div class="pair">
+          <input type="number" step="0.1" min="1" max="10" placeholder="min" aria-label="Geek rating min" bind:value={scope.geekMin} />
+          <input type="number" step="0.1" min="1" max="10" placeholder="max" aria-label="Geek rating max" bind:value={scope.geekMax} />
+        </div>
       </div>
     </div>
   </details>

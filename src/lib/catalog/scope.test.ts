@@ -184,6 +184,7 @@ describe('URL round-trip', () => {
 			usersRatedMin: 1000,
 			usersRatedMax: 50000,
 			geekMin: 6.5,
+			geekMax: 8,
 			players: 3,
 			bestAt: 2,
 			categories: ['Economic', 'City Building'],
@@ -243,6 +244,29 @@ describe('a Discover-shaped scope', () => {
 		expect(back.weightMin).toBe(3.5);
 		expect(back.weightMax).toBeNull();
 		expect(back.bestAt).toBe(2);
+	});
+
+	it('expresses a geek-rating band, and clears both bounds as one chip', () => {
+		// "Hidden gems" is a rank band — outside the top 1,000 but still well regarded — and
+		// `geek_rating` has no rank column, so the band is stated as its two cutoffs. Before
+		// `geekMax` existed this was inexpressible: only a floor could be set.
+		const band: Scope = { ...DEFAULT_SCOPE, geekMin: 6.278, geekMax: 6.671 };
+
+		const where = toWhere(band);
+		expect(where).toContain('geek_rating >= 6.278');
+		expect(where).toContain('geek_rating <= 6.671');
+
+		const back = scopeFromParams(scopeToParams(band));
+		expect(back.geekMin).toBe(6.278);
+		expect(back.geekMax).toBe(6.671);
+
+		// One chip for the pair, and dismissing it must remove BOTH — a leftover max would
+		// keep filtering with nothing on screen able to clear it.
+		const chip = activeFilters(band).find((f) => f.id === 'geek');
+		expect(chip).toBeDefined();
+		const cleared = { ...band, ...chip!.patch };
+		expect(cleared.geekMin).toBeNull();
+		expect(cleared.geekMax).toBeNull();
 	});
 
 	it('compiles best-at to a list_contains predicate', () => {

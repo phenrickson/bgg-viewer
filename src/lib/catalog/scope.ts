@@ -25,7 +25,14 @@ export interface Scope {
 	 */
 	usersRatedMin: number | null;
 	usersRatedMax: number | null;
+	/**
+	 * Geek-rating window. Every other numeric bound here is a min/max pair; this one was a
+	 * floor only, which made "well regarded but outside the famous tier" — a rank band —
+	 * inexpressible. `geek_rating` has no rank column to filter on, so a band is stated as its
+	 * rating cutoffs.
+	 */
 	geekMin: number | null;
+	geekMax: number | null;
 	players: number | null;
 	/** Community "best at N players" — the flagship filter BGG can't do. */
 	bestAt: number | null;
@@ -51,6 +58,7 @@ export const DEFAULT_SCOPE: Scope = {
 	usersRatedMin: null,
 	usersRatedMax: null,
 	geekMin: null,
+	geekMax: null,
 	players: null,
 	bestAt: null,
 	categories: [],
@@ -87,6 +95,7 @@ export function toWhere(scope: Scope): string {
 	if (scope.usersRatedMin != null) parts.push(`users_rated >= ${scope.usersRatedMin}`);
 	if (scope.usersRatedMax != null) parts.push(`users_rated <= ${scope.usersRatedMax}`);
 	if (scope.geekMin != null) parts.push(`geek_rating >= ${scope.geekMin}`);
+	if (scope.geekMax != null) parts.push(`geek_rating <= ${scope.geekMax}`);
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
 	if (scope.bestAt != null) parts.push(`list_contains(best_player_counts, ${scope.bestAt})`);
@@ -198,13 +207,10 @@ export function activeFilters(scope: Scope): FilterChip[] {
 		'usersRatedMax',
 		compactCount
 	);
-	if (scope.geekMin != null)
-		chips.push({
-			id: 'geek',
-			kind: 'geek',
-			label: `${exact(scope.geekMin)}+`,
-			patch: { geekMin: null }
-		});
+	// Through `range` like every other numeric pair, so a window reads "6.28–6.67" and — more
+	// importantly — clearing the chip clears BOTH bounds. The old bespoke block handled only
+	// `geekMin`, so a max would have filtered the set with no chip able to remove it.
+	range('geek', 'geek', scope.geekMin, scope.geekMax, 'geekMin', 'geekMax', exact);
 	if (scope.players != null)
 		chips.push({
 			id: 'players',
@@ -251,6 +257,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.usersRatedMin != null) p.set('urmin', String(scope.usersRatedMin));
 	if (scope.usersRatedMax != null) p.set('urmax', String(scope.usersRatedMax));
 	if (scope.geekMin != null) p.set('gmin', String(scope.geekMin));
+	if (scope.geekMax != null) p.set('gmax', String(scope.geekMax));
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
 	if (scope.categories.length) p.set('cats', scope.categories.join(','));
@@ -282,6 +289,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		usersRatedMin: finite(params.get('urmin')),
 		usersRatedMax: finite(params.get('urmax')),
 		geekMin: finite(params.get('gmin')),
+		geekMax: finite(params.get('gmax')),
 		players: finite(params.get('p')),
 		bestAt: finite(params.get('best')),
 		categories: list('cats'),
