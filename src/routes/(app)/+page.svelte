@@ -52,11 +52,11 @@
     { label: 'Family friendly', room: 'discover', scope: { weightMax: 2.0, bestAt: 4 } }, // 2,106
     { label: 'Best at 2', room: 'discover', scope: { bestAt: 2 } }, // 3,715
     { label: 'Co-op for 4', room: 'discover', scope: { mechanics: ['Cooperative Game'], bestAt: 4 } }, // 477
-    /* A kind of game rather than a table size — nothing else in this row asks it, where a
-       "two-player duels" chip was just a subset of "Best at 2" above. */
-    { label: 'Deduction games', room: 'discover', scope: { categories: ['Deduction'] } }, // 1,817
     { label: 'Light party games', room: 'discover', scope: { categories: ['Party Game'], weightMax: 2.0 } }, // 2,772
-    { label: 'Big group', room: 'discover', scope: { bestAt: 6 } } // 916
+    { label: 'Big group', room: 'discover', scope: { bestAt: 6 } }, // 916
+    /* Straight onto Discover's "Heavy" band, so the chip arrives with that dial lit. The
+       earlier "Heavy euros" pinned a category to the weight and found only 354. */
+    { label: 'Something heavy', room: 'discover', scope: { weightMin: 3.5 } } // 1,570
   ];
 
   /**
@@ -81,6 +81,9 @@
     { label: 'Hidden gems', room: 'games', scope: { geekMin: 6.278, geekMax: 6.671 } }, // 1,000
     /* geekMin 7.5 over the same window returns 30 — too thin to be worth a chip. 7 gives 150. */
     { label: 'Modern classics', room: 'games', scope: { geekMin: 7, yearMin: 2000, yearMax: 2014 } }, // 150
+    /* 6.3 rather than a higher floor: the pre-2000 catalog is small and its ratings sit lower,
+       so 6.5 finds only 53. At 6.3 it is 94 — El Grande, Tigris & Euphrates, Ra. */
+    { label: 'Old but great', room: 'games', scope: { geekMin: 6.3, yearMax: 1999 } }, // 94
     { label: 'Wildly popular', room: 'games', scope: { usersRatedMin: 25000 } } // 157
   ];
 </script>
