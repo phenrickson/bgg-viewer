@@ -17,12 +17,36 @@
    * COPY IS PLACEHOLDER — Phil writes the prose. Structure, queries and charts are real.
    */
   import { onMount } from 'svelte';
-  import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
+  import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
+  import { DEFAULT_SCOPE, toWhere } from '$lib/catalog/scope';
+  import { scatterSql, popularityRatingGeekSql } from '$lib/catalog/aggregates';
   import { Container } from '$lib/components/ui/layout';
   import HowItWorks from '$lib/about/HowItWorks.svelte';
+  import Scatter from '$lib/charts/Scatter.svelte';
 
   onMount(() => {
     initCatalog();
+  });
+
+  type Pt = { x: number; y: number; c?: number };
+
+  /** The whole rated population — these plots describe the catalog, not any one query. */
+  const ALL = toWhere({ ...DEFAULT_SCOPE, universe: 'rated' });
+
+  let weightRating = $state<Pt[]>([]);
+  let popRating = $state<Pt[]>([]);
+
+  $effect(() => {
+    if (catalog.status !== 'ready') return;
+    Promise.all([
+      query<Pt>(scatterSql(ALL)),
+      query<Pt>(popularityRatingGeekSql(ALL))
+    ])
+      .then(([a, b]) => {
+        weightRating = a;
+        popRating = b;
+      })
+      .catch((e) => console.error('about scatter query failed', e));
   });
 </script>
 
@@ -59,9 +83,14 @@
           <p>[Complexity on the x-axis, average rating on the y. Say what the cloud shows —
             and the caveat that the people who rate heavy games are the people who sought them
             out.]</p>
-          <div class="plot" data-plot="weight-rating">
-            <p class="todo">[Scatter: average_weight × average_rating]</p>
-          </div>
+          <Scatter
+            points={weightRating}
+            xLabel="Complexity (1–5)"
+            yLabel="Average rating"
+            xTicks={[1, 2, 3, 4, 5]}
+            yTicks={[2, 4, 6, 8, 10]}
+            height={320}
+          />
         </div>
 
         <div class="figure">
@@ -71,9 +100,16 @@
             rating. This is the plot that makes the Bayesian adjustment visible: the
             high-average games on the left have almost no votes, and their geek rating drags
             them back toward the middle.]</p>
-          <div class="plot" data-plot="popularity-rating">
-            <p class="todo">[Scatter: log(users_rated) × average_rating, coloured by geek_rating]</p>
-          </div>
+          <Scatter
+            points={popRating}
+            xLabel="People who rated it (log scale)"
+            yLabel="Average rating"
+            xLog
+            colorLabel="Geek rating"
+            xTicks={[30, 100, 1000, 10000, 100000]}
+            yTicks={[2, 4, 6, 8, 10]}
+            height={320}
+          />
         </div>
       </section>
 
@@ -135,16 +171,6 @@
     max-width: 42rem;
   }
   .prose { display: flex; flex-direction: column; gap: 0.7rem; }
-
-  /* The scatters are their own piece of work: ~30k points means a Canvas layer, not SVG.
-     Placeholder frames so the page's shape is reviewable before that lands. */
-  .plot {
-    border: 1px dashed color-mix(in oklch, var(--border) 90%, transparent);
-    border-radius: var(--radius);
-    min-height: 16rem;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .todo { font-size: 0.8rem !important; color: var(--muted-foreground); opacity: 0.7; }
 
   .msg { color: var(--muted-foreground); font-size: 0.9rem; }
   .retry {

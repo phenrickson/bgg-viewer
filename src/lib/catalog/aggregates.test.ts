@@ -5,6 +5,7 @@ import {
 	gamesPerYearSql,
 	scatterSql,
 	popularitySql,
+	popularityRatingGeekSql,
 	facetSearchSql,
 	RATING_BIN,
 	SCATTER_LIMIT,
@@ -43,6 +44,21 @@ describe('aggregate SQL builders', () => {
 		expect(sql).not.toContain('SAMPLE'); // no sampling — full set on Canvas
 		expect(sql).toContain(`LIMIT ${SCATTER_LIMIT}`); // defensive cap only
 		expect(scatterSql(W, 50)).toContain('LIMIT 50');
+	});
+
+	it('carries geek rating as a third column for the popularity plot', () => {
+		// The colour dimension is the point of this query: it is what shows a sparsely-rated
+		// 9.0 being pulled back toward the middle, which neither axis alone can say.
+		const sql = popularityRatingGeekSql(W);
+		expect(sql).toContain('users_rated AS x');
+		expect(sql).toContain('average_rating AS y');
+		expect(sql).toContain('geek_rating AS c');
+		// Every axis excludes its own zeros — a zero here means "not measured", not a value.
+		expect(sql).toContain('users_rated > 0');
+		expect(sql).toContain('average_rating > 0');
+		expect(sql).toContain('geek_rating > 0');
+		expect(sql).toContain(W);
+		expect(sql).toContain('FROM catalog');
 	});
 
 	it('marshals numbers only — game_id, never the name string (lazy names)', () => {
