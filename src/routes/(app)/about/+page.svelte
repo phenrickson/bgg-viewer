@@ -83,32 +83,46 @@
           <p>[Complexity on the x-axis, average rating on the y. Say what the cloud shows —
             and the caveat that the people who rate heavy games are the people who sought them
             out.]</p>
+          <!-- Jittered on x: complexity is a community vote, so thousands of games sit on
+               exactly 2.0 and 3.0 and draw as hard vertical stripes. ±0.06 is well inside the
+               0.25 bin the scale is meaningful at. -->
           <Scatter
             points={weightRating}
             xLabel="Complexity (1–5)"
             yLabel="Average rating"
             xTicks={[1, 2, 3, 4, 5]}
             yTicks={[2, 4, 6, 8, 10]}
-            height={320}
+            jitterX={0.06}
+            height={440}
           />
         </div>
 
         <div class="figure">
           <h3>Popularity and rating</h3>
           <!-- PLACEHOLDER -->
-          <p>[Number of ratings on a log x-axis, average rating on the y, coloured by geek
-            rating. This is the plot that makes the Bayesian adjustment visible: the
-            high-average games on the left have almost no votes, and their geek rating drags
-            them back toward the middle.]</p>
+          <p>[Average rating on the x-axis, number of ratings on a log y-axis, coloured by
+            geek rating. This is the plot that makes the Bayesian adjustment visible: the
+            high-average games along the bottom have almost no votes, and their geek rating
+            drags them back toward the middle.]</p>
+          <!-- Colour clamped to 5–8 and diverging about 6. Geek ratings run 3.7–8.4, but
+               almost everything sits in the middle, so a ramp stretched to the true extremes
+               spends most of its range on a handful of outliers and flattens the rest into
+               one shade. Clamped, the variation that matters becomes visible; the legend's
+               "5−" and "8+" say the ends are clipped rather than pretending otherwise.
+               The pivot is 6, not the arithmetic middle of the clamp — a diverging scale's
+               midpoint has to mean something, and 6 is roughly where a game stops being
+               indifferent, whereas 6.5 was just half of 5 and 8. -->
           <Scatter
             points={popRating}
-            xLabel="People who rated it (log scale)"
-            yLabel="Average rating"
-            xLog
+            xLabel="Average rating"
+            yLabel="People who rated it (log scale)"
+            yLog
             colorLabel="Geek rating"
-            xTicks={[30, 100, 1000, 10000, 100000]}
-            yTicks={[2, 4, 6, 8, 10]}
-            height={320}
+            colorDomain={[5, 8]}
+            colorPivot={6}
+            xTicks={[2, 4, 6, 8, 10]}
+            yTicks={[30, 100, 1000, 10000, 100000]}
+            height={440}
           />
         </div>
       </section>

@@ -155,7 +155,7 @@ export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
  * the middle, which neither axis alone can say.
  */
 export const popularityRatingGeekSql = (where: string, limit = SCATTER_LIMIT): string =>
-	`SELECT users_rated AS x, average_rating AS y, geek_rating AS c
+	`SELECT average_rating AS x, users_rated AS y, geek_rating AS c
 	 FROM catalog
 	 WHERE ${where} AND users_rated > 0 AND average_rating > 0 AND geek_rating > 0
 	 LIMIT ${limit}`;

@@ -50,8 +50,9 @@ describe('aggregate SQL builders', () => {
 		// The colour dimension is the point of this query: it is what shows a sparsely-rated
 		// 9.0 being pulled back toward the middle, which neither axis alone can say.
 		const sql = popularityRatingGeekSql(W);
-		expect(sql).toContain('users_rated AS x');
-		expect(sql).toContain('average_rating AS y');
+		// Rating on x, popularity on y — the vertical axis is the log one.
+		expect(sql).toContain('average_rating AS x');
+		expect(sql).toContain('users_rated AS y');
 		expect(sql).toContain('geek_rating AS c');
 		// Every axis excludes its own zeros — a zero here means "not measured", not a value.
 		expect(sql).toContain('users_rated > 0');
