@@ -1,0 +1,50 @@
+name: rollback
+
+# Manual only. Rollback is a human decision, never automatic.
+on:
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: bgg-data-warehouse
+  GCP_REGION: us-central1
+  SERVICE: bgg-viewer
+
+jobs:
+  rollback:
+    name: Roll back to stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_BGG_DW }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Show current traffic
+        run: |
+          echo "Traffic before rollback:"
+          gcloud run services describe "${{ env.SERVICE }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format='yaml(status.traffic)'
+
+      # `stable` points at whatever was serving before the last release deployed.
+      - name: Shift traffic to stable
+        run: |
+          gcloud run services update-traffic "${{ env.SERVICE }}" \
+            --to-tags stable=100 \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}"
+
+      - name: Verify
+        run: |
+          URL=$(gcloud run services describe "${{ env.SERVICE }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format='value(status.uri)')
+          echo "Service URL: ${URL}"
+          echo "Traffic after rollback:"
+          gcloud run services describe "${{ env.SERVICE }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format='yaml(status.traffic)'
