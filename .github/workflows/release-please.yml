@@ -46,6 +46,28 @@ jobs:
       - name: Configure Docker
         run: gcloud auth configure-docker --quiet
 
+      # The landing page's warm-gap content is baked into the bundle, so it must exist BEFORE
+      # `docker build` copies the tree in. It cannot be generated inside the Dockerfile: that
+      # build stage is a plain node:22-slim with no GCP credentials. Here the auth step above
+      # has already run.
+      #
+      # Overwrites the committed `src/lib/landing/content.json` in the working tree only —
+      # nothing is committed back. Non-fatal on purpose: the committed snapshot is a valid
+      # page, so a failure here ships slightly staler charts rather than blocking a release.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build landing content
+        continue-on-error: true
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.9 --activate
+          pnpm install --frozen-lockfile --ignore-scripts
+          node scripts/build-landing-content.js
+
       - name: Build and push image
         run: |
           VERSION="${{ needs.release-please.outputs.version }}"
