@@ -100,14 +100,21 @@
       <h3>What is a game's rating?</h3>
       <div class="body">
         <div class="prose">
-          <!-- PLACEHOLDER -->
-          <p>Everyone rates games on a 1–10 scale, and the average rating for a game tells you something about how good it is. 
-            
-            But, there's a problem with the plain average: what if only a handful of people have reviewed a game? 
-            An average rating of 9.7 from ten reviews doesn't mean much; 
-            on the other hand, an average rating of 8.5 from 50,000 reviews offers some strong evidence that a game is pretty good. </p>
-          <p>[In order to rank games, BGG uses something known as Bayesian averaging. Every game receives thousands of dummy ratings, so that every game starts at the same baseline rating (5.5). 
-            Only when a game starts to receive enough reviews will its Geek rating begin to change, as the user ratings start to overtake the dummy ratings.]</p>
+          <p>
+            Everyone rates games on a 1–10 scale, and the average rating for a game tells you
+            something about how good it is.
+          </p>
+          <p>
+            But there's a problem with the plain average: what if only a handful of people have
+            reviewed a game? An average rating of 9.7 from ten reviews doesn't mean much; on the
+            other hand, an average rating of 8.5 from 50,000 reviews offers strong evidence that
+            a game is pretty good.
+          </p>
+          <p>
+            To rank games, BGG uses something known as Bayesian averaging. Every game
+            starts with thousands of dummy ratings so every game starts at the same baseline (5.5). 
+            A game's Geek rating will only start to move when enough people rate it - once it has enough user ratings to overtake the dummy ones.
+          </p>
           {#if summary}
             <p class="stat">
               Median average rating <b>{n(summary.median_rating, 2)}</b> ·
@@ -130,7 +137,7 @@
             <span class="key back"></span> Average rating
             <span class="key fore"></span> Geek rating
             <!-- PLACEHOLDER -->
-            <span class="note">[One line: the squeeze is the dummy votes doing their work.]</span>
+            <span class="note">The spike at 5.5 for the Geek rating is the dummy votes doing their work.</span>
           </figcaption>
         </figure>
       </div>
@@ -219,10 +226,13 @@
 
   /* Prose beside its chart on a wide canvas, stacked when there isn't room — a container
      query, so it responds to the column it is in rather than to the window. */
+  /* `center`, not `start`: the prose column is much taller than the chart, so top-aligning
+     left the figure stranded against the first paragraph with a column of empty space beneath
+     it. Centred, it sits against the middle of the text it illustrates. */
   .body {
     display: grid; gap: var(--space-lg);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-    align-items: start;
+    align-items: center;
   }
   .prose { display: flex; flex-direction: column; gap: 0.7rem; }
   .prose p { margin: 0; font-size: 0.92rem; line-height: 1.55; color: var(--muted-foreground); }

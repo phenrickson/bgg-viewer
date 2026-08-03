@@ -69,6 +69,25 @@
   const CLAMP_AT = 620;
   let showAll = $state(false);
 
+  /**
+   * Hover breakdown on the player-count bars — built, then switched off: the interaction isn't
+   * yet what Phil wants. Flip to `true` to re-enable; the markup and styles are intact, and the
+   * reconstructed-counts caveat below is the open question.
+   */
+  const PC_HOVER = false;
+
+  /** Which player-count row the pointer is on, so its bar can show the vote breakdown. */
+  let hover = $state<string | null>(null);
+
+  /**
+   * A percentage back to a headcount. BGG publishes the shares, not the tallies, so this is a
+   * reconstruction — rounded, and it can be a vote or two off the true split. Worth showing
+   * anyway: "83% recommended" off 24 votes and off 2,400 are different claims, and the
+   * percentage alone hides which one you are reading.
+   */
+  const votesOf = (pct: number, total: number) =>
+    !total ? '—' : `${Math.round((pct / 100) * total).toLocaleString()}`;
+
   // --- back out ------------------------------------------------------------------------
   // Written by the Explore page on every scope change; absent on a deep link or a fresh tab.
   let backQs = $state('');
@@ -430,19 +449,51 @@
 
   <div class="cols">
     <div class="stack">
-      <!-- the differentiator, high on the page -->
-      <section class="card">
+      <!--
+        `order: 2` puts About above this. Player counts are the differentiator and were first
+        for that reason, but "what IS this game" has to come before "how does it play at
+        three" — you cannot evaluate the second answer without the first. Ordered in CSS
+        rather than moved in markup so the two blocks keep their `{#if}` guards intact.
+      -->
+      <section class="card" style:order="2">
         <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
         {#if g.playerCounts.length}
           <div class="pcs tnum">
             {#each g.playerCounts as p (p.count)}
-              <div class="pc" class:top={p.count === bestRow}>
+              <!-- `role="group"` is required by Svelte's a11y rule for a div carrying mouse
+                   handlers, and is correct here regardless: the row is a labelled set of
+                   related values, not decoration. -->
+              <div
+                class="pc"
+                class:top={p.count === bestRow}
+                class:hot={PC_HOVER && hover === p.count}
+                role="group"
+                onmouseenter={() => PC_HOVER && (hover = p.count)}
+                onmouseleave={() => PC_HOVER && (hover = null)}
+              >
                 <div class="n">{p.count}</div>
-                <div class="pc-bar" title="{p.count}: {num(p.best, 0)}% best, {num(p.recommended, 0)}% recommended">
+                <div class="pc-bar">
                   <i class="pc-best" style:width="{p.best}%"></i>
                   <i class="pc-rec" style:width="{p.recommended}%"></i>
                   <i class="pc-not" style:width="{p.notRecommended}%"></i>
+
+                  <!-- The percentages are on screen already; what the bars can't say is how
+                       many people each slice represents, which is the difference between a
+                       verdict and a rounding artefact. Rendered inline rather than as a `title`
+                       so it appears immediately and can carry three labelled rows. -->
                 </div>
+
+                <!-- Outside `.pc-bar`, which is `overflow: hidden` to clip its own segments and
+                     would clip this too. -->
+                {#if PC_HOVER && hover === p.count}
+                  <div class="tip" role="tooltip">
+                    <b>{p.count} {p.count === '1' ? 'player' : 'players'}</b>
+                    <span><i class="sw best"></i>Best <em>{votesOf(p.best, p.votes)}</em></span>
+                    <span><i class="sw rec"></i>Recommended <em>{votesOf(p.recommended, p.votes)}</em></span>
+                    <span><i class="sw not"></i>Not recommended <em>{votesOf(p.notRecommended, p.votes)}</em></span>
+                    <span class="tot">{int(p.votes)} votes cast</span>
+                  </div>
+                {/if}
                 <div class="pct">
                   {Math.round(p.best + p.recommended)}<small>%</small>
                   {#if p.votes}<span class="votes tnum">{int(p.votes)}</span>{/if}
@@ -474,7 +525,7 @@
       </section>
 
       {#if description}
-        <section class="card">
+        <section class="card" style:order="1">
           <p class="sub">About</p>
           <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
           {#if description.length > CLAMP_AT}
@@ -486,7 +537,10 @@
       {/if}
 
       {#if g.categories.length || g.mechanics.length || g.families.length}
-        <section class="card">
+        <!-- Last in the stack: the full facet wall is reference, read after you know what the
+             game is and how it plays. Explicit, because a card with no `order` defaults to 0
+             and would sort above the two that set one. -->
+        <section class="card" style:order="3">
           {#if g.categories.length}
             <p class="sub">Categories</p>
             <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
@@ -913,6 +967,8 @@
     grid-template-columns: 2rem 1fr 2.6rem;
     align-items: center;
     gap: 0.6rem;
+    /* Anchors the hover tooltip. */
+    position: relative;
   }
   .pc .n {
     font-weight: 600;
@@ -941,14 +997,73 @@
     display: block;
     height: 100%;
   }
+  /* The hovered row lifts slightly, so the tooltip is clearly attached to a bar rather than
+     floating over the card. */
+  .pc.hot .pc-bar {
+    outline: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
+  }
+
+  /* Anchored to the bar, not the pointer: the bar is the thing being asked about, and a
+     pointer-tracked tooltip on a 5px-tall target chases the cursor more than it informs. */
+  .tip {
+    position: absolute;
+    /* Aligned to where the bar starts, past the 2rem numeral column and its 0.6rem gap —
+       `left: 0` would pin it to the row's edge instead, beside the number. */
+    left: 2.6rem;
+    bottom: calc(100% + 0.2rem);
+    z-index: 20;
+    display: grid;
+    gap: 0.15rem;
+    min-width: 13rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.3);
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+  .tip b {
+    color: var(--foreground);
+    font-weight: 650;
+    margin-bottom: 0.1rem;
+  }
+  .tip span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .tip em {
+    margin-left: auto;
+    font-style: normal;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .tip .sw {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    flex: none;
+  }
+  .tip .sw.best { background: var(--vote-best); }
+  .tip .sw.rec { background: var(--vote-rec); }
+  .tip .sw.not { background: var(--vote-not); }
+  .tip .tot {
+    margin-top: 0.2rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
   .pc-best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .pc-rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
   .pc-not {
-    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+    background: var(--vote-not);
   }
   .pc .pct {
     font-size: 0.76rem;
@@ -979,13 +1094,13 @@
     margin-right: 0.3rem;
   }
   .legend .sw.best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .legend .sw.rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
   .legend .sw.not {
-    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+    background: var(--vote-not);
   }
   .legend .note {
     margin-left: auto;
@@ -1027,10 +1142,10 @@
     margin-right: 0.35rem;
   }
   .verdict .sw.best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .verdict .sw.rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
 
   .desc {
