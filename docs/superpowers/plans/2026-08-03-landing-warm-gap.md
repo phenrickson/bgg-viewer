@@ -3,6 +3,7 @@
 **Spec:** [2026-08-03-landing-warm-gap-design.md](../specs/2026-08-03-landing-warm-gap-design.md)
 **Branch:** `feat/landing-warm-gap` → PR into `main`
 **Date:** 2026-08-03
+**Status:** steps 1–6 built; awaiting visual review
 
 ## Goal
 
@@ -125,3 +126,46 @@ cost above beyond measuring it.
 3. Stroll: arrows only, or a "see all" gallery?
 
 Steps 1–4 proceed on the hand-authored fallback regardless of these.
+
+
+## What actually shipped
+
+All six steps are built. Deltas worth knowing about, each forced by something measured
+rather than chosen on taste:
+
+| Planned | Shipped | Why |
+|---|---|---|
+| `content.generated.json` + `content.fallback.json` | one `content.json` | The two-file design shipped **both** in the bundle — 12.4 KB duplicated. The fallback import keeps the file alive whichever wins. |
+| Hand-authored fallback, 2–3 vizzes | generator output, 11 vizzes / 24 games | Real data was cheaper to produce than fake data was to type, and makes the rotation actually rotate. |
+| `scatter` + `columns` | + `bars` | Categorical series (mechanics, designers) are unreadable as vertical columns with rotated labels — and they are what this app exists to query by. |
+| Two cards in an `AutoGrid` | four editorial sections at the page foot | Review feedback: the pair sat between the chips and the door; the ask was content you scroll to. |
+| Pill says a hardcoded `~20 seconds` | median of this browser's last five loads | Removes the risk below entirely — see it struck through. |
+| `.ts` generator | `.js` | Matches `scripts/doctor.js` and `scripts/setup-env.js`; no `tsx` in the toolchain. |
+
+### Measured
+
+- Content: **12.4 KB gzipped** (11 vizzes, 24 games) against a 60 KB budget, enforced by both
+  the generator's exit code and `content.test.ts`.
+- Landing chunk: **15 KB gzipped** after de-duplication, down from 25 KB.
+- `pnpm build` verified to succeed **without** credentials, on the committed snapshot.
+- `svelte-check` clean; **130 tests** pass (13 new).
+
+### Risk resolved
+
+> ~~**The wait may not be what we think.** The 22 s figure is the *server* build… If the real
+> gap on a warm instance is mostly client-side, the pill's `~20 seconds` is wrong.~~
+
+`estimate.ts` sidesteps this rather than settling it. The client times its own load end to end
+— build, transfer, wasm instantiate, insert, index — stores it, and quotes the median of the
+last five back. The figure now describes the machine doing the waiting, so the split between
+server and client cost no longer has to be known for the pill to be honest.
+
+Still worth measuring for its own sake: the `SELECT game_id, name` name-map scan over 35 k rows
+at [catalog.svelte.ts:64](../../../src/lib/catalog/catalog.svelte.ts#L64).
+
+### Not verified
+
+**Nothing has been looked at in a browser by me** — no screenshot tool here. Tokens are all
+semantic (no hardcoded colours in `src/lib/landing/`), and `--chart-1` is deliberately
+theme-independent in `app.css`, so dark *should* be correct by construction. It has not been
+confirmed by eye.
