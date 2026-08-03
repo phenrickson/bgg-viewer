@@ -92,8 +92,7 @@
     <header>
       <h2>How these numbers work</h2>
       <!-- PLACEHOLDER -->
-      <p class="lede">[Intro — one or two sentences on why the numbers on those rows are not
-        as obvious as they look.]</p>
+      <p class="lede">The data comes from BoardGameGeek, a website operating a database on virtually every board game ever created, with reviews and ratings from thousands of game enthusiasts around the world.</p>
     </header>
 
     <!-- 1 ------------------------------------------------------------------------------ -->
@@ -102,14 +101,13 @@
       <div class="body">
         <div class="prose">
           <!-- PLACEHOLDER -->
-          <p>[Everyone who owns or has played a game can rate it 1–10, and the plain average of
-            those votes is one answer. But a game with a handful of votes and a 9.0 average is
-            not better than one with fifty thousand votes and an 8.4 — it is just less
-            evidence.]</p>
-          <p>[So BGG dilutes thin evidence with dummy votes near the middle. That is the
-            <em>geek rating</em>, it is what the ranking uses, and it is the number on the rows
-            above. Explain the consequences: nothing reaches 10, and a game with too few votes
-            has no geek rating at all — which is the “—” you'll see on new releases.]</p>
+          <p>Everyone rates games on a 1–10 scale, and the average rating for a game tells you something about how good it is. 
+            
+            But, there's a problem with the plain average: what if only a handful of people have reviewed a game? 
+            An average rating of 9.7 from ten reviews doesn't mean much; 
+            on the other hand, an average rating of 8.5 from 50,000 reviews offers some strong evidence that a game is pretty good. </p>
+          <p>[In order to rank games, BGG uses something known as Bayesian averaging. Every game receives thousands of dummy ratings, so that every game starts at the same baseline rating (5.5). 
+            Only when a game starts to receive enough reviews will its Geek rating begin to change, as the user ratings start to overtake the dummy ratings.]</p>
           {#if summary}
             <p class="stat">
               Median average rating <b>{n(summary.median_rating, 2)}</b> ·
