@@ -105,7 +105,7 @@
   </span>
   <span class="fact">
     {#if recAt}
-      <span class="lbl">Recommended</span>
+      <span class="lbl">Also good</span>
       <b>{recAt}</b>
     {/if}
   </span>
@@ -134,7 +134,10 @@
      is capped at the `list` measure, so the surplus it can absorb is small and bounded. */
   .row {
     display: grid;
-    grid-template-columns: 2.25rem 3.5rem minmax(0, 1fr) 4.5rem 7.5rem 4.5rem;
+    /* "Recommended" was 7.5rem wide because of the LABEL, not the data — the numbers under it
+       are usually four characters. Shortening it to "Also good" lets the column give 2rem back
+       to the game's title. */
+    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -166,8 +169,11 @@
 
   /* Quiet — it is a position marker, not a score. Tabular so the digits stay in column as
      the numbers grow through the hundreds and thousands. */
+  /* Left-aligned and dimmer, not right-aligned tight against the artwork — pushed up to the
+     thumbnail it read as a caption on the image rather than a position in the list. */
   .rk {
-    text-align: right; font-size: 0.78rem; color: var(--muted-foreground);
+    text-align: left; font-size: 0.75rem;
+    color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
     font-variant-numeric: tabular-nums;
   }
 
@@ -259,7 +265,7 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 2.25rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
+    .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
     .fact:nth-of-type(2) { display: none; }
   }
 </style>

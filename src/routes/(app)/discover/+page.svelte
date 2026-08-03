@@ -237,7 +237,10 @@
      rather than hiding below a nested scroller. */
   .page {
     display: flex; flex-direction: column;
-    gap: var(--space-xl); padding: clamp(1.5rem, 4vw, 3rem) 0 var(--space-xl);
+    /* No top padding: the app shell's `.content` already pads every page, and adding a
+       viewport-scaled clamp on top of it stacked to ~4.5rem of nothing above the headline on
+       a wide window. Bottom padding stays, so the last element isn't flush to the scroll end. */
+    gap: var(--space-xl); padding: 0 0 var(--space-xl);
   }
   /* The results sit further from the questions than the questions do from each other, so
      the step out to the wider measure lands as a section break rather than a wobble. */
