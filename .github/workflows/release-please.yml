@@ -1,0 +1,102 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  GCP_PROJECT_ID: bgg-data-warehouse
+  GCP_REGION: us-central1
+  REGISTRY: gcr.io
+  SERVICE: bgg-viewer
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Only a merged release PR deploys. Ordinary pushes to main build nothing.
+  deploy:
+    name: Deploy to Cloud Run
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_BGG_DW }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push image
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE }}"
+          docker build --tag "${IMAGE}:${VERSION}" --tag "${IMAGE}:latest" .
+          docker push "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:latest"
+
+      # Tag the OUTGOING revision `stable` before deploying, so rollback.yml has a
+      # known-good target. Guarded because the very first release has no revision yet.
+      - name: Tag current revision as stable
+        run: |
+          CURRENT=$(gcloud run services describe "${{ env.SERVICE }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format='value(status.traffic[0].revisionName)' 2>/dev/null || true)
+
+          if [ -n "$CURRENT" ]; then
+            echo "Tagging ${CURRENT} as stable"
+            gcloud run services update-traffic "${{ env.SERVICE }}" \
+              --update-tags stable="${CURRENT}" \
+              --region="${{ env.GCP_REGION }}" \
+              --project="${{ env.GCP_PROJECT_ID }}"
+          else
+            echo "No existing revision — first deploy, nothing to tag."
+          fi
+
+      # `gcloud run deploy` is create-or-update, so this handles both the first deploy
+      # and every subsequent one with no branching.
+      - name: Deploy
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE }}:${VERSION}"
+
+          gcloud run deploy "${{ env.SERVICE }}" \
+            --image="${IMAGE}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --service-account="bgg-viewer@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --memory=2Gi \
+            --cpu=1 \
+            --max-instances=10 \
+            --port=8080 \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},WAREHOUSE_API_URL=${{ vars.WAREHOUSE_API_URL }},VERSION=${VERSION}" \
+            --set-secrets="SESSION_SECRET=bgg-viewer-session-secret:latest,REGISTRATION_CODE=bgg-viewer-registration-code:latest"
+
+      - name: Show service URL
+        run: |
+          gcloud run services describe "${{ env.SERVICE }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format='value(status.uri)'
