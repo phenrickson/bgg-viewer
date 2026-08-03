@@ -17,11 +17,31 @@
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
   import { Container } from '$lib/components/ui/layout';
+  import WarmGap from '$lib/landing/WarmGap.svelte';
+  import { dayIndex } from '$lib/landing/rotation';
+  import { estimateMs, humanise, DEFAULT_MS } from '$lib/landing/estimate';
+  import { landingContent as content } from '$lib/landing/content';
+
+  /**
+   * How long to tell the user this will take. Read on mount rather than at module scope
+   * because it touches `localStorage`, which does not exist during SSR — and read BEFORE
+   * `initCatalog()`, since that call is what overwrites the sample we want to quote.
+   */
+  let wait = $state(humanise(DEFAULT_MS));
 
   // Kick the catalog warm in the background so Explore is ready when the user arrives there.
   onMount(() => {
+    wait = humanise(estimateMs());
     initCatalog();
   });
+
+  /**
+   * The warm-gap content. Imported, not fetched: the gap it fills begins the moment this
+   * page finishes rendering, so anything needing a round-trip would arrive after the problem
+   * it solves. It is also why this survives a cold container — the bytes are already here
+   * while the server is still building the catalog and cannot answer anything promptly.
+   */
+  const today = dayIndex();
 
   const href = (room: 'discover' | 'games', overrides: Partial<Scope>) =>
     `/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
@@ -93,13 +113,19 @@
 
 <Container size="prose">
     <div class="land">
+    <!-- The pill says roughly HOW LONG, not merely that something is happening: a bounded
+         wait is a categorically different experience from an indefinite one, and it costs
+         one string. The number is the median of this browser's own past loads (see
+         estimate.ts), so it describes the machine actually doing the waiting rather than a
+         figure measured somewhere else. -->
     <span class="warming" class:ready={catalog.status === 'ready'}>
       {#if catalog.status === 'ready'}
         <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
       {:else if catalog.status === 'error'}
         Catalog failed to load
       {:else}
-        <span class="spin"></span> Warming the catalog…
+        <span class="spin"></span> Warming the catalog — {wait} ·
+        {content.stats.games.toLocaleString()} games
       {/if}
     </span>
 
@@ -143,7 +169,18 @@
       <li><b>Similarity map</b><span>Find games near one you love, by embedding distance.</span></li>
       <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
     </ul>
+
     </div>
+</Container>
+
+<!-- The warm gap runs down the FOOT of the page, in its own wider measure: `prose` is 52rem,
+     which is the right width for a sentence and the wrong one for a plot. Above the fold this
+     page is about getting you into a room; these sections are for when you have read that and
+     are still waiting for the catalog. -->
+<Container size="content">
+  <div class="gapwrap">
+    <WarmGap {content} day={today} />
+  </div>
 </Container>
 
 <style>
@@ -169,6 +206,9 @@
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
+
+  /* Clears `Coming next` above and leaves air at the end of the scroll. */
+  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); }
 
   .door { display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
     background: color-mix(in oklch, var(--primary) 10%, var(--card));
