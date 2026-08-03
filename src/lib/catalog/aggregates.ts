@@ -149,6 +149,18 @@ export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
 	 LIMIT ${limit}`;
 
 /**
+ * Popularity × rating × geek rating — the three-variable version of `popularitySql`, for the
+ * About page's plot of how the Bayesian adjustment behaves. Carrying `geek_rating` as a third
+ * column is the whole point: it is what shows a sparsely-rated 9.0 being pulled back toward
+ * the middle, which neither axis alone can say.
+ */
+export const popularityRatingGeekSql = (where: string, limit = SCATTER_LIMIT): string =>
+	`SELECT average_rating AS x, users_rated AS y, geek_rating AS c
+	 FROM catalog
+	 WHERE ${where} AND users_rated > 0 AND average_rating > 0 AND geek_rating > 0
+	 LIMIT ${limit}`;
+
+/**
  * Facet values *within the current scope*, optionally narrowed by a typed term — what the
  * rail's category/mechanic lists show. Scope-aware counts mean the lists answer "what else
  * is in this set" as you filter (and make a separate "top categories" chart redundant).

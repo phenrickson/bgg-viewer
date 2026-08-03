@@ -10,6 +10,13 @@ import {
 	niceCount,
 	type Scope
 } from './scope';
+import {
+	CATEGORY_CHIPS,
+	COMPLEXITY_BANDS,
+	toggleCategory,
+	bandPatch,
+	discoverScopeFromParams
+} from '$lib/discover/dials';
 
 describe('toWhere', () => {
 	it('defaults to the Top 10,000 universe', () => {
@@ -177,6 +184,7 @@ describe('URL round-trip', () => {
 			usersRatedMin: 1000,
 			usersRatedMax: 50000,
 			geekMin: 6.5,
+			geekMax: 8,
 			players: 3,
 			bestAt: 2,
 			categories: ['Economic', 'City Building'],
@@ -193,5 +201,76 @@ describe('URL round-trip', () => {
 	it('records the universe only when it is not the Top 10,000 default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
+	});
+});
+
+describe('discoverScopeFromParams', () => {
+	// `scopeFromParams` always returns a COMPLETE Scope, filling in its own `top10k` default
+	// for `universe` when `u` is absent from the URL — so an absent param and an explicit
+	// `?u=top10k` are indistinguishable once parsed. Discover's default is `rated` ("top
+	// rated, all-time"), so it must check the raw param, not the parsed value, to tell the
+	// two apart. Regression for a bug where the top10k default silently overwrote `rated`.
+	it('defaults to rated when the URL has no universe param', () => {
+		const params = new URLSearchParams('');
+		expect(discoverScopeFromParams(params).universe).toBe('rated');
+	});
+
+	it('honours an explicit ?u=rated', () => {
+		const params = new URLSearchParams('u=rated');
+		expect(discoverScopeFromParams(params).universe).toBe('rated');
+	});
+
+	it('honours an explicit ?u=top10k', () => {
+		const params = new URLSearchParams('u=top10k');
+		expect(discoverScopeFromParams(params).universe).toBe('top10k');
+	});
+});
+
+describe('a Discover-shaped scope', () => {
+	it('survives a params round-trip', () => {
+		const war = CATEGORY_CHIPS.find((c) => c.label === 'Wargame')!;
+		const coop = CATEGORY_CHIPS.find((c) => c.label === 'Cooperative')!;
+		const heavy = COMPLEXITY_BANDS[4];
+
+		let s: Scope = { ...DEFAULT_SCOPE };
+		s = { ...s, ...toggleCategory(s, war) };
+		s = { ...s, ...toggleCategory(s, coop) };
+		s = { ...s, ...bandPatch(s, heavy) };
+		s = { ...s, bestAt: 2 };
+
+		const back = scopeFromParams(scopeToParams(s));
+		expect(back.categories).toEqual(['Wargame']);
+		expect(back.mechanics).toEqual(['Cooperative Game']);
+		expect(back.weightMin).toBe(3.5);
+		expect(back.weightMax).toBeNull();
+		expect(back.bestAt).toBe(2);
+	});
+
+	it('expresses a geek-rating band, and clears both bounds as one chip', () => {
+		// "Hidden gems" is a rank band — outside the top 1,000 but still well regarded — and
+		// `geek_rating` has no rank column, so the band is stated as its two cutoffs. Before
+		// `geekMax` existed this was inexpressible: only a floor could be set.
+		const band: Scope = { ...DEFAULT_SCOPE, geekMin: 6.278, geekMax: 6.671 };
+
+		const where = toWhere(band);
+		expect(where).toContain('geek_rating >= 6.278');
+		expect(where).toContain('geek_rating <= 6.671');
+
+		const back = scopeFromParams(scopeToParams(band));
+		expect(back.geekMin).toBe(6.278);
+		expect(back.geekMax).toBe(6.671);
+
+		// One chip for the pair, and dismissing it must remove BOTH — a leftover max would
+		// keep filtering with nothing on screen able to clear it.
+		const chip = activeFilters(band).find((f) => f.id === 'geek');
+		expect(chip).toBeDefined();
+		const cleared = { ...band, ...chip!.patch };
+		expect(cleared.geekMin).toBeNull();
+		expect(cleared.geekMax).toBeNull();
+	});
+
+	it('compiles best-at to a list_contains predicate', () => {
+		const where = toWhere({ ...DEFAULT_SCOPE, bestAt: 3 });
+		expect(where).toContain('list_contains(best_player_counts, 3)');
 	});
 });

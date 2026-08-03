@@ -49,6 +49,38 @@
   /* Semantic status tokens — pair with a label/icon, never color alone */
   --color-positive: oklch(0.62 0.14 150);
   --color-negative: oklch(0.60 0.17 25);
+
+  /*
+   * The community's player-count verdict: best > recommended > not. An ORDERED judgment, so it
+   * gets an ordered ramp on the app's own palette rather than three unrelated hues — it was
+   * green / amber / purple, which read as three categories instead of a ranking.
+   *
+   * ONE hue at three lightnesses — bright blue, pale blue, dark near-grey. Lightness alone
+   * separates them, so the scale survives greyscale and colourblindness, and a single hue is
+   * what makes it read as a ramp rather than three kinds of thing.
+   *
+   * "Not recommended" is deliberately NOT orange. Orange is `--primary`: it marks the ★ best
+   * row, "BEST AT" in the hero, and every link on the page. Spending it on the negative end
+   * made one colour mean both "this is the answer" and "avoid this" — the two things it must
+   * never mean at once. Muting the negative also gets the emphasis right: a bar mostly
+   * "not recommended" should recede, not shout.
+   *
+   * Stated as literal oklch, not mixed toward `--card`/`--muted`. An earlier attempt used
+   * `color-mix(--chart-1 32%, --card)` and `color-mix(--primary 55%, --muted)`, which is how
+   * you get a muddy navy that vanishes into a dark card and an orange diluted to mauve:
+   * mixing a hue into a surface colour collapses its chroma.
+   *
+   * Named here rather than inline because the same encoding appears three times on the game
+   * page alone (bars, chart legend, verdict list) and had already drifted between them.
+   */
+  /*
+   * Light theme: the bar's own track is near-white (`--muted` 0.96), so "recommended" has to
+   * be DARKER than best-blue to stay visible, and "not recommended" is a light grey that
+   * recedes into the track. The dark theme inverts both — see `.dark` below.
+   */
+  --vote-best: oklch(0.62 0.14 250);
+  --vote-rec: oklch(0.76 0.08 250);
+  --vote-not: oklch(0.86 0.01 250);
 }
 
 .dark {
@@ -62,6 +94,13 @@
   --muted-foreground: oklch(0.68 0.02 260);
   --border: oklch(0.32 0.02 260);
   --ring: oklch(0.70 0.16 48);
+
+  /* Against a dark track (`--muted` 0.27) the ramp runs the other way: "recommended" is a pale
+     blue that reads as a lighter step of best, and "not recommended" is a dark near-grey that
+     sits just above the track without competing with it. */
+  --vote-best: oklch(0.62 0.14 250);
+  --vote-rec: oklch(0.78 0.07 250);
+  --vote-not: oklch(0.42 0.02 250);
 }
 
 /* Map tokens to Tailwind color utilities (bg-background, text-foreground, …). */

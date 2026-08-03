@@ -2,13 +2,82 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { ModeWatcher, toggleMode } from 'mode-watcher';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
 
   let { data, children } = $props();
 
-  const onExplore = $derived($page.url.pathname.startsWith('/games'));
+  /**
+   * Game pages load from the warehouse API in a blocking server load, so a click on a cold
+   * row does nothing visible until the round-trip returns — the click reads as dropped.
+   * Hover preloading (`data-sveltekit-preload-data` in app.html) usually beats the click, but
+   * not on a fast click or a cold cache, and that gap is exactly when feedback is needed.
+   *
+   * Deliberately delayed: a bar that flashes for the 80ms a warm navigation takes is more
+   * distracting than no bar at all. It appears only once a navigation has lasted long enough
+   * to feel like waiting.
+   */
+  const SHOW_AFTER_MS = 180;
+  let pending = $state(false);
+
+  $effect(() => {
+    if (!$navigating) {
+      pending = false;
+      return;
+    }
+    const t = setTimeout(() => (pending = true), SHOW_AFTER_MS);
+    return () => clearTimeout(t);
+  });
+
+  /**
+   * A menu, not a row of tabs.
+   *
+   * Discover and Explore are two views of ONE thing — the same `Scope`, the same in-browser
+   * catalog, with "see all N in Explore" as the seam between them — so they belong under one
+   * heading rather than taking a top-level slot each. Predictions (upcoming games) and
+   * Collection (your shelf) are different data and will be siblings of Games; grouping by
+   * what the thing IS keeps the top row short however many views each one grows.
+   *
+   * A menu rather than a second tab bar for two reasons. A sub-bar is a permanent strip of
+   * chrome that is empty on most pages, and — the better reason — a menu row can carry a
+   * DESCRIPTION where a tab can only carry a word. "Discover" and "Explore" are near-synonyms
+   * in isolation; "answer a few questions, get a shortlist" and "filter and sort the whole
+   * catalog" are not. The menu lets the nav say what each view is for instead of assuming
+   * the label already means something.
+   */
+  const path = $derived($page.url.pathname);
+  const onExplore = $derived(path.startsWith('/games'));
+  const onDiscover = $derived(path.startsWith('/discover'));
+  const onAbout = $derived(path.startsWith('/about'));
+  const inGames = $derived(onExplore || onDiscover);
+  const onHome = $derived(!inGames && !onAbout);
+
+  let gamesOpen = $state(false);
+  let gamesMenu = $state<HTMLElement | null>(null);
+
+  // Any navigation closes it — otherwise the menu hangs open over the page you just chose.
+  $effect(() => {
+    path;
+    gamesOpen = false;
+  });
+
+  /** Click-away and Escape, the two ways every menu is expected to close. */
+  $effect(() => {
+    if (!gamesOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (gamesMenu && !gamesMenu.contains(e.target as Node)) gamesOpen = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') gamesOpen = false;
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  });
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -16,14 +85,48 @@
 <ModeWatcher />
 
 <div class="app">
+  {#if pending}
+    <div class="loading" role="status" aria-label="Loading page"></div>
+  {/if}
   <!-- The bar's surface spans the window; its contents share the widest content measure, so
        the brand lines up with the page beneath it instead of drifting into the gutter. -->
   <header class="appbar">
     <Container size="wide" class="appbar-inner">
       <a class="brand" href="/">bgg-viewer</a>
       <nav class="mainnav">
-        <a href="/" class:active={!onExplore}>Home</a>
-        <a href="/games" class:active={onExplore}>Explore</a>
+        <a href="/" class:active={onHome}>Home</a>
+
+        <div class="menu" bind:this={gamesMenu}>
+          <button
+            type="button"
+            class="trigger"
+            class:active={inGames}
+            aria-expanded={gamesOpen}
+            aria-haspopup="true"
+            onclick={() => (gamesOpen = !gamesOpen)}
+          >
+            Games <span class="caret" aria-hidden="true">▾</span>
+          </button>
+
+          {#if gamesOpen}
+            <div class="pop" role="menu">
+              <a href="/discover" role="menuitem" class:on={onDiscover}>
+                <b>Discover</b>
+                <span>Answer a few questions, get a shortlist</span>
+              </a>
+              <a href="/games" role="menuitem" class:on={onExplore}>
+                <b>Explore</b>
+                <span>Filter and sort the whole catalog</span>
+              </a>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Last, and stays last. Every other item in this row is a dataset — the rated
+             catalog, upcoming games, your shelf — and About is the one that explains them
+             rather than being one. Predictions and Collection slot in before it; it can grow
+             its own menu (methodology, freshness) without disturbing anything else. -->
+        <a href="/about" class:active={onAbout}>About</a>
       </nav>
       {#if data.user}
         <div class="navsearch"><GameSearch compact /></div>
@@ -41,6 +144,7 @@
       </nav>
     </Container>
   </header>
+
   <main class="content">
     {@render children()}
   </main>
@@ -51,6 +155,29 @@
      columns) without reaching for viewport units of its own. `.content` owns the scroll,
      so ordinary document-flow pages still behave normally. */
   .app { height: 100svh; display: flex; flex-direction: column; }
+
+  /* An indeterminate sliver across the top of the shell. Indeterminate rather than a real
+     progress value because the wait is one opaque round-trip to the warehouse — a bar that
+     invents a percentage is lying about knowledge it doesn't have. */
+  .loading {
+    position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 50;
+    background: color-mix(in oklch, var(--primary) 18%, transparent);
+    overflow: hidden;
+  }
+  .loading::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--primary);
+    transform-origin: 0 50%;
+    animation: slide 1.1s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%) scaleX(0.4); }
+    50%  { transform: translateX(20%) scaleX(0.6); }
+    100% { transform: translateX(100%) scaleX(0.4); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loading::after { animation: none; opacity: 0.7; }
+  }
   .appbar {
     padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--border);
@@ -62,10 +189,48 @@
     gap: var(--space-md);
   }
   .brand { font-weight: 600; color: var(--foreground); text-decoration: none; }
-  .mainnav { display: flex; gap: .2rem; margin-left: .4rem; }
-  .mainnav a { font-size: 0.9rem; color: var(--muted-foreground); text-decoration: none; padding: .3rem .6rem; border-radius: 7px; }
-  .mainnav a:hover { color: var(--foreground); }
-  .mainnav a.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+  .mainnav { display: flex; align-items: center; gap: .2rem; margin-left: .4rem; }
+
+  /* One rule for both the links and the menu trigger. They were two parallel rule sets and
+     drifted immediately — the button inherited the header's larger base size and rendered
+     visibly bigger than "Home" beside it. Same selector, same size, can't drift again. */
+  .mainnav a,
+  .mainnav .trigger {
+    font-family: inherit; font-size: 0.9rem; font-weight: 400; line-height: 1.4;
+    color: var(--muted-foreground); text-decoration: none;
+    padding: .3rem .6rem; border-radius: 7px;
+    background: none; border: none;
+  }
+  .mainnav a:hover,
+  .mainnav .trigger:hover { color: var(--foreground); }
+  .mainnav a.active,
+  .mainnav .trigger.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+
+  /* Only what differs from a plain nav link — everything shared lives in the rule above. */
+  .menu { position: relative; display: flex; }
+  .trigger { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
+  .trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .caret { font-size: 0.65rem; opacity: .7; }
+
+  .pop {
+    position: absolute; top: calc(100% + .4rem); left: 0; z-index: 40;
+    display: flex; flex-direction: column;
+    min-width: 17rem; padding: .35rem;
+    background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.28);
+  }
+  .pop a {
+    display: flex; flex-direction: column; gap: .1rem;
+    padding: .5rem .6rem; border-radius: 7px;
+    text-decoration: none; color: inherit;
+  }
+  .pop a:hover { background: color-mix(in oklch, var(--primary) 10%, transparent); }
+  .pop a.on { background: color-mix(in oklch, var(--primary) 13%, transparent); }
+  .pop b { font-size: 0.88rem; font-weight: 600; color: var(--foreground); }
+  /* The line that earns the menu: a tab can only carry a word, and "Discover" and "Explore"
+     are near-synonyms until something says how they differ. */
+  .pop span { font-size: 0.76rem; color: var(--muted-foreground); line-height: 1.35; }
   .navsearch { flex: 1; max-width: 24rem; margin: 0 var(--space-md); }
   @media (max-width: 640px) { .navsearch { display: none; } }
   .actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; }

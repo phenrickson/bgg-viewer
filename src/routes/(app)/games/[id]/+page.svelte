@@ -69,6 +69,25 @@
   const CLAMP_AT = 620;
   let showAll = $state(false);
 
+  /**
+   * Hover breakdown on the player-count bars — built, then switched off: the interaction isn't
+   * yet what Phil wants. Flip to `true` to re-enable; the markup and styles are intact, and the
+   * reconstructed-counts caveat below is the open question.
+   */
+  const PC_HOVER = false;
+
+  /** Which player-count row the pointer is on, so its bar can show the vote breakdown. */
+  let hover = $state<string | null>(null);
+
+  /**
+   * A percentage back to a headcount. BGG publishes the shares, not the tallies, so this is a
+   * reconstruction — rounded, and it can be a vote or two off the true split. Worth showing
+   * anyway: "83% recommended" off 24 votes and off 2,400 are different claims, and the
+   * percentage alone hides which one you are reading.
+   */
+  const votesOf = (pct: number, total: number) =>
+    !total ? '—' : `${Math.round((pct / 100) * total).toLocaleString()}`;
+
   // --- back out ------------------------------------------------------------------------
   // Written by the Explore page on every scope change; absent on a deep link or a fresh tab.
   let backQs = $state('');
@@ -103,16 +122,52 @@
     weight_pct: number | null;
   };
   let standing = $state<Standing | null>(null);
+  /**
+   * Whether this game has a geek rating at all. Gates the two figures that are meaningless
+   * without one — the "top N%" under Geek rating, and the "#N of M rated games" ranks —
+   * while leaving the average, ratings-count and complexity percentiles to render, since
+   * those are true for an unrated game.
+   */
+  let isRanked = $state(false);
 
   const finite = (v: unknown) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
 
+  /**
+   * Discards a response whose game is no longer the one on screen. Without it a slow lookup
+   * for the game you just left can land after the next one's and print its rank here.
+   */
+  let standingToken = 0;
+
   $effect(() => {
+    /*
+     * Clear FIRST, on every run. `standing` is this game's rank and percentiles, so the
+     * moment the game changes the old numbers are wrong — and every `return` below is a path
+     * that used to leave them on screen. An unrated game (geek_rating = 0) navigated to from
+     * a rated one kept the previous game's "top 7%" and "#2,115 of 30,809 rated games" beside
+     * its own "—", attributing another game's standing to it.
+     */
+    standing = null;
+    isRanked = false;
+    const mine = ++standingToken;
+
     if (!g || catalog.status !== 'ready') return;
+    /*
+     * Zero is the warehouse's "not ranked yet", not a rating of zero. This used to return
+     * early, but that threw away percentiles the game genuinely has: an unrated game still
+     * has an average, a ratings count and a complexity, and "heavier than 60%" was true and
+     * useful on exactly the page that was hiding it. So the lookup still runs; `geekPos`
+     * below is what gets suppressed, because a rank among *rated* games is the one figure an
+     * unrated game cannot have.
+     */
     const geek = finite(g.geek);
-    if (geek == null || geek <= 0) return;
+    const ranked = geek != null && geek > 0;
+    isRanked = ranked;
+    /* -1 when unranked: the geek columns below still evaluate, but nothing downstream reads
+       them, and it keeps the SQL a single shape rather than two. */
+    const geekV = ranked ? geek : -1;
     const year = finite(g.year);
     const avg = finite(g.average) ?? -1;
     const rated = finite(g.ratings) ?? -1;
@@ -124,18 +179,24 @@
          / NULLIF(COUNT(*) FILTER (WHERE ${col} > 0), 0)`;
     query<Standing>(
       `SELECT
-         (COUNT(*) FILTER (WHERE geek_rating > ${geek}) + 1)::INT AS geek_pos,
+         (COUNT(*) FILTER (WHERE geek_rating > ${geekV}) + 1)::INT AS geek_pos,
          COUNT(*) FILTER (WHERE geek_rating > 0)::INT AS geek_n,
-         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geek}) + 1)::INT AS year_pos,
+         (COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > ${geekV}) + 1)::INT AS year_pos,
          COUNT(*) FILTER (WHERE year_published = ${year ?? -9999} AND geek_rating > 0)::INT AS year_n,
-         ${pct('geek_rating', geek)} AS geek_pct,
+         ${pct('geek_rating', geekV)} AS geek_pct,
          ${pct('average_rating', avg)} AS avg_pct,
          ${pct('users_rated', rated)} AS rated_pct,
          ${pct('average_weight', weight)} AS weight_pct
        FROM catalog WHERE users_rated >= 30`
     )
-      .then((r) => (standing = r[0] ?? null))
-      .catch((e) => console.error('standing lookup failed', e));
+      .then((r) => {
+        if (mine !== standingToken) return; // a newer game is on screen
+        standing = r[0] ?? null;
+      })
+      .catch((e) => {
+        if (mine !== standingToken) return;
+        console.error('standing lookup failed', e);
+      });
   });
 
   /** "top 4%" — and below 1% keep a decimal, or every elite game reads as an identical "top 0%". */
@@ -345,7 +406,9 @@
       <div class="stat">
         <div class="v tnum">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
-        {#if topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
+        <!-- Only when the game HAS a geek rating: a percentile among rated games is exactly
+             the figure an unrated game cannot have, and it printed beside its own "—". -->
+        {#if isRanked && topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
       </div>
       <div class="stat">
         <div class="v tnum">{num(pos(g.average))}</div>
@@ -365,7 +428,7 @@
         {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
         {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
       </div>
-      {#if standing}
+      {#if standing && isRanked}
         <!-- Two ranks, two lines. As one sentence the second half read as a subordinate
              clause of the first, when it's the more useful of the two for anything recent. -->
         <div class="ranks">
@@ -386,19 +449,51 @@
 
   <div class="cols">
     <div class="stack">
-      <!-- the differentiator, high on the page -->
-      <section class="card">
+      <!--
+        `order: 2` puts About above this. Player counts are the differentiator and were first
+        for that reason, but "what IS this game" has to come before "how does it play at
+        three" — you cannot evaluate the second answer without the first. Ordered in CSS
+        rather than moved in markup so the two blocks keep their `{#if}` guards intact.
+      -->
+      <section class="card" style:order="2">
         <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
         {#if g.playerCounts.length}
           <div class="pcs tnum">
             {#each g.playerCounts as p (p.count)}
-              <div class="pc" class:top={p.count === bestRow}>
+              <!-- `role="group"` is required by Svelte's a11y rule for a div carrying mouse
+                   handlers, and is correct here regardless: the row is a labelled set of
+                   related values, not decoration. -->
+              <div
+                class="pc"
+                class:top={p.count === bestRow}
+                class:hot={PC_HOVER && hover === p.count}
+                role="group"
+                onmouseenter={() => PC_HOVER && (hover = p.count)}
+                onmouseleave={() => PC_HOVER && (hover = null)}
+              >
                 <div class="n">{p.count}</div>
-                <div class="pc-bar" title="{p.count}: {num(p.best, 0)}% best, {num(p.recommended, 0)}% recommended">
+                <div class="pc-bar">
                   <i class="pc-best" style:width="{p.best}%"></i>
                   <i class="pc-rec" style:width="{p.recommended}%"></i>
                   <i class="pc-not" style:width="{p.notRecommended}%"></i>
+
+                  <!-- The percentages are on screen already; what the bars can't say is how
+                       many people each slice represents, which is the difference between a
+                       verdict and a rounding artefact. Rendered inline rather than as a `title`
+                       so it appears immediately and can carry three labelled rows. -->
                 </div>
+
+                <!-- Outside `.pc-bar`, which is `overflow: hidden` to clip its own segments and
+                     would clip this too. -->
+                {#if PC_HOVER && hover === p.count}
+                  <div class="tip" role="tooltip">
+                    <b>{p.count} {p.count === '1' ? 'player' : 'players'}</b>
+                    <span><i class="sw best"></i>Best <em>{votesOf(p.best, p.votes)}</em></span>
+                    <span><i class="sw rec"></i>Recommended <em>{votesOf(p.recommended, p.votes)}</em></span>
+                    <span><i class="sw not"></i>Not recommended <em>{votesOf(p.notRecommended, p.votes)}</em></span>
+                    <span class="tot">{int(p.votes)} votes cast</span>
+                  </div>
+                {/if}
                 <div class="pct">
                   {Math.round(p.best + p.recommended)}<small>%</small>
                   {#if p.votes}<span class="votes tnum">{int(p.votes)}</span>{/if}
@@ -430,7 +525,7 @@
       </section>
 
       {#if description}
-        <section class="card">
+        <section class="card" style:order="1">
           <p class="sub">About</p>
           <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
           {#if description.length > CLAMP_AT}
@@ -442,7 +537,10 @@
       {/if}
 
       {#if g.categories.length || g.mechanics.length || g.families.length}
-        <section class="card">
+        <!-- Last in the stack: the full facet wall is reference, read after you know what the
+             game is and how it plays. Explicit, because a card with no `order` defaults to 0
+             and would sort above the two that set one. -->
+        <section class="card" style:order="3">
           {#if g.categories.length}
             <p class="sub">Categories</p>
             <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
@@ -869,6 +967,8 @@
     grid-template-columns: 2rem 1fr 2.6rem;
     align-items: center;
     gap: 0.6rem;
+    /* Anchors the hover tooltip. */
+    position: relative;
   }
   .pc .n {
     font-weight: 600;
@@ -897,14 +997,73 @@
     display: block;
     height: 100%;
   }
+  /* The hovered row lifts slightly, so the tooltip is clearly attached to a bar rather than
+     floating over the card. */
+  .pc.hot .pc-bar {
+    outline: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
+  }
+
+  /* Anchored to the bar, not the pointer: the bar is the thing being asked about, and a
+     pointer-tracked tooltip on a 5px-tall target chases the cursor more than it informs. */
+  .tip {
+    position: absolute;
+    /* Aligned to where the bar starts, past the 2rem numeral column and its 0.6rem gap —
+       `left: 0` would pin it to the row's edge instead, beside the number. */
+    left: 2.6rem;
+    bottom: calc(100% + 0.2rem);
+    z-index: 20;
+    display: grid;
+    gap: 0.15rem;
+    min-width: 13rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.3);
+    font-size: 0.76rem;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+  .tip b {
+    color: var(--foreground);
+    font-weight: 650;
+    margin-bottom: 0.1rem;
+  }
+  .tip span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .tip em {
+    margin-left: auto;
+    font-style: normal;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .tip .sw {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    flex: none;
+  }
+  .tip .sw.best { background: var(--vote-best); }
+  .tip .sw.rec { background: var(--vote-rec); }
+  .tip .sw.not { background: var(--vote-not); }
+  .tip .tot {
+    margin-top: 0.2rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
   .pc-best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .pc-rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
   .pc-not {
-    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+    background: var(--vote-not);
   }
   .pc .pct {
     font-size: 0.76rem;
@@ -935,13 +1094,13 @@
     margin-right: 0.3rem;
   }
   .legend .sw.best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .legend .sw.rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
   .legend .sw.not {
-    background: color-mix(in oklch, var(--color-negative) 45%, var(--muted));
+    background: var(--vote-not);
   }
   .legend .note {
     margin-left: auto;
@@ -983,10 +1142,10 @@
     margin-right: 0.35rem;
   }
   .verdict .sw.best {
-    background: var(--color-positive);
+    background: var(--vote-best);
   }
   .verdict .sw.rec {
-    background: var(--chart-2);
+    background: var(--vote-rec);
   }
 
   .desc {
