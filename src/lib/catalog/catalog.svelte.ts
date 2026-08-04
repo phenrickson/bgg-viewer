@@ -11,6 +11,7 @@ import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url
 import wasmEh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
+import { recordLoad } from '$lib/landing/estimate';
 
 export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -38,6 +39,10 @@ let nameById = new Map<number, string>();
 
 async function doInit(): Promise<void> {
 	status = 'loading';
+	// What the landing page's "about N seconds" is built from. Measured here rather than
+	// asked of the server: this is the wait the USER experiences — build, transfer, wasm
+	// instantiate, insert and index, all of it — and no server-side number covers that.
+	const t0 = performance.now();
 	try {
 		const duckdb = await import('@duckdb/duckdb-wasm');
 		const bundle = await duckdb.selectBundle({
@@ -69,6 +74,7 @@ async function doInit(): Promise<void> {
 			})
 		);
 
+		recordLoad(performance.now() - t0);
 		status = 'ready';
 	} catch (e) {
 		error = e instanceof Error ? e.message : String(e);
