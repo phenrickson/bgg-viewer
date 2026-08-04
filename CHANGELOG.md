@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.4](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.3...bgg-viewer-v0.0.4) (2026-08-04)
+
+
+### Features
+
+* **predictions:** a room for sorting and surfacing upcoming games ([e1299a3](https://github.com/phenrickson/bgg-viewer/commit/e1299a33ae66ef6495b055a934a755679b165ef9))
+* **upcoming:** a menu row, and a detail page that shifts with the game ([b3d3e2e](https://github.com/phenrickson/bgg-viewer/commit/b3d3e2ebbf2c1a64c87cafa4166a16bca4fc49cf))
+
+
+### Bug Fixes
+
+* **predictions:** same encoding for a measure in both universes ([2412a18](https://github.com/phenrickson/bgg-viewer/commit/2412a1845803b205fcf5454e8df26775a5725b42))
+
 ## [0.0.3](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.2...bgg-viewer-v0.0.3) (2026-08-04)
 
 
