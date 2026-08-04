@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.0.3](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.2...bgg-viewer-v0.0.3) (2026-08-04)
+
+
+### Features
+
+* **ci:** build landing content from BigQuery before the image ([d87bf52](https://github.com/phenrickson/bgg-viewer/commit/d87bf5245fa732004e23f705afdb691a6906ef22))
+* **landing:** name games on the clouds, and make the columns argue a point ([2f0e978](https://github.com/phenrickson/bgg-viewer/commit/2f0e978137cb669e4a621d3bd676c9ccd842d512))
+* **landing:** quote the wait from this browser's own past loads ([4017848](https://github.com/phenrickson/bgg-viewer/commit/4017848b05196be4815517754d6eaa06ad90081a))
+* **landing:** warm-gap sections down the foot of the landing page ([b1ac55c](https://github.com/phenrickson/bgg-viewer/commit/b1ac55cba3cf29b12a049a3db935d916d9b77f21))
+
+
+### Bug Fixes
+
+* **landing:** restore the space above the Explore door ([495f960](https://github.com/phenrickson/bgg-viewer/commit/495f9601fec168b2f600cc93ff6226fe4e739708))
+* **landing:** stratify the scatter samples, and stop the charts overclaiming ([ecbc9d9](https://github.com/phenrickson/bgg-viewer/commit/ecbc9d96a1c6461ba0093491c8fb681d27041be7))
+
 ## [0.0.2](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.1...bgg-viewer-v0.0.2) (2026-08-03)
 
 
