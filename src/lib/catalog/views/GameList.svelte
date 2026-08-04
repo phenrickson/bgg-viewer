@@ -87,7 +87,7 @@
     { key: 'geek', label: 'P. Geek', align: 'l', sql: 'predicted_geek_rating', hint: 'predicted geek rating', domain: `${PRED_GEEK_LO}–${PRED_GEEK_HI}` },
     { key: 'rating', label: 'P. Avg', align: 'r', sql: 'predicted_rating', hint: 'predicted average rating' },
     { key: 'weight', label: 'P. Complexity', align: 'l', sql: 'predicted_complexity', hint: 'predicted weight, 1–5', domain: '1–5' },
-    { key: 'hurdle', label: 'P(hurdle)', align: 'l', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating', domain: '0–100%' },
+    { key: 'hurdle', label: 'P(hurdle)', align: 'r', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating' },
     { key: 'rated', label: 'P. Ratings', align: 'r', sql: 'predicted_users_rated' }
   ];
   const COLS = $derived(upcoming ? COLS_UPCOMING : COLS_RATED);
@@ -201,6 +201,7 @@
     if (pc < 10) return `${pc.toFixed(1)}%`;
     return `${Math.round(pc)}%`;
   }
+  /** Fill of the predicted-geek bar, as a percentage of its stated domain. */
   const pct = (v: number | null, lo: number, hi: number) =>
     v == null ? 0 : Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
 
@@ -228,7 +229,7 @@
 </div>
 
 <div class="listwrap">
-  <div class="head row">
+  <div class="head row" class:pred={upcoming}>
     <span class="rk">#</span>
     {#each COLS as c (c.key)}
       <span class="c-{c.key}" class:r={c.align === 'r'}>
@@ -245,7 +246,7 @@
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
-      <a class="row" href="/games/{r.game_id}">
+      <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
 
         <span class="c-name">
@@ -256,12 +257,12 @@
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
 
         {#if upcoming}
-          <!-- One hue for every mark, held back toward muted, and two shapes for two jobs.
-               `.fill` is a magnitude growing from the track's start — predicted geek, which
-               the app already draws this way, and P(hurdle), a literal 0–1 probability.
-               `.scale` is a POSITION on a low→high band: complexity is 1–5 from light to
-               heavy, and a fill would read it as "3.4 out of 5" against a cap that is not
-               one. No status colours — a 43% hurdle is a fact, not an error. -->
+          <!-- Each cell wears the encoding its rated twin already wears, so a reader learns
+               each measure once: a bar for the rating, the five-segment meter for complexity.
+               The only thing that changes between universes is which column is read. The bar's
+               domain is the exception, and it is stated in the header rather than assumed —
+               `RatingBar`'s 5.5–8.8 was set against a catalog that reaches 8.7, and this
+               population tops out at 6.93. -->
           <span class="c-geek">
             <span class="pv tnum">{num(r.predicted_geek_rating)}</span>
             <span class="fill" aria-hidden="true"
@@ -271,21 +272,26 @@
 
           <span class="c-rating r tnum dim">{num(r.predicted_rating)}</span>
 
-          <span class="c-weight pred">
-            <span class="pv tnum">{num(r.predicted_complexity, 1)}</span>
-            <span class="scale" aria-hidden="true">
-              {#if r.predicted_complexity != null}
-                <i style:left="{pct(r.predicted_complexity, 1, 5)}%"></i>
-              {/if}
+          <!-- The SAME five-segment meter the rated universe uses, pointed at the predicted
+               column. It is the same measure on the same 1-5 scale, so it gets the same
+               encoding — a second one invented for this room would mean a reader had to
+               learn complexity twice. -->
+          <span class="c-weight">
+            <span class="meter" aria-hidden="true">
+              {#each [0, 1, 2, 3, 4] as i (i)}
+                <i><b style:width="{segPct(r.predicted_complexity, i)}%"></b></i>
+              {/each}
             </span>
+            <span class="wv tnum">{num(r.predicted_complexity, 1)}</span>
           </span>
 
-          <span class="c-hurdle">
-            <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
-            <span class="fill" aria-hidden="true"
-              ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
-            >
-          </span>
+          <!-- A number, not a mark. Sorted by predicted geek — the default, and the sort
+               this column is usually read under — every visible hurdle sits between 86% and
+               100%, because geek rating is shrunk toward the mean by ratings volume and
+               nothing ranks high without expecting plenty of them. A track drawing "full"
+               a hundred times running discriminates nothing while holding ~5rem that the
+               game's own name and publisher were being truncated to afford. -->
+          <span class="c-hurdle r tnum dim">{probText(r.predicted_hurdle_prob)}</span>
 
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
@@ -566,36 +572,19 @@
     border-radius: 0 2px 2px 0;
     background: color-mix(in oklch, var(--chart-1) 60%, var(--muted-foreground));
   }
-  /* A POSITION on a low→high band, for a value whose scale has no zero to grow from. */
-  .scale {
-    display: block;
-    position: relative;
-    height: 9px;
-  }
-  .scale::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    height: 3px;
-    margin-top: -1.5px;
-    border-radius: 2px;
-    background: color-mix(in oklch, var(--border) 55%, transparent);
-  }
-  .scale i {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    border-radius: 1px;
-    transform: translateX(-50%);
-    background: color-mix(in oklch, var(--chart-1) 60%, var(--muted-foreground));
-  }
-  /* The rated complexity cell is a flex row (meter beside its number); the predicted one
-     stacks the number over its track like the geek and hurdle cells beside it. */
-  .c-weight.pred {
-    display: block;
+  /* The upcoming grid differs from the rated one in a single slot: `Best at` carries six
+     numerals and their emphasis, P(hurdle) carries "97%". Narrowing it and spending the
+     surplus on the name is what stops "Industry / Manufacturin…" mid-word. */
+  .row.pred {
+    grid-template-columns:
+      minmax(2.4rem, 0.25fr)
+      minmax(11rem, 4.1fr)
+      minmax(3rem, 0.45fr)
+      minmax(4.6rem, 0.7fr)
+      minmax(2.8rem, 0.45fr)
+      minmax(5.2rem, 0.9fr)
+      minmax(3.4rem, 0.4fr)
+      minmax(4.4rem, 0.6fr);
   }
   .head .dom {
     display: block;
@@ -625,6 +614,15 @@
         minmax(4.6rem, 0.7fr)
         minmax(5.2rem, 0.9fr)
         minmax(5.6rem, 0.9fr);
+    }
+    .row.pred {
+      grid-template-columns:
+        minmax(2.4rem, 0.25fr)
+        minmax(8rem, 4.1fr)
+        minmax(3rem, 0.45fr)
+        minmax(4.6rem, 0.7fr)
+        minmax(5.2rem, 0.9fr)
+        minmax(3.4rem, 0.4fr);
     }
     .c-rating,
     .c-rated {
