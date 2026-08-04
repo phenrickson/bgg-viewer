@@ -40,27 +40,42 @@ const q = async (sql) => (await bq.query({ query: sql }))[0];
 const num = (v) => (v == null ? null : Number(v));
 
 /**
- * Deterministic sample — FARM_FINGERPRINT so a rebuild with unchanged data is byte-stable.
+ * A sample of the catalog STRATIFIED ACROSS RATINGS: order every game by average rating, then
+ * take every k-th one. Systematic rather than random, which buys three things at once —
  *
- * `name` and `pop` come along for the ride so `label()` can pick recognisable games to call
- * out. They are dropped from `points` and survive only on the handful of annotations, so they
- * cost a few hundred bytes rather than 500 names.
+ *   - the sample's rating distribution matches the population's exactly, so the cloud is a
+ *     faithful miniature rather than a lucky draw;
+ *   - the full range is covered, tails included, instead of a uniform draw thinning out
+ *     precisely where the interesting games are;
+ *   - it is deterministic, so a rebuild on unchanged data produces byte-identical output.
  *
- * The most-rated games are UNION'd in and deduped, because a uniform random sample of 500 out
- * of ~31k almost never contains Catan or Gloomhaven — so every label would be a game nobody
- * recognises, which defeats the point of labelling.
+ * Only x and y are selected. Names live on the annotations (see `notable`) and nowhere else,
+ * so 500 points cost 500 number pairs rather than 500 strings.
  */
 const sample = (cols, where) => `
 	WITH pool AS (
-	  SELECT ${cols}, name, users_rated AS pop, game_id FROM ${F}
+	  SELECT ${cols},
+	         ROW_NUMBER() OVER (ORDER BY average_rating, game_id) AS rn,
+	         COUNT(*) OVER () AS total
+	  FROM ${F}
 	  WHERE ${WORKING} AND ${where}
-	),
-	-- Separate CTEs rather than two ORDER BY ... LIMIT selects either side of the UNION:
-	-- BigQuery rejects an unparenthesised ORDER BY directly before a set operator.
-	rnd AS (SELECT * FROM pool ORDER BY FARM_FINGERPRINT(CAST(game_id AS STRING)) LIMIT ${SAMPLE}),
-	famous AS (SELECT * FROM pool ORDER BY pop DESC LIMIT 60),
-	picked AS (SELECT * FROM rnd UNION DISTINCT SELECT * FROM famous)
-	SELECT * EXCEPT (game_id) FROM picked`;
+	)
+	SELECT x, y FROM pool
+	WHERE MOD(rn, GREATEST(1, CAST(DIV(total, ${SAMPLE}) AS INT64))) = 0`;
+
+/**
+ * The games to NAME on a cloud — queried separately, and deliberately not part of `points`.
+ *
+ * An earlier version unioned the 60 most-rated games into the plotted sample so the labels
+ * would be recognisable. That worked and was wrong: ~10% of every cloud became the most
+ * popular games, which skew better-rated, so a plot described as the whole catalog was a
+ * sample biased toward hits. Annotations are drawn as their own marks on top of the cloud,
+ * so they never needed to be in it.
+ */
+const notable = (cols, where) => `
+	SELECT ${cols}, name, users_rated AS pop FROM ${F}
+	WHERE ${WORKING} AND ${where}
+	ORDER BY users_rated DESC LIMIT 250`;
 
 /**
  * Pick the games to name on a cloud.
@@ -89,14 +104,14 @@ const label = (rows, n = 6) => {
 		.map((r) => ({ x: Number(r.x), y: Number(r.y), label: r.name }));
 };
 
-const scatter = (title, note, xLabel, yLabel, rows, opts = {}) => ({
+const scatter = (title, note, xLabel, yLabel, [rows, named], opts = {}) => ({
 	kind: 'scatter',
 	title,
 	note,
 	xLabel,
 	yLabel,
 	points: rows.map((r) => [Number(r.x), Number(r.y)]),
-	annotations: label(rows),
+	annotations: label(named),
 	...opts
 });
 
@@ -133,6 +148,9 @@ const bars = (title, note, xLabel, yLabel, rows) => ({
 	bars: rows.map((r) => ({ label: r.label, value: Number(r.n) }))
 });
 
+/** The cloud and its labels, fetched together — they always come as a pair. */
+const pair = (cols, where) => Promise.all([q(sample(cols, where)), q(notable(cols, where))]);
+
 /** Top N values of a repeated string column — the facets this app exists to query by. */
 const topOf = (col, n) => `
 	SELECT x AS label, COUNT(*) AS n
@@ -157,12 +175,12 @@ const [
 	featuredRows,
 	statsRows
 ] = await Promise.all([
-	q(sample('ROUND(average_weight,2) AS x, ROUND(average_rating,2) AS y', 'average_weight > 0 AND average_rating > 0')),
-	q(sample('ROUND(average_rating,2) AS x, ROUND(geek_rating,2) AS y', 'geek_rating > 0 AND average_rating > 0')),
-	q(sample('users_rated AS x, ROUND(geek_rating,2) AS y', 'geek_rating > 0')),
+	pair('ROUND(average_weight,2) AS x, ROUND(average_rating,2) AS y', 'average_weight > 0 AND average_rating > 0'),
+	pair('ROUND(average_rating,2) AS x, ROUND(geek_rating,2) AS y', 'geek_rating > 0 AND average_rating > 0'),
+	pair('users_rated AS x, ROUND(geek_rating,2) AS y', 'geek_rating > 0'),
 	// `max_playtime` is the upper bound of the stated range — there is no single
 	// `playing_time` column on games_features.
-	q(sample('max_playtime AS x, ROUND(average_weight,2) AS y', 'average_weight > 0 AND max_playtime BETWEEN 10 AND 300')),
+	pair('max_playtime AS x, ROUND(average_weight,2) AS y', 'average_weight > 0 AND max_playtime BETWEEN 10 AND 300'),
 
 	q(`SELECT year_published AS v, COUNT(*) AS n FROM ${F}
 	   WHERE ${WORKING} AND year_published BETWEEN 1990 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
@@ -171,8 +189,14 @@ const [
 	q(`SELECT ROUND(average_rating*2)/2 AS v, COUNT(*) AS n FROM ${F}
 	   WHERE ${WORKING} AND average_rating > 0 GROUP BY v ORDER BY v`),
 
+	// `num_weights >= 5` is load-bearing. Without it the peak lands on 1.00 -- the FLOOR of
+	// BGG's 1-5 scale -- where 51% of the games have three or fewer weight votes. That is a
+	// boundary pile-up of thinly-rated games, not a community preference, and the chart
+	// confidently explained it as one. games/[id]/+page.server.ts already carries a comment
+	// about exactly this trap; this query had walked straight into it.
 	q(`SELECT ROUND(average_weight*4)/4 AS v, COUNT(*) AS n FROM ${F}
-	   WHERE ${WORKING} AND average_weight > 0 GROUP BY v ORDER BY v`),
+	   WHERE ${WORKING} AND average_weight > 0 AND num_weights >= 5
+	   GROUP BY v ORDER BY v`),
 
 	// The flagship feature: which player count a game is BEST at. BGG cannot query this.
 	q(`SELECT SAFE_CAST(TRIM(x) AS INT64) AS v, COUNT(*) AS n
@@ -210,7 +234,7 @@ const stats = statsRows[0];
 const vizzes = [
 	scatter(
 		'Complexity against rating',
-		'PLACEHOLDER — every rated game, community weight on the x axis and average rating on the y.',
+		'PLACEHOLDER — a sample of the catalog stratified across ratings; named games are called out on top.',
 		'Complexity',
 		'Average rating',
 		weightRating
@@ -247,7 +271,7 @@ const vizzes = [
 		bestAt,
 		1,
 		0,
-		(v, n, pct) => `PLACEHOLDER — ${v} players is the most common sweet spot: ${n.toLocaleString()} games, ${pct}% of every best-at vote in the catalog.`
+		(v, n, pct, total) => `PLACEHOLDER — ${v} players is the most common sweet spot: ${n.toLocaleString()} games are best at it, more than any other count.`
 	),
 	bars(
 		'The most common categories',
@@ -268,7 +292,7 @@ const vizzes = [
 	),
 	scatter(
 		'Popularity against rating',
-		'PLACEHOLDER — how many people rated a game against how it scores. Note the log scale.',
+		'PLACEHOLDER — how many people rated a game against how it scores. Note the log scale on the left.',
 		'Ratings',
 		'Geek rating',
 		popularityQuality,
@@ -291,11 +315,11 @@ const vizzes = [
 		weightDist,
 		4,
 		2,
-		(v, n, pct) => `PLACEHOLDER — ${v.toFixed(2)} is the most common weight, ${pct}% of the catalog. Community weights cluster hard on round numbers.`
+		(v, n, pct) => `PLACEHOLDER — ${v.toFixed(2)} is the most common weight, ${pct}% of games with a settled complexity score.`
 	),
 	scatter(
 		'Playing time against complexity',
-		'PLACEHOLDER — stated playing time against community weight.',
+		'PLACEHOLDER — stated playing time against community weight, over a sample stratified across ratings.',
 		'Minutes',
 		'Complexity',
 		timeWeight

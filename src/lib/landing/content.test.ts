@@ -57,16 +57,36 @@ describe('content.json', () => {
 		}
 	});
 
-	it('every annotated point sits inside the plotted range', () => {
+	it('no annotation stretches its axis far enough to squash the cloud', () => {
+		/*
+		 * Annotations are NOT drawn from the plotted sample — the cloud is stratified across
+		 * ratings, the labels are chosen for recognition — so a named game legitimately sits
+		 * outside the sample's range (Monopoly's 4.29 geek rating against a sample floor of
+		 * 5.32). `Scatter` widens its domain to include them rather than clipping them.
+		 *
+		 * What must not happen is a label so far out that the cloud collapses into a corner.
+		 * Measured in the space the chart actually scales in, so a log axis is judged on its
+		 * logged span — raw, the popularity axis "stretches" 136%; logged, it is 8%.
+		 */
+		const span = (vals: number[], log: boolean) => {
+			const t = log ? vals.map((v) => Math.log10(Math.max(1, v))) : vals;
+			return [Math.min(...t), Math.max(...t)] as const;
+		};
+
 		for (const v of landing.vizzes) {
 			if (v.kind !== 'scatter') continue;
-			const xs = v.points.map((p) => p[0]);
-			const ys = v.points.map((p) => p[1]);
-			for (const a of v.annotations ?? []) {
-				expect(a.x, `${v.title}: ${a.label}`).toBeGreaterThanOrEqual(Math.min(...xs));
-				expect(a.x, `${v.title}: ${a.label}`).toBeLessThanOrEqual(Math.max(...xs));
-				expect(a.y, `${v.title}: ${a.label}`).toBeGreaterThanOrEqual(Math.min(...ys));
-				expect(a.y, `${v.title}: ${a.label}`).toBeLessThanOrEqual(Math.max(...ys));
+			for (const [axis, i, log] of [
+				['x', 0, !!v.xLog],
+				['y', 1, !!v.yLog]
+			] as const) {
+				const pts = v.points.map((p) => p[i]);
+				const anns = (v.annotations ?? []).map((a) => (i === 0 ? a.x : a.y));
+				if (!anns.length) continue;
+
+				const [plo, phi] = span(pts, log);
+				const [alo, ahi] = span([...pts, ...anns], log);
+				const growth = (ahi - alo) / (phi - plo) - 1;
+				expect(growth, `${v.title} ${axis}`).toBeLessThan(0.5);
 			}
 		}
 	});

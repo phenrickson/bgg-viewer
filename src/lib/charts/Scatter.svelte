@@ -110,6 +110,22 @@
         if (p.c > c1) c1 = p.c;
       }
     }
+    /*
+     * Annotations widen the domain. They are frequently NOT drawn from the plotted sample —
+     * a cloud may be a stratified sample while the named points are chosen for recognition —
+     * so a called-out game can sit outside the sample's own range. Left out of the extent it
+     * would be scaled off the plot and silently clipped by the svg's `overflow: hidden`:
+     * Monopoly's 4.29 geek rating against a sample floor of 5.32 was exactly this.
+     */
+    for (const a of annotations) {
+      const ax = tx(a.x);
+      const ay = ty(a.y);
+      if (ax < x0) x0 = ax;
+      if (ax > x1) x1 = ax;
+      if (ay < y0) y0 = ay;
+      if (ay > y1) y1 = ay;
+    }
+
     return { x0, x1, y0, y1, c0, c1, hasC: c0 <= c1 };
   });
 
