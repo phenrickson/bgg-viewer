@@ -50,7 +50,6 @@
   .doc-h h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 .35rem; text-wrap: balance; }
   .doc-h p { margin: 0; color: var(--muted-foreground); max-width: 52rem; }
   .doc-h p + p { margin-top: .5rem; }
-  .doc-h b { color: var(--foreground); font-weight: 600; }
   .part { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .12em; color: var(--primary); font-weight: 700; margin: 3rem 0 .2rem; }
   .screen-label { display: flex; align-items: baseline; gap: .6rem; margin: 1.4rem 0 var(--space-md); flex-wrap: wrap; }
   .screen-label h2 { font-size: 1.15rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
@@ -62,7 +61,6 @@
   .note p { margin: 0; font-size: 0.85rem; color: var(--muted-foreground); }
   .note p + p { margin-top: .45rem; }
   .note b { color: var(--foreground); font-weight: 600; }
-  .note em { color: var(--foreground); font-style: italic; }
   .k { font: 0.82em ui-monospace, "Cascadia Code", Menlo, monospace; background: var(--muted); padding: .05rem .3rem; border-radius: 4px; }
 
   .chrome { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 12px 30px oklch(0 0 0 / 0.06); background: var(--background); }
@@ -81,10 +79,13 @@
   .nav a.soon::after { content: "soon"; font-size: 0.6rem; text-transform: uppercase; letter-spacing: .05em; margin-left: .3rem; color: var(--primary); vertical-align: super; }
   .spacer { flex: 1; }
 
-  .phead { padding: var(--space-lg) var(--space-lg) 0; }
-  .phead h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 .2rem; }
-  .phead p { margin: 0; font-size: 0.86rem; color: var(--muted-foreground); }
-  .phead .ph { color: var(--primary); font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; vertical-align: 2px; }
+  /* ---- provenance line (both layouts) ---- */
+  .prov { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; padding: var(--space-md) var(--space-lg) 0; font-size: 0.8rem; color: var(--muted-foreground); }
+  .prov b { color: var(--foreground); font-weight: 600; }
+  .prov .sep { opacity: .45; }
+  .prov details { display: inline; }
+  .prov summary { display: inline; cursor: pointer; color: var(--primary); list-style: none; }
+  .prov summary::-webkit-details-marker { display: none; }
 
   /* ---- rail (layout A) ---- */
   .work { display: grid; grid-template-columns: 14rem 1fr; }
@@ -108,86 +109,87 @@
   .facet.on i { background: var(--primary); border-color: var(--primary); }
   .facet .n { margin-left: auto; font-size: 0.72rem; opacity: .7; }
   .typeahead { display: block; width: 100%; font-size: 0.8rem; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); border-radius: 7px; padding: .3rem .5rem; }
-  .bandrow { display: flex; flex-wrap: wrap; gap: .3rem; }
-  .band { font-size: 0.74rem; border: 1px solid var(--border); border-radius: 999px; padding: .12rem .5rem; color: var(--muted-foreground); }
 
   /* ---- filter bar (layout B) ---- */
-  .fbar { display: flex; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--card); margin-top: var(--space-lg); }
-  .fld { display: flex; flex-direction: column; gap: .3rem; }
+  .fbar { display: flex; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--border); background: var(--card); }
+  .fld { display: flex; flex-direction: column; gap: .3rem; min-width: 8rem; }
   .fld > label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; }
-  .sel { font-size: 0.85rem; background: var(--background); border: 1px solid var(--border); border-radius: 7px; padding: .3rem .6rem; color: var(--foreground); display: flex; align-items: center; gap: .5rem; min-width: 8rem; }
+  .sel { font-size: 0.85rem; background: var(--background); border: 1px solid var(--border); border-radius: 7px; padding: .3rem .6rem; color: var(--foreground); display: flex; align-items: center; gap: .5rem; }
   .sel .caret { margin-left: auto; opacity: .5; font-size: .7rem; }
-  .fbar .slider { min-width: 10rem; margin: 0 0 .15rem; }
+  .fbar .slider { min-width: 11rem; margin: 0 0 .15rem; }
 
+  /* ---- canvas header ---- */
   .canvas-h { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; padding: var(--space-md) var(--space-lg) 0; }
-  .count { font-size: 0.9rem; }
+  .count { font-size: 0.95rem; }
   .count b { font-weight: 700; }
   .count .dim { color: var(--muted-foreground); font-weight: 400; font-size: 0.85rem; }
+  .chips { display: flex; gap: .4rem; flex-wrap: wrap; margin-left: auto; }
+  .chip { font-size: 0.74rem; border: 1px solid var(--border); background: var(--muted); border-radius: 999px; padding: .15rem .3rem .15rem .55rem; color: var(--foreground); display: inline-flex; align-items: center; gap: .35rem; }
+  .chip em { font-style: normal; color: var(--muted-foreground); }
+  .chip s { text-decoration: none; opacity: .5; padding: 0 .25rem; }
 
-  /* =================== THE TABLE ===================
-     One mark, one hue, one geometry — and it lives on the SORT COLUMN only.
-     Re-sort and the mark travels, because its job is "this is the axis you are
-     reading by", not decoration. Every other number is plain and right-aligned. */
+  /* ---- the list ---- */
   .listwrap { padding: var(--space-md) var(--space-lg) var(--space-lg); }
-  .tbl { display: grid;
-    grid-template-columns: 2.2rem minmax(11rem, 1fr) 3.2rem 5.2rem 4.4rem 5.6rem 4.8rem 5.2rem;
-    align-items: stretch; }
-  .tbl > * { padding: .5rem .5rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
-  .tbl > .hd { padding-bottom: .3rem; font-size: 0.66rem; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--muted-foreground); font-weight: 600; justify-content: flex-end; cursor: pointer; }
-  .tbl > .hd.sorted { color: var(--foreground); }
-  .tbl > .hd .dom { display: block; font-size: 0.62rem; letter-spacing: 0; text-transform: none; opacity: .65; font-weight: 400; }
-  .r { text-align: right; align-items: flex-end; }
-  .l { text-align: left; align-items: flex-start; }
+  .bar { display: flex; align-items: baseline; gap: .6rem; font-size: 0.8rem; color: var(--muted-foreground); padding-bottom: .5rem; }
+  .bar b { color: var(--foreground); }
+  .pager { margin-left: auto; display: flex; gap: .3rem; align-items: center; }
+  .pager span, .pager i { font-size: 0.76rem; border: 1px solid var(--border); border-radius: 6px; padding: .12rem .45rem; font-style: normal; }
+  .pager i.off { opacity: .4; }
 
-  /* Row hover: the whole row is one link target, so the surface responds as one. */
-  .tbl > .cell { position: relative; }
-  .tbl:hover .rowlink { --hov: 0; }
-  .rowlink { display: contents; }
+  .row { display: grid; grid-template-columns: 2.4rem minmax(11rem, 1fr) 3.2rem 5.4rem 3.4rem 5.6rem 5.2rem 4.6rem;
+    gap: .7rem; align-items: center; padding: .5rem .3rem; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit; }
+  .row.head { border-bottom: 1px solid var(--border); padding-bottom: .35rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; align-items: end; }
+  .row.head .on { color: var(--primary); }
+  .r { text-align: right; }
+  .rk { color: var(--muted-foreground); font-size: 0.82rem; text-align: right; }
+  .nm { display: block; font-weight: 550; font-size: 0.92rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mt { display: block; font-size: 0.76rem; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: .1rem; }
+  .yr { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
-  .rk { color: var(--muted-foreground); font-size: 0.8rem; }
-  .nm { font-weight: 550; font-size: 0.92rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-  .mt { font-size: 0.76rem; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; margin-top: .08rem; }
+  /* ONE mark treatment for every column that carries one. Geometry, height, colour and
+     the number above it are identical in all three — the columns differ by their header
+     and their position, which is already enough. Three shapes in three hues read as
+     three unrelated things; they are all "a number on a scale".
 
-  /* Plain numeric cell — the default. */
-  .v { font-size: 0.86rem; color: var(--muted-foreground); }
-  .v.faint { opacity: .6; }
+     The fill is one hue held well back: these support the digits, they don't compete
+     with them. At 22 rows x 3 columns, saturated marks are 66 pieces of colour per
+     screen. */
+  .gv, .hv, .wv { display: block; font-size: 0.85rem; font-weight: 600; line-height: 1.15; }
+  .gbar, .hbar, .wbar { display: block; height: 3px; border-radius: 2px;
+    background: color-mix(in oklch, var(--border) 55%, transparent); overflow: hidden; }
+  .gbar i, .hbar i, .wbar i { display: block; height: 100%; border-radius: 0 2px 2px 0;
+    background: color-mix(in oklch, var(--chart-1) 55%, var(--muted-foreground)); }
+  .av { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
-  /* The one marked cell. Number sits above its own bar, left-aligned over the bar's
-     baseline — the same choice Explore's GameList already makes for its Geek column. */
-  .mk { gap: .16rem; }
-  .mk .mv { font-size: 0.92rem; font-weight: 650; color: var(--foreground); line-height: 1.1; }
-  .mk .bar { width: 100%; height: 3px; border-radius: 2px; overflow: hidden;
-    background: color-mix(in oklch, var(--border) 70%, transparent); }
-  /* Square at the baseline, rounded at the data end. */
-  .mk .bar > i { display: block; height: 100%; background: var(--chart-1); border-radius: 0 2px 2px 0; }
+  .row.weak .hv { color: var(--negative); }
+  .nn { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
-  .foot { display: flex; align-items: baseline; gap: .6rem; padding-top: var(--space-md); font-size: 0.78rem; color: var(--muted-foreground); }
-  .foot b { color: var(--foreground); }
-  .foot .pager { margin-left: auto; display: flex; gap: .3rem; align-items: center; }
-  .foot .pager span, .foot .pager i { font-size: 0.76rem; border: 1px solid var(--border); border-radius: 6px; padding: .12rem .45rem; font-style: normal; }
-  .foot .pager i.off { opacity: .4; }
-  .prov { padding: 0 var(--space-lg) var(--space-lg); font-size: 0.76rem; color: var(--muted-foreground); }
-  .prov b { color: var(--foreground); font-weight: 600; }
-  .prov .sep { opacity: .45; }
+  /* ---- row anatomy / domain comparison ---- */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); margin-top: var(--space-md); }
+  @media (max-width: 820px) { .cmp { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); }
+  .panel h3 { margin: 0 0 .2rem; font-size: 0.95rem; font-weight: 650; }
+  .panel .sub { margin: 0 0 var(--space-md); font-size: 0.8rem; color: var(--muted-foreground); }
+  .drow { display: grid; grid-template-columns: 1fr 5.4rem; gap: .7rem; align-items: center; padding: .3rem 0; border-bottom: 1px solid var(--border); }
+  .drow:last-child { border-bottom: 0; }
+  .dname { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .sorts { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: var(--space-lg); margin-top: var(--space-md); }
-  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); overflow: hidden; }
-  .panel h3 { margin: 0 0 .2rem; font-size: 0.9rem; font-weight: 650; }
-  .panel .sub { margin: 0 0 var(--space-md); font-size: 0.78rem; color: var(--muted-foreground); }
-  .panel .tbl { grid-template-columns: 1.6rem minmax(7rem, 1fr) 4.6rem; }
-  .panel .tbl > * { padding: .32rem .35rem; }
+  table.legend { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: var(--space-md); }
+  table.legend th, table.legend td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.legend th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; }
+  table.legend td.y { color: var(--positive); font-weight: 600; }
+  table.legend td.n { color: var(--negative); font-weight: 600; }
 </style>
 
 <div class="wrap">
   <div class="doc-h">
     <p class="eyebrow">bgg-viewer · design mockup</p>
-    <h1>The Predictions room — a natural way to sort and surface upcoming games</h1>
-    <p>A sortable table of upcoming games with all five model outputs as columns. <b>One</b> visual mark, in
-      <b>one</b> hue, on <b>one</b> column — the one you are sorting by. Re-sort and it travels, because its job
-      is "this is the axis you're reading by," not decoration.</p>
-    <p>Real data: the top 22 of 4,347 games published 2026. Nothing is curated.</p>
-    <p>The layout question: <b>rail or filter bar</b>.</p>
+    <h1>The Predictions room — sorting and examining upcoming games</h1>
+    <p>Two candidate layouts for <span class="k">/predictions</span>, rendered against <b>real data</b>: the top 22 of
+      4,347 games published 2026, ordered by predicted geek rating. Nothing here is curated — the odd rows are the
+      real ones.</p>
+    <p>The question this is meant to settle: <b>rail or filter bar</b>. Part 3 covers the row itself and the one
+      encoding that does not survive the move from Explore.</p>
     <p><b>All copy is PLACEHOLDER.</b> Phil writes the final strings.</p>
   </div>
 
@@ -200,7 +202,7 @@
 
   <div class="chrome">
     <div class="chrome-bar"><div class="dots"><i></i><i></i><i></i></div>
-      <div class="addr">bgg-viewer.app/predictions?year=2026&amp;sort=geek</div></div>
+      <div class="addr">bgg-viewer.app/predictions?year=2026&amp;hurdle=0.25</div></div>
     <div class="appbar">
       <span class="brand">bgg<b>·</b>viewer</span>
       <nav class="nav"><a href="#">Home</a><a href="#">Discover</a><a href="#">Explore</a><a class="active" href="#">Predictions</a><a class="soon" href="#">Similarity</a></nav>
@@ -211,165 +213,183 @@
       <aside class="rail">
         <p class="rail-h">Year</p>
         <div class="seg"><button class="on">2026</button><button>2027</button><button>2028</button></div>
-        <p class="rail-h">Complexity</p>
-        <div class="bandrow"><span class="band">Light</span><span class="band">Med-Light</span><span class="band">Medium</span><span class="band">Med-Heavy</span><span class="band">Heavy</span></div>
-        <p class="rail-h">Players</p>
-        <div class="bandrow"><span class="band">1</span><span class="band">2</span><span class="band">3</span><span class="band">4</span><span class="band">5</span><span class="band">6+</span></div>
-        <p class="rail-h">Category</p>
-        <label class="facet on"><i></i>Card Game<span class="n">612</span></label>
-        <label class="facet"><i></i>Fantasy<span class="n">548</span></label>
-        <label class="facet"><i></i>Science Fiction<span class="n">331</span></label>
-        <label class="facet"><i></i>Economic<span class="n">204</span></label>
-        <p class="rail-h">Publisher</p>
-        <div class="typeahead">Search publishers…</div>
-        <p class="rail-h">Designer</p>
-        <div class="typeahead">Search designers…</div>
+
         <p class="rail-h">Min P(hurdle)</p>
         <div class="slider">
           <div class="track"><i style="right:75%"></i><b style="left:25%"></b></div>
           <div class="slider-lbl"><span>0</span><b>0.25</b><span>1</span></div>
         </div>
+
+        <p class="rail-h">Category</p>
+        <label class="facet on"><i></i>Card Game<span class="n">612</span></label>
+        <label class="facet"><i></i>Fantasy<span class="n">548</span></label>
+        <label class="facet"><i></i>Science Fiction<span class="n">331</span></label>
+        <label class="facet"><i></i>Economic<span class="n">204</span></label>
+        <label class="facet"><i></i>Exploration<span class="n">198</span></label>
+
+        <p class="rail-h">Mechanic</p>
+        <label class="facet"><i></i>Hand Management<span class="n">704</span></label>
+        <label class="facet"><i></i>Dice Rolling<span class="n">466</span></label>
+        <label class="facet"><i></i>Set Collection<span class="n">389</span></label>
+
+        <p class="rail-h">Publisher</p>
+        <div class="typeahead">Search publishers…</div>
+
+        <p class="rail-h">Designer</p>
+        <div class="typeahead">Search designers…</div>
       </aside>
 
       <main>
-        <div class="phead">
-          <h1>Coming in 2026 <span class="ph">placeholder</span></h1>
-          <p>4,347 games announced for 2026.</p>
-        </div>
+        <p class="prov">
+          <b>4,347</b> games scored <span class="sep">·</span> last scored <b>2026-08-01</b>
+          <span class="sep">·</span> models fitted through <b>2024</b>
+          <span class="sep">·</span> <details><summary>5 models</summary></details>
+        </p>
         <div class="canvas-h">
-          <span class="count"><b>1,204</b> of 4,347 <span class="dim">· Card Game · P(hurdle) ≥ 0.25</span></span>
+          <span class="count"><b>1,204</b> of 4,347 <span class="dim">· 2026 · P(hurdle) ≥ 0.25</span></span>
+          <span class="chips">
+            <span class="chip"><em>category</em> Card Game <s>×</s></span>
+            <span class="chip"><em>hurdle</em> ≥ 0.25 <s>×</s></span>
+          </span>
         </div>
         <div class="listwrap"><div id="listA"></div></div>
-        <p class="prov">Scored <b>2026-08-01</b> <span class="sep">·</span> models fitted through <b>2024</b>
-          <span class="sep">·</span> every game here is out of sample</p>
       </main>
     </div>
   </div>
 
   <div class="note">
     <h4>What the rail buys</h4>
-    <p><span class="k">/predictions</span> and <span class="k">/games</span> read as the same kind of place, and the
-      facet components (<span class="k">FacetList</span>, <span class="k">EntityFilter</span>) drop in unmodified.</p>
-    <p><b>What it costs:</b> ~14rem off the table. The five numeric columns hold fixed widths, so it comes entirely
-      out of the game's metadata line — publisher truncates first.</p>
+    <p><span class="k">/predictions</span> and <span class="k">/games</span> read as the same kind of place: rail on the
+      left, count and chips above the answer, list below. Muscle memory transfers, and the facet components
+      (<span class="k">FacetList</span>, <span class="k">EntityFilter</span>) drop in unmodified.</p>
+    <p><b>What it costs:</b> six controls in a 14rem column that Explore fills with fifteen. The rail runs out of
+      content well before the list runs out of rows, and the list gives up ~14rem of width — which is where the
+      metadata line under each title gets truncated.</p>
   </div>
 
   <!-- ============================================================ B ============ -->
   <p class="part">Layout B</p>
   <div class="screen-label">
     <h2>Filter bar</h2>
-    <span>a table with controls over it — the shape the Dash page settled on</span>
+    <span>a list with controls over it — the shape the Dash page settled on</span>
   </div>
 
   <div class="chrome">
     <div class="chrome-bar"><div class="dots"><i></i><i></i><i></i></div>
-      <div class="addr">bgg-viewer.app/predictions?year=2026&amp;sort=geek</div></div>
+      <div class="addr">bgg-viewer.app/predictions?year=2026&amp;hurdle=0.25</div></div>
     <div class="appbar">
       <span class="brand">bgg<b>·</b>viewer</span>
       <nav class="nav"><a href="#">Home</a><a href="#">Discover</a><a href="#">Explore</a><a class="active" href="#">Predictions</a><a class="soon" href="#">Similarity</a></nav>
       <span class="spacer"></span>
     </div>
 
-    <div class="phead">
-      <h1>Coming in 2026 <span class="ph">placeholder</span></h1>
-      <p>4,347 games announced for 2026.</p>
-    </div>
+    <p class="prov">
+      <b>4,347</b> games scored <span class="sep">·</span> last scored <b>2026-08-01</b>
+      <span class="sep">·</span> models fitted through <b>2024</b>
+      <span class="sep">·</span> <details><summary>5 models</summary></details>
+    </p>
 
-    <div class="fbar">
+    <div class="fbar" style="margin-top:var(--space-md)">
       <div class="fld"><label>Year</label>
         <div class="seg"><button class="on">2026</button><button>2027</button><button>2028</button></div></div>
-      <div class="fld"><label>Complexity</label>
-        <div class="bandrow" style="padding-top:.2rem"><span class="band">Light</span><span class="band">Medium</span><span class="band">Heavy</span></div></div>
-      <div class="fld"><label>Category</label><div class="sel">Card Game<span class="caret">▾</span></div></div>
-      <div class="fld"><label>Publisher</label><div class="sel">Any<span class="caret">▾</span></div></div>
-      <div class="fld"><label>Designer</label><div class="sel">Any<span class="caret">▾</span></div></div>
       <div class="fld"><label>Min P(hurdle)</label>
-        <div class="slider">
+        <div class="slider" style="min-width:11rem">
           <div class="track"><i style="right:75%"></i><b style="left:25%"></b></div>
           <div class="slider-lbl"><span>0</span><b>0.25</b><span>1</span></div>
         </div></div>
+      <div class="fld"><label>Category</label><div class="sel">Card Game<span class="caret">▾</span></div></div>
+      <div class="fld"><label>Mechanic</label><div class="sel">Any<span class="caret">▾</span></div></div>
+      <div class="fld"><label>Publisher</label><div class="sel">Any<span class="caret">▾</span></div></div>
+      <div class="fld"><label>Designer</label><div class="sel">Any<span class="caret">▾</span></div></div>
     </div>
 
     <div class="canvas-h">
-      <span class="count"><b>1,204</b> of 4,347 <span class="dim">· Card Game · P(hurdle) ≥ 0.25</span></span>
+      <span class="count"><b>1,204</b> of 4,347 <span class="dim">· 2026 · P(hurdle) ≥ 0.25</span></span>
+      <span class="chips">
+        <span class="chip"><em>category</em> Card Game <s>×</s></span>
+        <span class="chip"><em>hurdle</em> ≥ 0.25 <s>×</s></span>
+      </span>
     </div>
     <div class="listwrap"><div id="listB"></div></div>
-    <p class="prov">Scored <b>2026-08-01</b> <span class="sep">·</span> models fitted through <b>2024</b>
-      <span class="sep">·</span> every game here is out of sample</p>
   </div>
 
   <div class="note">
     <h4>What the filter bar buys</h4>
-    <p>Full width for the table, which is where the metadata line gets to say designer <em>and</em> publisher
-      <em>and</em> categories. For an unreleased game those are everything you know — 99.7% have a publisher,
-      83% a designer.</p>
-    <p><b>What it costs:</b> a second structural idiom, and the facet lists collapse into dropdowns that hide their
-      counts. <span class="k">Card Game 612</span> in Layout A's rail is itself a fact about the year.</p>
+    <p>The list runs the full page width, so the metadata line under each title — <b>designer, publisher,
+      categories</b>, the only things you actually know about an unreleased game — has room to say all three
+      instead of ellipsing after the designer.</p>
+    <p><b>What it costs:</b> a second structural idiom in the app, and the facet controls collapse from
+      always-visible lists with counts into dropdowns that hide what's available until opened. The counts in
+      Layout A's rail (<span class="k">Card Game 612</span>) are themselves information about the year.</p>
   </div>
 
   <!-- ============================================================ 3 ============ -->
   <p class="part">Part 3</p>
   <div class="screen-label">
-    <h2>The mark travels with the sort</h2>
-    <span>same twenty-two games, sorted three ways</span>
+    <h2>The row, and the one encoding that breaks</h2>
+    <span>column-for-column against Explore's <span class="k">GameList</span></span>
   </div>
 
-  <div class="sorts">
-    <div class="panel">
-      <h3>by P. Geek</h3><p class="sub">domain 4.5–7.0</p>
-      <div id="sortGeek"></div>
-    </div>
-    <div class="panel">
-      <h3>by P(hurdle)</h3><p class="sub">domain 0–100%</p>
-      <div id="sortHurdle"></div>
-    </div>
-    <div class="panel">
-      <h3>by P. Complexity</h3><p class="sub">domain 1–5</p>
-      <div id="sortWeight"></div>
-    </div>
-  </div>
+  <table class="legend">
+    <tr><th>Explore column</th><th>Predictions column</th><th>Transfers?</th><th>Note</th></tr>
+    <tr><td>#</td><td>#</td><td class="y">yes</td><td>ordinal within the sort, already in <span class="k">GameList</span></td></tr>
+    <tr><td>Game + meta line</td><td>Game + meta line</td><td class="y">yes</td><td>meta line recomposed — publisher is 99.7% populated here, designer only 83%</td></tr>
+    <tr><td>Year</td><td>Year</td><td class="y">yes</td><td>near-constant once a year is selected; arguably droppable</td></tr>
+    <tr><td>Geek <span class="k">RatingBar</span></td><td>P. Geek</td><td class="n">domain</td><td>see below — the fixed 5.5–8.8 domain empties on this data</td></tr>
+    <tr><td>Avg</td><td>P. Avg</td><td class="y">yes</td><td>plain number, dimmed</td></tr>
+    <tr><td>Complexity meter</td><td>P. Complexity</td><td class="y">yes</td><td>1–5 meter, unchanged — predicted complexity spans the same scale</td></tr>
+    <tr><td>Best at <span class="k">PlayerPips</span></td><td>P(hurdle)</td><td class="n">replaced</td><td><b>1.4% coverage</b> on upcoming games — nobody has voted yet. The slot is free.</td></tr>
+    <tr><td>Ratings</td><td>P. Ratings</td><td class="y">yes</td><td>right-aligned count</td></tr>
+  </table>
 
-  <div class="note">
-    <h4>Why one mark and not five</h4>
-    <p>The first pass gave three columns three different marks in three different hues — a continuous bar for
-      predicted geek, a five-segment meter for complexity, a second bar for hurdle. All three encode
-      <em>magnitude</em>, which is a sequential job, and a sequential job takes <b>one hue</b>. Three hues for
-      three magnitudes is a rainbow, and the hue was carrying "which column" — something the header and the
-      column position already say. Three geometries for one job on top of that, and the row reads as a
-      dashboard rather than a table.</p>
-    <p>So: one geometry (a 3px track, square at the baseline, 2px rounded at the data end), one hue
-      (<span class="k">--chart-1</span>, the app's existing single-series colour), and it appears on exactly one
-      column. Because <b>a mark needs a stated domain to mean anything</b>, the header carries it — 4.5–7.0,
-      0–100%, 1–5 — and each is honest to the column it sits under.</p>
-    <p>Putting it on the sort column is what makes it earn its ink: within a page of 22 rows the numbers are
-      close together, and the bar is what turns "6.93, 6.92, 6.90…" into a shape you can read down.</p>
+  <div class="cmp">
+    <div class="panel">
+      <h3>Explore's domain — 5.5 to 8.8</h3>
+      <p class="sub">Fixed on purpose, so a bar means the same thing on every page of the app.</p>
+      <div id="domA"></div>
+    </div>
+    <div class="panel">
+      <h3>A predictions domain — 4.5 to 7.0</h3>
+      <p class="sub">Same twenty-two games, rescaled to the band they actually occupy.</p>
+      <div id="domB"></div>
+    </div>
   </div>
 
   <div class="note">
-    <h4>What this resolves</h4>
-    <p><b>The <span class="k">RatingBar</span> domain problem.</b> Its 5.5–8.8 is hardcoded and empties on a
-      population whose median is 5.46. A mark whose domain is declared per column, in the header, doesn't
-      inherit that — and the domain is visible rather than assumed.</p>
-    <p><b>P. Ratings never gets a mark</b> under any sort. It runs 25 → 38,495 with no natural maximum, and a bar
-      without a bounded domain is decoration. Sorting by it emphasises the column typographically and leaves the
-      track off.</p>
+    <h4>The fork</h4>
+    <p>Predicted geek rating runs <b>5.0 to 6.93</b> across all 4,842 upcoming games, with a <b>median of 5.46</b>.
+      On Explore's domain, over half the population renders as an empty bar and the whole set is pinned inside the
+      left 43% — visible in the left panel, where the top of the list is nearly indistinguishable from its middle.</p>
+    <p>Giving the page its own domain makes the column readable, and breaks the rule the encoding was built on: a
+      bar on <span class="k">/predictions</span> would no longer mean what a bar on <span class="k">/games</span>
+      means. The alternative is to keep one domain and drop the bar here, leaving predicted geek as a bare number.</p>
+  </div>
+
+  <div class="note">
+    <h4>What the real data argues, unprompted</h4>
+    <p>Row 12, <b>Ashes &amp; Amber</b>, and row 18, <b>Ortomnia: Broken Trinity</b> — both rank in the top twenty by
+      predicted geek rating, and both carry a hurdle under 0.45. Ortomnia has no designer listed and a publisher of
+      "(Web published)". They are in the list above because the default hurdle filter is <b>off</b> in these
+      screens; at the shipped default of 0.25 the second one drops out.</p>
+    <p>That is the argument for hurdle being a visible column and not only a filter: it is the thing that explains
+      why a row that looks strong is not.</p>
   </div>
 
   <p class="part">Open</p>
   <div class="note">
     <h4>Not settled here</h4>
-    <p><b>Rail or filter bar</b> — the question the two screens exist to answer.</p>
-    <p><b>Whether P. Complexity should read as a word</b> ("Medium-Heavy") somewhere on the page — Discover does
-      this via <span class="k">complexityLabel()</span>. A word doesn't sort, so it can't be the column itself.</p>
-    <p><b>Cover art</b> — none in the catalog artifact. ~4,800 URLs is far smaller than the 38k Discover was
-      measured against.</p>
-    <p><b>Whether 2027/2028 share the page</b> — 494 games, thin on designers and categories.</p>
+    <p><b>Sort affordance</b> — every column header sorts, as in Explore. Default is P. Geek descending.</p>
+    <p><b>Whether a plot comes along.</b> Explore leads with a scatter; these screens are list-only. 4,347 points is
+      trivial to draw, but it may not earn the vertical space.</p>
+    <p><b>Cover art.</b> Deliberately absent — no thumbnails exist in the catalog artifact today.</p>
+    <p><b>Row click target</b> — these link to <span class="k">/games/{id}</span>, the existing detail page, whose
+      prediction panel already renders the same five numbers in full.</p>
   </div>
 </div>
 
 <script>
   // Real rows: top 22 of 4,347 games published 2026, by predicted geek rating.
-  // analytics.games_features ⋈ predictions.bgg_predictions, pulled 2026-08-04.
+  // Pulled from analytics.games_features ⋈ predictions.bgg_predictions on 2026-08-04.
   const ROWS = [
     ["Arkham Horror: The Card Game",6.93,8.62,3.7,2866,0.97,1,4,"Nate French, MJ Newman","Fantasy Flight Games","Horror, Exploration"],
     ["The Game Makers",6.92,8.05,3.4,10538,0.99,1,6,"Ben Rosset","Panda Game Manufacturing","Economic, Industry"],
@@ -395,63 +415,46 @@
     ["DC Super Heroes United",6.42,8.11,2.3,1024,1.00,1,5,"Andrea Chiarvesio","Spin Master Ltd.","Fighting, Card Game"]
   ];
 
-  /**
-   * Every column, and — for the ones a mark can honestly sit under — the domain that
-   * mark is scaled to. `dom: null` means "never draw a bar here": P. Ratings has no
-   * natural maximum, and a bar without a bounded domain is decoration.
-   */
-  const COLS = [
-    { key: "geek",   label: "P. Geek",       idx: 1, dom: [4.5, 7.0],  domLabel: "4.5–7.0", fmt: v => v.toFixed(2) },
-    { key: "avg",    label: "P. Avg",        idx: 2, dom: [6.5, 9.5],  domLabel: "6.5–9.5", fmt: v => v.toFixed(2) },
-    { key: "weight", label: "P. Complexity", idx: 3, dom: [1, 5],      domLabel: "1–5",     fmt: v => v.toFixed(1) },
-    { key: "hurdle", label: "P(hurdle)",     idx: 5, dom: [0, 1],      domLabel: "0–100%",  fmt: v => Math.round(v * 100) + "%" },
-    { key: "rated",  label: "P. Ratings",    idx: 4, dom: null,        domLabel: "",        fmt: v => v.toLocaleString() }
-  ];
-
+  const pct = (v, lo, hi) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
   const players = (lo, hi) => (lo === hi ? lo + "p" : lo + "–" + hi + "p");
-  const meta = r => [players(r[6], r[7]), r[8], r[9], r[10]].filter(Boolean).join(" · ");
-  const pct = (v, [lo, hi]) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+  /** designer · publisher · categories — deliberately overbuilt, the cell ellipsis trims it. */
+  const meta = (r) => [players(r[6], r[7]), r[8], r[9], r[10]].filter(Boolean).join(" · ");
 
-  /** The one marked cell: value over a track, left-aligned on the bar's baseline. */
-  const marked = (c, v) => `<div class="cell mk l">
-      <span class="mv tnum">${c.fmt(v)}</span>
-      ${c.dom ? `<span class="bar"><i style="width:${pct(v, c.dom)}%"></i></span>` : ""}
-    </div>`;
+  const HEAD = `<div class="row head">
+    <span class="rk">#</span><span>Game</span><span class="r">Year</span>
+    <span class="on">P. Geek ▼</span><span class="r">P. Avg</span><span>P. Complexity</span>
+    <span>P(hurdle)</span><span class="r">P. Ratings</span></div>`;
 
-  function renderTable(el, sortKey) {
-    const sc = COLS.find(c => c.key === sortKey);
-    const rows = [...ROWS].sort((a, b) => b[sc.idx] - a[sc.idx]);
-
-    const head = `<div class="hd r">#</div><div class="hd l">Game</div><div class="hd r">Year</div>`
-      + COLS.map(c => `<div class="hd ${c.key === sortKey ? "sorted l" : "r"}">${c.label} ${c.key === sortKey ? "▼" : ""}
-          ${c.key === sortKey && c.dom ? `<span class="dom">${c.domLabel}</span>` : ""}</div>`).join("");
-
-    const body = rows.map((r, i) => `<a class="rowlink" href="#">
-        <div class="cell rk r tnum">${i + 1}</div>
-        <div class="cell l"><span class="nm">${r[0]}</span><span class="mt">${meta(r)}</span></div>
-        <div class="cell v faint r tnum">2026</div>
-        ${COLS.map(c => c.key === sortKey ? marked(c, r[c.idx])
-            : `<div class="cell v r tnum">${c.fmt(r[c.idx])}</div>`).join("")}
+  function renderList(el, lo, hi) {
+    el.innerHTML = `<div class="bar"><span><b>1–22</b> of <b>4,347</b> · by P. Geek high→low</span>
+      <span class="pager"><i class="off">‹ Prev</i><span>1 / 198</span><i>Next ›</i></span></div>`
+      + HEAD
+      + ROWS.map((r, i) => `
+      <a class="row${r[5] < 0.5 ? " weak" : ""}" href="#">
+        <span class="rk tnum">${i + 1}</span>
+        <span><span class="nm">${r[0]}</span><span class="mt">${meta(r)}</span></span>
+        <span class="yr tnum">2026</span>
+        <span><span class="gv tnum">${r[1].toFixed(2)}</span>
+          <span class="gbar"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
+        <span class="av tnum">${r[2].toFixed(2)}</span>
+        <span><span class="wv tnum">${r[3].toFixed(1)}</span>
+          <span class="wbar"><i style="width:${pct(r[3], 1, 5)}%"></i></span></span>
+        <span><span class="hv tnum">${Math.round(r[5] * 100)}%</span>
+          <span class="hbar"><i style="width:${r[5] * 100}%"></i></span></span>
+        <span class="nn tnum">${r[4].toLocaleString()}</span>
       </a>`).join("");
-
-    el.innerHTML = `<div class="tbl">${head}${body}</div>
-      <div class="foot"><span>Showing <b>1–22</b> of <b>1,204</b></span>
-        <span class="pager"><i class="off">‹ Prev</i><span>1 / 55</span><i>Next ›</i></span></div>`;
   }
 
-  /** Part 3's compact panels: rank, name, and the marked column only. */
-  function renderSortPanel(el, sortKey) {
-    const c = COLS.find(x => x.key === sortKey);
-    const rows = [...ROWS].sort((a, b) => b[c.idx] - a[c.idx]).slice(0, 12);
-    el.innerHTML = `<div class="tbl">` + rows.map((r, i) => `
-      <div class="cell rk r tnum">${i + 1}</div>
-      <div class="cell l"><span class="nm">${r[0]}</span></div>
-      ${marked(c, r[c.idx])}`).join("") + `</div>`;
+  function renderDomain(el, lo, hi) {
+    el.innerHTML = ROWS.map(r => `<div class="drow">
+      <span class="dname">${r[0]}</span>
+      <span><span class="gv tnum">${r[1].toFixed(2)}</span>
+        <span class="gbar"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
+    </div>`).join("");
   }
 
-  renderTable(document.getElementById("listA"), "geek");
-  renderTable(document.getElementById("listB"), "geek");
-  renderSortPanel(document.getElementById("sortGeek"), "geek");
-  renderSortPanel(document.getElementById("sortHurdle"), "hurdle");
-  renderSortPanel(document.getElementById("sortWeight"), "weight");
+  renderList(document.getElementById("listA"), 4.5, 7.0);
+  renderList(document.getElementById("listB"), 4.5, 7.0);
+  renderDomain(document.getElementById("domA"), 5.5, 8.8);
+  renderDomain(document.getElementById("domB"), 4.5, 7.0);
 </script>
