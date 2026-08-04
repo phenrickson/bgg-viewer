@@ -49,9 +49,11 @@
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
+  const onPredictions = $derived(path.startsWith('/predictions'));
   const onAbout = $derived(path.startsWith('/about'));
   const inGames = $derived(onExplore || onDiscover);
-  const onHome = $derived(!inGames && !onAbout);
+  // Home is the fallback, so every other destination must be named here or it lights up Home.
+  const onHome = $derived(!inGames && !onPredictions && !onAbout);
 
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
@@ -122,10 +124,15 @@
           {/if}
         </div>
 
+        <!-- A sibling of Games, not a view under it: different population (games nobody has
+             played yet) and different columns (what the model expects, not what happened).
+             Only Discover and Explore share a Scope, which is what earns them one heading. -->
+        <a href="/predictions" class:active={onPredictions}>Predictions</a>
+
         <!-- Last, and stays last. Every other item in this row is a dataset — the rated
              catalog, upcoming games, your shelf — and About is the one that explains them
-             rather than being one. Predictions and Collection slot in before it; it can grow
-             its own menu (methodology, freshness) without disturbing anything else. -->
+             rather than being one. Collection slots in before it; it can grow its own menu
+             (methodology, freshness) without disturbing anything else. -->
         <a href="/about" class:active={onAbout}>About</a>
       </nav>
       {#if data.user}
