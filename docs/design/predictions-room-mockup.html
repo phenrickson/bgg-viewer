@@ -197,6 +197,25 @@
 </style>
 
 <div class="wrap">
+  <div class="note" style="border-left-color: var(--chart-5); margin: 0 0 var(--space-xl)">
+    <h4>Superseded — a record of the thinking, not of what shipped</h4>
+    <p>This mockup proposes a standalone <span class="k">/predictions</span> page and asks whether
+      it should have a rail or a filter bar. The build answered a different question first:
+      <b>upcoming is a universe on Explore's existing <span class="k">Scope</span>, not a room of
+      its own</b> — every numeric filter has a predicted twin, so the universe decides which
+      column each one reads, and one rail, one chip row and one table serve all three universes.</p>
+    <p>Which means the rail-vs-filter-bar question never got answered: it stopped existing. The
+      shipped view is Explore's own rail, reached from a row in the Games menu pointing at
+      <span class="k">/games?u=upcoming</span>. <span class="k">/predictions</span> is unclaimed,
+      reserved for the modelling room.</p>
+    <p>What survived from here: the column set, hurdle as a filter rather than a headline, the
+      dead <span class="k">Best at</span> column giving its slot to P(hurdle), publisher in the
+      metadata line, and the finding that this population's predicted-geek band breaks
+      <span class="k">RatingBar</span>'s hardcoded 5.5–8.8 domain.</p>
+    <p><b>What shipped is recorded in
+      <span class="k">docs/superpowers/specs/2026-08-04-upcoming-universe-design.md</span>.</b></p>
+  </div>
+
   <div class="doc-h">
     <p class="eyebrow">bgg-viewer · design mockup</p>
     <h1>The Predictions room — sorting and examining upcoming games</h1>
