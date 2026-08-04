@@ -151,13 +151,13 @@
      Orange is reserved for interaction (the sorted header), so the page reads blue/orange
      and never carries a third accent.
 
-     .scale — a POSITION on a low→high band. Predicted geek (4.5–7.0) and complexity
-     (1–5) are both "where does this sit between low and high", not "how much out of a
-     maximum". Their bands don't start at zero, so a fill growing from the left edge
-     would claim a baseline that isn't there and read as a progress bar.
+     .scale — a POSITION on a low→high band. Complexity is the case: 1–5 is a spectrum
+     from light to heavy, and a fill reads it as "3.4 out of 5", a proportion of a cap
+     that isn't a cap. Heavier is not more of anything, it is further along.
 
-     .fill — a genuine PROPORTION from zero. P(hurdle) is the only one: 0 to 1, where
-     empty and full both mean something literal. */
+     .fill — a magnitude. Predicted geek rating (higher is more, and the app already
+     renders geek rating this way in RatingBar and Discover's GameRow) and P(hurdle)
+     (a literal 0-to-1 probability). */
   .gv, .hv, .wv { display: block; font-size: 0.85rem; font-weight: 600; line-height: 1.15; }
   .scale { display: block; position: relative; height: 9px; }
   .scale::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
@@ -450,7 +450,7 @@
         <span><span class="nm">${r[0]}</span><span class="mt">${meta(r)}</span></span>
         <span class="yr tnum">2026</span>
         <span><span class="gv tnum">${r[1].toFixed(2)}</span>
-          <span class="scale"><i style="left:${pct(r[1], lo, hi)}%"></i></span></span>
+          <span class="fill"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
         <span class="av tnum">${r[2].toFixed(2)}</span>
         <span><span class="wv tnum">${r[3].toFixed(1)}</span>
           <span class="scale"><i style="left:${pct(r[3], 1, 5)}%"></i></span></span>
@@ -464,7 +464,7 @@
     el.innerHTML = ROWS.map(r => `<div class="drow">
       <span class="dname">${r[0]}</span>
       <span><span class="gv tnum">${r[1].toFixed(2)}</span>
-        <span class="scale"><i style="left:${pct(r[1], lo, hi)}%"></i></span></span>
+        <span class="fill"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
     </div>`).join("");
   }
 
