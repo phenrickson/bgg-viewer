@@ -65,7 +65,13 @@
       .catch((e) => console.error('universe count failed', e));
   });
 
-  const universeLabel = $derived(scope.universe === 'top10k' ? 'the top 10,000' : 'all rated games');
+  const universeLabel = $derived(
+    scope.universe === 'top10k'
+      ? 'the top 10,000'
+      : scope.universe === 'rated'
+        ? 'all rated games'
+        : 'upcoming games'
+  );
   const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
 
   // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
@@ -113,7 +119,7 @@
         </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
-        <GameList {where} />
+        <GameList {where} universe={scope.universe} />
       </div>
     </div>
   </Container>

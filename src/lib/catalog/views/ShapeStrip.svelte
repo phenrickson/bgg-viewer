@@ -32,6 +32,7 @@
     WEIGHT_BIN,
     RATINGS_LOG_BIN,
     YEAR_DISPLAY_FLOOR,
+    measures,
     type Summary,
     type Bin,
     type YearCount,
@@ -62,11 +63,18 @@
   };
   const EMPTY: Shape = { rating: [], weight: [], votes: [], year: [], bestAt: [] };
 
+  /**
+   * Which columns the three measure histograms read. In the upcoming universe nobody has
+   * rated or weighted anything, so the actuals are null and every bar would be empty — the
+   * model's estimates are what this population has. Same bins, same axes, different source.
+   */
+  const m = $derived(measures(scope.universe));
+
   async function loadShape(w: string): Promise<Shape> {
     const [rating, weight, votes, year, bestAt] = await Promise.all([
-      query<Bin>(ratingHistogramSql(w)),
-      query<Bin>(complexityHistogramSql(w)),
-      query<Bin>(ratingsCountHistogramSql(w)),
+      query<Bin>(ratingHistogramSql(w, m)),
+      query<Bin>(complexityHistogramSql(w, m)),
+      query<Bin>(ratingsCountHistogramSql(w, m)),
       query<YearCount>(gamesPerYearSql(w, YEAR_DISPLAY_FLOOR)),
       query<PlayerCountBin>(bestAtDistributionSql(w))
     ]);
@@ -104,7 +112,7 @@
   $effect(() => {
     const w = where;
     const mine = ++token;
-    Promise.all([loadShape(w), query<Summary>(summarySql(w))])
+    Promise.all([loadShape(w), query<Summary>(summarySql(w, m))])
       .then(([s, sum]) => {
         if (mine !== token) return;
         shape = s;

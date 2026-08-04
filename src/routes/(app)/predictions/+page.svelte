@@ -2,70 +2,64 @@
   /**
    * Predictions — sorting and surfacing upcoming games.
    *
-   * The room is about the games; the model supplies the ordering. Same three regions as
-   * Explore (rail → count + chips → table) so the two read as the same kind of place, and
-   * the same in-browser DuckDB catalog underneath — no server hop on any interaction, and
-   * no second artifact, because the catalog's working set already includes every game
-   * published this year or later along with all five model columns.
+   * The room is about the games; the model supplies the ordering.
+   *
+   * This is Explore's workspace with the universe pinned to `upcoming`, and it shares every
+   * part: the same `Scope`, the same `Rail`, the same `FilterChips`, the same `GameList`. An
+   * earlier pass built parallel `PredictionScope` / `PredictionRail` / `PredictionChips` /
+   * `PredictionTable` modules on the theory that the populations were too different to
+   * share, which bought a second copy of the chip row, the rail chrome and the paging logic
+   * to keep in sync, and quietly dropped families, artists and the name search along the
+   * way. They are not too different: every numeric filter has a predicted twin, so the
+   * universe decides which column each filter and each column *reads* and everything else is
+   * the same question asked of a different population.
+   *
+   * What is left here is only what genuinely differs from `/games`: the universe is fixed,
+   * the page says what it is, and the foot states the model's provenance.
    *
    * All copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
   import {
-    DEFAULT_PREDICTION_SCOPE,
-    scopeFromParams,
-    scopeToParams,
+    DEFAULT_SCOPE,
+    DEFAULT_HURDLE_MIN,
     toWhere,
-    upcomingWhere,
-    yearWhere,
-    type PredictionScope
-  } from '$lib/predictions/scope';
-  import PredictionRail from '$lib/predictions/PredictionRail.svelte';
-  import PredictionChips from '$lib/predictions/PredictionChips.svelte';
-  import PredictionTable from '$lib/predictions/PredictionTable.svelte';
+    scopeToParams,
+    scopeFromParams,
+    type Scope
+  } from '$lib/catalog/scope';
+  import Rail from '$lib/catalog/Rail.svelte';
+  import FilterChips from '$lib/catalog/FilterChips.svelte';
+  import GameList from '$lib/catalog/views/GameList.svelte';
   import { Container } from '$lib/components/ui/layout';
 
-  let scope = $state<PredictionScope>({ ...DEFAULT_PREDICTION_SCOPE });
+  const PREDICTIONS_SCOPE: Scope = {
+    ...DEFAULT_SCOPE,
+    universe: 'upcoming',
+    hurdleMin: DEFAULT_HURDLE_MIN
+  };
+
+  let scope = $state<Scope>({ ...PREDICTIONS_SCOPE });
   let ready = $state(false);
-  /** Publication years actually present, descending. Drives the rail's year dial. */
-  let years = $state<number[]>([]);
 
   onMount(async () => {
-    scope = scopeFromParams(new URLSearchParams(location.search));
+    // A URL can carry any scope, but this route is the upcoming universe by definition —
+    // arriving at /predictions?u=rated would show the rated catalog under a heading that
+    // says otherwise. The dial in the rail is still live: switching it there navigates the
+    // same workspace, which is the seam Discover and Explore already share.
+    scope = { ...scopeFromParams(new URLSearchParams(location.search)), universe: 'upcoming' };
     await initCatalog();
     ready = catalog.status === 'ready';
-    if (!ready) return;
-
-    /**
-     * Which years exist is a fact about the data, not a constant: BGG carries entries dated
-     * years ahead (there is a 2030 in there), and hardcoding a list would silently drop a
-     * year the moment the warehouse gained one.
-     */
-    try {
-      const rows = await query<{ y: number }>(
-        `SELECT DISTINCT year_published::INT AS y FROM catalog
-         WHERE ${upcomingWhere()} ORDER BY y`
-      );
-      years = rows.map((r) => r.y).filter((y) => Number.isFinite(y));
-    } catch (e) {
-      console.error('year list query failed', e);
-    }
-
-    // A year carried in on the URL wins; otherwise open on the current year if it has any
-    // games, and fall back to the earliest year that does. Opening on an empty year would
-    // show a page that looks broken on a data gap.
-    if (scope.year == null || !years.includes(scope.year)) {
-      const now = new Date().getFullYear();
-      scope = { ...scope, year: years.includes(now) ? now : (years[0] ?? null) };
-    }
   });
 
-  const where = $derived(ready && scope.year != null ? toWhere(scope) : null);
-  /** The year with every user filter dropped — what the count compares against. */
-  const baseWhere = $derived(ready && scope.year != null ? yearWhere(scope) : null);
+  const where = $derived(ready ? toWhere(scope) : null);
+  /** The universe with every user filter dropped — what the count compares against. */
+  const baseWhere = $derived(
+    ready ? toWhere({ ...DEFAULT_SCOPE, universe: 'upcoming', hurdleMin: null }) : null
+  );
 
-  // The one owner of the in-scope total, so the header and the table can't disagree.
+  // The one owner of the in-scope total, so the header and the list can't disagree.
   let total = $state<number | null>(null);
   let countToken = 0;
   $effect(() => {
@@ -77,29 +71,29 @@
       .catch((e) => console.error('count failed', e));
   });
 
-  let yearTotal = $state<number | null>(null);
+  let universeTotal = $state<number | null>(null);
   let baseToken = 0;
   $effect(() => {
     if (baseWhere == null) return;
     const w = baseWhere;
     const mine = ++baseToken;
     query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`)
-      .then((r) => mine === baseToken && (yearTotal = r[0]?.n ?? 0))
-      .catch((e) => console.error('year count failed', e));
+      .then((r) => mine === baseToken && (universeTotal = r[0]?.n ?? 0))
+      .catch((e) => console.error('universe count failed', e));
   });
 
-  const narrowed = $derived(total != null && yearTotal != null && total < yearTotal);
+  const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
 
   /**
-   * When the model last spoke, and what it had seen — shown because a page of four-decimal
-   * numbers that doesn't say when it looked is quietly overclaiming. `training_cutoff_year`
-   * makes the "these are all forecasts" claim checkable rather than asserted.
+   * What the model had seen. A page of two-decimal numbers that never says when it looked or
+   * what it was fitted on is quietly overclaiming; `training_cutoff_year` makes the "these
+   * are all forecasts" claim checkable rather than asserted.
    */
   let cutoff = $state<number | null>(null);
   $effect(() => {
-    if (!ready) return;
+    if (!ready || baseWhere == null) return;
     query<{ c: number | null }>(
-      `SELECT MAX(training_cutoff_year)::INT AS c FROM catalog WHERE ${upcomingWhere()}`
+      `SELECT MAX(training_cutoff_year)::INT AS c FROM catalog WHERE ${baseWhere}`
     )
       .then((r) => (cutoff = r[0]?.c ?? null))
       .catch((e) => console.error('cutoff query failed', e));
@@ -111,11 +105,6 @@
     const qs = scopeToParams(scope).toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
-
-  function clearAll() {
-    // Keep the year: it is the population, not a filter, and clearing it would empty the page.
-    scope = { ...DEFAULT_PREDICTION_SCOPE, year: scope.year, minHurdle: null };
-  }
 </script>
 
 <svelte:head><title>Predictions · bgg-viewer</title></svelte:head>
@@ -127,10 +116,10 @@
     <span class="spin"></span>
     <p>Loading the catalog into your browser — this happens once.</p>
   </div>
-{:else if where != null && baseWhere != null}
+{:else if where != null}
   <Container size="wide" fill>
     <div class="workspace">
-      <PredictionRail bind:scope {where} {years} />
+      <Rail bind:scope {where} />
 
       <div class="canvas">
         <div class="chead">
@@ -138,17 +127,20 @@
             <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
             <span>{total === 1 ? 'game' : 'games'}</span>
             <span class="dim">
-              coming in {scope.year}{#if narrowed}, of <span class="tnum">{yearTotal?.toLocaleString()}</span>{/if}
+              {#if narrowed}
+                of <span class="tnum">{universeTotal?.toLocaleString()}</span> coming
+              {:else}
+                coming
+              {/if}
             </span>
           </p>
-          <PredictionChips bind:scope onclear={clearAll} />
+          <FilterChips bind:scope onclear={() => (scope = { ...PREDICTIONS_SCOPE })} />
         </div>
 
-        <PredictionTable {where} bind:scope />
+        <GameList {where} universe={scope.universe} />
 
         <!-- Provenance, not decoration. Every game here was published after the model's
-             training cutoff, so every number on the page is a forecast rather than a fit —
-             which is worth stating once, quietly, at the foot. -->
+             training cutoff, so every number on the page is a forecast rather than a fit. -->
         <p class="prov">
           Model forecasts{#if cutoff}, from models fitted through <b>{cutoff}</b>{/if}. Every game
           on this page was announced after that, so none of them were in the training data.
@@ -191,8 +183,7 @@
     }
   }
 
-  /* Two independently scrolling columns, bounded by the shell's height — the same workspace
-     grid Explore uses, so the two rooms sit at the same place on screen. */
+  /* The same workspace grid Explore uses, so the two rooms sit at the same place on screen. */
   .workspace {
     display: grid;
     grid-template-columns: 16rem minmax(0, 1fr);

@@ -4,7 +4,18 @@
  * `toWhere`) and returns a query over the *scoped* set, so every panel reflects the
  * current filters. Aggregation happens in DuckDB (not JS) — we pull back tens of rows,
  * never the whole set.
+ *
+ * Every builder that reads a measure also takes the universe's column map, because the
+ * `upcoming` universe reads the model's estimates where the rated slices read what
+ * happened — a game nobody has played has no `average_weight` to bucket. Same shapes, same
+ * bins, different source; see `columnsFor` in `scope.ts`. The parameter defaults to the
+ * rated columns so existing callers are unaffected.
  */
+import { columnsFor, type Scope } from './scope';
+
+export type MeasureColumns = ReturnType<typeof columnsFor>;
+const RATED: MeasureColumns = columnsFor('top10k');
+export const measures = (universe: Scope['universe']): MeasureColumns => columnsFor(universe);
 
 /** One-row summary for the stat tiles. */
 export interface Summary {
@@ -68,14 +79,14 @@ export const YEAR_FLOOR = 1900;
  */
 export const YEAR_DISPLAY_FLOOR = 1970;
 
-export const summarySql = (where: string): string =>
+export const summarySql = (where: string, m: MeasureColumns = RATED): string =>
 	`SELECT
 	   COUNT(*)::INT AS total,
 	   COUNT(*) FILTER (WHERE users_rated < 30)::INT AS upcoming,
-	   median(average_weight) FILTER (WHERE average_weight > 0) AS median_weight,
-	   median(geek_rating) FILTER (WHERE geek_rating > 0) AS median_geek,
-	   median(average_rating) FILTER (WHERE average_rating > 0) AS median_rating,
-	   median(users_rated) FILTER (WHERE users_rated > 0) AS median_users_rated,
+	   median(${m.weight}) FILTER (WHERE ${m.weight} > 0) AS median_weight,
+	   median(${m.geek}) FILTER (WHERE ${m.geek} > 0) AS median_geek,
+	   median(${m.rating}) FILTER (WHERE ${m.rating} > 0) AS median_rating,
+	   median(${m.usersRated}) FILTER (WHERE ${m.usersRated} > 0) AS median_users_rated,
 	   -- median, not min/max: BGG carries public-domain games at historical years (Go at
 	   -- -2200) that make a printed span nonsense. The median reads as "this set's era".
 	   median(year_published) FILTER (WHERE year_published >= ${YEAR_DISPLAY_FLOOR}) AS median_year,
@@ -84,18 +95,18 @@ export const summarySql = (where: string): string =>
 	 FROM catalog WHERE ${where}`;
 
 /** Average-rating distribution, bucketed to RATING_BIN. */
-export const ratingHistogramSql = (where: string): string =>
-	`SELECT (floor(average_rating / ${RATING_BIN}) * ${RATING_BIN}) AS bucket, COUNT(*)::INT AS n
-	 FROM catalog WHERE ${where} AND average_rating > 0
+export const ratingHistogramSql = (where: string, m: MeasureColumns = RATED): string =>
+	`SELECT (floor(${m.rating} / ${RATING_BIN}) * ${RATING_BIN}) AS bucket, COUNT(*)::INT AS n
+	 FROM catalog WHERE ${where} AND ${m.rating} > 0
 	 GROUP BY bucket ORDER BY bucket`;
 
 /** Width of the complexity-distribution buckets, in weight points (1–5 scale). */
 export const WEIGHT_BIN = 0.25;
 
 /** Complexity (average_weight) distribution, bucketed to WEIGHT_BIN. */
-export const complexityHistogramSql = (where: string): string =>
-	`SELECT (floor(average_weight / ${WEIGHT_BIN}) * ${WEIGHT_BIN}) AS bucket, COUNT(*)::INT AS n
-	 FROM catalog WHERE ${where} AND average_weight > 0
+export const complexityHistogramSql = (where: string, m: MeasureColumns = RATED): string =>
+	`SELECT (floor(${m.weight} / ${WEIGHT_BIN}) * ${WEIGHT_BIN}) AS bucket, COUNT(*)::INT AS n
+	 FROM catalog WHERE ${where} AND ${m.weight} > 0
 	 GROUP BY bucket ORDER BY bucket`;
 
 /**
@@ -107,10 +118,10 @@ export const complexityHistogramSql = (where: string): string =>
 export const RATINGS_LOG_BIN = 0.1;
 
 /** Ratings-count (`users_rated`) distribution, bucketed on log10. Buckets are log values. */
-export const ratingsCountHistogramSql = (where: string): string =>
-	`SELECT (floor(log10(users_rated) / ${RATINGS_LOG_BIN}) * ${RATINGS_LOG_BIN}) AS bucket,
+export const ratingsCountHistogramSql = (where: string, m: MeasureColumns = RATED): string =>
+	`SELECT (floor(log10(${m.usersRated}) / ${RATINGS_LOG_BIN}) * ${RATINGS_LOG_BIN}) AS bucket,
 	        COUNT(*)::INT AS n
-	 FROM catalog WHERE ${where} AND users_rated > 0
+	 FROM catalog WHERE ${where} AND ${m.usersRated} > 0
 	 GROUP BY bucket ORDER BY bucket`;
 
 /**
@@ -136,16 +147,16 @@ export const gamesPerYearSql = (where: string, floor = YEAR_FLOOR): string =>
  * change marshals near-zero-copy typed arrays, not tens of thousands of strings. The tooltip
  * resolves the hovered point's name via the catalog `id→name` map (`nameOf`).
  */
-export const scatterSql = (where: string, limit = SCATTER_LIMIT): string =>
-	`SELECT average_weight AS x, average_rating AS y, game_id
-	 FROM catalog WHERE ${where} AND average_weight > 0 AND average_rating > 0
+export const scatterSql = (where: string, limit = SCATTER_LIMIT, m: MeasureColumns = RATED): string =>
+	`SELECT ${m.weight} AS x, ${m.rating} AS y, game_id
+	 FROM catalog WHERE ${where} AND ${m.weight} > 0 AND ${m.rating} > 0
 	 LIMIT ${limit}`;
 
 /** Average rating vs popularity (users_rated) — y is log-scaled in the chart; every game in scope.
  * Numbers only (see `scatterSql`); name resolved via `nameOf`. */
-export const popularitySql = (where: string, limit = SCATTER_LIMIT): string =>
-	`SELECT average_rating AS x, users_rated AS y, game_id
-	 FROM catalog WHERE ${where} AND average_rating > 0 AND users_rated > 0
+export const popularitySql = (where: string, limit = SCATTER_LIMIT, m: MeasureColumns = RATED): string =>
+	`SELECT ${m.rating} AS x, ${m.usersRated} AS y, game_id
+	 FROM catalog WHERE ${where} AND ${m.rating} > 0 AND ${m.usersRated} > 0
 	 LIMIT ${limit}`;
 
 /**

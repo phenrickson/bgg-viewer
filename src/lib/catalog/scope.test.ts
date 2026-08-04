@@ -27,6 +27,61 @@ describe('toWhere', () => {
 		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'rated' })).toBe('users_rated >= 30');
 	});
 
+	describe('the upcoming universe', () => {
+		const upcoming: Scope = { ...DEFAULT_SCOPE, universe: 'upcoming', hurdleMin: null };
+
+		it('bounds on the year and requires a scored row', () => {
+			const w = toWhere(upcoming);
+			expect(w).toContain(`year_published >= ${new Date().getFullYear()}`);
+			// The catalog LEFT JOINs predictions, so an unscored upcoming game is a real row
+			// with five null model columns — it must be absent, not a blank in every sort.
+			expect(w).toContain('predicted_geek_rating IS NOT NULL');
+		});
+
+		/**
+		 * The heart of sharing one Scope across both rooms: the same filter compiles against
+		 * whichever column the universe reads. A game nobody has played has no average_weight,
+		 * but it has a predicted one.
+		 */
+		it('repoints every numeric filter at the predicted columns', () => {
+			const w = toWhere({
+				...upcoming,
+				weightMin: 3,
+				weightMax: 3.5,
+				ratingMin: 7,
+				usersRatedMin: 500,
+				geekMin: 6
+			});
+			expect(w).toContain('predicted_complexity >= 3');
+			expect(w).toContain('predicted_complexity <= 3.5');
+			expect(w).toContain('predicted_rating >= 7');
+			expect(w).toContain('predicted_users_rated >= 500');
+			expect(w).toContain('predicted_geek_rating >= 6');
+			// …and never the actuals, which are null across most of this population.
+			expect(w).not.toContain('average_weight');
+			expect(w).not.toContain('average_rating');
+			expect(w).not.toMatch(/\busers_rated >=/);
+			expect(w).not.toMatch(/(?<!predicted_)geek_rating >=/);
+		});
+
+		it('keeps the rated universes on the actual columns', () => {
+			const w = toWhere({ ...DEFAULT_SCOPE, universe: 'rated', weightMin: 3, geekMin: 6 });
+			expect(w).toContain('average_weight >= 3');
+			expect(w).toContain('geek_rating >= 6');
+			expect(w).not.toContain('predicted_');
+		});
+
+		it('applies the hurdle floor only in the upcoming universe', () => {
+			expect(toWhere({ ...upcoming, hurdleMin: 0.5 })).toContain('predicted_hurdle_prob >= 0.5');
+			// Elsewhere every game has already cleared it, so the filter would remove nothing
+			// while quietly implying it had.
+			expect(toWhere({ ...DEFAULT_SCOPE, universe: 'rated', hurdleMin: 0.5 })).not.toContain(
+				'predicted_hurdle_prob'
+			);
+			expect(toWhere({ ...upcoming, hurdleMin: 0 })).not.toContain('predicted_hurdle_prob');
+		});
+	});
+
 	it('compiles ranges, players, facets, and search into a conjunction', () => {
 		const scope: Scope = {
 			...DEFAULT_SCOPE,
@@ -193,7 +248,8 @@ describe('URL round-trip', () => {
 			artists: [],
 			publishers: ['Hans im Glück, GmbH'], // comma in name — round-trips via repeated params
 			families: ['Mechanism: Legacy'],
-			universe: 'rated'
+			universe: 'rated',
+			hurdleMin: null
 		};
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);
 	});
@@ -201,6 +257,23 @@ describe('URL round-trip', () => {
 	it('records the universe only when it is not the Top 10,000 default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
+		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'upcoming' }).get('u')).toBe('upcoming');
+	});
+
+	// The hurdle floor defaults to 0.25 in `upcoming` and null everywhere else, so a bare
+	// `?u=upcoming` must parse back WITH the floor — and an explicitly cleared floor (0) has
+	// to survive the round trip rather than being mistaken for "unset, use the default".
+	it('round-trips the upcoming universe and its hurdle floor', () => {
+		const upcoming: Scope = { ...DEFAULT_SCOPE, universe: 'upcoming', hurdleMin: 0.25 };
+		expect(scopeToParams(upcoming).has('h')).toBe(false); // the default is not serialized
+		expect(scopeFromParams(scopeToParams(upcoming))).toEqual(upcoming);
+
+		const cleared: Scope = { ...upcoming, hurdleMin: 0 };
+		expect(scopeToParams(cleared).get('h')).toBe('0');
+		expect(scopeFromParams(scopeToParams(cleared)).hurdleMin).toBe(0);
+
+		const raised: Scope = { ...upcoming, hurdleMin: 0.8 };
+		expect(scopeFromParams(scopeToParams(raised)).hurdleMin).toBe(0.8);
 	});
 });
 
