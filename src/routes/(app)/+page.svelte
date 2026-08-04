@@ -170,17 +170,16 @@
       <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
     </ul>
 
+    <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
+         getting you into a room; these sections are for when you have read that and are
+         still waiting for the catalog.
+         Inside the hero's own `prose` measure, not a wider one: a foot that runs wider than
+         the copy above it makes the page look like two pages stitched together, and the
+         charts do not need the extra width to read. -->
+    <div class="gapwrap">
+      <WarmGap {content} day={today} />
     </div>
-</Container>
-
-<!-- The warm gap runs down the FOOT of the page, in its own wider measure: `prose` is 52rem,
-     which is the right width for a sentence and the wrong one for a plot. Above the fold this
-     page is about getting you into a room; these sections are for when you have read that and
-     are still waiting for the catalog. -->
-<Container size="content">
-  <div class="gapwrap">
-    <WarmGap {content} day={today} />
-  </div>
+    </div>
 </Container>
 
 <style>
