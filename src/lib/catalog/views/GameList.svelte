@@ -87,7 +87,7 @@
     { key: 'geek', label: 'P. Geek', align: 'l', sql: 'predicted_geek_rating', hint: 'predicted geek rating', domain: `${PRED_GEEK_LO}–${PRED_GEEK_HI}` },
     { key: 'rating', label: 'P. Avg', align: 'r', sql: 'predicted_rating', hint: 'predicted average rating' },
     { key: 'weight', label: 'P. Complexity', align: 'l', sql: 'predicted_complexity', hint: 'predicted weight, 1–5', domain: '1–5' },
-    { key: 'hurdle', label: 'P(hurdle)', align: 'r', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating' },
+    { key: 'hurdle', label: 'P(hurdle)', align: 'l', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating', domain: '0–100%' },
     { key: 'rated', label: 'P. Ratings', align: 'r', sql: 'predicted_users_rated' }
   ];
   const COLS = $derived(upcoming ? COLS_UPCOMING : COLS_RATED);
@@ -285,13 +285,16 @@
             <span class="wv tnum">{num(r.predicted_complexity, 1)}</span>
           </span>
 
-          <!-- A number, not a mark. Sorted by predicted geek — the default, and the sort
-               this column is usually read under — every visible hurdle sits between 86% and
-               100%, because geek rating is shrunk toward the mean by ratings volume and
-               nothing ranks high without expecting plenty of them. A track drawing "full"
-               a hundred times running discriminates nothing while holding ~5rem that the
-               game's own name and publisher were being truncated to afford. -->
-          <span class="c-hurdle r tnum dim">{probText(r.predicted_hurdle_prob)}</span>
+          <!-- The same bar as predicted geek, in a narrower slot. The column inherited
+               ~5.6rem from `Best at`'s six numerals, which is more than "97%" and a track
+               need; the surplus goes to the game's name, where publisher and categories
+               were truncating mid-word. -->
+          <span class="c-hurdle">
+            <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
+            <span class="fill" aria-hidden="true"
+              ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
+            >
+          </span>
 
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
@@ -583,7 +586,7 @@
       minmax(4.6rem, 0.7fr)
       minmax(2.8rem, 0.45fr)
       minmax(5.2rem, 0.9fr)
-      minmax(3.4rem, 0.4fr)
+      minmax(4.2rem, 0.55fr)
       minmax(4.4rem, 0.6fr);
   }
   .head .dom {
@@ -622,7 +625,7 @@
         minmax(3rem, 0.45fr)
         minmax(4.6rem, 0.7fr)
         minmax(5.2rem, 0.9fr)
-        minmax(3.4rem, 0.4fr);
+        minmax(4.2rem, 0.55fr);
     }
     .c-rating,
     .c-rated {

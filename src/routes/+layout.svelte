@@ -33,11 +33,16 @@
   /**
    * A menu, not a row of tabs.
    *
-   * Discover and Explore are two views of ONE thing — the same `Scope`, the same in-browser
-   * catalog, with "see all N in Explore" as the seam between them — so they belong under one
-   * heading rather than taking a top-level slot each. Predictions (upcoming games) and
-   * Collection (your shelf) are different data and will be siblings of Games; grouping by
-   * what the thing IS keeps the top row short however many views each one grows.
+   * Discover, Explore and Upcoming are three views of ONE thing — the same `Scope`, the same
+   * in-browser catalog, with "see all N in Explore" as the seam between them — so they belong
+   * under one heading rather than taking a top-level slot each. Upcoming is only a universe
+   * on that Scope, which is exactly why it is a menu row here and not a route: it had its own
+   * `/predictions` page for a while, and that page turned out to be Explore with the dial
+   * pre-set and ~200 lines of workspace copied to say so.
+   *
+   * `/predictions` is deliberately left unclaimed. It is reserved for the modelling room —
+   * how the model behaves and how well it has done — which is genuinely different data and
+   * will be a sibling of Games when it exists. Collection (your shelf) likewise.
    *
    * A menu rather than a second tab bar for two reasons. A sub-bar is a permanent strip of
    * chrome that is empty on most pages, and — the better reason — a menu row can carry a
@@ -49,11 +54,15 @@
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
-  const onPredictions = $derived(path.startsWith('/predictions'));
   const onAbout = $derived(path.startsWith('/about'));
+  /**
+   * Upcoming is `/games` with the universe dial set, so it lights the same Games trigger —
+   * and reads its own menu row as current only when that dial is actually on `upcoming`.
+   */
+  const onUpcoming = $derived(onExplore && $page.url.searchParams.get('u') === 'upcoming');
   const inGames = $derived(onExplore || onDiscover);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
-  const onHome = $derived(!inGames && !onPredictions && !onAbout);
+  const onHome = $derived(!inGames && !onAbout);
 
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
@@ -116,23 +125,23 @@
                 <b>Discover</b>
                 <span>Answer a few questions, get a shortlist</span>
               </a>
-              <a href="/games" role="menuitem" class:on={onExplore}>
+              <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}>
                 <b>Explore</b>
                 <span>Filter and sort the whole catalog</span>
+              </a>
+              <!-- A universe on the same Scope, so it is a row here rather than a route. -->
+              <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}>
+                <b>Upcoming</b>
+                <span>What’s coming, and what the model expects of it</span>
               </a>
             </div>
           {/if}
         </div>
 
-        <!-- A sibling of Games, not a view under it: different population (games nobody has
-             played yet) and different columns (what the model expects, not what happened).
-             Only Discover and Explore share a Scope, which is what earns them one heading. -->
-        <a href="/predictions" class:active={onPredictions}>Predictions</a>
-
         <!-- Last, and stays last. Every other item in this row is a dataset — the rated
-             catalog, upcoming games, your shelf — and About is the one that explains them
-             rather than being one. Collection slots in before it; it can grow its own menu
-             (methodology, freshness) without disturbing anything else. -->
+             catalog, your shelf — and About is the one that explains them rather than being
+             one. The modelling room and Collection slot in before it; it can grow its own
+             menu (methodology, freshness) without disturbing anything else. -->
         <a href="/about" class:active={onAbout}>About</a>
       </nav>
       {#if data.user}

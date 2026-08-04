@@ -23,9 +23,11 @@ export const SCALAR_COLUMNS = {
  * knows which model version produced it); it is NOT yet in `bgg_predictions`, so the column
  * is absent here until the pipeline emits it. See docs/predictions-plan.md.
  *
- * This is separate from the Predictions view, which explores UPCOMING games — a year-scoped
- * population, not a ratings-scoped one — and gets its own artifact loaded on demand so a
- * session that never opens it never pays for it.
+ * This once said the Predictions view would need its own on-demand artifact, on the grounds
+ * that upcoming games are a year-scoped population rather than a ratings-scoped one. It
+ * doesn't: `WORKING_SET_WHERE` already admits every game published this year or later, so all
+ * ~4,800 of them are in this artifact carrying all five model columns. The `upcoming`
+ * universe is a `WHERE` over the catalog already in the browser, and cost nothing to add.
  *
  * Float32, not Float64. A predicted rating carries maybe three meaningful digits; storing
  * fifteen doubles the width of the five widest columns for no recoverable information.
