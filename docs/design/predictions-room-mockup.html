@@ -146,22 +146,35 @@
   .mt { display: block; font-size: 0.76rem; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: .1rem; }
   .yr { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
-  /* ONE mark treatment for every column that carries one. Geometry, height, colour and
-     the number above it are identical in all three — the columns differ by their header
-     and their position, which is already enough. Three shapes in three hues read as
-     three unrelated things; they are all "a number on a scale".
+  /* Two marks, because there are two jobs — and only two.
+     ONE hue for both (blue), held back: these support the digits, they don't compete.
+     Orange is reserved for interaction (the sorted header), so the page reads blue/orange
+     and never carries a third accent.
 
-     The fill is one hue held well back: these support the digits, they don't compete
-     with them. At 22 rows x 3 columns, saturated marks are 66 pieces of colour per
-     screen. */
+     .scale — a POSITION on a low→high band. Predicted geek (4.5–7.0) and complexity
+     (1–5) are both "where does this sit between low and high", not "how much out of a
+     maximum". Their bands don't start at zero, so a fill growing from the left edge
+     would claim a baseline that isn't there and read as a progress bar.
+
+     .fill — a genuine PROPORTION from zero. P(hurdle) is the only one: 0 to 1, where
+     empty and full both mean something literal. */
   .gv, .hv, .wv { display: block; font-size: 0.85rem; font-weight: 600; line-height: 1.15; }
-  .gbar, .hbar, .wbar { display: block; height: 3px; border-radius: 2px;
-    background: color-mix(in oklch, var(--border) 55%, transparent); overflow: hidden; }
-  .gbar i, .hbar i, .wbar i { display: block; height: 100%; border-radius: 0 2px 2px 0;
-    background: color-mix(in oklch, var(--chart-1) 55%, var(--muted-foreground)); }
+  .scale { display: block; position: relative; height: 9px; }
+  .scale::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+    height: 3px; margin-top: -1.5px; border-radius: 2px;
+    background: color-mix(in oklch, var(--border) 55%, transparent); }
+  .scale i { position: absolute; top: 0; bottom: 0; width: 2px; border-radius: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in oklch, var(--chart-1) 60%, var(--muted-foreground)); }
+  .fill { display: block; height: 3px; border-radius: 2px; overflow: hidden;
+    background: color-mix(in oklch, var(--border) 55%, transparent); }
+  .fill i { display: block; height: 100%; border-radius: 0 2px 2px 0;
+    background: color-mix(in oklch, var(--chart-1) 60%, var(--muted-foreground)); }
   .av { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
-  .row.weak .hv { color: var(--negative); }
+  /* No status colour on a low hurdle. `--negative` is reserved for genuine bad state and
+     ships with a label, never as a bare tint; a 43% probability is a fact, not an error.
+     The number and its mark already say it. */
   .nn { font-size: 0.85rem; color: var(--muted-foreground); text-align: right; }
 
   /* ---- row anatomy / domain comparison ---- */
@@ -177,8 +190,10 @@
   table.legend { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: var(--space-md); }
   table.legend th, table.legend td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
   table.legend th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); font-weight: 600; }
-  table.legend td.y { color: var(--positive); font-weight: 600; }
-  table.legend td.n { color: var(--negative); font-weight: 600; }
+  /* Text tokens, not status hues. Green/red here was two more accents on a page whose
+     palette is blue marks + orange interaction, and "yes"/"domain" already read as words. */
+  table.legend td.y { color: var(--muted-foreground); font-weight: 600; }
+  table.legend td.n { color: var(--foreground); font-weight: 650; }
 </style>
 
 <div class="wrap">
@@ -345,7 +360,7 @@
   <div class="cmp">
     <div class="panel">
       <h3>Explore's domain — 5.5 to 8.8</h3>
-      <p class="sub">Fixed on purpose, so a bar means the same thing on every page of the app.</p>
+      <p class="sub">Fixed on purpose, so a mark means the same thing on every page of the app.</p>
       <div id="domA"></div>
     </div>
     <div class="panel">
@@ -358,11 +373,11 @@
   <div class="note">
     <h4>The fork</h4>
     <p>Predicted geek rating runs <b>5.0 to 6.93</b> across all 4,842 upcoming games, with a <b>median of 5.46</b>.
-      On Explore's domain, over half the population renders as an empty bar and the whole set is pinned inside the
-      left 43% — visible in the left panel, where the top of the list is nearly indistinguishable from its middle.</p>
-    <p>Giving the page its own domain makes the column readable, and breaks the rule the encoding was built on: a
-      bar on <span class="k">/predictions</span> would no longer mean what a bar on <span class="k">/games</span>
-      means. The alternative is to keep one domain and drop the bar here, leaving predicted geek as a bare number.</p>
+      On Explore's domain the whole set is pinned into the left 43% of the track — visible in the left panel, where
+      the top of the list sits at the same place as its middle and the scale reads as saying nothing.</p>
+    <p>Giving the page its own domain makes the column legible, and breaks the rule the encoding was built on: a
+      mark on <span class="k">/predictions</span> would no longer sit where a mark on <span class="k">/games</span>
+      sits. The alternative is to keep one domain and drop the mark here, leaving predicted geek as a bare number.</p>
   </div>
 
   <div class="note">
@@ -430,17 +445,17 @@
       <span class="pager"><i class="off">‹ Prev</i><span>1 / 198</span><i>Next ›</i></span></div>`
       + HEAD
       + ROWS.map((r, i) => `
-      <a class="row${r[5] < 0.5 ? " weak" : ""}" href="#">
+      <a class="row" href="#">
         <span class="rk tnum">${i + 1}</span>
         <span><span class="nm">${r[0]}</span><span class="mt">${meta(r)}</span></span>
         <span class="yr tnum">2026</span>
         <span><span class="gv tnum">${r[1].toFixed(2)}</span>
-          <span class="gbar"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
+          <span class="scale"><i style="left:${pct(r[1], lo, hi)}%"></i></span></span>
         <span class="av tnum">${r[2].toFixed(2)}</span>
         <span><span class="wv tnum">${r[3].toFixed(1)}</span>
-          <span class="wbar"><i style="width:${pct(r[3], 1, 5)}%"></i></span></span>
+          <span class="scale"><i style="left:${pct(r[3], 1, 5)}%"></i></span></span>
         <span><span class="hv tnum">${Math.round(r[5] * 100)}%</span>
-          <span class="hbar"><i style="width:${r[5] * 100}%"></i></span></span>
+          <span class="fill"><i style="width:${r[5] * 100}%"></i></span></span>
         <span class="nn tnum">${r[4].toLocaleString()}</span>
       </a>`).join("");
   }
@@ -449,7 +464,7 @@
     el.innerHTML = ROWS.map(r => `<div class="drow">
       <span class="dname">${r[0]}</span>
       <span><span class="gv tnum">${r[1].toFixed(2)}</span>
-        <span class="gbar"><i style="width:${pct(r[1], lo, hi)}%"></i></span></span>
+        <span class="scale"><i style="left:${pct(r[1], lo, hi)}%"></i></span></span>
     </div>`).join("");
   }
 
