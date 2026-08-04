@@ -40,6 +40,48 @@ describe('content.json', () => {
 		}
 	});
 
+	it('names real games on every cloud, spread across the x range', () => {
+		for (const v of landing.vizzes) {
+			if (v.kind !== 'scatter') continue;
+			const a = v.annotations ?? [];
+			expect(a.length, v.title).toBeGreaterThanOrEqual(4);
+			expect(a.every((p) => p.label.trim().length > 0), v.title).toBe(true);
+
+			// Spread is the whole point: `label()` buckets by x precisely so the callouts do not
+			// all land in one corner, which teaches nothing about the axis.
+			const xs = v.points.map((p) => p[0]);
+			const lo = Math.min(...xs);
+			const hi = Math.max(...xs);
+			const at = a.map((p) => (p.x - lo) / (hi - lo));
+			expect(Math.max(...at) - Math.min(...at), v.title).toBeGreaterThan(0.4);
+		}
+	});
+
+	it('every annotated point sits inside the plotted range', () => {
+		for (const v of landing.vizzes) {
+			if (v.kind !== 'scatter') continue;
+			const xs = v.points.map((p) => p[0]);
+			const ys = v.points.map((p) => p[1]);
+			for (const a of v.annotations ?? []) {
+				expect(a.x, `${v.title}: ${a.label}`).toBeGreaterThanOrEqual(Math.min(...xs));
+				expect(a.x, `${v.title}: ${a.label}`).toBeLessThanOrEqual(Math.max(...xs));
+				expect(a.y, `${v.title}: ${a.label}`).toBeGreaterThanOrEqual(Math.min(...ys));
+				expect(a.y, `${v.title}: ${a.label}`).toBeLessThanOrEqual(Math.max(...ys));
+			}
+		}
+	});
+
+	it('a callout points at the bucket it describes, and that is the tallest one', () => {
+		for (const v of landing.vizzes) {
+			if (v.kind !== 'columns' || !v.callout) continue;
+			const peak = v.bins.reduce((a, b) => (b[1] > a[1] ? b : a), v.bins[0]);
+			// The highlighted bar and the sentence must agree, or the chart argues with itself.
+			expect(v.callout.at, v.title).toBe(peak[0]);
+			expect(v.bins.some(([x]) => x === v.callout!.at), v.title).toBe(true);
+			expect(v.callout.text.length, v.title).toBeGreaterThan(20);
+		}
+	});
+
 	it('stays inside the 60 KB gzipped budget — this ships in the JS bundle', () => {
 		const gz = gzipSync(Buffer.from(JSON.stringify(landing))).length;
 		expect(gz).toBeLessThan(60 * 1024);

@@ -7,6 +7,17 @@
  * needed a round-trip to appear would arrive after the problem it solves.
  */
 
+/**
+ * A named point drawn on top of a cloud. A few hundred anonymous dots state a shape but no
+ * fact you can hold onto; naming half a dozen games you recognise is what turns the plot into
+ * something you can read a claim off.
+ */
+export interface Annotation {
+	x: number;
+	y: number;
+	label: string;
+}
+
 /** A scatter's points are `[x, y]` pairs rather than objects — halves the JSON. */
 export interface ScatterViz {
 	kind: 'scatter';
@@ -15,6 +26,10 @@ export interface ScatterViz {
 	xLabel: string;
 	yLabel: string;
 	points: [number, number][];
+	annotations?: Annotation[];
+	/** Log10 the axis — for anything spanning orders of magnitude, like vote counts. */
+	xLog?: boolean;
+	yLog?: boolean;
 }
 
 /** Discrete numeric buckets as `[value, count]` pairs, same reasoning. */
@@ -33,6 +48,13 @@ export interface ColumnsViz {
 	tickEvery?: number;
 	/** Decimal places for the bucket labels — 0 for years and player counts, 1 for ratings. */
 	precision?: number;
+	/**
+	 * The takeaway, stated. A bare distribution shows a shape and leaves the reader to work
+	 * out whether it is surprising; this is where the chart says what it thinks. The
+	 * highlighted bucket is drawn in `--primary` so the sentence and the bar point at the
+	 * same thing.
+	 */
+	callout?: { text: string; at: number };
 }
 
 /**

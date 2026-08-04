@@ -51,9 +51,17 @@
      * they stack into a hard vertical line that hides the density behind it.
      */
     jitterX = 0,
-    jitterY = 0
+    jitterY = 0,
+    annotations = []
   }: {
     points?: { x: number; y: number; c?: number }[];
+    /**
+     * Named points called out on top of the cloud. A few hundred anonymous dots state a shape
+     * but no fact you can hold onto; naming half a dozen of them turns the plot into something
+     * you can read a claim off. Drawn in the SVG layer, so the labels stay crisp text and the
+     * canvas cloud path is untouched.
+     */
+    annotations?: { x: number; y: number; label: string }[];
     xLabel: string;
     yLabel: string;
     /** Plot on a log10 scale — for anything spanning orders of magnitude, like vote counts. */
@@ -195,6 +203,21 @@
   });
 
   const fmt = (v: number) => (v >= 1000 ? `${v / 1000}k` : String(v));
+
+  /**
+   * Place each annotation's text, flipping it to the left of its dot when the label would
+   * otherwise run past the plot's right edge. The svg is `overflow: hidden` (see the note on
+   * the y-axis label below), so an unflipped label near the edge is silently truncated rather
+   * than merely ugly. 6.2px/char approximates the 11px label font well enough to decide.
+   */
+  const placed = $derived.by(() =>
+    annotations.map((a) => {
+      const px = sx(a.x);
+      const py = sy(a.y);
+      const flip = px + a.label.length * 6.2 + 10 > PAD.l + plotW;
+      return { ...a, px, py, flip, tx: flip ? px - 7 : px + 7 };
+    })
+  );
 </script>
 
 <!-- Chart and key side by side, the key vertical on the right — the conventional place for a
@@ -216,6 +239,25 @@
 
       {#each xTicks as t (t)}
         <text x={sx(t)} y={PAD.t + plotH + 14} class="tick" text-anchor="middle">{fmt(t)}</text>
+      {/each}
+
+      <!-- Named points, above the grid and below nothing. Each label gets a stroked copy
+           underneath so it stays readable where it crosses the densest part of the cloud —
+           a halo, rather than a background box that would blank out the very points it sits on. -->
+      {#each placed as a (a.label)}
+        <circle cx={a.px} cy={a.py} r="4.5" class="anndot" />
+        <text
+          x={a.tx}
+          y={a.py}
+          class="annlabel halo"
+          text-anchor={a.flip ? 'end' : 'start'}
+          dominant-baseline="middle">{a.label}</text>
+        <text
+          x={a.tx}
+          y={a.py}
+          class="annlabel"
+          text-anchor={a.flip ? 'end' : 'start'}
+          dominant-baseline="middle">{a.label}</text>
       {/each}
 
       <text x={PAD.l + plotW / 2} y={height - 4} class="axl" text-anchor="middle">{xLabel}</text>
@@ -263,6 +305,13 @@
   .grid { stroke: color-mix(in oklch, var(--border) 55%, transparent); stroke-width: 1; }
   .tick { fill: var(--muted-foreground); font-size: 10px; }
   .axl { fill: var(--muted-foreground); font-size: 11px; }
+
+  /* `--primary` rather than a chart hue: these are the marked points, and primary is what
+     this app already uses for "this is the one to look at". The ring separates the dot from
+     the cloud it sits in, which is the same colour family underneath. */
+  .anndot { fill: var(--primary); stroke: var(--background); stroke-width: 1.5; }
+  .annlabel { fill: var(--foreground); font-size: 11px; font-weight: 600; }
+  .halo { stroke: var(--background); stroke-width: 3.5; stroke-linejoin: round; paint-order: stroke; }
 
   /* The chart takes the width; the key is a fixed narrow column beside it. */
   .row { display: flex; gap: var(--space-md); align-items: stretch; min-width: 0; }

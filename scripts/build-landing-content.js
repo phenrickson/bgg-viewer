@@ -39,31 +39,90 @@ const bq = new BigQuery({ projectId: PROJECT });
 const q = async (sql) => (await bq.query({ query: sql }))[0];
 const num = (v) => (v == null ? null : Number(v));
 
-/** Deterministic sample — FARM_FINGERPRINT so a rebuild with unchanged data is byte-stable. */
+/**
+ * Deterministic sample — FARM_FINGERPRINT so a rebuild with unchanged data is byte-stable.
+ *
+ * `name` and `pop` come along for the ride so `label()` can pick recognisable games to call
+ * out. They are dropped from `points` and survive only on the handful of annotations, so they
+ * cost a few hundred bytes rather than 500 names.
+ *
+ * The most-rated games are UNION'd in and deduped, because a uniform random sample of 500 out
+ * of ~31k almost never contains Catan or Gloomhaven — so every label would be a game nobody
+ * recognises, which defeats the point of labelling.
+ */
 const sample = (cols, where) => `
-	SELECT ${cols} FROM ${F}
-	WHERE ${WORKING} AND ${where}
-	ORDER BY FARM_FINGERPRINT(CAST(game_id AS STRING)) LIMIT ${SAMPLE}`;
+	WITH pool AS (
+	  SELECT ${cols}, name, users_rated AS pop, game_id FROM ${F}
+	  WHERE ${WORKING} AND ${where}
+	),
+	-- Separate CTEs rather than two ORDER BY ... LIMIT selects either side of the UNION:
+	-- BigQuery rejects an unparenthesised ORDER BY directly before a set operator.
+	rnd AS (SELECT * FROM pool ORDER BY FARM_FINGERPRINT(CAST(game_id AS STRING)) LIMIT ${SAMPLE}),
+	famous AS (SELECT * FROM pool ORDER BY pop DESC LIMIT 60),
+	picked AS (SELECT * FROM rnd UNION DISTINCT SELECT * FROM famous)
+	SELECT * EXCEPT (game_id) FROM picked`;
 
-const scatter = (title, note, xLabel, yLabel, rows) => ({
+/**
+ * Pick the games to name on a cloud.
+ *
+ * Spread across the x range, not simply the most popular: taking the top N by ratings labels
+ * six games in one corner and leaves the rest of the plot anonymous, which teaches nothing
+ * about the axis. Bucketing by x and taking the best-known game in each means the labels
+ * describe the whole span.
+ */
+const label = (rows, n = 6) => {
+	const usable = rows.filter((r) => r.name && r.x != null && r.y != null);
+	if (!usable.length) return [];
+	const xs = usable.map((r) => Number(r.x));
+	const lo = Math.min(...xs);
+	const hi = Math.max(...xs);
+	if (hi === lo) return [];
+
+	const buckets = new Map();
+	for (const r of usable) {
+		const b = Math.min(n - 1, Math.floor(((Number(r.x) - lo) / (hi - lo)) * n));
+		const cur = buckets.get(b);
+		if (!cur || Number(r.pop) > Number(cur.pop)) buckets.set(b, r);
+	}
+	return [...buckets.values()]
+		.sort((a, b) => Number(a.x) - Number(b.x))
+		.map((r) => ({ x: Number(r.x), y: Number(r.y), label: r.name }));
+};
+
+const scatter = (title, note, xLabel, yLabel, rows, opts = {}) => ({
 	kind: 'scatter',
 	title,
 	note,
 	xLabel,
 	yLabel,
-	points: rows.map((r) => [Number(r.x), Number(r.y)])
+	points: rows.map((r) => [Number(r.x), Number(r.y)]),
+	annotations: label(rows),
+	...opts
 });
 
-const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision = 0) => ({
-	kind: 'columns',
-	title,
-	note,
-	xLabel,
-	yLabel,
-	bins: rows.map((r) => [Number(r.v), Number(r.n)]),
-	tickEvery,
-	precision
-});
+/**
+ * `callout` is a function of the data, not a hand-written sentence: the numbers in it are
+ * computed from the same rows the bars are drawn from, so it cannot drift when the catalog
+ * refreshes and the peak moves.
+ */
+const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision = 0, say) => {
+	const bins = rows.map((r) => [Number(r.v), Number(r.n)]);
+	const total = bins.reduce((s, [, n]) => s + n, 0);
+	const peak = bins.reduce((a, b) => (b[1] > a[1] ? b : a), bins[0]);
+	return {
+		kind: 'columns',
+		title,
+		note,
+		xLabel,
+		yLabel,
+		bins,
+		tickEvery,
+		precision,
+		callout: say
+			? { text: say(peak[0], peak[1], Math.round((peak[1] / total) * 100), total), at: peak[0] }
+			: undefined
+	};
+};
 
 const bars = (title, note, xLabel, yLabel, rows) => ({
 	kind: 'bars',
@@ -162,7 +221,9 @@ const vizzes = [
 		'Year',
 		'Games',
 		byYear,
-		5
+		5,
+		0,
+		(v, n) => `PLACEHOLDER — ${v} was the biggest year on record, with ${n.toLocaleString()} rated releases.`
 	),
 	bars(
 		'The most common mechanics',
@@ -184,7 +245,9 @@ const vizzes = [
 		'Players',
 		'Games',
 		bestAt,
-		1
+		1,
+		0,
+		(v, n, pct) => `PLACEHOLDER — ${v} players is the most common sweet spot: ${n.toLocaleString()} games, ${pct}% of every best-at vote in the catalog.`
 	),
 	bars(
 		'The most common categories',
@@ -200,14 +263,18 @@ const vizzes = [
 		'Games',
 		ratingDist,
 		4,
-		1
+		1,
+		(v, n, pct) => `PLACEHOLDER — the catalog piles up around ${v.toFixed(1)}: ${pct}% of games sit in this one half-point bucket.`
 	),
 	scatter(
 		'Popularity against rating',
 		'PLACEHOLDER — how many people rated a game against how it scores. Note the log scale.',
 		'Ratings',
 		'Geek rating',
-		popularityQuality
+		popularityQuality,
+		// Ratings run from 30 to ~135,000. Linear, that is one clump against the axis and a
+		// handful of outliers strung out to the right; the shape only exists in log space.
+		{ xLog: true }
 	),
 	bars(
 		'The most prolific designers',
@@ -223,7 +290,8 @@ const vizzes = [
 		'Games',
 		weightDist,
 		4,
-		2
+		2,
+		(v, n, pct) => `PLACEHOLDER — ${v.toFixed(2)} is the most common weight, ${pct}% of the catalog. Community weights cluster hard on round numbers.`
 	),
 	scatter(
 		'Playing time against complexity',
