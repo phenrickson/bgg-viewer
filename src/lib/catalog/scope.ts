@@ -43,9 +43,55 @@ export interface Scope {
 	artists: string[];
 	publishers: string[];
 	families: string[];
-	/** Base population (the "Universe"): top 10k by geek rating, or everything rated. */
-	universe: 'top10k' | 'rated';
+	/**
+	 * Base population (the "Universe"). Two rated slices, plus `upcoming` — games published
+	 * this year or later, which have no ratings to slice by.
+	 *
+	 * `upcoming` is not just a third `WHERE`: it also **repoints the numeric filters at the
+	 * predicted columns**. A game nobody has played has no `average_weight`, `geek_rating`,
+	 * `average_rating` or `users_rated`, but it has a model estimate of all four — so
+	 * "complexity 3.0–3.5" is the same question in both universes and only the column
+	 * differs. That is what lets one `Scope`, one rail and one table serve both rooms
+	 * instead of two of each drifting apart.
+	 */
+	universe: 'top10k' | 'rated' | 'upcoming';
+	/**
+	 * Floor on `predicted_hurdle_prob` — the chance a game ever gathers enough ratings to
+	 * earn a geek rating. Only meaningful in the `upcoming` universe (elsewhere the games
+	 * have already cleared it), and ignored by `toWhere` outside it.
+	 */
+	hurdleMin: number | null;
 }
+
+/**
+ * Which column each numeric filter compiles to, per universe. The rated universes read what
+ * happened; `upcoming` reads what the model expects.
+ */
+const COLUMNS = {
+	rated: {
+		weight: 'average_weight',
+		rating: 'average_rating',
+		usersRated: 'users_rated',
+		geek: 'geek_rating'
+	},
+	upcoming: {
+		weight: 'predicted_complexity',
+		rating: 'predicted_rating',
+		usersRated: 'predicted_users_rated',
+		geek: 'predicted_geek_rating'
+	}
+} as const;
+
+export function columnsFor(universe: Scope['universe']) {
+	return universe === 'upcoming' ? COLUMNS.upcoming : COLUMNS.rated;
+}
+
+/**
+ * The default hurdle floor for the upcoming universe. Most BGG entries never gather enough
+ * ratings to earn a geek rating, and without a floor the tail of placeholder records crowds
+ * the list. Surfaced as a control and as a chip, so it is visible rather than assumed.
+ */
+export const DEFAULT_HURDLE_MIN = 0.25;
 
 export const DEFAULT_SCOPE: Scope = {
 	q: '',
@@ -67,7 +113,8 @@ export const DEFAULT_SCOPE: Scope = {
 	artists: [],
 	publishers: [],
 	families: [],
-	universe: 'top10k'
+	universe: 'top10k',
+	hurdleMin: null
 };
 
 const esc = (s: string) => s.replace(/'/g, "''");
@@ -80,7 +127,15 @@ const finite = (v: unknown): number | null => {
 /** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
 export function toWhere(scope: Scope): string {
 	const parts: string[] = [];
-	if (scope.universe === 'rated') parts.push('users_rated >= 30');
+	const col = columnsFor(scope.universe);
+	if (scope.universe === 'upcoming')
+		// Published this year or later. The `IS NOT NULL` guard matters because the catalog
+		// LEFT JOINs predictions: an unscored upcoming game is a real row with five null model
+		// columns, and it would sit in every sort as a blank rather than being absent.
+		parts.push(
+			`year_published >= ${new Date().getFullYear()} AND predicted_geek_rating IS NOT NULL`
+		);
+	else if (scope.universe === 'rated') parts.push('users_rated >= 30');
 	else
 		// Top 10k by geek rating — an independent subquery over the whole catalog.
 		parts.push(
@@ -88,14 +143,19 @@ export function toWhere(scope: Scope): string {
 		);
 	if (scope.yearMin != null) parts.push(`year_published >= ${scope.yearMin}`);
 	if (scope.yearMax != null) parts.push(`year_published <= ${scope.yearMax}`);
-	if (scope.weightMin != null) parts.push(`average_weight >= ${scope.weightMin}`);
-	if (scope.weightMax != null) parts.push(`average_weight <= ${scope.weightMax}`);
-	if (scope.ratingMin != null) parts.push(`average_rating >= ${scope.ratingMin}`);
-	if (scope.ratingMax != null) parts.push(`average_rating <= ${scope.ratingMax}`);
-	if (scope.usersRatedMin != null) parts.push(`users_rated >= ${scope.usersRatedMin}`);
-	if (scope.usersRatedMax != null) parts.push(`users_rated <= ${scope.usersRatedMax}`);
-	if (scope.geekMin != null) parts.push(`geek_rating >= ${scope.geekMin}`);
-	if (scope.geekMax != null) parts.push(`geek_rating <= ${scope.geekMax}`);
+	// Numeric bounds compile against whichever columns this universe reads — actuals for the
+	// rated slices, model estimates for upcoming. Same question, different source.
+	if (scope.weightMin != null) parts.push(`${col.weight} >= ${scope.weightMin}`);
+	if (scope.weightMax != null) parts.push(`${col.weight} <= ${scope.weightMax}`);
+	if (scope.ratingMin != null) parts.push(`${col.rating} >= ${scope.ratingMin}`);
+	if (scope.ratingMax != null) parts.push(`${col.rating} <= ${scope.ratingMax}`);
+	if (scope.usersRatedMin != null) parts.push(`${col.usersRated} >= ${scope.usersRatedMin}`);
+	if (scope.usersRatedMax != null) parts.push(`${col.usersRated} <= ${scope.usersRatedMax}`);
+	if (scope.geekMin != null) parts.push(`${col.geek} >= ${scope.geekMin}`);
+	if (scope.geekMax != null) parts.push(`${col.geek} <= ${scope.geekMax}`);
+	// Only the upcoming universe has a hurdle to clear; elsewhere every game already did.
+	if (scope.universe === 'upcoming' && scope.hurdleMin != null && scope.hurdleMin > 0)
+		parts.push(`predicted_hurdle_prob >= ${scope.hurdleMin}`);
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
 	if (scope.bestAt != null) parts.push(`list_contains(best_player_counts, ${scope.bestAt})`);
@@ -225,6 +285,15 @@ export function activeFilters(scope: Scope): FilterChip[] {
 			label: `${scope.bestAt}`,
 			patch: { bestAt: null }
 		});
+	// A chip despite having a non-zero default in the upcoming universe: a filter that
+	// silently removes ~3,000 games has to be visible and removable.
+	if (scope.universe === 'upcoming' && scope.hurdleMin != null && scope.hurdleMin > 0)
+		chips.push({
+			id: 'hurdle',
+			kind: 'likely rated',
+			label: `≥ ${Math.round(scope.hurdleMin * 100)}%`,
+			patch: { hurdleMin: null }
+		});
 
 	const values = (key: 'categories' | 'mechanics' | 'designers' | 'artists' | 'publishers' | 'families', kind: string) => {
 		for (const v of scope[key])
@@ -268,7 +337,16 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	for (const pub of scope.publishers) p.append('pub', pub);
 	for (const f of scope.families) p.append('fam', f);
 	if (scope.universe !== 'top10k') p.set('u', scope.universe);
+	// `0` is meaningful (an explicitly cleared floor) and must round-trip, so this compares
+	// against the universe's default rather than testing truthiness.
+	if (scope.hurdleMin !== defaultHurdleFor(scope.universe))
+		p.set('h', String(scope.hurdleMin ?? 0));
 	return p;
+}
+
+/** The hurdle floor a universe starts at. Only `upcoming` has one. */
+export function defaultHurdleFor(universe: Scope['universe']): number | null {
+	return universe === 'upcoming' ? DEFAULT_HURDLE_MIN : null;
 }
 
 /** Parse a scope back from URLSearchParams, falling back to defaults. */
@@ -278,6 +356,8 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 			.split(',')
 			.map((s) => s.trim())
 			.filter(Boolean);
+	const u = params.get('u');
+	const h = params.get('h');
 	return {
 		q: params.get('q') ?? '',
 		yearMin: finite(params.get('ymin')),
@@ -298,6 +378,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		artists: params.getAll('art'),
 		publishers: params.getAll('pub'),
 		families: params.getAll('fam'),
-		universe: params.get('u') === 'rated' ? 'rated' : 'top10k'
+		universe: u === 'rated' || u === 'upcoming' ? u : 'top10k',
+		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'top10k') : finite(h)
 	};
 }

@@ -17,6 +17,7 @@
   import { gameFromCatalogRow, type CatalogGameRow } from '$lib/catalog/game-from-catalog';
   import { decodeEntities } from '$lib/utils/html-entities';
   import { Container } from '$lib/components/ui/layout';
+  import PredictionPanel from '$lib/game/PredictionPanel.svelte';
 
   let { data } = $props();
 
@@ -291,49 +292,20 @@
   const p = $derived(g?.predictions ?? null);
   const isRated = $derived((g?.geek ?? 0) > 0);
   /**
-   * Whether the model was fitted on this game. Three states, not two — NULL means the row
-   * predates the flag and hasn't been rescored yet, so the page says nothing rather than
-   * implying a forecast. The cutoff year rides along so the claim is checkable.
+   * Whether this page is about a game whose numbers have settled, or one still arriving.
+   *
+   * The same test the `upcoming` universe uses — `year_published >= CURRENT_YEAR` — so a game
+   * reached from that list leads with the model on its own page too, rather than opening on
+   * a hero of actuals that says nothing about why it was in the list.
+   *
+   * Deliberately NOT `isRated`. A game published this year can hold a geek rating and still
+   * be three months into a forecast that hasn't played out: Arkham Horror's 2026 core set has
+   * 823 ratings against a modelled 2,866, and treating it as settled put the only panel with
+   * anything to say about that at the foot of the page. Year decides where the prediction
+   * sits; `isRated` still decides how it is worded, which is the distinction the panel's copy
+   * was already making.
    */
-  const inSample = $derived(p?.sampleStatus === 'in_sample');
-  const sampleNote = $derived(
-    p?.sampleStatus == null
-      ? null
-      : inSample
-        ? `Fitted — this game was in the model’s training data${p.trainingCutoff ? ` (through ${p.trainingCutoff})` : ''}.`
-        : `Forecast — published after the model’s training cutoff${p.trainingCutoff ? ` of ${p.trainingCutoff}` : ''}.`
-  );
-
-  /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters most. */
-  function probText(v: number | null): string {
-    if (v == null) return '—';
-    const pc = v * 100;
-    if (pc < 1) return '<1%';
-    if (pc < 10) return `${pc.toFixed(1)}%`;
-    return `${Math.round(pc)}%`;
-  }
-
-  const predRows = $derived(
-    p == null || g == null
-      ? []
-      : (
-          [
-            { k: 'Geek rating', v: p.geek, actual: g.geek, digits: 2 },
-            { k: 'Average', v: p.rating, actual: g.average, digits: 2 },
-            { k: 'Ratings', v: p.usersRated, actual: g.ratings, digits: 0 },
-            { k: 'Complexity', v: p.complexity, actual: g.weight, digits: 1 }
-          ] as const
-        ).filter((r) => r.v != null)
-  );
-  const fmtPred = (v: number | null, digits: number) => (digits === 0 ? int(v) : num(v, digits));
-  /** `users_rated` → `Ratings`, so the disclosure names targets the way the panel above does. */
-  const TARGET_LABEL: Record<string, string> = {
-    hurdle: 'Rated at all',
-    geek_rating: 'Geek rating',
-    rating: 'Average',
-    users_rated: 'Ratings',
-    complexity: 'Complexity'
-  };
+  const upcoming = $derived(g?.year != null && g.year >= new Date().getFullYear());
 </script>
 
 <svelte:head><title>{g ? `${g.name} · ` : ''}bgg-viewer</title></svelte:head>
@@ -402,31 +374,59 @@
       </div>
     </div>
 
+    <!--
+      For a game published this year or later, each stat's second line carries the model's
+      estimate instead of a percentile. That is the emphasis the page was missing: arriving
+      from the upcoming list, the hero used to state four actuals and never mention why the
+      game was in that list.
+
+      Estimate REPLACES the percentile rather than joining it, for two reasons. Three lines
+      per stat crowds a row that already carries a value, a label and a note; and a
+      percentile among rated games is a moving target while the ratings are still arriving,
+      so it is the weaker of the two figures here — where "est. 6.93" against a live 6.24 is
+      the whole story.
+    -->
     <div class="stats">
       <div class="stat">
         <div class="v tnum">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
-        <!-- Only when the game HAS a geek rating: a percentile among rated games is exactly
-             the figure an unrated game cannot have, and it printed beside its own "—". -->
-        {#if isRanked && topPct(standing?.geek_pct)}<div class="of">{topPct(standing?.geek_pct)}</div>{/if}
+        {#if upcoming && p?.geek != null}
+          <div class="of est">est. <span class="tnum">{num(p.geek)}</span></div>
+          <!-- Only when the game HAS a geek rating: a percentile among rated games is exactly
+               the figure an unrated game cannot have, and it printed beside its own "—". -->
+        {:else if isRanked && topPct(standing?.geek_pct)}
+          <div class="of">{topPct(standing?.geek_pct)}</div>
+        {/if}
       </div>
       <div class="stat">
         <div class="v tnum">{num(pos(g.average))}</div>
         <div class="l">Average</div>
-        {#if topPct(standing?.avg_pct)}<div class="of">{topPct(standing?.avg_pct)}</div>{/if}
+        {#if upcoming && p?.rating != null}
+          <div class="of est">est. <span class="tnum">{num(p.rating)}</span></div>
+        {:else if topPct(standing?.avg_pct)}
+          <div class="of">{topPct(standing?.avg_pct)}</div>
+        {/if}
       </div>
       <div class="stat">
         <div class="v tnum">{int(g.ratings)}</div>
         <div class="l">Ratings</div>
-        {#if topPct(standing?.rated_pct)}<div class="of">{topPct(standing?.rated_pct)}</div>{/if}
+        {#if upcoming && p?.usersRated != null}
+          <div class="of est">est. <span class="tnum">{int(p.usersRated)}</span></div>
+        {:else if topPct(standing?.rated_pct)}
+          <div class="of">{topPct(standing?.rated_pct)}</div>
+        {/if}
       </div>
       <div class="stat">
         <div class="v tnum">{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
         <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
-        <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after the
-             separator and stranded "votes" on its own. -->
-        {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
-        {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
+        {#if upcoming && p?.complexity != null}
+          <div class="of est">est. <span class="tnum">{num(p.complexity, 1)}</span></div>
+        {:else}
+          <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after
+               the separator and stranded "votes" on its own. -->
+          {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
+          {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
+        {/if}
       </div>
       {#if standing && isRanked}
         <!-- Two ranks, two lines. As one sentence the second half read as a subordinate
@@ -454,9 +454,20 @@
         for that reason, but "what IS this game" has to come before "how does it play at
         three" — you cannot evaluate the second answer without the first. Ordered in CSS
         rather than moved in markup so the two blocks keep their `{#if}` guards intact.
+
+        For a game published this year or later it falls to the FOOT of the stack, below the
+        facet wall. These counts are community votes, and nobody has voted: `best_player_counts`
+        is populated for 68 of the 4,842 upcoming games. What renders is either nothing or a
+        chart built on a handful of ballots, and either way it is the least load-bearing thing
+        on the page — where for a settled game it is the most.
       -->
-      <section class="card" style:order="2">
-        <p class="sub">Player counts <span class="sub-note">· how the community voted</span></p>
+      <section class="card" style:order={upcoming ? 4 : 2}>
+        <p class="sub">
+          Player counts
+          <span class="sub-note"
+            >· how the community voted{#if upcoming && g.playerCounts.length}, so far{/if}</span
+          >
+        </p>
         {#if g.playerCounts.length}
           <div class="pcs tnum">
             {#each g.playerCounts as p (p.count)}
@@ -561,6 +572,15 @@
           {/if}
         </section>
       {/if}
+      <!--
+        For a game published this year or later the model takes the wide slot the player-count
+        chart holds otherwise, and that chart drops to the foot: its counts are community
+        votes, and nobody has voted yet. A settled game gets the reverse and renders its panel
+        in the RIGHT column instead — see below.
+      -->
+      {#if upcoming}
+        <PredictionPanel game={g} order={2} />
+      {/if}
     </div>
 
     <div class="stack">
@@ -586,81 +606,16 @@
         {/if}
       </section>
 
-      <!-- For a game with no ratings yet this panel is the only thing on the page with
-           anything to say about it, so it leads the column; once the game is rated the real
-           numbers are upstairs and this becomes a footnote about the model. -->
-      <section class="card" style:order={p && !isRated ? -1 : 2}>
-        <p class="sub">
-          {isRated ? 'What the model expected' : 'Model prediction'}
-          {#if fmtDate(p?.scoredAt)}<span class="sub-note">· scored {fmtDate(p?.scoredAt)}</span>{/if}
-        </p>
 
-        {#if !p}
-          <div class="empty">No prediction — {g.name} falls outside the model’s scoring window.</div>
-        {:else}
-          {#if p.hurdle != null}
-            <div class="hurdle" class:settled={isRated}>
-              <div class="hrow">
-                <span class="hv tnum">{probText(p.hurdle)}</span>
-                <!-- PLACEHOLDER copy -->
-                <span class="hk"
-                  >{isRated ? 'was its modelled chance of being rated' : 'chance of being rated'}</span
-                >
-              </div>
-              <div class="hbar" role="presentation">
-                <i style:width="{Math.min(100, Math.max(0, p.hurdle * 100))}%"></i>
-              </div>
-              <!-- PLACEHOLDER copy. The number is meaningless without this: most games never
-                   clear the bar, so a small percentage is ordinary rather than damning. -->
-              <p class="hnote">
-                Most BGG games never gather enough ratings to earn a geek rating.
-                {#if isRated}This one did.{/if}
-              </p>
-            </div>
-          {/if}
-
-          {#if predRows.length}
-            <!-- PLACEHOLDER copy -->
-            <p class="pk">{isRated ? 'Estimate vs. actual' : 'If it is rated, expect'}</p>
-            <div class="preds tnum" class:cmp={isRated}>
-              {#if isRated}
-                <span class="ph"></span><span class="ph">Est.</span><span class="ph">Actual</span>
-              {/if}
-              {#each predRows as r (r.k)}
-                <span class="pl">{r.k}</span>
-                <span class="pv">{fmtPred(r.v, r.digits)}</span>
-                {#if isRated}<span class="pa">{fmtPred(r.actual, r.digits)}</span>{/if}
-              {/each}
-            </div>
-          {/if}
-
-          <!-- Phil wants in-sample predictions visible precisely because they show model
-               behaviour — so this labels, it doesn't hide or hedge. -->
-          {#if sampleNote}
-            <p class="sample" class:fitted={inSample}>
-              <b class="tag">{inSample ? 'In sample' : 'Out of sample'}</b>
-              <span>{sampleNote}</span>
-            </p>
-          {/if}
-
-          <!-- A prediction nobody can attribute is a rumour — but each target has its own
-               model, and five near-identical name+version strings crowded out the numbers
-               they belonged to. Collapsed by default, complete when opened. -->
-          {#if p.models.length}
-            <details class="attrib">
-              <summary>{p.models.length} models</summary>
-              <dl>
-                {#each p.models as m (m.target)}
-                  <div>
-                    <dt>{TARGET_LABEL[m.target] ?? m.target}</dt>
-                    <dd>{m.name}{m.version ? ` v${m.version}` : ''}</dd>
-                  </div>
-                {/each}
-              </dl>
-            </details>
-          {/if}
-        {/if}
-      </section>
+      <!--
+        Settled games keep the model HERE, at the foot of the right column: once the actuals
+        are in, what the model guessed is a footnote about the model rather than news about the
+        game. Similar games sits above it in both cases — useful whatever state a game is in,
+        so it is the one card that never moves.
+      -->
+      {#if !upcoming}
+        <PredictionPanel game={g} order={2} />
+      {/if}
     </div>
   </div>
 
@@ -755,6 +710,15 @@
     color: var(--muted-foreground);
     line-height: 1.3;
     margin-top: 0.15rem;
+  }
+  /* The estimate sits in the same slot a percentile would, and reads at the same weight —
+     it is context for the number above it, not a second headline competing with it. */
+  .stat .of.est {
+    color: var(--muted-foreground);
+  }
+  .stat .of.est span {
+    color: var(--foreground);
+    font-weight: 600;
   }
   .pc .votes {
     display: block;
@@ -1257,172 +1221,6 @@
     flex: none;
   }
 
-  /* The gate, sized like the claim it is. Everything below it is conditional on this number,
-     so it gets the weight and the bar; the estimates get plain rows. */
-  .hurdle {
-    border: 1px solid color-mix(in oklch, var(--chart-2) 30%, var(--border));
-    background: color-mix(in oklch, var(--chart-2) 7%, transparent);
-    border-radius: var(--radius);
-    padding: var(--space-md);
-  }
-  .hurdle.settled {
-    /* The question is answered; the estimate is history, not a forecast. */
-    border-color: var(--border);
-    background: transparent;
-    padding-inline: 0;
-    padding-top: 0;
-  }
-  .hrow {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .hv {
-    font-size: 1.7rem;
-    font-weight: 750;
-    letter-spacing: -0.02em;
-    line-height: 1.05;
-    color: var(--chart-2);
-  }
-  .hurdle.settled .hv {
-    font-size: 1.15rem;
-    color: var(--muted-foreground);
-  }
-  .hk {
-    font-size: 0.85rem;
-    color: var(--muted-foreground);
-  }
-  .hbar {
-    height: 0.5rem;
-    border-radius: 999px;
-    background: var(--muted);
-    overflow: hidden;
-    margin-top: 0.55rem;
-  }
-  .hbar i {
-    display: block;
-    height: 100%;
-    background: var(--chart-2);
-    /* A vanishing sliver still has to be visible, or 0.4% and 0% look identical. */
-    min-width: 2px;
-  }
-  .hurdle.settled .hbar {
-    height: 0.3rem;
-  }
-  .hnote {
-    margin: 0.5rem 0 0;
-    font-size: 0.76rem;
-    line-height: 1.4;
-    color: var(--muted-foreground);
-  }
-
-  .pk {
-    font-size: 0.76rem;
-    color: var(--muted-foreground);
-    margin: var(--space-md) 0 0.4rem;
-  }
-  .preds {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.3rem 0.75rem;
-    align-items: baseline;
-  }
-  .preds.cmp {
-    grid-template-columns: 1fr auto auto;
-  }
-  .preds .ph {
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted-foreground);
-    text-align: right;
-  }
-  .preds .pl {
-    font-size: 0.84rem;
-    color: var(--muted-foreground);
-  }
-  /* The estimate is the muted one and the fact is the solid one — on a rated game the page
-     should not present a guess with the same confidence as the measurement beside it. */
-  .preds .pv {
-    font-size: 0.95rem;
-    font-weight: 650;
-    text-align: right;
-    min-width: 3.4rem;
-  }
-  .preds.cmp .pv {
-    font-weight: 550;
-    color: var(--muted-foreground);
-  }
-  .preds .pa {
-    font-size: 0.95rem;
-    font-weight: 700;
-    text-align: right;
-    min-width: 3.4rem;
-  }
-  /* A label, not a warning: neutral by default, and the fitted case reads as a fact about
-     the model rather than a caveat about the number. */
-  .sample {
-    margin: var(--space-md) 0 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4rem;
-    font-size: 0.76rem;
-    line-height: 1.4;
-    color: var(--muted-foreground);
-  }
-  .sample .tag {
-    flex: none;
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    padding: 0.1rem 0.4rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--foreground);
-  }
-  .sample.fitted .tag {
-    border-color: color-mix(in oklch, var(--chart-2) 45%, var(--border));
-    background: color-mix(in oklch, var(--chart-2) 12%, transparent);
-  }
-
-  .attrib {
-    margin-top: var(--space-md);
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.72rem;
-    color: var(--muted-foreground);
-  }
-  .attrib summary {
-    cursor: pointer;
-    opacity: 0.8;
-  }
-  .attrib summary:hover {
-    color: var(--primary);
-  }
-  .attrib dl {
-    margin: 0.5rem 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-  .attrib dl div {
-    display: flex;
-    gap: 0.6rem;
-    justify-content: space-between;
-  }
-  .attrib dt {
-    opacity: 0.8;
-    flex: none;
-  }
-  .attrib dd {
-    margin: 0;
-    text-align: right;
-    word-break: break-word;
-    font-variant-numeric: tabular-nums;
-  }
 
   .empty {
     border: 1px dashed var(--border);

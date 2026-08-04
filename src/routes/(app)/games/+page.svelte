@@ -65,7 +65,33 @@
       .catch((e) => console.error('universe count failed', e));
   });
 
-  const universeLabel = $derived(scope.universe === 'top10k' ? 'the top 10,000' : 'all rated games');
+  /**
+   * What the model had seen, shown only in the upcoming universe. A page of two-decimal model
+   * numbers that never says what it was fitted on is quietly overclaiming, and
+   * `training_cutoff_year` makes "these are all forecasts" checkable rather than asserted.
+   * Carried over from the `/predictions` route, which was otherwise this page with the dial
+   * pre-set and is now a menu row.
+   */
+  let cutoff = $state<number | null>(null);
+  $effect(() => {
+    if (!ready || scope.universe !== 'upcoming') {
+      cutoff = null;
+      return;
+    }
+    query<{ c: number | null }>(
+      `SELECT MAX(training_cutoff_year)::INT AS c FROM catalog WHERE ${universeWhere(scope)}`
+    )
+      .then((r) => (cutoff = r[0]?.c ?? null))
+      .catch((e) => console.error('cutoff query failed', e));
+  });
+
+  const universeLabel = $derived(
+    scope.universe === 'top10k'
+      ? 'the top 10,000'
+      : scope.universe === 'rated'
+        ? 'all rated games'
+        : 'upcoming games'
+  );
   const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
 
   // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
@@ -113,7 +139,16 @@
         </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
-        <GameList {where} />
+        <GameList {where} universe={scope.universe} />
+
+        <!-- Provenance, not decoration. Every game in this universe was published after the
+             model's training cutoff, so every number in the table is a forecast, not a fit. -->
+        {#if scope.universe === 'upcoming'}
+          <p class="prov">
+            Model forecasts{#if cutoff}, from models fitted through <b>{cutoff}</b>{/if}. Every
+            game here was announced after that, so none were in the training data.
+          </p>
+        {/if}
       </div>
     </div>
   </Container>
@@ -194,6 +229,17 @@
   }
   .tnum {
     font-variant-numeric: tabular-nums;
+  }
+
+  .prov {
+    margin: 0;
+    flex: none;
+    font-size: 0.74rem;
+    color: var(--muted-foreground);
+  }
+  .prov b {
+    color: var(--foreground);
+    font-weight: 600;
   }
 
   /* Below the two-column threshold the workspace becomes an ordinary scrolling document —

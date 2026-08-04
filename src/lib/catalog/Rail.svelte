@@ -18,7 +18,7 @@
    * `<details>` does the collapsing natively, so it's keyboard- and screen-reader-correct
    * with no JS, and the browser (not us) owns the open/close state.
    */
-  import type { Scope } from './scope';
+  import { defaultHurdleFor, type Scope } from './scope';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
 
@@ -27,6 +27,36 @@
     /** WHERE for the current scope — facet counts are scoped to the set you've built. */
     where
   }: { scope: Scope; where: string } = $props();
+
+  /**
+   * In the upcoming universe every numeric filter reads a *predicted* column (see
+   * `columnsFor`), so the labels say so. The controls are otherwise identical — the question
+   * "complexity 3.0–3.5" is the same one; only the column answering it changes.
+   */
+  const upcoming = $derived(scope.universe === 'upcoming');
+  const pred = $derived(upcoming ? 'predicted ' : '');
+
+  /**
+   * Switching universe carries the hurdle floor with it: leaving upcoming and coming back
+   * would otherwise land on `null` rather than the default, silently widening the set by
+   * ~3,000 placeholder entries.
+   */
+  function setUniverse(u: Scope['universe']) {
+    if (scope.universe === u) return;
+    scope = { ...scope, universe: u, hurdleMin: defaultHurdleFor(u) };
+  }
+
+  /**
+   * The hurdle floor as steps, not a slider. A probability filter doesn't reward fine
+   * control — the useful question is "everything / most / only the near-certain", and a free
+   * slider invites fiddling with a third decimal that moves the count by four games.
+   */
+  const HURDLE_STEPS: { label: string; value: number | null }[] = [
+    { label: 'Any', value: null },
+    { label: '25%+', value: 0.25 },
+    { label: '50%+', value: 0.5 },
+    { label: '80%+', value: 0.8 }
+  ];
 
   const setPlayers = (n: number) => (scope.players = scope.players === n ? null : n);
   const entityCount = $derived(
@@ -61,20 +91,48 @@
         <button
           class:on={scope.universe === 'top10k'}
           aria-pressed={scope.universe === 'top10k'}
-          onclick={() => (scope.universe = 'top10k')}>Top 10,000</button
+          onclick={() => setUniverse('top10k')}>Top 10,000</button
         >
         <button
           class:on={scope.universe === 'rated'}
           aria-pressed={scope.universe === 'rated'}
-          onclick={() => (scope.universe = 'rated')}>All rated</button
+          onclick={() => setUniverse('rated')}>All rated</button
+        >
+        <button
+          class:on={upcoming}
+          aria-pressed={upcoming}
+          onclick={() => setUniverse('upcoming')}>Upcoming</button
         >
       </div>
       <p class="note">
         {scope.universe === 'top10k'
           ? 'BGG’s ranked top 10,000, by geek rating.'
-          : 'Everything with 30+ ratings — about 35,000.'}
+          : scope.universe === 'rated'
+            ? 'Everything with 30+ ratings — about 35,000.'
+            : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
       </p>
     </div>
+
+    <!-- Only the upcoming universe has a hurdle left to clear; in the rated slices every
+         game already did, so the control would filter nothing. -->
+    {#if upcoming}
+      <div class="grp">
+        <span class="lbl">Likely to be rated</span>
+        <div class="seg">
+          {#each HURDLE_STEPS as s (s.label)}
+            <button
+              class:on={(scope.hurdleMin ?? null) === s.value}
+              aria-pressed={(scope.hurdleMin ?? null) === s.value}
+              onclick={() => (scope.hurdleMin = s.value)}>{s.label}</button
+            >
+          {/each}
+        </div>
+        <p class="note">
+          Most games never gather enough ratings to earn a geek rating. This drops the ones
+          the model expects won’t.
+        </p>
+      </div>
+    {/if}
 
     <div class="grp">
       <span class="lbl">Plays with</span>
@@ -113,7 +171,11 @@
       <span class="chev" aria-hidden="true">›</span>
     </summary>
     <div class="dbody">
-      <p class="note">Typed bounds — the same fields the shape strip brushes.</p>
+      <p class="note">
+        Typed bounds — the same fields the shape strip brushes.{#if upcoming}
+          In this universe they read the model’s estimates, since nobody has played these
+          games yet.{/if}
+      </p>
       <div class="num">
         <span class="lbl sm">Year</span>
         <div class="pair">
@@ -122,21 +184,21 @@
         </div>
       </div>
       <div class="num">
-        <span class="lbl sm">Complexity <span class="hint">1–5</span></span>
+        <span class="lbl sm">{pred}Complexity <span class="hint">1–5</span></span>
         <div class="pair">
           <input type="number" step="0.1" min="1" max="5" placeholder="min" aria-label="Complexity min" bind:value={scope.weightMin} />
           <input type="number" step="0.1" min="1" max="5" placeholder="max" aria-label="Complexity max" bind:value={scope.weightMax} />
         </div>
       </div>
       <div class="num">
-        <span class="lbl sm">Average rating</span>
+        <span class="lbl sm">{pred}Average rating</span>
         <div class="pair">
           <input type="number" step="0.1" min="1" max="10" placeholder="min" aria-label="Average rating min" bind:value={scope.ratingMin} />
           <input type="number" step="0.1" min="1" max="10" placeholder="max" aria-label="Average rating max" bind:value={scope.ratingMax} />
         </div>
       </div>
       <div class="num">
-        <span class="lbl sm">Ratings <span class="hint">how many people rated it</span></span>
+        <span class="lbl sm">{pred}Ratings <span class="hint">{upcoming ? 'how many the model expects' : 'how many people rated it'}</span></span>
         <div class="pair">
           <input type="number" step="10" min="0" placeholder="min" aria-label="Minimum number of ratings" bind:value={scope.usersRatedMin} />
           <input type="number" step="10" min="0" placeholder="max" aria-label="Maximum number of ratings" bind:value={scope.usersRatedMax} />
@@ -145,7 +207,7 @@
       <div class="num">
         <!-- A pair, like every other numeric control here. Min-only made a rank BAND
              ("well regarded but outside the famous tier") impossible to state or to clear. -->
-        <span class="lbl sm">Geek rating</span>
+        <span class="lbl sm">{pred}Geek rating</span>
         <div class="pair">
           <input type="number" step="0.1" min="1" max="10" placeholder="min" aria-label="Geek rating min" bind:value={scope.geekMin} />
           <input type="number" step="0.1" min="1" max="10" placeholder="max" aria-label="Geek rating max" bind:value={scope.geekMax} />

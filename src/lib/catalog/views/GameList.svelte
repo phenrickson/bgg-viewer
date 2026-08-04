@@ -19,8 +19,29 @@
   import { query } from '$lib/catalog/catalog.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
+  import type { Scope } from '$lib/catalog/scope';
 
-  let { where }: { where: string } = $props();
+  let { where, universe = 'top10k' }: { where: string; universe?: Scope['universe'] } = $props();
+
+  /**
+   * The upcoming universe reads the model's estimates rather than what happened — the same
+   * switch `columnsFor` makes for the filters, applied to the columns on screen. Two column
+   * sets in one table rather than a second table: the paging, the sorting-in-DuckDB and the
+   * row chrome are identical, and only what each cell reads differs.
+   */
+  const upcoming = $derived(universe === 'upcoming');
+
+  /**
+   * The predicted-geek domain, and why it is not `RatingBar`'s 5.5–8.8.
+   *
+   * That domain is fixed so a bar means the same thing on every page — a rule worth keeping,
+   * but it was set against the rated catalog, which reaches 8.7. Predicted geek rating for
+   * upcoming games runs 5.0–6.93 with a median of 5.46, so on 5.5–8.8 more than half this
+   * population would render as an empty bar and the whole set would sit inside the left 43%.
+   * The header states the domain when you are sorting by it, rather than leaving it assumed.
+   */
+  const PRED_GEEK_LO = 4.5;
+  const PRED_GEEK_HI = 7.0;
 
   type Row = {
     game_id: number;
@@ -35,11 +56,17 @@
     best_player_counts: number[] | null;
     recommended_player_counts: number[] | null;
     designers: string[] | null;
+    publishers: string[] | null;
     categories: string[] | null;
+    predicted_geek_rating: number | null;
+    predicted_rating: number | null;
+    predicted_complexity: number | null;
+    predicted_users_rated: number | null;
+    predicted_hurdle_prob: number | null;
   };
 
-  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string };
-  const COLS: Col[] = [
+  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string; domain?: string };
+  const COLS_RATED: Col[] = [
     { key: 'name', label: 'Game', align: 'l', sql: 'lower(name)' },
     { key: 'year', label: 'Year', align: 'r', sql: 'year_published' },
     { key: 'geek', label: 'Geek', align: 'l', sql: 'geek_rating', hint: 'BGG’s ranked rating' },
@@ -48,6 +75,22 @@
     { key: 'best', label: 'Best at', align: 'l', sql: 'best_player_counts[1]', hint: 'bold = best · mid = also recommended' },
     { key: 'rated', label: 'Ratings', align: 'r', sql: 'users_rated' }
   ];
+  /**
+   * `Best at` has no upcoming counterpart and is dropped rather than translated: it is a
+   * community vote, and 68 of 4,842 upcoming games have one because nobody has played them.
+   * P(hurdle) takes the slot — the chance a game ever gathers enough ratings to be ranked at
+   * all, which is the thing that explains why a strong-looking row is not.
+   */
+  const COLS_UPCOMING: Col[] = [
+    { key: 'name', label: 'Game', align: 'l', sql: 'lower(name)' },
+    { key: 'year', label: 'Year', align: 'r', sql: 'year_published' },
+    { key: 'geek', label: 'P. Geek', align: 'l', sql: 'predicted_geek_rating', hint: 'predicted geek rating', domain: `${PRED_GEEK_LO}–${PRED_GEEK_HI}` },
+    { key: 'rating', label: 'P. Avg', align: 'r', sql: 'predicted_rating', hint: 'predicted average rating' },
+    { key: 'weight', label: 'P. Complexity', align: 'l', sql: 'predicted_complexity', hint: 'predicted weight, 1–5', domain: '1–5' },
+    { key: 'hurdle', label: 'P(hurdle)', align: 'l', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating', domain: '0–100%' },
+    { key: 'rated', label: 'P. Ratings', align: 'r', sql: 'predicted_users_rated' }
+  ];
+  const COLS = $derived(upcoming ? COLS_UPCOMING : COLS_RATED);
   const PAGE_SIZE = 100;
 
   let sortKey = $state('geek');
@@ -65,6 +108,8 @@
     }
   }
 
+  // Falls back to the geek column when the key isn't in this universe's set — switching to
+  // Upcoming while sorted by `best` would otherwise leave `sortCol` undefined mid-query.
   const sortCol = $derived(COLS.find((c) => c.key === sortKey) ?? COLS[2]);
   const pages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
   const from = $derived(total === 0 ? 0 : page * PAGE_SIZE + 1);
@@ -91,7 +136,10 @@
       query<Row>(
         `SELECT game_id, name, year_published, geek_rating, average_rating,
                 average_weight, users_rated, min_players, max_players,
-                best_player_counts, recommended_player_counts, designers, categories
+                best_player_counts, recommended_player_counts,
+                designers, publishers, categories,
+                predicted_geek_rating, predicted_rating, predicted_complexity,
+                predicted_users_rated, predicted_hurdle_prob
          FROM catalog WHERE ${w} ORDER BY ${ord}, game_id LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])
@@ -133,9 +181,29 @@
     const cats = list(r.categories);
     const bits = [playerRange(r)];
     if (des.length) bits.push(des.length > 3 ? `${des.slice(0, 2).join(', ')} +${des.length - 2}` : des.join(', '));
-    if (cats.length) bits.push(cats.slice(0, 3).join(', '));
+    // Publisher earns a place only in the upcoming universe. For a game nobody has played,
+    // the designer, the publisher and the categories are the whole of what is known — and
+    // publisher is the most complete of the three (99.7% against 83% for designer). In the
+    // rated universes the ratings say more than the imprint does, and it is one bit too many.
+    if (upcoming) {
+      const pub = list(r.publishers);
+      if (pub.length) bits.push(pub[0]);
+    }
+    if (cats.length) bits.push(cats.slice(0, upcoming ? 2 : 3).join(', '));
     return bits.filter(Boolean).join(' · ');
   }
+
+  /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters. */
+  function probText(v: number | null): string {
+    if (v == null) return '—';
+    const pc = v * 100;
+    if (pc < 1) return '<1%';
+    if (pc < 10) return `${pc.toFixed(1)}%`;
+    return `${Math.round(pc)}%`;
+  }
+  /** Fill of the predicted-geek bar, as a percentage of its stated domain. */
+  const pct = (v: number | null, lo: number, hi: number) =>
+    v == null ? 0 : Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
 
 </script>
 
@@ -161,20 +229,24 @@
 </div>
 
 <div class="listwrap">
-  <div class="head row">
+  <div class="head row" class:pred={upcoming}>
     <span class="rk">#</span>
     {#each COLS as c (c.key)}
       <span class="c-{c.key}" class:r={c.align === 'r'}>
         <button class:on={c.key === sortKey} onclick={() => sortBy(c)} title={c.hint ?? `Sort by ${c.label}`}>
           {c.label}<span class="ar">{c.key === sortKey ? (desc ? '▼' : '▲') : ''}</span>
         </button>
+        <!-- A mark means nothing without the scale it sits on, so the domain shows on the
+             column being read by. On every column it would be a row of scale notation
+             nobody asked for. -->
+        {#if c.key === sortKey && c.domain}<span class="dom">{c.domain}</span>{/if}
       </span>
     {/each}
   </div>
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
-      <a class="row" href="/games/{r.game_id}">
+      <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
 
         <span class="c-name">
@@ -184,24 +256,67 @@
 
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
 
-        <span class="c-geek"><RatingBar value={r.geek_rating} /></span>
-
-        <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
-
-        <span class="c-weight">
-          <span class="meter" aria-hidden="true">
-            {#each [0, 1, 2, 3, 4] as i (i)}
-              <i><b style:width="{segPct(r.average_weight, i)}%"></b></i>
-            {/each}
+        {#if upcoming}
+          <!-- Each cell wears the encoding its rated twin already wears, so a reader learns
+               each measure once: a bar for the rating, the five-segment meter for complexity.
+               The only thing that changes between universes is which column is read. The bar's
+               domain is the exception, and it is stated in the header rather than assumed —
+               `RatingBar`'s 5.5–8.8 was set against a catalog that reaches 8.7, and this
+               population tops out at 6.93. -->
+          <span class="c-geek">
+            <span class="pv tnum">{num(r.predicted_geek_rating)}</span>
+            <span class="fill" aria-hidden="true"
+              ><i style:width="{pct(r.predicted_geek_rating, PRED_GEEK_LO, PRED_GEEK_HI)}%"></i></span
+            >
           </span>
-          <span class="wv tnum">{num(r.average_weight, 1)}</span>
-        </span>
 
-        <span class="c-best">
-          <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
-        </span>
+          <span class="c-rating r tnum dim">{num(r.predicted_rating)}</span>
 
-        <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
+          <!-- The SAME five-segment meter the rated universe uses, pointed at the predicted
+               column. It is the same measure on the same 1-5 scale, so it gets the same
+               encoding — a second one invented for this room would mean a reader had to
+               learn complexity twice. -->
+          <span class="c-weight">
+            <span class="meter" aria-hidden="true">
+              {#each [0, 1, 2, 3, 4] as i (i)}
+                <i><b style:width="{segPct(r.predicted_complexity, i)}%"></b></i>
+              {/each}
+            </span>
+            <span class="wv tnum">{num(r.predicted_complexity, 1)}</span>
+          </span>
+
+          <!-- The same bar as predicted geek, in a narrower slot. The column inherited
+               ~5.6rem from `Best at`'s six numerals, which is more than "97%" and a track
+               need; the surplus goes to the game's name, where publisher and categories
+               were truncating mid-word. -->
+          <span class="c-hurdle">
+            <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
+            <span class="fill" aria-hidden="true"
+              ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
+            >
+          </span>
+
+          <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
+        {:else}
+          <span class="c-geek"><RatingBar value={r.geek_rating} /></span>
+
+          <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
+
+          <span class="c-weight">
+            <span class="meter" aria-hidden="true">
+              {#each [0, 1, 2, 3, 4] as i (i)}
+                <i><b style:width="{segPct(r.average_weight, i)}%"></b></i>
+              {/each}
+            </span>
+            <span class="wv tnum">{num(r.average_weight, 1)}</span>
+          </span>
+
+          <span class="c-best">
+            <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
+          </span>
+
+          <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
+        {/if}
       </a>
     {/each}
 
@@ -435,6 +550,55 @@
     color: var(--muted-foreground);
   }
 
+  /* ---- the upcoming universe's two marks ------------------------------------------------
+     One hue for both, held back toward muted: a hundred rows of saturated colour reads as
+     the content rather than as support for it. `--primary` stays reserved for the sorted
+     header, so the table reads blue for data and orange for interaction. */
+  .pv {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+  /* A magnitude growing from the track's start. */
+  .fill {
+    display: block;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: color-mix(in oklch, var(--border) 55%, transparent);
+  }
+  .fill i {
+    display: block;
+    height: 100%;
+    /* Square at the baseline, rounded at the data end. */
+    border-radius: 0 2px 2px 0;
+    background: color-mix(in oklch, var(--chart-1) 60%, var(--muted-foreground));
+  }
+  /* The upcoming grid differs from the rated one in a single slot: `Best at` carries six
+     numerals and their emphasis, P(hurdle) carries "97%". Narrowing it and spending the
+     surplus on the name is what stops "Industry / Manufacturin…" mid-word. */
+  .row.pred {
+    grid-template-columns:
+      minmax(2.4rem, 0.25fr)
+      minmax(11rem, 4.1fr)
+      minmax(3rem, 0.45fr)
+      minmax(4.6rem, 0.7fr)
+      minmax(2.8rem, 0.45fr)
+      minmax(5.2rem, 0.9fr)
+      minmax(4.2rem, 0.55fr)
+      minmax(4.4rem, 0.6fr);
+  }
+  .head .dom {
+    display: block;
+    font-size: 0.6rem;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    opacity: 0.75;
+    line-height: 1.2;
+  }
+
 
   .empty {
     padding: var(--space-xl) var(--space-lg);
@@ -453,6 +617,15 @@
         minmax(4.6rem, 0.7fr)
         minmax(5.2rem, 0.9fr)
         minmax(5.6rem, 0.9fr);
+    }
+    .row.pred {
+      grid-template-columns:
+        minmax(2.4rem, 0.25fr)
+        minmax(8rem, 4.1fr)
+        minmax(3rem, 0.45fr)
+        minmax(4.6rem, 0.7fr)
+        minmax(5.2rem, 0.9fr)
+        minmax(4.2rem, 0.55fr);
     }
     .c-rating,
     .c-rated {
