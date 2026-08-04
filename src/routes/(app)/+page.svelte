@@ -201,7 +201,6 @@
      it rather than floating between two. The last group carries the gap to the door. */
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
-  .chips:last-of-type { margin-bottom: 2.2rem; }
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
@@ -209,7 +208,13 @@
   /* Clears `Coming next` above and leaves air at the end of the scroll. */
   .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); }
 
-  .door { display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
+  /* The gap above the door lives HERE, not as `.chips:last-of-type { margin-bottom }`.
+     `:last-of-type` keys off the element type, not the class — it meant "the last div in
+     `.land`", which was the second chip group only for as long as `.land` ended in one.
+     Adding the warm-gap div at the foot made THAT the last div, the rule matched nothing,
+     and the space above the door disappeared. Owned by the door, it cannot break again. */
+  .door { margin-top: 2.2rem;
+    display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
     background: color-mix(in oklch, var(--primary) 10%, var(--card));
     border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
     border-radius: var(--radius); padding: var(--space-lg); }
