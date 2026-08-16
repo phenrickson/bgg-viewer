@@ -302,7 +302,13 @@
         {scaleMode}
         color="var(--chart-5)"
         title={(v, n) => `best at ${v} players — ${n.toLocaleString()} games in scope`}
-        onpick={(v) => (scope.bestAt = v)}
+        onpick={(v) => {
+          scope.bestAt = v;
+          // Same exclusivity the rail's toggle enforces, so the two controls can never
+          // disagree about which player-count question is being asked. Guarded on `v != null`
+          // so clearing best-at here doesn't wipe a plays-with the user set afterward.
+          if (v != null) scope.players = null;
+        }}
       />
     </div>
   </div>

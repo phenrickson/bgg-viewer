@@ -124,6 +124,42 @@ const finite = (v: unknown): number | null => {
 	return Number.isFinite(n) ? n : null;
 };
 
+/** Which question the rail's player-count row is asking. */
+export type PlayerCountMode = 'players' | 'bestAt';
+
+/**
+ * The player-count row writes one field and clears the other.
+ *
+ * `players` ("the box plays at N") and `bestAt` ("the community voted N best") remain two
+ * separate fields — `toWhere` still ANDs both, so a hand-written `?p=2&best=4` URL filters on
+ * both. What's constrained is the *UI*: one row of numbers can only mean one thing at a time,
+ * and letting a stale filter of the other kind stand would make the rail and the shape strip
+ * disagree about what's filtered. Returning a patch (rather than mutating) keeps this pure and
+ * testable, and matches how `activeChips` hands back `patch` objects.
+ *
+ * Re-picking the lit number clears it, like the universe and hurdle rows.
+ */
+export function setPlayerCount(
+	scope: Scope,
+	mode: PlayerCountMode,
+	n: number | null
+): Pick<Scope, 'players' | 'bestAt'> {
+	const cleared = n != null && scope[mode] === n ? null : n;
+	return mode === 'players'
+		? { players: cleared, bestAt: null }
+		: { players: null, bestAt: cleared };
+}
+
+/**
+ * The mode the rail should show for a given scope: whichever field is set, preferring
+ * `bestAt`. Derived rather than remembered so a shared `?best=4` link lands on Best-at, and a
+ * strip click (which sets `bestAt`) flips the rail's toggle on its own. Independent mode state
+ * would default to Plays-with while a best-at filter was silently active.
+ */
+export function playerCountModeFor(scope: Scope): PlayerCountMode {
+	return scope.bestAt != null ? 'bestAt' : 'players';
+}
+
 /** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
 export function toWhere(scope: Scope): string {
 	const parts: string[] = [];
