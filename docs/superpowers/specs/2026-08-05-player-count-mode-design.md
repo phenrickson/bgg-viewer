@@ -1,7 +1,7 @@
 # BGG Viewer — Player-Count Filter Mode — Design
 
 **Date:** 2026-08-05
-**Status:** Proposed
+**Status:** Implemented
 **Builds on:** [2026-07-29-explore-workspace-design.md](2026-07-29-explore-workspace-design.md)
 (that spec established the rail and the shape strip; this one moves one of the strip's
 filters into the rail)
@@ -73,6 +73,12 @@ player-count chip at a time.
 `toWhere` still compiles both — a hand-written URL with `p` and `best` still filters on both —
 so this is a UI constraint, not a data-layer one.
 
+**Settled during implementation:** switching mode *carries the picked number across* rather than
+emptying the row. "Plays with 2" → Best at leaves you on "best at 2", because that is the natural
+follow-up question and re-picking the same number by hand is busywork. Read literally, "switching
+mode nulls the other field" would land on an empty row; the field is still nulled, but its value
+moves to the incoming mode first.
+
 ### Mode is derived from state, not remembered separately
 
 On hydrate the mode follows whichever field is set: `bestAt != null` → Best-at, else Plays-with.
@@ -97,14 +103,18 @@ The rail's note loses its forward-reference to the strip.
 ## Affected files
 
 | File | Change |
-|---|---|
+| --- | --- |
 | `src/lib/catalog/Rail.svelte` | Mode toggle, number row rewired, note swaps by mode; `setPlayers` generalised |
 | `src/lib/catalog/views/ShapeStrip.svelte` | `onpick` also nulls `scope.players` |
-| `src/lib/catalog/scope.ts` | **None** |
-| `src/lib/catalog/scope.test.ts` | Existing both-set conjunction test still valid; add coverage for exclusivity |
+| `src/lib/catalog/scope.ts` | `setPlayerCount` / `playerCountModeFor` helpers. **`Scope` itself unchanged** |
+| `src/lib/catalog/scope.test.ts` | Existing both-set conjunction test still valid; coverage for exclusivity and mode derivation |
+
+The `scope.ts` addition is two pure functions, not a shape change: the exclusivity rule is the
+one genuinely testable piece of this feature and there is no component-test harness in this
+repo, so it lives where it can be unit-tested.
 
 No change to the Arrow artifact, `columns.ts`, the warehouse API, or any server code. Nothing
-here is a one-way door: the toggle is presentation over unchanged state, so reverting the two
+here is a one-way door: the toggle is presentation over unchanged state, so reverting the
 component edits restores today's behavior exactly.
 
 ## Known asymmetry

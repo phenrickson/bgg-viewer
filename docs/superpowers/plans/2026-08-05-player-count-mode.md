@@ -56,9 +56,9 @@ without a DOM: that `toWhere` still compiles each field alone and both together 
 `:85` test already covers both-together and needs no change), and that `p`/`best` still
 round-trip (`:312-319`, unchanged).
 
-If the setter logic is worth testing directly, extract it to a small exported helper in
-`scope.ts` — `nextPlayerCountMode` or similar — and unit-test that. Decide during
-implementation; don't add a component-test harness for this.
+**Decided:** extracted. `setPlayerCount(scope, mode, n)` returns a `{players, bestAt}` patch and
+`playerCountModeFor(scope)` derives the mode; both are unit-tested in `scope.test.ts` (9 tests,
+including the invariant that no call can leave both fields set). No component-test harness added.
 
 **Verify:** `just test`.
 
