@@ -52,34 +52,19 @@
   </summary>
 
   <div class="body">
-    <div class="stepper">
+    <div class="seg">
       <button type="button" onclick={() => step(-1)} aria-label="Previous year">‹</button>
-      <span class="now tnum" aria-live="polite">{label || 'Any year'}</span>
+      <span class="now tnum" class:set={!!label} aria-live="polite">{label || 'Any year'}</span>
       <button type="button" onclick={() => step(1)} aria-label="Next year">›</button>
+      {#if label}
+        <button type="button" class="x" onclick={clear} aria-label="Clear year">✕</button>
+      {/if}
     </div>
 
-    <div class="pair">
-      <input
-        type="number"
-        placeholder="from"
-        aria-label="Year from"
-        min={bounds.lo}
-        max={bounds.hi}
-        bind:value={scope.yearMin}
-      />
-      <input
-        type="number"
-        placeholder="to"
-        aria-label="Year to"
-        min={bounds.lo}
-        max={bounds.hi}
-        bind:value={scope.yearMax}
-      />
-    </div>
-
-    {#if label}
-      <button class="clear" type="button" onclick={clear}>Clear year</button>
-    {/if}
+    <p class="note">
+      Steps one year at a time. A brushed range slides and keeps its width. Type an exact span
+      under Exact numbers.
+    </p>
   </div>
 </details>
 
@@ -143,72 +128,67 @@
     gap: 0.35rem;
   }
 
-  /* The walk. Wide arrows and a roomy readout: this is the control you click repeatedly. */
-  .stepper {
+  /* Deliberately the same measurements as the rail's `.seg` rows (Universe, Player count), so
+     the stepper reads as one of that family rather than a bespoke widget. */
+  .seg {
     display: flex;
-    align-items: center;
     gap: 0.25rem;
   }
-  .stepper button {
-    width: 1.9rem;
+  .seg button {
     flex: none;
+    width: 1.75rem;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--background);
     color: var(--muted-foreground);
-    padding: 0.2rem 0;
-    font: inherit;
-    font-size: 0.95rem;
-    line-height: 1;
+    padding: 0.25rem 0;
     cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1.2;
   }
-  .stepper button:hover {
+  .seg button:hover {
     border-color: var(--primary);
     color: var(--primary);
   }
-  .stepper button:focus-visible {
+  .seg button:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+
+  /* The readout takes the slack, framed like a button so the row reads as one control. */
   .now {
     flex: 1;
-    text-align: center;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--foreground);
-  }
-
-  .pair {
-    display: flex;
-    gap: 0.25rem;
-  }
-  .pair input {
-    flex: 1;
     min-width: 0;
-    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
     border-radius: 6px;
-    background: var(--background);
-    color: var(--foreground);
-    padding: 0.2rem 0.35rem;
-    font: inherit;
-    font-size: 0.78rem;
+    padding: 0.25rem 0;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    color: var(--muted-foreground);
   }
-  .pair input:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
+  .now.set {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    font-weight: 600;
   }
 
-  .clear {
-    align-self: flex-start;
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    font-size: 0.74rem;
-    color: var(--primary);
-    cursor: pointer;
+  .x {
+    font-size: 0.7rem;
   }
-  .clear:hover {
-    text-decoration: underline;
+  .x:hover {
+    border-color: var(--destructive, var(--primary));
+    color: var(--destructive, var(--primary));
+  }
+
+  .note {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--muted-foreground);
+    line-height: 1.35;
   }
 </style>

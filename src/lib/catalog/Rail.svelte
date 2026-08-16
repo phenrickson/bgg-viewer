@@ -127,10 +127,10 @@
   const entityCount = $derived(
     scope.designers.length + scope.artists.length + scope.publishers.length
   );
-  // Year is absent: it has its own group with its own badge, so counting it here would badge
-  // "Exact numbers" for a filter that group no longer contains.
   const exactCount = $derived(
     [
+      scope.yearMin,
+      scope.yearMax,
       scope.weightMin,
       scope.weightMax,
       scope.ratingMin,
@@ -281,8 +281,13 @@
           In this universe they read the model’s estimates, since nobody has played these
           games yet.{/if}
       </p>
-      <!-- Year is not here: the Year group above owns both the steppers and its own typed pair,
-           so it is self-contained rather than split across two places in the rail. -->
+      <div class="num">
+        <span class="lbl sm">Year</span>
+        <div class="pair">
+          <input type="number" placeholder="from" aria-label="Year from" bind:value={scope.yearMin} />
+          <input type="number" placeholder="to" aria-label="Year to" bind:value={scope.yearMax} />
+        </div>
+      </div>
       <!-- The complexity *range* the strip brushes. The band checkboxes above are a separate,
            coarser filter on the same measure; these are the typed path to a free span. -->
       <div class="num">
