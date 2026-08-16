@@ -200,6 +200,44 @@ export function playerCountModeFor(scope: Scope): PlayerCountMode {
 	return scope.bestAt != null ? 'bestAt' : 'players';
 }
 
+/**
+ * Step the year filter by `delta` years, **shifting the whole window**.
+ *
+ * The point of the control is to walk: see 2019, then 2020, then 2021, with every other filter
+ * held still. Neither the strip's brush (a drag across ~58 bins, imprecise for landing on one
+ * year) nor a typed from/to pair can do that without re-specifying the filter each time.
+ *
+ * Shifting rather than collapsing is what makes one rule cover both cases. On a single year it
+ * walks a year at a time; on a brushed span it slides the window and keeps its width ("same
+ * breadth, later"). The alternatives both punish you for having used the strip — collapsing
+ * destroys a range you deliberately set, and disabling kills the control exactly when you
+ * reach for it. Here there is no mode to be in and nothing is discarded.
+ *
+ * With nothing set, the first step lands on `from` — there is no "current year" to move.
+ */
+export function stepYear(
+	scope: Scope,
+	delta: number,
+	bounds: { lo: number; hi: number },
+	from: number
+): Pick<Scope, 'yearMin' | 'yearMax'> {
+	const clamp = (n: number) => Math.min(bounds.hi, Math.max(bounds.lo, n));
+	if (scope.yearMin == null && scope.yearMax == null) {
+		const y = clamp(from);
+		return { yearMin: y, yearMax: y };
+	}
+	// A half-open range (only one bound set) steps that bound and stays half-open, so "1990
+	// onward" walks its floor rather than silently gaining a ceiling.
+	if (scope.yearMin == null) return { yearMin: null, yearMax: clamp(scope.yearMax! + delta) };
+	if (scope.yearMax == null) return { yearMin: clamp(scope.yearMin + delta), yearMax: null };
+	// Both set: shift together. Clamping the *window* rather than each bound keeps the span's
+	// width — clamping the ends independently would squash a 2020–2025 range against the top
+	// edge instead of just stopping it.
+	const width = scope.yearMax - scope.yearMin;
+	const lo = Math.min(bounds.hi - width, Math.max(bounds.lo, scope.yearMin + delta));
+	return { yearMin: lo, yearMax: lo + width };
+}
+
 /** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
 export function toWhere(scope: Scope): string {
 	const parts: string[] = [];

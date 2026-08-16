@@ -10,6 +10,7 @@ import {
 	niceCount,
 	setPlayerCount,
 	playerCountModeFor,
+	stepYear,
 	type Scope
 } from './scope';
 import {
@@ -149,6 +150,58 @@ describe('ratings-count helpers', () => {
 		expect(niceCount(0)).toBe(0);
 		expect(niceCount(-5)).toBe(0);
 		expect(niceCount(NaN)).toBe(0);
+	});
+});
+
+describe('stepYear', () => {
+	const B = { lo: 1900, hi: 2030 };
+	const step = (s: Partial<Scope>, d: number, from = 2026) =>
+		stepYear({ ...DEFAULT_SCOPE, ...s }, d, B, from);
+
+	it('walks a single year, which is the whole point', () => {
+		expect(step({ yearMin: 2019, yearMax: 2019 }, 1)).toEqual({ yearMin: 2020, yearMax: 2020 });
+		expect(step({ yearMin: 2019, yearMax: 2019 }, -1)).toEqual({ yearMin: 2018, yearMax: 2018 });
+	});
+
+	it('lands on `from` when nothing is set — there is no current year to move', () => {
+		expect(step({}, 1)).toEqual({ yearMin: 2026, yearMax: 2026 });
+		expect(step({}, -1, 2000)).toEqual({ yearMin: 2000, yearMax: 2000 });
+	});
+
+	it('shifts a brushed span and keeps its width', () => {
+		expect(step({ yearMin: 2015, yearMax: 2020 }, 1)).toEqual({ yearMin: 2016, yearMax: 2021 });
+		expect(step({ yearMin: 2015, yearMax: 2020 }, -5)).toEqual({ yearMin: 2010, yearMax: 2015 });
+	});
+
+	it('stops at an edge without squashing the span', () => {
+		// The bug worth a test: clamping each bound independently would collapse this to
+		// 2030–2030 instead of parking the five-year window against the ceiling.
+		expect(step({ yearMin: 2024, yearMax: 2029 }, 10)).toEqual({ yearMin: 2025, yearMax: 2030 });
+		expect(step({ yearMin: 1901, yearMax: 1906 }, -10)).toEqual({ yearMin: 1900, yearMax: 1905 });
+	});
+
+	it('keeps a half-open range half-open', () => {
+		// "1990 onward" walks its floor; it must not silently gain a ceiling.
+		expect(step({ yearMin: 1990, yearMax: null }, 1)).toEqual({ yearMin: 1991, yearMax: null });
+		expect(step({ yearMin: null, yearMax: 1990 }, 1)).toEqual({ yearMin: null, yearMax: 1991 });
+	});
+
+	it('clamps a single year to the bounds', () => {
+		expect(step({ yearMin: 2030, yearMax: 2030 }, 1)).toEqual({ yearMin: 2030, yearMax: 2030 });
+		expect(step({ yearMin: 1900, yearMax: 1900 }, -1)).toEqual({ yearMin: 1900, yearMax: 1900 });
+	});
+
+	it('never inverts the range', () => {
+		for (const d of [-50, -1, 1, 50]) {
+			for (const [min, max] of [
+				[2019, 2019],
+				[2015, 2020],
+				[1900, 2030]
+			] as const) {
+				const r = step({ yearMin: min, yearMax: max }, d);
+				expect(r.yearMin!).toBeLessThanOrEqual(r.yearMax!);
+			}
+		}
 	});
 });
 
