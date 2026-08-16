@@ -58,9 +58,25 @@
     { label: '80%+', value: 0.8 }
   ];
 
+  /**
+   * Which facet groups are expanded — owned here so `FacetList` can `bind:open` instead of
+   * taking `open` as a plain prop.
+   *
+   * That indirection is the fix for a real bug, not tidiness. `<details {open}>` compiles to
+   * `details.open = open()` *inside the component's render effect*, so it re-asserts the prop
+   * every time that effect reruns — and the effect reads `term`, the facet's own filter box.
+   * Typing a character therefore re-applied `open = false` and slammed the group shut.
+   * Categories was immune only because its value was `true`, making the re-assert a no-op.
+   * `bind:open` compiles to a property *binding*, which syncs the user's toggle back into
+   * state rather than overwriting it on every rerun.
+   */
+  const facetOpen = $state({ categories: true, mechanics: false, families: false });
+
   const setPlayers = (n: number) => (scope.players = scope.players === n ? null : n);
+  // Families has its own group and its own badge; counting it here too double-counted a
+  // family selection onto the People & publishers badge.
   const entityCount = $derived(
-    scope.designers.length + scope.artists.length + scope.publishers.length + scope.families.length
+    scope.designers.length + scope.artists.length + scope.publishers.length
   );
   const exactCount = $derived(
     [
@@ -147,9 +163,28 @@
     </div>
   </div>
 
-  <FacetList title="Categories" column="categories" {where} bind:selected={scope.categories} open />
-  <FacetList title="Mechanics" column="mechanics" {where} bind:selected={scope.mechanics} />
-  <FacetList title="Series & families" column="families" {where} bind:selected={scope.families} peek={6} />
+  <FacetList
+    title="Categories"
+    column="categories"
+    {where}
+    bind:selected={scope.categories}
+    bind:open={facetOpen.categories}
+  />
+  <FacetList
+    title="Mechanics"
+    column="mechanics"
+    {where}
+    bind:selected={scope.mechanics}
+    bind:open={facetOpen.mechanics}
+  />
+  <FacetList
+    title="Series & families"
+    column="families"
+    {where}
+    bind:selected={scope.families}
+    bind:open={facetOpen.families}
+    peek={6}
+  />
 
   <details class="grp people">
     <summary>
