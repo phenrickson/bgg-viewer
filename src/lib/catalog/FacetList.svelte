@@ -17,7 +17,7 @@
     column,
     where,
     selected = $bindable(),
-    open = false,
+    open = $bindable(false),
     /** Rows shown before "Show more". */
     peek = 8
   }: {
@@ -59,7 +59,7 @@
   }
 </script>
 
-<details class="grp" {open}>
+<details class="grp" bind:open>
   <summary>
     <span class="ttl">{title}</span>
     {#if selected.length}<span class="badge tnum">{selected.length}</span>{/if}
