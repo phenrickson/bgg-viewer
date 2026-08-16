@@ -10,15 +10,24 @@
    *      things you reach for first, and the ones with no chart to live on.
    *   2. **Collapsed, counted** — categories, mechanics, families, people. A shut `<details>`
    *      with a badge is one line and still says "you have two of these set".
-   *   3. **Moved to the shape strip** — year, complexity, rating, ratings count and best-at.
-   *      Ranges are easier to *see* than to type, so they're brushed on their own
-   *      distributions; the exact numbers stay here under "Exact numbers" for typing and for
-   *      keyboard users.
+   *   3. **Moved to the shape strip** — year, complexity, rating and ratings count. Ranges are
+   *      easier to *see* than to type, so they're brushed on their own distributions; the exact
+   *      numbers stay here under "Exact numbers" for typing and for keyboard users.
+   *
+   * Best-at is the exception that came back: it lived only on the strip, which made the one
+   * filter BGG can't do the one filter you had to find in a chart. It now shares the player
+   * count row with plays-with behind a mode toggle, and the strip stays a second way in.
    *
    * `<details>` does the collapsing natively, so it's keyboard- and screen-reader-correct
-   * with no JS, and the browser (not us) owns the open/close state.
+   * with no JS.
    */
-  import { defaultHurdleFor, type Scope } from './scope';
+  import {
+    defaultHurdleFor,
+    playerCountModeFor,
+    setPlayerCount,
+    type PlayerCountMode,
+    type Scope
+  } from './scope';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
 
@@ -72,7 +81,39 @@
    */
   const facetOpen = $state({ categories: true, mechanics: false, families: false });
 
-  const setPlayers = (n: number) => (scope.players = scope.players === n ? null : n);
+  /**
+   * One number row, two questions. "Best at N" is the filter BGG itself can't do, and it used
+   * to be reachable only by clicking the shape strip — the rail's own note pointed at a chart
+   * to find it. A mode toggle puts it here without a second row of numbers.
+   *
+   * The mode is UI state, not `Scope` state: `players` and `bestAt` stay two fields with their
+   * own `p` / `best` params and predicates, so `toWhere`, the URL round-trip and the chips need
+   * no changes and existing `?best=4` links keep working.
+   */
+  let pcMode = $state<PlayerCountMode>(playerCountModeFor(scope));
+
+  /**
+   * Mode follows state, so the rail can't claim to be filtering one thing while the other is
+   * set — the strip writes `bestAt` directly, and a shared link arrives with it already set.
+   * Writes only `pcMode`, never `scope`, so it cannot cycle with the setters below.
+   */
+  $effect(() => {
+    if (scope.bestAt != null) pcMode = 'bestAt';
+    else if (scope.players != null) pcMode = 'players';
+  });
+
+  function setPcMode(m: PlayerCountMode) {
+    if (pcMode === m) return;
+    // Carry the picked count across the switch — "best at 2" is the natural follow-up to
+    // "plays with 2", and re-picking the same number by hand is busywork. Read the outgoing
+    // mode's field *before* reassigning `pcMode`.
+    const carried = scope[pcMode];
+    pcMode = m;
+    scope = { ...scope, ...setPlayerCount(scope, m, carried) };
+  }
+
+  const pcValue = $derived(pcMode === 'players' ? scope.players : scope.bestAt);
+  const setCount = (n: number) => (scope = { ...scope, ...setPlayerCount(scope, pcMode, n) });
   // Families has its own group and its own badge; counting it here too double-counted a
   // family selection onto the People & publishers badge.
   const entityCount = $derived(
@@ -151,15 +192,31 @@
     {/if}
 
     <div class="grp">
-      <span class="lbl">Plays with</span>
+      <span class="lbl">Player count</span>
+      <div class="seg two">
+        <button
+          class:on={pcMode === 'players'}
+          aria-pressed={pcMode === 'players'}
+          onclick={() => setPcMode('players')}>Plays with</button
+        >
+        <button
+          class:on={pcMode === 'bestAt'}
+          aria-pressed={pcMode === 'bestAt'}
+          onclick={() => setPcMode('bestAt')}>Best at</button
+        >
+      </div>
       <div class="seg">
         {#each [1, 2, 3, 4, 5, 6] as n (n)}
-          <button class:on={scope.players === n} aria-pressed={scope.players === n} onclick={() => setPlayers(n)}>
+          <button class:on={pcValue === n} aria-pressed={pcValue === n} onclick={() => setCount(n)}>
             {n === 6 ? '6+' : n}
           </button>
         {/each}
       </div>
-      <p class="note">Supports N at the table. For <em>best</em> at N, use the shape strip.</p>
+      <p class="note">
+        {pcMode === 'players'
+          ? 'Supports N at the table.'
+          : 'The community voted N the best count — the filter BGG can’t do.'}
+      </p>
     </div>
   </div>
 
@@ -325,9 +382,6 @@
     font-size: 0.7rem;
     color: var(--muted-foreground);
     line-height: 1.35;
-  }
-  .note em {
-    font-style: italic;
   }
 
   .seg {

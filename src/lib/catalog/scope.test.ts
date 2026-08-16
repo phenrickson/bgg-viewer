@@ -8,6 +8,8 @@ import {
 	activeFilters,
 	compactCount,
 	niceCount,
+	setPlayerCount,
+	playerCountModeFor,
 	type Scope
 } from './scope';
 import {
@@ -147,6 +149,79 @@ describe('ratings-count helpers', () => {
 		expect(niceCount(0)).toBe(0);
 		expect(niceCount(-5)).toBe(0);
 		expect(niceCount(NaN)).toBe(0);
+	});
+});
+
+describe('the player-count row', () => {
+	describe('setPlayerCount', () => {
+		it('sets the mode’s field and clears the other', () => {
+			expect(setPlayerCount({ ...DEFAULT_SCOPE, bestAt: 4 }, 'players', 2)).toEqual({
+				players: 2,
+				bestAt: null
+			});
+			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2 }, 'bestAt', 4)).toEqual({
+				players: null,
+				bestAt: 4
+			});
+		});
+
+		it('clears the count when the lit number is re-picked', () => {
+			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2 }, 'players', 2)).toEqual({
+				players: null,
+				bestAt: null
+			});
+			expect(setPlayerCount({ ...DEFAULT_SCOPE, bestAt: 4 }, 'bestAt', 4)).toEqual({
+				players: null,
+				bestAt: null
+			});
+		});
+
+		it('re-picking one mode’s number does not resurrect the other', () => {
+			// The count clears, but bestAt must stay cleared rather than coming back.
+			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2, bestAt: 4 }, 'players', 2)).toEqual({
+				players: null,
+				bestAt: null
+			});
+		});
+
+		it('carries a null through, so switching mode with nothing set stays empty', () => {
+			expect(setPlayerCount(DEFAULT_SCOPE, 'bestAt', null)).toEqual({
+				players: null,
+				bestAt: null
+			});
+		});
+
+		it('never yields a scope where both fields are set', () => {
+			const both: Scope = { ...DEFAULT_SCOPE, players: 3, bestAt: 5 };
+			for (const mode of ['players', 'bestAt'] as const) {
+				for (const n of [1, 3, 5, 6, null]) {
+					const patch = setPlayerCount(both, mode, n);
+					expect(patch.players === null || patch.bestAt === null).toBe(true);
+				}
+			}
+		});
+	});
+
+	describe('playerCountModeFor', () => {
+		it('reads Plays-with when nothing is set', () => {
+			expect(playerCountModeFor(DEFAULT_SCOPE)).toBe('players');
+		});
+
+		it('follows whichever field is set, so a shared ?best= link lands on Best-at', () => {
+			expect(playerCountModeFor(scopeFromParams(new URLSearchParams('best=4')))).toBe('bestAt');
+			expect(playerCountModeFor(scopeFromParams(new URLSearchParams('p=2')))).toBe('players');
+		});
+
+		it('prefers Best-at when a hand-written URL sets both', () => {
+			expect(playerCountModeFor({ ...DEFAULT_SCOPE, players: 2, bestAt: 4 })).toBe('bestAt');
+		});
+	});
+
+	it('still compiles both fields — the constraint is the UI, not the data layer', () => {
+		// A hand-written ?p=2&best=4 stays meaningful; only the rail refuses to author it.
+		const w = toWhere({ ...DEFAULT_SCOPE, universe: 'rated', players: 2, bestAt: 4 });
+		expect(w).toContain('min_players <= 2 AND max_players >= 2');
+		expect(w).toContain('list_contains(best_player_counts, 4)');
 	});
 });
 
