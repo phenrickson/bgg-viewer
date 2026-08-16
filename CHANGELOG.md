@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.5](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.4...bgg-viewer-v0.0.5) (2026-08-16)
+
+
+### Features
+
+* **rail:** best-at joins plays-with behind a player-count mode toggle ([6cc947a](https://github.com/phenrickson/bgg-viewer/commit/6cc947a24c8e5cef875df5497d157532494b5cec))
+* **rail:** best-at joins plays-with behind a player-count mode toggle ([fbe2b72](https://github.com/phenrickson/bgg-viewer/commit/fbe2b72251159ac8fdf1464dee257e841c6fce28))
+
+
+### Bug Fixes
+
+* **rail:** facet groups no longer collapse when you search in them ([d9c9566](https://github.com/phenrickson/bgg-viewer/commit/d9c9566acfd29304b50b94b3c083f9a34fb10f26))
+* **rail:** facet groups no longer collapse when you search in them ([4f504a0](https://github.com/phenrickson/bgg-viewer/commit/4f504a018a9142c0402a9520446410931bdeb00a))
+
 ## [0.0.4](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.3...bgg-viewer-v0.0.4) (2026-08-04)
 
 
