@@ -34,7 +34,7 @@ Both are useful. Only one is discoverable.
 
 Add a **mode toggle** above the existing number row. One number row, two meanings:
 
-```
+```text
 PLAYER COUNT                    ← placeholder label
 [ Plays with ][ Best at ]       ← placeholder labels; .seg.two, mirrors Universe
 [ 1 ][ 2 ][ 3 ][ 4 ][ 5 ][ 6+ ]
@@ -62,9 +62,16 @@ The modes are exclusive: **switching mode nulls the other field.** Precedent is 
 
 This is a real behavior change. Today both fields can be set at once and AND together
 ("supports 2 **and** best at 4"), and `scope.test.ts:85-110` asserts that conjunction compiles.
-That combination is expressible today, confusing in practice, and after this change is no
-longer reachable from the UI. `toWhere` still compiles both — a hand-written URL with `p` and
-`best` still filters on both — so this is a UI constraint, not a data-layer one.
+
+A mode toggle necessarily makes the *rail* exclusive — one row can only write one field. It
+does **not** by itself close off the combination, because the strip sets `bestAt` on its own
+and would happily leave a `players` filter standing. Closing that path is a **separate
+deliberate choice**, implemented as the `onpick` change below: we accept losing a
+graph-reachable power move in exchange for two controls that can never disagree and one
+player-count chip at a time.
+
+`toWhere` still compiles both — a hand-written URL with `p` and `best` still filters on both —
+so this is a UI constraint, not a data-layer one.
 
 ### Mode is derived from state, not remembered separately
 
