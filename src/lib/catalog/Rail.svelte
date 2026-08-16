@@ -30,6 +30,8 @@
   } from './scope';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
+  import RangeSlider from './RangeSlider.svelte';
+  import { rangeLabel } from './range';
 
   let {
     scope = $bindable(),
@@ -112,6 +114,15 @@
     scope = { ...scope, ...setPlayerCount(scope, m, carried) };
   }
 
+  /**
+   * Complexity's domain is BGG's 1–5 weight scale. The strip's axis reads "5.3" only because it
+   * labels the last bin's outer edge (`max(bucket) + WEIGHT_BIN`), not because any game scores
+   * above 5 — and a handle at the top emits `null` anyway, so nothing is excluded either way.
+   */
+  const WEIGHT_DOMAIN = { lo: 1, hi: 5 };
+  const oneDp = (n: number) => n.toFixed(1);
+  const weightLabel = $derived(rangeLabel(scope.weightMin, scope.weightMax, oneDp));
+
   const pcValue = $derived(pcMode === 'players' ? scope.players : scope.bestAt);
   const setCount = (n: number) => (scope = { ...scope, ...setPlayerCount(scope, pcMode, n) });
   // Families has its own group and its own badge; counting it here too double-counted a
@@ -119,12 +130,12 @@
   const entityCount = $derived(
     scope.designers.length + scope.artists.length + scope.publishers.length
   );
+  // Weight is absent on purpose: complexity moved to the pinned slider, so counting it here
+  // would badge "Exact numbers" for a filter that group no longer contains.
   const exactCount = $derived(
     [
       scope.yearMin,
       scope.yearMax,
-      scope.weightMin,
-      scope.weightMax,
       scope.ratingMin,
       scope.ratingMax,
       scope.usersRatedMin,
@@ -218,6 +229,23 @@
           : 'The community voted N the best count — the filter BGG can’t do.'}
       </p>
     </div>
+
+    <div class="grp">
+      <span class="lbl">
+        {pred}Complexity
+        {#if weightLabel}<span class="val tnum">{weightLabel}</span>{/if}
+      </span>
+      <RangeSlider
+        bind:min={scope.weightMin}
+        bind:max={scope.weightMax}
+        domain={WEIGHT_DOMAIN}
+        step={0.1}
+        label="{pred}complexity"
+        loLabel="light"
+        hiLabel="heavy"
+        format={oneDp}
+      />
+    </div>
   </div>
 
   <FacetList
@@ -275,13 +303,8 @@
           <input type="number" placeholder="to" aria-label="Year to" bind:value={scope.yearMax} />
         </div>
       </div>
-      <div class="num">
-        <span class="lbl sm">{pred}Complexity <span class="hint">1–5</span></span>
-        <div class="pair">
-          <input type="number" step="0.1" min="1" max="5" placeholder="min" aria-label="Complexity min" bind:value={scope.weightMin} />
-          <input type="number" step="0.1" min="1" max="5" placeholder="max" aria-label="Complexity max" bind:value={scope.weightMax} />
-        </div>
-      </div>
+      <!-- Complexity is not here: it has the pinned slider above, and two controls for one
+           filter is the confusion the player-count toggle just removed. -->
       <div class="num">
         <span class="lbl sm">{pred}Average rating</span>
         <div class="pair">
@@ -370,6 +393,15 @@
   }
   .lbl.sm {
     font-size: 0.68rem;
+  }
+  /* The live range, read back inside the group label so the filter is legible without
+     hunting for its chip. Not uppercased like the label it sits in. */
+  .val {
+    margin-left: 0.35rem;
+    color: var(--primary);
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
   }
   .hint,
   .note {
