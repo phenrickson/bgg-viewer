@@ -7,8 +7,8 @@
  *
  * Keep this list short. A fourth dial is the failure mode Discover exists to avoid.
  */
-import type { Scope } from '$lib/catalog/scope';
-import { scopeFromParams } from '$lib/catalog/scope';
+import type { Scope, ComplexityBand } from '$lib/catalog/scope';
+import { scopeFromParams, COMPLEXITY_BANDS } from '$lib/catalog/scope';
 
 export interface CategoryChip {
   label: string;
@@ -69,26 +69,12 @@ export const PLAYER_CHIPS: { label: string; bestAt: number }[] = [
  */
 export const DISCOVER_LIMIT = 25;
 
-export interface ComplexityBand {
-  label: string;
-  /** Inclusive lower bound; null = open. */
-  min: number | null;
-  /** Exclusive upper bound; null = open. */
-  max: number | null;
-}
-
 /**
- * The 1–5 weight scale, banded into words. Contiguous and single-select, so "Light" and
- * "Heavy" can never both be on. Boundaries fall in the UPPER band (a 3.0 game is
- * Medium-Heavy, not Medium) — one rule, applied consistently, so a game never lands in two.
+ * The bands moved to `catalog/scope.ts` — `toWhere` needs their cutoffs to compile the
+ * `weightBands` predicate, and this module already imports from there. Re-exported so
+ * Discover's callers keep importing them from here.
  */
-export const COMPLEXITY_BANDS: ComplexityBand[] = [
-  { label: 'Light', min: null, max: 2.0 },
-  { label: 'Medium-Light', min: 2.0, max: 2.5 },
-  { label: 'Medium', min: 2.5, max: 3.0 },
-  { label: 'Medium-Heavy', min: 3.0, max: 3.5 },
-  { label: 'Heavy', min: 3.5, max: null }
-];
+export { COMPLEXITY_BANDS, type ComplexityBand };
 
 /**
  * Discover's URL-to-scope entry point. `scopeFromParams` always returns a COMPLETE `Scope`

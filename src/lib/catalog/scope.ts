@@ -9,12 +9,51 @@
  * voted N *best* — `best_player_counts` is in the artifact, so the flagship filter needs
  * no live module.
  */
+export interface ComplexityBand {
+	label: string;
+	/** Inclusive lower bound; null = open. */
+	min: number | null;
+	/** Exclusive upper bound; null = open. */
+	max: number | null;
+}
+
+/**
+ * The 1–5 weight scale, banded into words — the vocabulary people actually use for complexity.
+ *
+ * Half-open intervals, and a boundary belongs to the UPPER band: a 3.0 game is Medium-Heavy,
+ * not Medium. One rule applied consistently, so no game lands in two bands and none falls
+ * between them. The first band has no floor and the last no ceiling, so the five cover the
+ * whole scale.
+ *
+ * Lives here rather than in `discover/` because `toWhere` needs the cutoffs and `dials.ts`
+ * already imports from this module; it re-exports these for Discover's existing callers.
+ */
+export const COMPLEXITY_BANDS: ComplexityBand[] = [
+	{ label: 'Light', min: null, max: 2.0 },
+	{ label: 'Medium-Light', min: 2.0, max: 2.5 },
+	{ label: 'Medium', min: 2.5, max: 3.0 },
+	{ label: 'Medium-Heavy', min: 3.0, max: 3.5 },
+	{ label: 'Heavy', min: 3.5, max: null }
+];
+
+/** 1-indexed band number → its definition, or undefined if the index names no band. */
+export const bandAt = (i: number): ComplexityBand | undefined => COMPLEXITY_BANDS[i - 1];
+
 export interface Scope {
 	q: string;
 	yearMin: number | null;
 	yearMax: number | null;
 	weightMin: number | null;
 	weightMax: number | null;
+	/**
+	 * Complexity as named bands (1-indexed into `COMPLEXITY_BANDS`), OR-ed together like the
+	 * facet lists — so "Light or Heavy, nothing in between" is expressible, which the
+	 * `weightMin`/`weightMax` span above cannot represent.
+	 *
+	 * Additive to that span, not a replacement: the shape strip still brushes a free range, and
+	 * the two AND together like any other pair of filters.
+	 */
+	weightBands: number[];
 	/** Average-rating window. Brushed directly on the shape strip's rating histogram. */
 	ratingMin: number | null;
 	ratingMax: number | null;
@@ -99,6 +138,7 @@ export const DEFAULT_SCOPE: Scope = {
 	yearMax: null,
 	weightMin: null,
 	weightMax: null,
+	weightBands: [],
 	ratingMin: null,
 	ratingMax: null,
 	usersRatedMin: null,
@@ -183,6 +223,23 @@ export function toWhere(scope: Scope): string {
 	// rated slices, model estimates for upcoming. Same question, different source.
 	if (scope.weightMin != null) parts.push(`${col.weight} >= ${scope.weightMin}`);
 	if (scope.weightMax != null) parts.push(`${col.weight} <= ${scope.weightMax}`);
+	// Bands OR together, like the facet lists: checking Light and Heavy really does mean "either
+	// end, nothing in between". Half-open per band (`>= min AND < max`) so boundaries can't
+	// double-count; the outer bands omit the bound they don't have.
+	if (scope.weightBands.length) {
+		const clauses = scope.weightBands
+			.map(bandAt)
+			.filter((b): b is ComplexityBand => b != null)
+			.map((b) =>
+				b.min == null
+					? `${col.weight} < ${b.max}`
+					: b.max == null
+						? `${col.weight} >= ${b.min}`
+						: `(${col.weight} >= ${b.min} AND ${col.weight} < ${b.max})`
+			);
+		if (clauses.length)
+			parts.push(clauses.length > 1 ? `(${clauses.join(' OR ')})` : clauses[0]);
+	}
 	if (scope.ratingMin != null) parts.push(`${col.rating} >= ${scope.ratingMin}`);
 	if (scope.ratingMax != null) parts.push(`${col.rating} <= ${scope.ratingMax}`);
 	if (scope.usersRatedMin != null) parts.push(`${col.usersRated} >= ${scope.usersRatedMin}`);
@@ -293,6 +350,18 @@ export function activeFilters(scope: Scope): FilterChip[] {
 	// contradict the filter — and the shape strip brushes in quarter steps.
 	const exact = (n: number) => String(Math.round(n * 100) / 100);
 	range('weight', 'complexity', scope.weightMin, scope.weightMax, 'weightMin', 'weightMax', exact);
+	// One chip per band, like the facet values — clearing "Heavy" leaves "Light" standing rather
+	// than wiping the whole complexity selection.
+	for (const i of scope.weightBands) {
+		const band = bandAt(i);
+		if (!band) continue;
+		chips.push({
+			id: `weightBand:${i}`,
+			kind: 'complexity',
+			label: band.label,
+			patch: { weightBands: scope.weightBands.filter((b) => b !== i) }
+		});
+	}
 	range('rating', 'rating', scope.ratingMin, scope.ratingMax, 'ratingMin', 'ratingMax', exact);
 	range(
 		'usersRated',
@@ -357,6 +426,8 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.yearMax != null) p.set('ymax', String(scope.yearMax));
 	if (scope.weightMin != null) p.set('wmin', String(scope.weightMin));
 	if (scope.weightMax != null) p.set('wmax', String(scope.weightMax));
+	// Indices, not labels: short URLs that survive relabelling a band.
+	if (scope.weightBands.length) p.set('wband', [...scope.weightBands].sort().join(','));
 	if (scope.ratingMin != null) p.set('rmin', String(scope.ratingMin));
 	if (scope.ratingMax != null) p.set('rmax', String(scope.ratingMax));
 	if (scope.usersRatedMin != null) p.set('urmin', String(scope.usersRatedMin));
@@ -392,6 +463,19 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 			.split(',')
 			.map((s) => s.trim())
 			.filter(Boolean);
+	/**
+	 * Band indices — deduped, sorted, and dropped unless they name a real band, so a
+	 * hand-written `?wband=9,foo,2,2` can't put junk in the scope or a phantom chip in the
+	 * header.
+	 */
+	const bandList = (raw: string | null) => {
+		const seen = new Set<number>();
+		for (const s of (raw ?? '').split(',')) {
+			const n = Number(s.trim());
+			if (Number.isInteger(n) && bandAt(n)) seen.add(n);
+		}
+		return [...seen].sort();
+	};
 	const u = params.get('u');
 	const h = params.get('h');
 	return {
@@ -400,6 +484,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		yearMax: finite(params.get('ymax')),
 		weightMin: finite(params.get('wmin')),
 		weightMax: finite(params.get('wmax')),
+		weightBands: bandList(params.get('wband')),
 		ratingMin: finite(params.get('rmin')),
 		ratingMax: finite(params.get('rmax')),
 		usersRatedMin: finite(params.get('urmin')),
