@@ -61,10 +61,26 @@
       {/if}
     </div>
 
-    <p class="note">
-      Steps one year at a time. A brushed range slides and keeps its width. Type an exact span
-      under Exact numbers.
-    </p>
+    <div class="pair">
+      <input
+        type="number"
+        placeholder="from"
+        aria-label="Year from"
+        min={bounds.lo}
+        max={bounds.hi}
+        bind:value={scope.yearMin}
+      />
+      <input
+        type="number"
+        placeholder="to"
+        aria-label="Year to"
+        min={bounds.lo}
+        max={bounds.hi}
+        bind:value={scope.yearMax}
+      />
+    </div>
+
+    <p class="note">Arrows step a year; the fields set a span.</p>
   </div>
 </details>
 
@@ -183,6 +199,36 @@
   .x:hover {
     border-color: var(--destructive, var(--primary));
     color: var(--destructive, var(--primary));
+  }
+
+  /* Matches the rail's own `input[type='number']` rules. Svelte scopes styles per component, so
+     these can't be inherited from Rail — kept identical so the two never look like two
+     different kinds of field. */
+  .pair {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .pair input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--foreground);
+    padding: 0.28rem 0.4rem;
+    font: inherit;
+    font-size: 0.8rem;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .pair input::-webkit-outer-spin-button,
+  .pair input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .pair input:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
   }
 
   .note {

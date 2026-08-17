@@ -127,10 +127,10 @@
   const entityCount = $derived(
     scope.designers.length + scope.artists.length + scope.publishers.length
   );
+  // Year is absent: it has its own group and badge, so counting it here would badge "Exact
+  // numbers" for a filter that group no longer contains.
   const exactCount = $derived(
     [
-      scope.yearMin,
-      scope.yearMax,
       scope.weightMin,
       scope.weightMax,
       scope.ratingMin,
@@ -281,13 +281,8 @@
           In this universe they read the model’s estimates, since nobody has played these
           games yet.{/if}
       </p>
-      <div class="num">
-        <span class="lbl sm">Year</span>
-        <div class="pair">
-          <input type="number" placeholder="from" aria-label="Year from" bind:value={scope.yearMin} />
-          <input type="number" placeholder="to" aria-label="Year to" bind:value={scope.yearMax} />
-        </div>
-      </div>
+      <!-- Year is not here: its own group owns both the range and the stepper, so year is
+           set in exactly one place. -->
       <!-- The complexity *range* the strip brushes. The band checkboxes above are a separate,
            coarser filter on the same measure; these are the typed path to a free span. -->
       <div class="num">
@@ -502,6 +497,15 @@
     padding: 0.28rem 0.4rem;
     font: inherit;
     font-size: 0.8rem;
+    /* No spinners. At this size the arrows are unhittable decoration, and they crowd the
+       value in a 130px field. Typing and the arrow keys both still work. */
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   input:focus-visible {
     outline: 2px solid var(--primary);
