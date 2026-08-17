@@ -136,8 +136,11 @@ same reason.
 
 ## Open
 
-- **`RangeSlider.svelte` / `range.ts` / `range.test.ts` have no caller.** They were parked for
-  year, but year shipped with steppers. Keep for a future span filter, or delete.
+- **`RangeSlider.svelte` / `range.ts` / `range.test.ts` ship with no caller, deliberately.**
+  Built for complexity, which went to bands; parked for year, which took steppers. Kept because
+  the rail still has typed min/max pairs for rating, ratings count and geek rating — all genuine
+  spans a slider would serve better than two text fields. Tested, so it stays honest while it
+  waits.
 - **Vertical budget.** Both groups are collapsible `<details>`, which is what let both ship at
   once — the earlier concern was that two always-open controls would push Categories below the
   fold. Complexity defaults open, year shut. Worth revisiting once the rail is used in anger.
