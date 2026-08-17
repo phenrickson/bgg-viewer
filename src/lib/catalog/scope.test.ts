@@ -10,6 +10,7 @@ import {
 	niceCount,
 	setPlayerCount,
 	playerCountModeFor,
+	stepYear,
 	type Scope
 } from './scope';
 import {
@@ -149,6 +150,135 @@ describe('ratings-count helpers', () => {
 		expect(niceCount(0)).toBe(0);
 		expect(niceCount(-5)).toBe(0);
 		expect(niceCount(NaN)).toBe(0);
+	});
+});
+
+describe('stepYear', () => {
+	const B = { lo: 1900, hi: 2030 };
+	const step = (s: Partial<Scope>, d: number, from = 2026) =>
+		stepYear({ ...DEFAULT_SCOPE, ...s }, d, B, from);
+
+	it('walks a single year, which is the whole point', () => {
+		expect(step({ yearMin: 2019, yearMax: 2019 }, 1)).toEqual({ yearMin: 2020, yearMax: 2020 });
+		expect(step({ yearMin: 2019, yearMax: 2019 }, -1)).toEqual({ yearMin: 2018, yearMax: 2018 });
+	});
+
+	it('lands on `from` when nothing is set — there is no current year to move', () => {
+		expect(step({}, 1)).toEqual({ yearMin: 2026, yearMax: 2026 });
+		expect(step({}, -1, 2000)).toEqual({ yearMin: 2000, yearMax: 2000 });
+	});
+
+	it('shifts a brushed span and keeps its width', () => {
+		expect(step({ yearMin: 2015, yearMax: 2020 }, 1)).toEqual({ yearMin: 2016, yearMax: 2021 });
+		expect(step({ yearMin: 2015, yearMax: 2020 }, -5)).toEqual({ yearMin: 2010, yearMax: 2015 });
+	});
+
+	it('stops at an edge without squashing the span', () => {
+		// The bug worth a test: clamping each bound independently would collapse this to
+		// 2030–2030 instead of parking the five-year window against the ceiling.
+		expect(step({ yearMin: 2024, yearMax: 2029 }, 10)).toEqual({ yearMin: 2025, yearMax: 2030 });
+		expect(step({ yearMin: 1901, yearMax: 1906 }, -10)).toEqual({ yearMin: 1900, yearMax: 1905 });
+	});
+
+	it('keeps a half-open range half-open', () => {
+		// "1990 onward" walks its floor; it must not silently gain a ceiling.
+		expect(step({ yearMin: 1990, yearMax: null }, 1)).toEqual({ yearMin: 1991, yearMax: null });
+		expect(step({ yearMin: null, yearMax: 1990 }, 1)).toEqual({ yearMin: null, yearMax: 1991 });
+	});
+
+	it('clamps a single year to the bounds', () => {
+		expect(step({ yearMin: 2030, yearMax: 2030 }, 1)).toEqual({ yearMin: 2030, yearMax: 2030 });
+		expect(step({ yearMin: 1900, yearMax: 1900 }, -1)).toEqual({ yearMin: 1900, yearMax: 1900 });
+	});
+
+	it('never inverts the range', () => {
+		for (const d of [-50, -1, 1, 50]) {
+			for (const [min, max] of [
+				[2019, 2019],
+				[2015, 2020],
+				[1900, 2030]
+			] as const) {
+				const r = step({ yearMin: min, yearMax: max }, d);
+				expect(r.yearMin!).toBeLessThanOrEqual(r.yearMax!);
+			}
+		}
+	});
+});
+
+describe('complexity bands', () => {
+	const rated = { ...DEFAULT_SCOPE, universe: 'rated' as const };
+
+	it('compiles one band to its half-open interval', () => {
+		expect(toWhere({ ...rated, weightBands: [3] })).toContain(
+			'(average_weight >= 2.5 AND average_weight < 3)'
+		);
+	});
+
+	it('leaves the outer bands one-sided', () => {
+		// Light has no floor and Heavy no ceiling, so neither needs a second bound or parens.
+		expect(toWhere({ ...rated, weightBands: [1] })).toContain('average_weight < 2');
+		expect(toWhere({ ...rated, weightBands: [1] })).not.toContain('>= null');
+		expect(toWhere({ ...rated, weightBands: [5] })).toContain('average_weight >= 3.5');
+		expect(toWhere({ ...rated, weightBands: [5] })).not.toContain('< null');
+	});
+
+	it('ORs non-adjacent bands — the whole point of checkboxes', () => {
+		// Light or Heavy, nothing in between. A min/max span cannot express this.
+		const w = toWhere({ ...rated, weightBands: [1, 5] });
+		expect(w).toContain('(average_weight < 2 OR average_weight >= 3.5)');
+	});
+
+	it('covers the scale with no gaps and no overlaps at the boundaries', () => {
+		// Every band's max is the next band's min, so a boundary value lands in exactly one.
+		for (let i = 0; i < COMPLEXITY_BANDS.length - 1; i++) {
+			expect(COMPLEXITY_BANDS[i].max).toBe(COMPLEXITY_BANDS[i + 1].min);
+		}
+		expect(COMPLEXITY_BANDS[0].min).toBeNull();
+		expect(COMPLEXITY_BANDS.at(-1)!.max).toBeNull();
+	});
+
+	it('adds nothing when no band is checked', () => {
+		expect(toWhere({ ...rated, weightBands: [] })).toBe('users_rated >= 30');
+	});
+
+	it('ANDs with the strip’s free range rather than replacing it', () => {
+		// Both controls stay live; bands did not take weightMin/weightMax away.
+		const w = toWhere({ ...rated, weightBands: [5], weightMin: 4 });
+		expect(w).toContain('average_weight >= 4');
+		expect(w).toContain('average_weight >= 3.5');
+	});
+
+	it('reads the predicted column in the upcoming universe', () => {
+		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'upcoming', weightBands: [3] })).toContain(
+			'(predicted_complexity >= 2.5 AND predicted_complexity < 3)'
+		);
+	});
+
+	it('ignores indices that name no band', () => {
+		expect(toWhere({ ...rated, weightBands: [0, 9, 99] })).toBe('users_rated >= 30');
+	});
+
+	it('gives each band its own removable chip', () => {
+		const chips = activeFilters({ ...DEFAULT_SCOPE, weightBands: [1, 5] });
+		expect(chips.map((c) => c.label)).toEqual(['Light', 'Heavy']);
+		expect(chips.every((c) => c.kind === 'complexity')).toBe(true);
+		// Clearing one leaves the other.
+		expect(chips[0].patch).toEqual({ weightBands: [5] });
+	});
+
+	it('round-trips through the URL as sorted indices', () => {
+		const p = scopeToParams({ ...DEFAULT_SCOPE, weightBands: [5, 1] });
+		expect(p.get('wband')).toBe('1,5');
+		expect(scopeFromParams(p).weightBands).toEqual([1, 5]);
+	});
+
+	it('sets no param when nothing is checked', () => {
+		expect(scopeToParams(DEFAULT_SCOPE).has('wband')).toBe(false);
+	});
+
+	it('sanitizes a hand-written wband — junk, dupes and out-of-range', () => {
+		const s = scopeFromParams(new URLSearchParams('wband=9,foo,2,2,,3.5,-1,1'));
+		expect(s.weightBands).toEqual([1, 2]);
 	});
 });
 
@@ -309,6 +439,7 @@ describe('URL round-trip', () => {
 			yearMax: null,
 			weightMin: 2,
 			weightMax: 4,
+			weightBands: [2, 4],
 			ratingMin: 7,
 			ratingMax: 9.5,
 			usersRatedMin: 1000,
