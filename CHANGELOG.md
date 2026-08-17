@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.6](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.5...bgg-viewer-v0.0.6) (2026-08-17)
+
+
+### Features
+
+* **rail:** complexity range slider in the pinned rail ([989866c](https://github.com/phenrickson/bgg-viewer/commit/989866cbec26e1bd77dee4a63d747c837fb43164))
+* **rail:** numeric filters — complexity bands and a year stepper ([e30e094](https://github.com/phenrickson/bgg-viewer/commit/e30e0945efb0aead3d0a71e2fc758a1616315f8f))
+
 ## [0.0.5](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.4...bgg-viewer-v0.0.5) (2026-08-16)
 
 
