@@ -169,6 +169,24 @@
   <main class="content">
     {@render children()}
   </main>
+
+  <footer class="appfoot">
+    <Container size="wide" class="appfoot-inner">
+      <a
+        class="bgg-badge"
+        href="https://boardgamegeek.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Powered by BoardGameGeek"
+      >
+        <img
+          src="https://cf.geekdo-images.com/HZy35cmzmmyV9BarSuk6ug__medium/img/Lru_FJkj084_7MInilQO4LiiB_U=/fit-in/500x500/filters:no_upscale():strip_icc()/pic7779581.png"
+          alt="Powered by BGG"
+        />
+      </a>
+      <p class="disclaimer">Data sourced from BoardGameGeek. Not affiliated with or endorsed by BoardGameGeek.</p>
+    </Container>
+  </footer>
 </div>
 
 <style>
@@ -273,4 +291,15 @@
     padding: var(--space-lg);
   }
   .appbar { flex: none; }
+
+  /* Fixed-height sliver, not part of the scrolling content — same reasoning as the appbar. */
+  .appfoot { flex: none; border-top: 1px solid var(--border); background: var(--card); }
+  .appfoot :global(.appfoot-inner) {
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
+  }
+  .bgg-badge { flex: none; display: flex; align-items: center; }
+  .bgg-badge img { height: 20px; width: auto; opacity: 0.85; }
+  .bgg-badge:hover img { opacity: 1; }
+  .disclaimer { margin: 0; font-size: 0.75rem; color: var(--muted-foreground); }
 </style>
