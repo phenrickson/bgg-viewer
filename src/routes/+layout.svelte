@@ -156,7 +156,7 @@
         {#if data.user}
           <span class="who">{data.user.display_name || data.user.email}</span>
           <form method="POST" action="/logout">
-            <button class="link" type="submit">Log out</button>
+            <button class="link muted" type="submit">Log out</button>
           </form>
         {:else}
           <a class="link" href="/login">Log in</a>
@@ -280,6 +280,10 @@
     color: var(--primary); font: inherit; text-decoration: none;
   }
   .link:hover { text-decoration: underline; }
+  /* Log out is a low-stakes exit, not a call to action — it shouldn't compete in the same
+     orange as Log in and the app's actual CTAs. */
+  .link.muted { color: var(--muted-foreground); }
+  .link.muted:hover { color: var(--foreground); }
   .toggle {
     border: 1px solid var(--border); background: transparent; color: var(--foreground);
     border-radius: var(--radius); width: 2rem; height: 2rem; cursor: pointer; line-height: 1;
