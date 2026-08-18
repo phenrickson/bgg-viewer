@@ -90,3 +90,39 @@ describe('createWarehouseClient.getGame', () => {
 		await expect(client.getGame(13)).rejects.toBeInstanceOf(WarehouseError);
 	});
 });
+
+const newGameRow = {
+	game_id: 477235,
+	name: 'Das Violette Schwert',
+	year_published: 2026,
+	thumbnail: null,
+	first_seen: '2026-08-18T06:05:04.198Z',
+	predicted_hurdle_prob: 0.389
+};
+
+describe('createWarehouseClient.getNewGames', () => {
+	it('GETs /new-games with the requested day window and parses the row array', async () => {
+		const { fetchImpl, calls } = stubFetch([newGameRow]);
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		const result = await client.getNewGames(30);
+
+		expect(calls[0].url).toBe('https://warehouse.example/new-games?days=30');
+		expect(result).toEqual([newGameRow]);
+	});
+
+	it('maps non-2xx to a typed WarehouseError', async () => {
+		const { fetchImpl } = stubFetch('nope', { status: 503 });
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		await expect(client.getNewGames(7)).rejects.toBeInstanceOf(WarehouseError);
+	});
+});

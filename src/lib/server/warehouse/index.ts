@@ -14,4 +14,4 @@ export function warehouseClient(): WarehouseClient {
 }
 
 export { GameNotFoundError, WarehouseError } from './types';
-export type { GameDocument, GameFeatures } from './types';
+export type { GameDocument, GameFeatures, NewGameRow } from './types';

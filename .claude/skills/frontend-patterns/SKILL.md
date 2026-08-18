@@ -412,32 +412,70 @@ const table = createSvelteTable({
 
 ### Area / line chart
 
-Use the higher-level `AreaChart` component for time-series with built-in tooltip and legend:
+Use the higher-level `AreaChart` (or `LineChart`) component for time-series. Verified
+directly against the installed package (`node_modules/layerchart`, v2.0.2 — the docs
+site's snippets don't always match this version, so when in doubt read
+`node_modules/layerchart/dist/components/charts/*/*.base.svelte` rather than guess):
 
 ```svelte
 <script lang="ts">
-  import { AreaChart } from "layerchart";
+  import { AreaChart, Area, Points } from "layerchart";
+  // layerchart doesn't re-export d3-shape's curve functions — import directly,
+  // same as $lib/charts/scale.ts already does for d3-scale/d3-array.
+  import { curveMonotoneX } from "d3-shape";
+
+  let { data }: { data: { date: Date; count: number }[] } = $props();
 </script>
 
-<!-- inside Card.Content (flex flex-1 flex-col min-h-0); .chart-area owns sizing — never h-[Npx] -->
 <div class="chart-area">
-  <AreaChart
-    class="h-full"
-    data={seriesData}
-    x="date"
-    series={[
-      { key: "actual", label: "Actual", color: "var(--chart-1)" },
-      { key: "quota", label: "Quota", color: "var(--chart-3)" },
-    ]}
-    yNice
-    padding={{ left: 48, bottom: 32, top: 8, right: 8 }}
-  >
-    {#snippet tooltip()}
-      <Chart.Tooltip indicator="line" />
+  <AreaChart {data} x="date" y="count" yDomain={[0, null]} yNice>
+    {#snippet marks({ context })}
+      {#each context.series.visibleSeries as s (s.key)}
+        <Area
+          seriesKey={s.key}
+          curve={curveMonotoneX}
+          fill="var(--chart-1)"
+          fillOpacity={0.2}
+          line={{ curve: curveMonotoneX, stroke: "var(--chart-1)", "stroke-width": 2 }}
+        />
+        <Points seriesKey={s.key} r={3} fill="var(--chart-1)" />
+      {/each}
     {/snippet}
   </AreaChart>
 </div>
 ```
+
+Gotchas that don't match what you'd guess from the docs site:
+
+- **No default stroke width.** `Spline`/`Area`'s line has no default `stroke-width`,
+  so it falls back to the SVG default of `1` — a 1px stroke on a diagonal segment
+  with only a handful of points reads as jagged/aliased. Set an explicit width
+  (2 is a reasonable default) via `line={{ 'stroke-width': 2 }}`.
+- **No default curve.** Without a `curve`, segments are straight lines
+  (`curveLinear`), which looks spiky with sparse data (e.g. daily buckets over a
+  week). `curveMonotoneX` from `d3-shape` smooths it without overshoot.
+- **Dots on every point aren't a boolean prop.** There's no `points={true}` toggle —
+  `highlight={{points:true}}` (the default) only shows a point on *hover*. To get an
+  always-visible dot per data point, override the `marks` snippet and add a
+  `<Points seriesKey={s.key} />` yourself, as above.
+- **`marks` fully replaces the default rendering**, it doesn't add to it — if you
+  override it (e.g. to add `Points`), you're responsible for re-drawing the
+  `Area`/`Spline` too (copy the loop over `context.series.visibleSeries` shown
+  above; each chart type's own `*.base.svelte` has the exact default to copy from).
+- **Color falls back to `--color-primary`, not `currentColor`.** A series with no
+  explicit `color` defaults to `var(--color-primary, currentColor)` — if the app
+  defines `--color-primary` (bgg-viewer does), wrapping the chart in a `color: ...`
+  CSS rule and expecting it to tint the line via inheritance won't work. Pass
+  `fill`/`stroke` (or a `series` color) explicitly instead.
+- **The x-axis auto-picks "nice" evenly-spaced ticks, not one per data point.** For
+  a handful of daily buckets this lands ticks at noon between day boundaries
+  instead of on them. Pin `ticks` to your actual data's x-values (via
+  `props={{ xAxis: { ticks: myDates, format: myFormatFn } }}` — a plain function
+  works for `format`, it's called as `format(value)`) rather than trusting the
+  default tick placement.
+
+Reference: `$lib/charts/TimeSeriesArea.svelte` — a generic bucketed-count-over-time
+component built on this pattern.
 
 ### Tooltips
 

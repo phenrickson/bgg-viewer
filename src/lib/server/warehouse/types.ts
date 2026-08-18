@@ -44,3 +44,17 @@ export class GameNotFoundError extends WarehouseError {
 		this.name = 'GameNotFoundError';
 	}
 }
+
+/**
+ * A row from `GET /new-games` — a game first fetched into the warehouse within the
+ * requested window. `predicted_hurdle_prob` is raw/unthresholded; tiering into
+ * badges is a display decision made by the caller, not this type.
+ */
+export interface NewGameRow {
+	game_id: number;
+	name: string;
+	year_published: number | null;
+	thumbnail: string | null;
+	first_seen: string;
+	predicted_hurdle_prob: number | null;
+}
