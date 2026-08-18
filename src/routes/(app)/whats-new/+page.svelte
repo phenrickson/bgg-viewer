@@ -83,7 +83,10 @@
    */
   type TierFilter = 'all' | 'standout' | 'promising';
   let tierFilter = $state<TierFilter>('all');
-  const TIER_LABELS: Record<TierFilter, string> = { all: 'All', standout: 'Standout', promising: 'Promising' };
+  // Plural for the filter toggle/empty-state ("Likely Hits" narrows to a category);
+  // singular for the per-row badge ("Likely Hit" describes that one game).
+  const FILTER_LABELS: Record<TierFilter, string> = { all: 'All', standout: 'Likely Hits', promising: 'Ones to Watch' };
+  const BADGE_LABELS: Record<'standout' | 'promising', string> = { standout: 'Likely Hit', promising: 'One to Watch' };
 
   const filtered = $derived(
     tierFilter === 'all' ? sorted : sorted.filter((g) => hurdleTier(g.predicted_hurdle_prob) === tierFilter)
@@ -109,15 +112,14 @@
   const rangeTo = $derived(Math.min(filtered.length, (page + 1) * PAGE_SIZE));
 </script>
 
-<svelte:head><title>What's new · bgg-viewer</title></svelte:head>
+<svelte:head><title>What's New · bgg-viewer</title></svelte:head>
 
 <div class="page">
   <Container size="list">
     <Stack gap="md">
       <div>
-        <h1>What's new</h1>
-        <!-- PLACEHOLDER copy — Phil writes the real prose. -->
-        <p class="lede">[Games recently added to the warehouse.]</p>
+        <h1>What's New</h1>
+        <p class="lede">Games recently added to BGG.</p>
       </div>
 
       <div class="toolbar">
@@ -127,7 +129,7 @@
           {/each}
         </div>
         <div class="seg" role="group" aria-label="Hurdle status">
-          {#each Object.entries(TIER_LABELS) as [key, label] (key)}
+          {#each Object.entries(FILTER_LABELS) as [key, label] (key)}
             <button type="button" class:on={tierFilter === key} onclick={() => (tierFilter = key as TierFilter)}>
               {label}
             </button>
@@ -164,7 +166,7 @@
             <col style="width: 4.5rem" />
             <col style="width: 6rem" />
             <col style="width: 5.5rem" />
-            <col style="width: 5.5rem" />
+            <col style="width: 7.5rem" />
           </colgroup>
           <thead>
             <tr>
@@ -214,7 +216,7 @@
                 <td class="r tnum">{probText(g.predicted_hurdle_prob)}</td>
                 <td>
                   {#if tier}
-                    <span class="tag {tier}">{tier === 'standout' ? 'Standout' : 'Promising'}</span>
+                    <span class="tag {tier}">{BADGE_LABELS[tier]}</span>
                   {/if}
                 </td>
               </tr>
@@ -226,7 +228,7 @@
           <p class="empty">
             {tierFilter === 'all'
               ? 'No games added in this window. Try a longer range above.'
-              : `No ${TIER_LABELS[tierFilter].toLowerCase()} games in this window.`}
+              : `No games tagged "${FILTER_LABELS[tierFilter]}" in this window.`}
           </p>
         {/if}
       </div>
@@ -235,8 +237,23 @@
 </div>
 
 <style>
+  /* Matches Discover/About's .page + h1 + .lede exactly, so this page reads as part
+     of the same app rather than a bolted-on tool. */
+  .page {
+    padding: 0 0 var(--space-xl);
+  }
+  h1 {
+    font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem));
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0;
+    text-wrap: balance;
+  }
   .lede {
+    font-size: 1.1rem;
     color: var(--muted-foreground);
+    max-width: 42rem;
     margin: 0.3rem 0 0;
   }
   .toolbar {

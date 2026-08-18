@@ -54,13 +54,14 @@
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
+  const onWhatsNew = $derived(path.startsWith('/whats-new'));
   const onAbout = $derived(path.startsWith('/about'));
   /**
    * Upcoming is `/games` with the universe dial set, so it lights the same Games trigger —
    * and reads its own menu row as current only when that dial is actually on `upcoming`.
    */
   const onUpcoming = $derived(onExplore && $page.url.searchParams.get('u') === 'upcoming');
-  const inGames = $derived(onExplore || onDiscover);
+  const inGames = $derived(onExplore || onDiscover || onWhatsNew);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
   const onHome = $derived(!inGames && !onAbout);
 
@@ -133,6 +134,10 @@
               <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}>
                 <b>Upcoming</b>
                 <span>What’s coming, and what the model expects of it</span>
+              </a>
+              <a href="/whats-new" role="menuitem" class:on={onWhatsNew}>
+                <b>What's New</b>
+                <span>Games recently added to BGG</span>
               </a>
             </div>
           {/if}
