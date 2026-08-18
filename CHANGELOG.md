@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.8](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.7...bgg-viewer-v0.0.8) (2026-08-18)
+
+
+### Features
+
+* **footer:** add Powered by BGG badge ([18f24c8](https://github.com/phenrickson/bgg-viewer/commit/18f24c87fc5bf4c7aa7d337821d9f3ab50bf5d42))
+* **footer:** add Powered by BGG badge ([2a82244](https://github.com/phenrickson/bgg-viewer/commit/2a82244cfaa48959b359ccfaa79fc4d2224a2a0a))
+
 ## [0.0.7](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.6...bgg-viewer-v0.0.7) (2026-08-18)
 
 
