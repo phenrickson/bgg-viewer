@@ -8,7 +8,7 @@
  * Both collaborators — the `fetch` implementation and the ID-token source — are
  * injected, so the client is unit-testable with zero network / GCP access.
  */
-import { GameNotFoundError, WarehouseError, type GameDocument } from './types';
+import { GameNotFoundError, WarehouseError, type GameDocument, type NewGameRow } from './types';
 
 export interface WarehouseClientDeps {
 	/** Base URL of the warehouse Cloud Run service, e.g. https://warehouse-api-xxx.run.app */
@@ -21,6 +21,7 @@ export interface WarehouseClientDeps {
 
 export interface WarehouseClient {
 	getGame(gameId: number): Promise<GameDocument>;
+	getNewGames(days: 7 | 30 | 365): Promise<NewGameRow[]>;
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -42,6 +43,14 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 				throw new WarehouseError(res.status, `warehouse GET /games/${gameId} failed (${res.status})`);
 			}
 			return (await res.json()) as GameDocument;
+		},
+
+		async getNewGames(days: 7 | 30 | 365): Promise<NewGameRow[]> {
+			const res = await authedGet(`/new-games?days=${days}`);
+			if (!res.ok) {
+				throw new WarehouseError(res.status, `warehouse GET /new-games failed (${res.status})`);
+			}
+			return (await res.json()) as NewGameRow[];
 		}
 	};
 }
