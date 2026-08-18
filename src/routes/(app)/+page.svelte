@@ -132,7 +132,7 @@
     <!-- PLACEHOLDER copy -->
     <h1>Explore board games <em>as a set</em>.</h1>
     <p class="lede">Looking for a game? Search, filter, and visualize the
-      the world of board games in your browser.</p>
+      world of board games in your browser.</p>
 
     <!-- The chips ARE the hero.
          A name-search box used to sit here, first thing on a page about finding games by
@@ -162,13 +162,6 @@
       <span class="door-t">Explore the catalog <span class="arw">→</span></span>
       <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
     </a>
-
-    <p class="soon-lead">Coming next</p>
-    <ul class="soon">
-      <li><b>Upcoming predictions</b><span>What the model expects for games not yet rated.</span></li>
-      <li><b>Similarity map</b><span>Find games near one you love, by embedding distance.</span></li>
-      <li><b>Your collection</b><span>Bring your own shelf into the same lenses.</span></li>
-    </ul>
 
     <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
          getting you into a room; these sections are for when you have read that and are
@@ -222,10 +215,4 @@
   .door-t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
   .door-t .arw { opacity: .7; }
   .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
-
-  .soon-lead { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.8rem 0 .55rem; }
-  .soon { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-md); }
-  .soon li { display: flex; flex-direction: column; gap: .15rem; border-top: 1px solid var(--border); padding-top: .5rem; }
-  .soon b { font-size: 0.85rem; font-weight: 600; color: var(--muted-foreground); }
-  .soon span { font-size: 0.78rem; color: var(--muted-foreground); opacity: .75; line-height: 1.35; }
 </style>

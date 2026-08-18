@@ -200,6 +200,14 @@
         {:else if !rows.length && !loading}
           <p class="msg">No games match all of these. Try turning one of the chips off.</p>
         {:else}
+          <!-- One heading for the three fixed columns every row repeats, rather than each row
+               spelling out "BEST" / "ALSO GOOD" / "RATING" beside its own numbers. Column
+               widths and the narrow-container collapse mirror GameRow.svelte's `.row` grid
+               exactly, so the heading always sits over the values it names. -->
+          <div class="collhead" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <span>Best</span><span>Also good</span><span>Rating</span>
+          </div>
           <div class="rows">
             {#each rows as g, i (g.game_id)}
               <GameRow game={g} rank={i + 1} />
@@ -304,6 +312,35 @@
     background: var(--card);
     /* Anchoring stops the viewport jumping when a page of rows is appended above the fold. */
     overflow-anchor: auto;
+  }
+
+  /* Same six-way split as GameRow's `.row`, so "Best" / "Also good" / "Rating" sit directly
+     over the values they name. Sticky, since the panel scrolls internally and the heading is
+     exactly the thing that should still be on screen once the first rows have scrolled past. */
+  .collhead {
+    display: grid;
+    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem;
+    gap: 0 var(--space-md);
+    padding: 0.4rem var(--space-md);
+    position: sticky; top: 0; z-index: 1;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .collhead span {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted-foreground); white-space: nowrap;
+  }
+  /* Matches `.rate`'s own centering on the game rows below — everything else in that row
+     is left-aligned, so only the Rating heading needs to say otherwise. */
+  .collhead span:nth-child(6) { text-align: center; }
+  /* Mirrors GameRow's own `@container (max-width: 34rem)` step: the "Also good" column drops
+     and the row narrows to five slots, so the heading has to narrow in step or it drifts out
+     of register with what is actually underneath it. */
+  @container (max-width: 34rem) {
+    .collhead {
+      grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem;
+    }
+    .collhead span:nth-child(5) { display: none; }
   }
 
   .msg {

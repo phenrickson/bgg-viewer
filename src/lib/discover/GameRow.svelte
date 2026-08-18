@@ -202,10 +202,13 @@
      nothing lined up down the list. Fixed slots make the labels a column you can read
      vertically. Matches `.facts` on the game detail page. */
   .fact { align-self: center; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  /* The visible column heading now lives once, above the list (see the Discover page's
+     `.collhead`) — repeating "BEST" / "ALSO GOOD" / "RATING" on every single row was the
+     noise a real header exists to remove. Kept in the DOM, not deleted, so a screen reader
+     moving row by row still hears what each value means. */
   .lbl {
-    display: block; color: var(--muted-foreground);
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
-    white-space: nowrap;
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
   }
   .fact b { font-weight: 650; }
   .hl { color: var(--primary); }
