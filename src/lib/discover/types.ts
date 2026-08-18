@@ -8,4 +8,6 @@ export interface DiscoverGame {
   best_player_counts: number[] | null;
   recommended_player_counts: number[] | null;
   categories: string[] | null;
+  /** From the separate thumbnails artifact — NULL until it has loaded, or if a game has none. */
+  thumbnail: string | null;
 }
