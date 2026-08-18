@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.7](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.6...bgg-viewer-v0.0.7) (2026-08-18)
+
+
+### Features
+
+* add What's New page ([c7f2209](https://github.com/phenrickson/bgg-viewer/commit/c7f220989aa695f8d394fb8a39befe7f9350e067))
+* **whats-new:** add /whats-new page for recently added games ([357fb2f](https://github.com/phenrickson/bgg-viewer/commit/357fb2f7e37029f2ffef758a2af9c4f7736ee868))
+* **whats-new:** add pagination, tier filter, and trend chart ([3f40d7c](https://github.com/phenrickson/bgg-viewer/commit/3f40d7c2129a9f8b9d935a199952a8eed363281a))
+* **whats-new:** rename tier badges, fix header polish, add nav entry ([b33b76c](https://github.com/phenrickson/bgg-viewer/commit/b33b76ce44122df61982115ab6c3a9b7448e8fab))
+
 ## [0.0.6](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.5...bgg-viewer-v0.0.6) (2026-08-17)
 
 
