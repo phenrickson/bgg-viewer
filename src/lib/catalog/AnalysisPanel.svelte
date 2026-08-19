@@ -1,26 +1,28 @@
 <script lang="ts">
   /**
    * Read-only analysis of the CURRENT scope — About's weight-vs-rating and rating-vs-
-   * popularity clouds, pointed at Explore's `where` instead of the whole catalog.
+   * popularity clouds, pointed at Explore's `where` instead of the whole catalog, plus two
+   * ranked bar charts (top mechanics, top families).
    *
-   * A collapsed panel below the table, appended after it — not folded into the Shape Strip
-   * (the strip's whole interaction model is drag-to-filter, which a scatter has no natural
-   * gesture for) and not a swap with the table either.
+   * A SWAP with the table (via the List/Cards/Analysis toggle in +page.svelte), not a panel
+   * appended below it. Appending it as a sibling below GameList inside the same bounded
+   * `.canvas` fought GameList for the same box — GameList shrinking to make room read as
+   * Analysis rising up and covering the table. Swapping sidesteps that: this occupies the
+   * exact slot GameList/GameCards already occupy and reuses the identical bounded-box +
+   * internal-scroll pattern GameList's `.listwrap` already has (see `.wrap` below), so it's a
+   * drop-in replacement for that slot rather than a new layout to reconcile with it. It only
+   * exists in the DOM (and only queries) while selected.
    *
-   * Also two ranked bar charts — top mechanics, top families — also scoped to the current
-   * filters. These overlap with Rail's Mechanics/Families facet lists (which answer the same
-   * "what's in this set" question and are already click-to-filter), so clicking a bar here
-   * toggles the same `scope.mechanics`/`scope.families` Rail's lists bind to — one selection
-   * state, not two that could disagree. The reason for a second view of the same data: Rail's
-   * lists are collapsed by default and easy to miss, while this sits in the open, ranked, next
-   * to the charts that already tell the rest of the scope's story.
+   * The mechanics/families bar charts overlap with Rail's Mechanics/Families facet lists
+   * (which answer the same "what's in this set" question and are already click-to-filter), so
+   * clicking a bar here toggles the same `scope.mechanics`/`scope.families` Rail's lists bind
+   * to — one selection state, not two that could disagree. The reason for a second view of the
+   * same data: Rail's lists are collapsed by default and easy to miss, while this sits in the
+   * open, ranked, next to the charts that already tell the rest of the scope's story.
    *
    * Charts are interactive: hover shows the game (via `nameOf`, the id→name map built for
    * exactly this), click navigates to it — unlike About's clouds, every point here is a real
    * game in the reader's own current scope, so "which one is that" is a real question.
-   *
-   * Queries only run while the panel is open — a collapsed panel costs nothing, matching the
-   * query discipline the rest of Explore already applies (e.g. the header's count queries).
    */
   import { goto } from '$app/navigation';
   import { query, nameOf } from '$lib/catalog/catalog.svelte';
@@ -34,7 +36,6 @@
     scope = $bindable()
   }: { where: string; universe: Scope['universe']; scope: Scope } = $props();
 
-  let open = $state(false);
   const upcoming = $derived(universe === 'upcoming');
 
   type Pt = { x: number; y: number; game_id: number };
@@ -48,7 +49,6 @@
 
   let token = 0;
   $effect(() => {
-    if (!open) return;
     const w = where;
     const m = measures(universe);
     const mine = ++token;
@@ -76,121 +76,84 @@
   }
 </script>
 
-<details class="grp" bind:open>
-  <summary>
-    <span class="lbl">Analysis</span>
-    <span class="chev" aria-hidden="true">›</span>
-  </summary>
-
-  {#if open}
-    <div class="body">
-      <div class="figure">
-        <h3>Complexity vs. rating</h3>
-        <!-- PLACEHOLDER copy -->
-        <p class="note">[Caption — what the cloud shows for the current scope.]</p>
-        <Scatter
-          points={weightRating}
-          xLabel={upcoming ? 'Predicted complexity (1–5)' : 'Complexity (1–5)'}
-          yLabel={upcoming ? 'Predicted rating' : 'Average rating'}
-          xTicks={[1, 2, 3, 4, 5]}
-          yTicks={[2, 4, 6, 8, 10]}
-          jitterX={0.06}
-          height={300}
-          interactive
-          pointName={nameOf}
-          onPointClick={openGame}
-        />
-      </div>
-
-      <div class="figure">
-        <h3>Rating vs. popularity</h3>
-        <!-- PLACEHOLDER copy -->
-        <p class="note">[Caption — what the cloud shows for the current scope.]</p>
-        <Scatter
-          points={ratingPopularity}
-          xLabel={upcoming ? 'Predicted rating' : 'Average rating'}
-          yLabel={upcoming ? 'Predicted # of ratings (log scale)' : 'People who rated it (log scale)'}
-          yLog
-          xTicks={[2, 4, 6, 8, 10]}
-          yTicks={[30, 100, 1000, 10000, 100000]}
-          height={300}
-          interactive
-          pointName={nameOf}
-          onPointClick={openGame}
-        />
-      </div>
-
-      {#snippet facetChart(title: string, col: 'mechanics' | 'families', rows: Facet[])}
-        <div class="figure">
-          <h3>Top {title} in this scope</h3>
-          <!-- PLACEHOLDER copy -->
-          <p class="note">[Caption — click a bar to filter by it.]</p>
-          {#if rows.length}
-            {@const maxN = rows[0]?.n ?? 1}
-            <ul class="fac">
-              {#each rows as f (f.c)}
-                {@const on = scope[col].includes(f.c)}
-                <li>
-                  <button type="button" class:on onclick={() => toggleFacet(col, f.c)}>
-                    <span class="flbl">{f.c}</span>
-                    <span class="fbar" aria-hidden="true"><i style:width="{(f.n / maxN) * 100}%"></i></span>
-                    <span class="fn tnum">{f.n.toLocaleString()}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-      {/snippet}
-
-      {@render facetChart('mechanics', 'mechanics', mechanics)}
-      {@render facetChart('families', 'families', families)}
+<div class="wrap">
+  <div class="body">
+    <div class="figure">
+      <h3>Complexity vs. rating</h3>
+      <!-- PLACEHOLDER copy -->
+      <p class="note">[Caption — what the cloud shows for the current scope.]</p>
+      <Scatter
+        points={weightRating}
+        xLabel={upcoming ? 'Predicted complexity (1–5)' : 'Complexity (1–5)'}
+        yLabel={upcoming ? 'Predicted rating' : 'Average rating'}
+        xTicks={[1, 2, 3, 4, 5]}
+        yTicks={[2, 4, 6, 8, 10]}
+        jitterX={0.06}
+        height={300}
+        interactive
+        pointName={nameOf}
+        onPointClick={openGame}
+      />
     </div>
-  {/if}
-</details>
+
+    <div class="figure">
+      <h3>Rating vs. popularity</h3>
+      <!-- PLACEHOLDER copy -->
+      <p class="note">[Caption — what the cloud shows for the current scope.]</p>
+      <Scatter
+        points={ratingPopularity}
+        xLabel={upcoming ? 'Predicted rating' : 'Average rating'}
+        yLabel={upcoming ? 'Predicted # of ratings (log scale)' : 'People who rated it (log scale)'}
+        yLog
+        xTicks={[2, 4, 6, 8, 10]}
+        yTicks={[30, 100, 1000, 10000, 100000]}
+        height={300}
+        interactive
+        pointName={nameOf}
+        onPointClick={openGame}
+      />
+    </div>
+
+    {#snippet facetChart(title: string, col: 'mechanics' | 'families', rows: Facet[])}
+      <div class="figure">
+        <h3>Top {title} in this scope</h3>
+        <!-- PLACEHOLDER copy -->
+        <p class="note">[Caption — click a bar to filter by it.]</p>
+        {#if rows.length}
+          {@const maxN = rows[0]?.n ?? 1}
+          <ul class="fac">
+            {#each rows as f (f.c)}
+              {@const on = scope[col].includes(f.c)}
+              <li>
+                <button type="button" class:on onclick={() => toggleFacet(col, f.c)}>
+                  <span class="flbl">{f.c}</span>
+                  <span class="fbar" aria-hidden="true"><i style:width="{(f.n / maxN) * 100}%"></i></span>
+                  <span class="fn tnum">{f.n.toLocaleString()}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/snippet}
+
+    {@render facetChart('mechanics', 'mechanics', mechanics)}
+    {@render facetChart('families', 'families', families)}
+  </div>
+</div>
 
 <style>
-  /* Matches Rail.svelte's `details.grp` chrome, so a collapsible section reads the same
-     whether it's filtering or, here, read-only analysis. */
-  .grp {
-    flex: none;
+  /* Same bounded-box + internal-scroll pattern as GameList's .listwrap — this occupies the
+     identical slot, so it should behave like the thing it's standing in for. */
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 0 1 auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);
-  }
-  .grp summary {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.6rem var(--space-md);
-    cursor: pointer;
-    list-style: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-  .grp summary::-webkit-details-marker {
-    display: none;
-  }
-  .grp summary:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-  .grp summary:hover .lbl {
-    color: var(--primary);
-  }
-  .chev {
-    margin-left: auto;
-    color: var(--muted-foreground);
-    transition: transform 0.12s ease;
-  }
-  .grp[open] .chev {
-    transform: rotate(90deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
-    }
+    overflow-y: auto;
   }
 
   /* Side by side on anything wide enough; stacked on a narrow canvas. */
@@ -199,7 +162,7 @@
     grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
     gap: var(--space-lg);
     align-content: start;
-    padding: 0 var(--space-md) var(--space-md);
+    padding: var(--space-md);
   }
   .figure h3 {
     margin: 0 0 0.2rem;

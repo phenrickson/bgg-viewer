@@ -34,11 +34,15 @@
   let ready = $state(false);
 
   /**
-   * PROTOTYPE toggle for item #3 (a trimmed-down Explore variant, option C — a card grid).
-   * Local state, not persisted to the URL: this is a build-to-evaluate spike, not a shipped
-   * mode, so it stays a one-line diff to remove if it's dropped after review.
+   * List/Cards is a PROTOTYPE toggle for item #3 (a trimmed-down Explore variant, option C —
+   * a card grid) — local state, not persisted to the URL, a build-to-evaluate spike that
+   * stays a one-line diff to remove if it's dropped after review.
+   *
+   * Analysis is real (item #4) and a swap for the same reason Cards is: it occupies the same
+   * bounded slot GameList/GameCards do, rather than competing with the table for space as a
+   * panel appended below it (which read as Analysis growing up and covering the table).
    */
-  let view = $state<'list' | 'cards'>('list');
+  let view = $state<'list' | 'cards' | 'analysis'>('list');
 
   onMount(async () => {
     await initCatalog();
@@ -159,20 +163,24 @@
           </p>
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
 
-          <!-- PROTOTYPE — see `view` above. -->
+          <!-- List/Cards is prototype chrome (item #3); Analysis is real (item #4). -->
           <span class="viewtoggle" role="group" aria-label="View">
             <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
             <button type="button" class:on={view === 'cards'} onclick={() => (view = 'cards')}>Cards</button>
+            <button type="button" class:on={view === 'analysis'} onclick={() => (view = 'analysis')}
+              >Analysis</button
+            >
           </span>
         </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
         {#if view === 'cards'}
           <GameCards {where} universe={scope.universe} />
+        {:else if view === 'analysis'}
+          <AnalysisPanel {where} universe={scope.universe} bind:scope />
         {:else}
           <GameList {where} universe={scope.universe} />
         {/if}
-        <AnalysisPanel {where} universe={scope.universe} bind:scope />
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
              model's training cutoff, so every number in the table is a forecast, not a fit. -->
