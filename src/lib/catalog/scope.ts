@@ -172,7 +172,7 @@ export const DEFAULT_SCOPE: Scope = {
 	artists: [],
 	publishers: [],
 	families: [],
-	universe: 'top10k',
+	universe: 'rated',
 	hurdleMin: null
 };
 
@@ -500,7 +500,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	for (const a of scope.artists) p.append('art', a);
 	for (const pub of scope.publishers) p.append('pub', pub);
 	for (const f of scope.families) p.append('fam', f);
-	if (scope.universe !== 'top10k') p.set('u', scope.universe);
+	if (scope.universe !== 'rated') p.set('u', scope.universe);
 	// `0` is meaningful (an explicitly cleared floor) and must round-trip, so this compares
 	// against the universe's default rather than testing truthiness.
 	if (scope.hurdleMin !== defaultHurdleFor(scope.universe))
@@ -556,7 +556,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		artists: params.getAll('art'),
 		publishers: params.getAll('pub'),
 		families: params.getAll('fam'),
-		universe: u === 'rated' || u === 'upcoming' ? u : 'top10k',
+		universe: u === 'top10k' || u === 'upcoming' ? u : 'rated',
 		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'top10k') : finite(h)
 	};
 }

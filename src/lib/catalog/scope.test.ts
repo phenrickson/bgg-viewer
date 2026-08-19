@@ -22,12 +22,14 @@ import {
 } from '$lib/discover/dials';
 
 describe('toWhere', () => {
-	it('defaults to the Top 10,000 universe', () => {
-		expect(toWhere(DEFAULT_SCOPE)).toContain('ORDER BY geek_rating DESC LIMIT 10000');
+	it('defaults to the All rated universe', () => {
+		expect(toWhere(DEFAULT_SCOPE)).toBe('users_rated >= 30');
 	});
 
-	it('compiles the All rated universe to a users_rated floor', () => {
-		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'rated' })).toBe('users_rated >= 30');
+	it('compiles the Top 10,000 universe to a ranked subquery', () => {
+		expect(toWhere({ ...DEFAULT_SCOPE, universe: 'top10k' })).toContain(
+			'ORDER BY geek_rating DESC LIMIT 10000'
+		);
 	});
 
 	describe('the upcoming universe', () => {
@@ -460,9 +462,9 @@ describe('URL round-trip', () => {
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);
 	});
 
-	it('records the universe only when it is not the Top 10,000 default', () => {
+	it('records the universe only when it is not the All rated default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
-		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'rated' }).get('u')).toBe('rated');
+		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'top10k' }).get('u')).toBe('top10k');
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'upcoming' }).get('u')).toBe('upcoming');
 	});
 
@@ -484,11 +486,9 @@ describe('URL round-trip', () => {
 });
 
 describe('discoverScopeFromParams', () => {
-	// `scopeFromParams` always returns a COMPLETE Scope, filling in its own `top10k` default
-	// for `universe` when `u` is absent from the URL — so an absent param and an explicit
-	// `?u=top10k` are indistinguishable once parsed. Discover's default is `rated` ("top
-	// rated, all-time"), so it must check the raw param, not the parsed value, to tell the
-	// two apart. Regression for a bug where the top10k default silently overwrote `rated`.
+	// A plain alias now — `scopeFromParams`'s own default (`DEFAULT_SCOPE.universe`) is
+	// `rated`, same as Discover's "top rated, all-time" promise, so there's no override left
+	// to make here. Kept as its own function for Discover's call site regardless.
 	it('defaults to rated when the URL has no universe param', () => {
 		const params = new URLSearchParams('');
 		expect(discoverScopeFromParams(params).universe).toBe('rated');

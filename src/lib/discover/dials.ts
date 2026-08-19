@@ -78,16 +78,14 @@ export const DISCOVER_LIMIT = 25;
 export { COMPLEXITY_BANDS, type ComplexityBand, complexityBandIndex };
 
 /**
- * Discover's URL-to-scope entry point. `scopeFromParams` always returns a COMPLETE `Scope`
- * — including its own `top10k` default for `universe` when the `u` param is absent — so an
- * absent param is indistinguishable from an explicit `?u=top10k` once parsed. Discover needs
- * to tell those apart: with nothing in the URL it defaults to `rated` (the "top rated,
- * all-time" promise), but an explicit `?u=top10k` carried in from a link must be honoured.
- * Hence checking `params.has('u')` rather than trusting the parsed value.
+ * Discover's URL-to-scope entry point. A plain alias, kept as its own named function for
+ * Discover's call site rather than importing `scopeFromParams` directly — Discover's default
+ * ("top rated, all-time") and Explore's shared default (`DEFAULT_SCOPE.universe`, in
+ * `catalog/scope.ts`) both resolve to `rated` now, so there is no longer a distinct override
+ * to make here; an explicit `?u=top10k` carried in from a link is still honoured either way.
  */
 export function discoverScopeFromParams(params: URLSearchParams): Scope {
-  const parsed = scopeFromParams(params);
-  return params.has('u') ? parsed : { ...parsed, universe: 'rated' };
+  return scopeFromParams(params);
 }
 
 export function isCategoryOn(scope: Scope, chip: CategoryChip): boolean {
