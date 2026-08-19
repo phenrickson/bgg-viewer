@@ -19,6 +19,7 @@
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
+  import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
   let { where, universe = 'top10k' }: { where: string; universe?: Scope['universe'] } = $props();
@@ -165,9 +166,6 @@
 
   const num = (n: number | null, d = 2) => (n == null ? '—' : n.toFixed(d));
   const list = <T,>(a: T[] | null): T[] => (a ? Array.from(a) : []);
-  /** Fill of the i-th (0-based) segment of the 1–5 complexity meter. */
-  const segPct = (w: number | null, i: number) =>
-    w == null ? 0 : Math.max(0, Math.min(1, w - i)) * 100;
 
   function playerRange(r: Row): string {
     if (r.min_players == null) return '';
@@ -292,11 +290,7 @@
                encoding — a second one invented for this room would mean a reader had to
                learn complexity twice. -->
           <span class="c-weight">
-            <span class="meter" aria-hidden="true">
-              {#each [0, 1, 2, 3, 4] as i (i)}
-                <i><b style:width="{segPct(r.predicted_complexity, i)}%"></b></i>
-              {/each}
-            </span>
+            <ComplexityMeter weight={r.predicted_complexity} height="0.55rem" />
             <span class="wv tnum">{num(r.predicted_complexity, 1)}</span>
           </span>
 
@@ -318,11 +312,7 @@
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
-            <span class="meter" aria-hidden="true">
-              {#each [0, 1, 2, 3, 4] as i (i)}
-                <i><b style:width="{segPct(r.average_weight, i)}%"></b></i>
-              {/each}
-            </span>
+            <ComplexityMeter weight={r.average_weight} height="0.55rem" />
             <span class="wv tnum">{num(r.average_weight, 1)}</span>
           </span>
 
@@ -550,29 +540,15 @@
     max-width: 7rem;
   }
 
-  /* Complexity: five segments for the 1–5 scale it measures. */
+  /* Complexity: five segments for the 1–5 scale it measures — see ComplexityMeter.svelte. */
   .c-weight {
     display: flex;
     align-items: center;
     gap: 0.4rem;
   }
-  .meter {
-    display: flex;
-    gap: 1.5px;
+  .c-weight :global(.meter) {
     flex: 1;
     min-width: 0;
-  }
-  .meter i {
-    flex: 1;
-    height: 0.55rem;
-    border-radius: 1.5px;
-    background: color-mix(in oklch, var(--border) 80%, transparent);
-    overflow: hidden;
-  }
-  .meter b {
-    display: block;
-    height: 100%;
-    background: var(--chart-4);
   }
   .c-weight .wv {
     font-size: 0.74rem;

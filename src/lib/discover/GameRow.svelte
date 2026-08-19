@@ -13,6 +13,7 @@
    */
   import { navigating } from '$app/stores';
   import { complexityLabel, complexityBandIndex } from './dials';
+  import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import type { DiscoverGame } from './types';
 
   let { game, rank }: { game: DiscoverGame; rank: number } = $props();
@@ -94,6 +95,7 @@
     <span class="l2">
       {#if weight}
         <span class="cx" data-step={weightStep}>{weight}</span>
+        <span class="cxmeter"><ComplexityMeter weight={game.average_weight} /></span>
       {/if}
       {#if cats.length}<span class="cats">{cats.join(' · ')}</span>{/if}
     </span>
@@ -263,6 +265,11 @@
   .cx[data-step='3'] { --step: 3; }
   .cx[data-step='4'] { --step: 4; }
   .cx[data-step='5'] { --step: 5; }
+
+  /* The badge already says the word; the meter beside it is the visual indicator the review
+     flagged as missing — same encoding Explore's table uses, just at Discover's row height. */
+  .cxmeter { flex: none; width: 3rem; }
+  .cxmeter :global(.meter) { width: 100%; }
 
   .cats {
     font-size: 0.73rem; color: var(--muted-foreground);

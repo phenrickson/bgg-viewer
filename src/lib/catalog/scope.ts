@@ -39,6 +39,25 @@ export const COMPLEXITY_BANDS: ComplexityBand[] = [
 /** 1-indexed band number → its definition, or undefined if the index names no band. */
 export const bandAt = (i: number): ComplexityBand | undefined => COMPLEXITY_BANDS[i - 1];
 
+/**
+ * Find the band index for a given weight. Returns 0 if null or non-finite;
+ * use the return value to determine whether to render a badge/meter at all (0 = none).
+ *
+ * Lives here rather than in `discover/dials.ts` because `ComplexityMeter` (a shared
+ * encoding used by both Discover and Explore) needs it too; `dials.ts` re-exports it
+ * for its existing callers.
+ */
+export function complexityBandIndex(weight: number | null): number {
+	if (weight == null || !Number.isFinite(weight)) return 0;
+	for (let i = 0; i < COMPLEXITY_BANDS.length; i++) {
+		const b = COMPLEXITY_BANDS[i];
+		const aboveMin = b.min == null || weight >= b.min;
+		const belowMax = b.max == null || weight < b.max;
+		if (aboveMin && belowMax) return i + 1; // 1-indexed: 1..5 for bands, 0 for null/invalid
+	}
+	return COMPLEXITY_BANDS.length; // Fallback to last band (index 4 → return 5)
+}
+
 export interface Scope {
 	q: string;
 	yearMin: number | null;
