@@ -26,10 +26,22 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
+  import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import { Container } from '$lib/components/ui/layout';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let ready = $state(false);
+
+  /**
+   * List/Visualize — a swap, not a panel appended below the table: Visualize occupies the
+   * same bounded slot GameList does, rather than competing with it for space as a sibling
+   * (which read as Visualize growing up and covering the table). Local state, not persisted
+   * to the URL.
+   *
+   * The card-grid variant (item #3's option C) that used to share this toggle is dropped for
+   * now — GameCards.svelte still exists, just unwired, in case it's worth revisiting later.
+   */
+  let view = $state<'list' | 'visualize'>('list');
 
   onMount(async () => {
     await initCatalog();
@@ -149,10 +161,21 @@
             </span>
           </p>
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+
+          <span class="viewtoggle" role="group" aria-label="View">
+            <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
+            <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
+              >Visualize</button
+            >
+          </span>
         </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
-        <GameList {where} universe={scope.universe} />
+        {#if view === 'visualize'}
+          <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
+        {:else}
+          <GameList {where} universe={scope.universe} />
+        {/if}
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
              model's training cutoff, so every number in the table is a forecast, not a fit. -->
@@ -242,6 +265,43 @@
   }
   .tnum {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* PROTOTYPE (item #3) — plain toggle, no design pass; the point is to have something to
+     click, not to be the final chrome. */
+  /* Matches Rail's Universe segmented control (`.seg`/`.seg button`) — the same visual
+     language for "pick one of a few states," sized up from the original plain-text version.
+     Lives in .chead's corner (not its own row — that cost a full extra line of vertical
+     space the canvas can't spare). */
+  .viewtoggle {
+    flex: none;
+    display: inline-flex;
+    gap: 0.3rem;
+    margin-left: auto;
+  }
+  .viewtoggle button {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 550;
+    padding: 0.4rem 1rem;
+  }
+  .viewtoggle button:hover {
+    color: var(--foreground);
+  }
+  .viewtoggle button.on {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    font-weight: 650;
+  }
+  .viewtoggle button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
   }
 
   .prov {

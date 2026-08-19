@@ -8,7 +8,7 @@
  * Keep this list short. A fourth dial is the failure mode Discover exists to avoid.
  */
 import type { Scope, ComplexityBand } from '$lib/catalog/scope';
-import { scopeFromParams, COMPLEXITY_BANDS } from '$lib/catalog/scope';
+import { scopeFromParams, COMPLEXITY_BANDS, complexityBandIndex } from '$lib/catalog/scope';
 
 export interface CategoryChip {
   label: string;
@@ -70,23 +70,22 @@ export const PLAYER_CHIPS: { label: string; bestAt: number }[] = [
 export const DISCOVER_LIMIT = 25;
 
 /**
- * The bands moved to `catalog/scope.ts` — `toWhere` needs their cutoffs to compile the
- * `weightBands` predicate, and this module already imports from there. Re-exported so
- * Discover's callers keep importing them from here.
+ * The bands (and the weight→band lookup) moved to `catalog/scope.ts` — `toWhere` needs the
+ * cutoffs to compile the `weightBands` predicate, and `ComplexityMeter` (shared between
+ * Discover and Explore) needs the lookup too. Re-exported so Discover's callers keep
+ * importing them from here.
  */
-export { COMPLEXITY_BANDS, type ComplexityBand };
+export { COMPLEXITY_BANDS, type ComplexityBand, complexityBandIndex };
 
 /**
- * Discover's URL-to-scope entry point. `scopeFromParams` always returns a COMPLETE `Scope`
- * — including its own `top10k` default for `universe` when the `u` param is absent — so an
- * absent param is indistinguishable from an explicit `?u=top10k` once parsed. Discover needs
- * to tell those apart: with nothing in the URL it defaults to `rated` (the "top rated,
- * all-time" promise), but an explicit `?u=top10k` carried in from a link must be honoured.
- * Hence checking `params.has('u')` rather than trusting the parsed value.
+ * Discover's URL-to-scope entry point. A plain alias, kept as its own named function for
+ * Discover's call site rather than importing `scopeFromParams` directly — Discover's default
+ * ("top rated, all-time") and Explore's shared default (`DEFAULT_SCOPE.universe`, in
+ * `catalog/scope.ts`) both resolve to `rated` now, so there is no longer a distinct override
+ * to make here; an explicit `?u=top10k` carried in from a link is still honoured either way.
  */
 export function discoverScopeFromParams(params: URLSearchParams): Scope {
-  const parsed = scopeFromParams(params);
-  return params.has('u') ? parsed : { ...parsed, universe: 'rated' };
+  return scopeFromParams(params);
 }
 
 export function isCategoryOn(scope: Scope, chip: CategoryChip): boolean {
@@ -110,21 +109,6 @@ export function isBandOn(scope: Scope, band: ComplexityBand): boolean {
 export function bandPatch(scope: Scope, band: ComplexityBand): Partial<Scope> {
   if (isBandOn(scope, band)) return { weightMin: null, weightMax: null };
   return { weightMin: band.min, weightMax: band.max };
-}
-
-/**
- * Find the band index for a given weight. Returns 0 if null or non-finite;
- * use the return value to determine whether to render a badge at all (0 = no badge).
- */
-export function complexityBandIndex(weight: number | null): number {
-  if (weight == null || !Number.isFinite(weight)) return 0;
-  for (let i = 0; i < COMPLEXITY_BANDS.length; i++) {
-    const b = COMPLEXITY_BANDS[i];
-    const aboveMin = b.min == null || weight >= b.min;
-    const belowMax = b.max == null || weight < b.max;
-    if (aboveMin && belowMax) return i + 1; // 1-indexed: 1..5 for bands, 0 for null/invalid
-  }
-  return COMPLEXITY_BANDS.length; // Fallback to last band (index 4 → return 5)
 }
 
 /**
