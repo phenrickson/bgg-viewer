@@ -118,6 +118,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+    /* Same floor as GameList's .listwrap, same reason: keeps this from being crushed if the
+       Analysis panel below is opened. */
+    min-height: 18rem;
   }
   .state {
     margin: 0;

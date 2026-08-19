@@ -6,11 +6,10 @@
    * A collapsed panel below the table, not folded into the Shape Strip (the strip's whole
    * interaction model is drag-to-filter, which a scatter has no natural gesture for) and not
    * a swap with the table either — the table should stay visible when this opens. See
-   * `.fixed-area`/`.canvas` in +page.svelte: everything above this panel is walled off in a
-   * box sized to the canvas's full height regardless of whether this exists, so opening this
-   * can never shrink the table — it only makes the canvas's total content taller than its own
-   * box, which the canvas scrolls to reveal. "Expand lower using the screen," not "cover
-   * what's already there."
+   * `.canvas`/`overflow-y: auto` in +page.svelte and `.listwrap`'s `min-height` in
+   * GameList.svelte: opening this no longer crushes the table down to fit the same bounded
+   * box, it grows the canvas past that box and the pane scrolls to reveal it — "expand lower
+   * using the screen," not "cover what's already there."
    *
    * Also two ranked bar charts — top mechanics, top families — also scoped to the current
    * filters. These overlap with Rail's Mechanics/Families facet lists (which answer the same
