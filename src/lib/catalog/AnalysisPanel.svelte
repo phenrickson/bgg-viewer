@@ -3,13 +3,9 @@
    * Read-only analysis of the CURRENT scope — About's weight-vs-rating and rating-vs-
    * popularity clouds, pointed at Explore's `where` instead of the whole catalog.
    *
-   * A collapsed panel below the table, not folded into the Shape Strip (the strip's whole
-   * interaction model is drag-to-filter, which a scatter has no natural gesture for) and not
-   * a swap with the table either — the table should stay visible when this opens. See
-   * `.canvas`/`overflow-y: auto` in +page.svelte and `.listwrap`'s `min-height` in
-   * GameList.svelte: opening this no longer crushes the table down to fit the same bounded
-   * box, it grows the canvas past that box and the pane scrolls to reveal it — "expand lower
-   * using the screen," not "cover what's already there."
+   * A collapsed panel below the table, appended after it — not folded into the Shape Strip
+   * (the strip's whole interaction model is drag-to-filter, which a scatter has no natural
+   * gesture for) and not a swap with the table either.
    *
    * Also two ranked bar charts — top mechanics, top families — also scoped to the current
    * filters. These overlap with Rail's Mechanics/Families facet lists (which answer the same

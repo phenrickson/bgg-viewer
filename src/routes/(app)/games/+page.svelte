@@ -238,10 +238,6 @@
     min-height: 0;
     /* The list's column set responds to the canvas, not the viewport. */
     container-type: inline-size;
-    /* GameList/GameCards manage their own internal scroll and rarely need this — but
-       Analysis's charts don't shrink the way a table's rows do, so on a short viewport this
-       is the fallback that reveals the rest by scrolling instead of clipping it. */
-    overflow-y: auto;
   }
 
   .chead {
