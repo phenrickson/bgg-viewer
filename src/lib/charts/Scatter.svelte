@@ -52,9 +52,20 @@
      */
     jitterX = 0,
     jitterY = 0,
-    annotations = []
+    annotations = [],
+    /**
+     * Off by default — About's clouds illustrate a claim in prose and have no per-game
+     * identity worth surfacing. Explore's analysis panel is scoped to actual games in the
+     * current filter, where "which game is that dot" is exactly the question a reader has,
+     * so it opts in.
+     */
+    interactive = false,
+    /** Resolves a hovered/clicked point's `game_id` to its name, for the tooltip. */
+    pointName,
+    /** Called with a point's `game_id` on click — the caller decides what "select" means. */
+    onPointClick
   }: {
-    points?: { x: number; y: number; c?: number }[];
+    points?: { x: number; y: number; c?: number; game_id?: number }[];
     /**
      * Named points called out on top of the cloud. A few hundred anonymous dots state a shape
      * but no fact you can hold onto; naming half a dozen of them turns the plot into something
@@ -75,6 +86,9 @@
     colorPivot?: number | null;
     jitterX?: number;
     jitterY?: number;
+    interactive?: boolean;
+    pointName?: (id: number) => string | undefined;
+    onPointClick?: (id: number) => void;
   } = $props();
 
   const PAD = { l: 44, r: 12, t: 10, b: 34 };
@@ -173,6 +187,17 @@
     return colorPivot == null ? seq(u) : div(u);
   }
 
+  /**
+   * Deterministic jitter — a hash of the index rather than Math.random, so the cloud does
+   * not reshuffle on every resize or re-render, which would read as the data changing.
+   * Hoisted out of the draw effect so hit-testing (below) can place the cursor against the
+   * exact same jittered positions the canvas actually drew.
+   */
+  const rand = (i: number, salt: number) => {
+    const s = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
+    return (s - Math.floor(s)) - 0.5; // −0.5 … +0.5
+  };
+
   $effect(() => {
     const el = canvas;
     if (!el || !ext || !plotW || !plotH) return;
@@ -197,15 +222,6 @@
     const single = !ext.hasC;
     if (single) ctx.fillStyle = 'oklch(0.62 0.14 250)';
 
-    /*
-     * Deterministic jitter — a hash of the index rather than Math.random, so the cloud does
-     * not reshuffle on every resize or re-render, which would read as the data changing.
-     */
-    const rand = (i: number, salt: number) => {
-      const s = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
-      return (s - Math.floor(s)) - 0.5; // −0.5 … +0.5
-    };
-
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (!single && p.c != null) ctx.fillStyle = ramp(p.c);
@@ -219,6 +235,9 @@
   });
 
   const fmt = (v: number) => (v >= 1000 ? `${v / 1000}k` : String(v));
+  /** Tooltip values are raw data (ratings, weights), not tick labels — round rather than
+      dump float noise like "7.234000000001". */
+  const fmtTip = (v: number) => (v >= 1000 ? `${Math.round(v).toLocaleString()}` : v.toFixed(2));
 
   /**
    * Place each annotation's text, flipping it to the left of its dot when the label would
@@ -234,6 +253,70 @@
       return { ...a, px, py, flip, tx: flip ? px - 7 : px + 7 };
     })
   );
+
+  /**
+   * Hover/click hit-testing — a plain nearest-point scan against the same jittered screen
+   * positions the canvas drew (see `rand` above). 60k points × a distance check is a
+   * sub-millisecond loop, so no spatial index is worth the complexity here; `rAF`-throttled
+   * so a fast mousemove can't queue more scans than frames to show them in.
+   */
+  const HIT_RADIUS = 8;
+  let hoverIdx = $state<number | null>(null);
+  let hoverPending: { x: number; y: number } | null = null;
+  let hoverRaf = 0;
+
+  function nearest(px: number, py: number): number | null {
+    let best = -1;
+    let bestD = HIT_RADIUS * HIT_RADIUS;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const jx = jitterX ? rand(i, 1) * jitterX : 0;
+      const jy = jitterY ? rand(i, 2) * jitterY : 0;
+      const dx = sx(p.x + jx) - px;
+      const dy = sy(p.y + jy) - py;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best === -1 ? null : best;
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!interactive || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    hoverPending = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if (hoverRaf) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = 0;
+      if (hoverPending) hoverIdx = nearest(hoverPending.x, hoverPending.y);
+    });
+  }
+
+  function onPointerLeave() {
+    hoverPending = null;
+    hoverIdx = null;
+  }
+
+  function handleClick() {
+    if (hoverIdx == null) return;
+    const id = points[hoverIdx]?.game_id;
+    if (id != null && onPointClick) onPointClick(id);
+  }
+
+  const hoverPoint = $derived(hoverIdx != null ? points[hoverIdx] : null);
+  const hoverLabel = $derived(
+    hoverPoint?.game_id != null ? pointName?.(hoverPoint.game_id) : undefined
+  );
+  /** Same jittered screen position `nearest()` matched against, not the raw data point —
+      otherwise the ring sits slightly off the dot it's marking whenever jitter is in play. */
+  const hoverPos = $derived.by(() => {
+    if (hoverPoint == null || hoverIdx == null) return null;
+    const jx = jitterX ? rand(hoverIdx, 1) * jitterX : 0;
+    const jy = jitterY ? rand(hoverIdx, 2) * jitterY : 0;
+    return { x: sx(hoverPoint.x + jx), y: sy(hoverPoint.y + jy) };
+  });
 </script>
 
 <!-- Chart and key side by side, the key vertical on the right — the conventional place for a
@@ -242,8 +325,20 @@
 <div class="row">
 <div class="wrap" bind:this={wrap} style:height="{height}px">
   {#if w > 0}
-    <canvas bind:this={canvas} style:width="{w}px" style:height="{height}px"></canvas>
+    <canvas
+      bind:this={canvas}
+      style:width="{w}px"
+      style:height="{height}px"
+      class:interactive
+      class:clickable={interactive && hoverIdx != null && onPointClick}
+      onpointermove={interactive ? onPointerMove : undefined}
+      onpointerleave={interactive ? onPointerLeave : undefined}
+      onclick={interactive ? handleClick : undefined}
+    ></canvas>
     <svg width={w} {height} aria-hidden="true">
+      {#if hoverPos}
+        <circle cx={hoverPos.x} cy={hoverPos.y} r="5.5" class="hoverring" />
+      {/if}
       <!-- Frame -->
       <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + plotH} class="ax" />
       <line x1={PAD.l} y1={PAD.t + plotH} x2={PAD.l + plotW} y2={PAD.t + plotH} class="ax" />
@@ -286,6 +381,17 @@
         dominant-baseline="hanging"
       >{yLabel}</text>
     </svg>
+    {#if hoverPos && hoverPoint}
+      <div
+        class="tip"
+        class:flip={hoverPos.x > PAD.l + plotW / 2}
+        style:left="{hoverPos.x}px"
+        style:top="{hoverPos.y}px"
+      >
+        {#if hoverLabel}<b>{hoverLabel}</b>{/if}
+        <span>{xLabel}: {fmtTip(hoverPoint.x)} · {yLabel}: {fmtTip(hoverPoint.y)}</span>
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -312,6 +418,51 @@
 <style>
   .wrap { position: relative; width: 100%; min-width: 0; }
   canvas { position: absolute; inset: 0; display: block; }
+  canvas.interactive { touch-action: none; }
+  canvas.clickable { cursor: pointer; }
+
+  .hoverring {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 2;
+  }
+
+  /* Follows the cursor's point, not the cursor itself — pinned to the hovered dot so it
+     reads as "about that point" even after the pointer has drifted a couple pixels off it
+     (the hit radius is generous on purpose, for a target this small). */
+  .tip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(10px, -50%);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    max-width: 14rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    background: var(--popover, var(--card));
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 8px color-mix(in oklch, black 18%, transparent);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  .tip b {
+    font-size: 0.76rem;
+    font-weight: 650;
+    color: var(--foreground);
+  }
+  .tip span {
+    color: var(--muted-foreground);
+  }
+  /* Past the plot's midline the same +10px offset would push the box off the right edge —
+     flip it to hang off the point's left instead. */
+  .tip.flip {
+    transform: translate(calc(-100% - 10px), -50%);
+  }
   /* NOT `overflow: visible`: with it the rotated y-axis label escaped the figure and the
      x-axis label collided with the heading of the section below. The padding box already
      reserves room for both. */
