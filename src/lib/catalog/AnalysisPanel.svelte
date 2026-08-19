@@ -23,7 +23,9 @@
    * The two scatter charts are interactive: hover shows the game (via `nameOf`, the id→name
    * map built for exactly this), click navigates to it — unlike About's clouds, every point
    * here is a real game in the reader's own current scope, so "which one is that" is a real
-   * question.
+   * question. Each also has a zoom button that opens the same chart, bigger, in a native
+   * `<dialog>` — see the `weightChart`/`popularityChart` snippets below, shared by the inline
+   * and dialog renderings so the two can't drift apart.
    */
   import { goto } from '$app/navigation';
   import { query, nameOf } from '$lib/catalog/catalog.svelte';
@@ -85,51 +87,89 @@
     const current = scope[col];
     scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
   }
+
+  /**
+   * Expand-to-fullscreen for the two scatter charts — a native `<dialog>` rather than a
+   * hand-rolled overlay, so Escape-to-close and focus-trapping come for free. Each chart's
+   * Scatter call lives in one snippet (`weightChart`/`popularityChart`) parameterized on
+   * `height`, rendered both inline (small) and in the dialog (big) — one source of truth for
+   * the props, so the two can't drift apart.
+   */
+  let expanded = $state<'weight' | 'popularity' | null>(null);
+  let dialogEl = $state<HTMLDialogElement | null>(null);
+
+  function expand(which: 'weight' | 'popularity') {
+    expanded = which;
+    dialogEl?.showModal();
+  }
+  function closeExpanded() {
+    dialogEl?.close();
+  }
+  /** The dialog's own padding area acts as the backdrop — clicking it (not its content) closes. */
+  function backdropClick(e: MouseEvent) {
+    if (e.target === dialogEl) closeExpanded();
+  }
 </script>
+
+{#snippet weightChart(h: number)}
+  <Scatter
+    points={weightRating}
+    xLabel={upcoming ? 'Predicted complexity (1–5)' : 'Complexity (1–5)'}
+    yLabel={upcoming ? 'Predicted rating' : 'Average rating'}
+    xTicks={[1, 2, 3, 4, 5]}
+    yTicks={[2, 4, 6, 8, 10]}
+    jitterX={0.06}
+    height={h}
+    interactive
+    pointName={nameOf}
+    onPointClick={openGame}
+  />
+{/snippet}
+
+{#snippet popularityChart(h: number)}
+  <Scatter
+    points={ratingPopularity}
+    xLabel={upcoming ? 'Predicted rating' : 'Average rating'}
+    yLabel={upcoming ? 'Predicted # of ratings (log scale)' : 'People who rated it (log scale)'}
+    yLog
+    xTicks={[2, 4, 6, 8, 10]}
+    yTicks={[30, 100, 1000, 10000, 100000]}
+    height={h}
+    interactive
+    pointName={nameOf}
+    onPointClick={openGame}
+  />
+{/snippet}
 
 <div class="wrap">
   <div class="body">
     <div class="figure">
-      <h3>Complexity vs. rating</h3>
+      <div class="fhead">
+        <h3>Complexity vs. rating</h3>
+        <button type="button" class="zoom" onclick={() => expand('weight')} aria-label="Expand this chart"
+          >⤢</button
+        >
+      </div>
       <!-- PLACEHOLDER copy -->
-      <p class="note">[Caption — what the cloud shows for the current scope.]</p>
-      <Scatter
-        points={weightRating}
-        xLabel={upcoming ? 'Predicted complexity (1–5)' : 'Complexity (1–5)'}
-        yLabel={upcoming ? 'Predicted rating' : 'Average rating'}
-        xTicks={[1, 2, 3, 4, 5]}
-        yTicks={[2, 4, 6, 8, 10]}
-        jitterX={0.06}
-        height={300}
-        interactive
-        pointName={nameOf}
-        onPointClick={openGame}
-      />
+      <p class="note">[Caption — what the cloud shows.]</p>
+      {@render weightChart(300)}
     </div>
 
     <div class="figure">
-      <h3>Rating vs. popularity</h3>
+      <div class="fhead">
+        <h3>Rating vs. popularity</h3>
+        <button type="button" class="zoom" onclick={() => expand('popularity')} aria-label="Expand this chart"
+          >⤢</button
+        >
+      </div>
       <!-- PLACEHOLDER copy -->
-      <p class="note">[Caption — what the cloud shows for the current scope.]</p>
-      <Scatter
-        points={ratingPopularity}
-        xLabel={upcoming ? 'Predicted rating' : 'Average rating'}
-        yLabel={upcoming ? 'Predicted # of ratings (log scale)' : 'People who rated it (log scale)'}
-        yLog
-        xTicks={[2, 4, 6, 8, 10]}
-        yTicks={[30, 100, 1000, 10000, 100000]}
-        height={300}
-        interactive
-        pointName={nameOf}
-        onPointClick={openGame}
-      />
+      <p class="note">[Caption — what the cloud shows.]</p>
+      {@render popularityChart(300)}
     </div>
 
     {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
       <div class="figure">
-        <h3>Top {title} in this scope</h3>
-        <!-- PLACEHOLDER copy -->
-        <p class="note">[Caption — click a bar to filter by it.]</p>
+        <h3>Top {title}</h3>
         {#if rows.length}
           {@const maxN = rows[0]?.n ?? 1}
           <ul class="fac">
@@ -155,6 +195,18 @@
     {@render facetChart('artists', 'artists', artists)}
   </div>
 </div>
+
+<dialog bind:this={dialogEl} class="chartdialog" onclick={backdropClick} onclose={() => (expanded = null)}>
+  <div class="dhead">
+    <h3>{expanded === 'popularity' ? 'Rating vs. popularity' : 'Complexity vs. rating'}</h3>
+    <button type="button" class="close" onclick={closeExpanded} aria-label="Close">✕</button>
+  </div>
+  {#if expanded === 'weight'}
+    {@render weightChart(560)}
+  {:else if expanded === 'popularity'}
+    {@render popularityChart(560)}
+  {/if}
+</dialog>
 
 <style>
   /* Same bounded-box + internal-scroll pattern as GameList's .listwrap — this occupies the
@@ -187,6 +239,73 @@
     margin: 0 0 0.5rem;
     font-size: 0.76rem;
     color: var(--muted-foreground);
+  }
+
+  .fhead {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .fhead h3 {
+    margin: 0;
+  }
+  .zoom {
+    margin-left: auto;
+    flex: none;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.8rem;
+  }
+  .zoom:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  /* A native <dialog> — Escape-to-close and focus-trapping come for free from
+     showModal(); the two overrides below are just to match the app's own chrome instead of
+     the browser's default dialog border/position. */
+  .chartdialog {
+    padding: var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--foreground);
+    width: min(92vw, 64rem);
+    max-height: 88vh;
+  }
+  .chartdialog::backdrop {
+    background: oklch(0 0 0 / 0.45);
+  }
+  .dhead {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .dhead h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 650;
+  }
+  .close {
+    margin-left: auto;
+    flex: none;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  .close:hover {
+    color: var(--primary);
+    border-color: var(--primary);
   }
 
   .fac {
