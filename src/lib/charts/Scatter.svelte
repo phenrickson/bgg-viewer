@@ -34,6 +34,18 @@
     xTicks = [],
     yTicks = [],
     /**
+     * Pin the axis to a fixed range instead of the plotted points' own min/max, in DATA space
+     * (pre-log, like `xTicks`/`yTicks`). Without this, the axis auto-fits tightly to whatever
+     * `points` currently holds — fine for a fixed population (About's whole-catalog charts),
+     * but wrong wherever `points` is itself a filtered subset (Explore's analysis panel): the
+     * domain would silently shift on every filter change while the tick LABELS stayed fixed
+     * constants, so ticks drifted away from the positions their numbers claimed. Set this to
+     * match `xTicks`/`yTicks`' own range to keep the axis stable regardless of how narrow the
+     * current scope is.
+     */
+    xDomain = null,
+    yDomain = null,
+    /**
      * Clamp the colour scale to this window. Without it the ramp stretches to the data's true
      * extremes and a handful of outliers flatten everything else into one indistinguishable
      * shade — most of the catalog sits in a narrow band, so the interesting variation is
@@ -83,6 +95,8 @@
     height?: number;
     xTicks?: number[];
     yTicks?: number[];
+    xDomain?: [number, number] | null;
+    yDomain?: [number, number] | null;
     colorDomain?: [number, number] | null;
     colorPivot?: number | null;
     jitterX?: number;
@@ -139,6 +153,17 @@
       if (ax > x1) x1 = ax;
       if (ay < y0) y0 = ay;
       if (ay > y1) y1 = ay;
+    }
+
+    // A pinned domain wins outright — it's the whole point of setting one: a stable axis
+    // regardless of what the current (possibly filtered) `points` happen to span.
+    if (xDomain) {
+      x0 = tx(xDomain[0]);
+      x1 = tx(xDomain[1]);
+    }
+    if (yDomain) {
+      y0 = ty(yDomain[0]);
+      y1 = ty(yDomain[1]);
     }
 
     return { x0, x1, y0, y1, c0, c1, hasC: c0 <= c1 };

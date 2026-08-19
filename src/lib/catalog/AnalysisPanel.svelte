@@ -118,6 +118,8 @@
     yLabel={upcoming ? 'Predicted rating' : 'Average rating'}
     xTicks={[1, 2, 3, 4, 5]}
     yTicks={[2, 4, 6, 8, 10]}
+    xDomain={[1, 5]}
+    yDomain={[2, 10]}
     jitterX={0.06}
     height={h}
     interactive
@@ -134,6 +136,8 @@
     yLog
     xTicks={[2, 4, 6, 8, 10]}
     yTicks={[30, 100, 1000, 10000, 100000]}
+    xDomain={[2, 10]}
+    yDomain={[30, 100000]}
     height={h}
     interactive
     pointName={nameOf}
