@@ -14,6 +14,7 @@
   import { navigating } from '$app/stores';
   import { complexityLabel, complexityBandIndex } from './dials';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
+  import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import type { DiscoverGame } from './types';
 
   let { game, rank }: { game: DiscoverGame; rank: number } = $props();
@@ -43,24 +44,6 @@
       .filter((n) => !sorted(game.best_player_counts).includes(n))
       .join(', ')
   );
-
-  /**
-   * The rating meter's domain. Geek rating is Bayesian and squeezed into roughly 5.5–8.8, so
-   * a 0–10 scale would leave every game's meter sitting in the same narrow band and comparing
-   * nothing. Fixed, not scaled to the current page: a meter that re-scales per result set
-   * makes every page look identical and destroys comparison between them.
-   */
-  const GEEK_LO = 5.5;
-  const GEEK_HI = 8.8;
-  const SEGMENTS = 5;
-
-  /** Fill of the i-th (0-based) segment, 0–100. */
-  function ratingSeg(i: number): number {
-    const v = game.geek_rating;
-    if (v == null) return 0;
-    const filled = ((v - GEEK_LO) / (GEEK_HI - GEEK_LO)) * SEGMENTS;
-    return Math.max(0, Math.min(1, filled - i)) * 100;
-  }
 
   const weight = $derived(complexityLabel(game.average_weight));
   /** Band index 1–5, driving the badge's tint step. Derived from the same source as weight. */
@@ -118,16 +101,7 @@
 
   <span class="rate">
     <span class="lbl">Rating</span>
-    {#if game.geek_rating != null}
-      <span class="rv">{game.geek_rating.toFixed(1)}</span>
-      <span class="meter" aria-hidden="true">
-        {#each [0, 1, 2, 3, 4] as i (i)}
-          <i><b style:width="{ratingSeg(i)}%"></b></i>
-        {/each}
-      </span>
-    {:else}
-      <span class="rv none">—</span>
-    {/if}
+    <RatingBar value={game.geek_rating} />
   </span>
 </a>
 
@@ -232,18 +206,6 @@
      so nothing said what "8.4" measured. Centred, because the label is wider than the number
      it heads: right-aligning left "7.7" hanging off the end of "RATING" instead of under it. */
   .rate { justify-self: stretch; text-align: center; }
-  .rv {
-    display: block;
-    font-size: 0.95rem; font-weight: 650; color: var(--foreground);
-    font-variant-numeric: tabular-nums; line-height: 1.15;
-  }
-  .rv.none { color: var(--muted-foreground); font-weight: 500; }
-  .meter { display: flex; gap: 1.5px; margin-top: 0.25rem; }
-  .meter i {
-    flex: 1; height: 0.3rem; border-radius: 1.5px; overflow: hidden;
-    background: color-mix(in oklch, var(--border) 80%, transparent);
-  }
-  .meter b { display: block; height: 100%; background: var(--chart-1); }
 
   /* Complexity as an ordered ramp in ONE hue.
      The first attempt stepped through `--chart-2..--chart-1`, which put purple at Medium,
