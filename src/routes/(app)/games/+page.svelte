@@ -26,6 +26,7 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
+  import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import { Container } from '$lib/components/ui/layout';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
@@ -153,6 +154,7 @@
 
         <ShapeStrip {where} {baseWhere} bind:scope />
         <GameList {where} universe={scope.universe} />
+        <AnalysisPanel {where} universe={scope.universe} />
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
              model's training cutoff, so every number in the table is a forecast, not a fit. -->
