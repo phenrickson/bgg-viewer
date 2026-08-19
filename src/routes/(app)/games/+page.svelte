@@ -161,16 +161,14 @@
             </span>
           </p>
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
-        </div>
 
-        <!-- Its own row, not tucked into .chead's corner — a small toggle competing with the
-             count and filter chips for the same line was easy to miss entirely. -->
-        <span class="viewtoggle" role="group" aria-label="View">
-          <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
-          <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
-            >Visualize</button
-          >
-        </span>
+          <span class="viewtoggle" role="group" aria-label="View">
+            <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
+            <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
+              >Visualize</button
+            >
+          </span>
+        </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
         {#if view === 'visualize'}
@@ -272,12 +270,14 @@
   /* PROTOTYPE (item #3) — plain toggle, no design pass; the point is to have something to
      click, not to be the final chrome. */
   /* Matches Rail's Universe segmented control (`.seg`/`.seg button`) — the same visual
-     language for "pick one of a few states," sized up from the old corner-toggle version
-     that read as decoration rather than a real switch. */
+     language for "pick one of a few states," sized up from the original plain-text version.
+     Lives in .chead's corner (not its own row — that cost a full extra line of vertical
+     space the canvas can't spare). */
   .viewtoggle {
     flex: none;
     display: inline-flex;
     gap: 0.3rem;
+    margin-left: auto;
   }
   .viewtoggle button {
     border: 1px solid var(--border);
