@@ -248,6 +248,18 @@
     const single = !ext.hasC;
     if (single) ctx.fillStyle = 'oklch(0.62 0.14 250)';
 
+    /*
+     * Clip to the plot rectangle before drawing. Without it, a point whose jitter pushes it
+     * past the domain edge (a weight of exactly 1.0 jittered to 0.96, say) — or, with a
+     * pinned `xDomain`/`yDomain`, any point genuinely outside that fixed range — renders past
+     * the axis line and into the label gutter instead of just not being drawn there. The axis
+     * should show only what's inside the domain it draws, not a mess bleeding past its edges.
+     */
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PAD.l, PAD.t, plotW, plotH);
+    ctx.clip();
+
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (!single && p.c != null) ctx.fillStyle = ramp(p.c);
@@ -257,6 +269,7 @@
       ctx.arc(sx(p.x + jx), sy(p.y + jy), r, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
     ctx.globalAlpha = 1;
   });
 
