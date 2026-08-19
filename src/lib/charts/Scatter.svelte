@@ -7,10 +7,11 @@
    * this. Not WebGL either, which only earns its complexity past ~100k points.
    *
    * Axes and labels stay in SVG on top, where text renders crisply and can be selected; only
-   * the cloud itself is rasterised. Hit-testing is deliberately absent: these plots illustrate
-   * a claim in prose rather than serving as a way to find a particular game, so there is no
-   * tooltip to hang off a quadtree. Clicking through to a game is what Discover and Explore
-   * are for.
+   * the cloud itself is rasterised. Hit-testing (see `interactive` below) is opt-in and off by
+   * default — About's clouds illustrate a claim in prose and have no per-game identity worth
+   * surfacing, so there is no tooltip to hang off a quadtree there. The SVG overlay is
+   * `pointer-events: none` regardless of `interactive`, so it never blocks the canvas
+   * underneath from receiving hover/click.
    *
    * `c` is optional and drives a colour ramp — sequential by default, diverging when a
    * `colorPivot` is given. Either way it is a *scale*, so the categorical `--chart-N` tokens
@@ -466,7 +467,11 @@
   /* NOT `overflow: visible`: with it the rotated y-axis label escaped the figure and the
      x-axis label collided with the heading of the section below. The padding box already
      reserves room for both. */
-  svg { position: absolute; inset: 0; }
+  /* pointer-events: none — without it this decorative overlay (axes/ticks/labels) sits on
+     top of the canvas and silently eats every hover/click across its FULL bounding box, even
+     over the empty space between gridlines. That's what made `interactive` a no-op: the
+     canvas's own pointermove/click handlers never fired, because the svg intercepted first. */
+  svg { position: absolute; inset: 0; pointer-events: none; }
 
   .ax { stroke: var(--border); stroke-width: 1; }
   .grid { stroke: color-mix(in oklch, var(--border) 55%, transparent); stroke-width: 1; }

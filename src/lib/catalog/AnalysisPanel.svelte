@@ -1,28 +1,29 @@
 <script lang="ts">
   /**
-   * Read-only analysis of the CURRENT scope — About's weight-vs-rating and rating-vs-
-   * popularity clouds, pointed at Explore's `where` instead of the whole catalog, plus two
-   * ranked bar charts (top mechanics, top families).
+   * Read-only(-ish) analysis of the CURRENT scope, shown under Explore's List/Visualize
+   * toggle — About's weight-vs-rating and rating-vs-popularity clouds, pointed at Explore's
+   * `where` instead of the whole catalog, plus five ranked bar charts (mechanics, families,
+   * publishers, designers, artists).
    *
-   * A SWAP with the table (via the List/Cards/Analysis toggle in +page.svelte), not a panel
-   * appended below it. Appending it as a sibling below GameList inside the same bounded
-   * `.canvas` fought GameList for the same box — GameList shrinking to make room read as
-   * Analysis rising up and covering the table. Swapping sidesteps that: this occupies the
-   * exact slot GameList/GameCards already occupy and reuses the identical bounded-box +
-   * internal-scroll pattern GameList's `.listwrap` already has (see `.wrap` below), so it's a
-   * drop-in replacement for that slot rather than a new layout to reconcile with it. It only
+   * A SWAP with the table, not a panel appended below it. Appending it as a sibling below
+   * GameList inside the same bounded `.canvas` fought GameList for the same box — GameList
+   * shrinking to make room read as this rising up and covering the table. Swapping sidesteps
+   * that: this occupies the exact slot GameList occupies and reuses the identical bounded-box
+   * + internal-scroll pattern GameList's `.listwrap` already has (see `.wrap` below), so it's
+   * a drop-in replacement for that slot rather than a new layout to reconcile with it. It only
    * exists in the DOM (and only queries) while selected.
    *
-   * The mechanics/families bar charts overlap with Rail's Mechanics/Families facet lists
-   * (which answer the same "what's in this set" question and are already click-to-filter), so
-   * clicking a bar here toggles the same `scope.mechanics`/`scope.families` Rail's lists bind
-   * to — one selection state, not two that could disagree. The reason for a second view of the
-   * same data: Rail's lists are collapsed by default and easy to miss, while this sits in the
-   * open, ranked, next to the charts that already tell the rest of the scope's story.
+   * The bar charts overlap with Rail's facet lists (which answer the same "what's in this
+   * set" question for the same five columns and are already click-to-filter), so clicking a
+   * bar here toggles the same `scope.*` arrays Rail's lists bind to — one selection state, not
+   * a second one that could disagree. The reason for a second view of the same data: Rail's
+   * lists are collapsed by default and easy to miss, while this sits in the open, ranked, next
+   * to the charts that already tell the rest of the scope's story.
    *
-   * Charts are interactive: hover shows the game (via `nameOf`, the id→name map built for
-   * exactly this), click navigates to it — unlike About's clouds, every point here is a real
-   * game in the reader's own current scope, so "which one is that" is a real question.
+   * The two scatter charts are interactive: hover shows the game (via `nameOf`, the id→name
+   * map built for exactly this), click navigates to it — unlike About's clouds, every point
+   * here is a real game in the reader's own current scope, so "which one is that" is a real
+   * question.
    */
   import { goto } from '$app/navigation';
   import { query, nameOf } from '$lib/catalog/catalog.svelte';
@@ -39,11 +40,15 @@
   const upcoming = $derived(universe === 'upcoming');
 
   type Pt = { x: number; y: number; game_id: number };
+  type FacetCol = 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
   let mechanics = $state<Facet[]>([]);
   let families = $state<Facet[]>([]);
+  let publishers = $state<Facet[]>([]);
+  let designers = $state<Facet[]>([]);
+  let artists = $state<Facet[]>([]);
 
   const TOP_N = 10;
 
@@ -56,21 +61,27 @@
       query<Pt>(scatterSql(w, undefined, m)),
       query<Pt>(popularitySql(w, undefined, m)),
       query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
-      query<Facet>(facetSearchSql(w, 'families', '', TOP_N))
+      query<Facet>(facetSearchSql(w, 'families', '', TOP_N)),
+      query<Facet>(facetSearchSql(w, 'publishers', '', TOP_N)),
+      query<Facet>(facetSearchSql(w, 'designers', '', TOP_N)),
+      query<Facet>(facetSearchSql(w, 'artists', '', TOP_N))
     ])
-      .then(([a, b, c, d]) => {
+      .then(([a, b, c, d, e, f, g]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
         mechanics = c;
         families = d;
+        publishers = e;
+        designers = f;
+        artists = g;
       })
       .catch((e) => console.error('analysis panel query failed', e));
   });
 
   const openGame = (id: number) => goto(`/games/${id}`);
 
-  function toggleFacet(col: 'mechanics' | 'families', value: string) {
+  function toggleFacet(col: FacetCol, value: string) {
     const current = scope[col];
     scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
   }
@@ -114,7 +125,7 @@
       />
     </div>
 
-    {#snippet facetChart(title: string, col: 'mechanics' | 'families', rows: Facet[])}
+    {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
       <div class="figure">
         <h3>Top {title} in this scope</h3>
         <!-- PLACEHOLDER copy -->
@@ -139,6 +150,9 @@
 
     {@render facetChart('mechanics', 'mechanics', mechanics)}
     {@render facetChart('families', 'families', families)}
+    {@render facetChart('publishers', 'publishers', publishers)}
+    {@render facetChart('designers', 'designers', designers)}
+    {@render facetChart('artists', 'artists', artists)}
   </div>
 </div>
 

@@ -173,13 +173,15 @@ export const popularityRatingGeekSql = (where: string, limit = SCATTER_LIMIT): s
 
 /**
  * Facet values *within the current scope*, optionally narrowed by a typed term — what the
- * rail's category/mechanic lists show. Scope-aware counts mean the lists answer "what else
- * is in this set" as you filter (and make a separate "top categories" chart redundant).
- * `col` is a fixed identifier from our own code; `term` is user input, so it is escaped.
+ * rail's category/mechanic lists show, and (unfiltered, `term = ''`) the analysis panel's
+ * ranked bar charts. Scope-aware counts mean the lists answer "what else is in this set" as
+ * you filter. `col` is a fixed identifier from our own code; `term` is user input, so it is
+ * escaped. Every column here is an array column in the artifact, so one query shape covers
+ * all six.
  */
 export const facetSearchSql = (
 	where: string,
-	col: 'categories' | 'mechanics' | 'families',
+	col: 'categories' | 'mechanics' | 'families' | 'designers' | 'artists' | 'publishers',
 	term = '',
 	limit = 60
 ): string => {

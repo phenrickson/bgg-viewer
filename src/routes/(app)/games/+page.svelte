@@ -26,7 +26,6 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
-  import GameCards from '$lib/catalog/views/GameCards.svelte';
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import { Container } from '$lib/components/ui/layout';
 
@@ -34,15 +33,15 @@
   let ready = $state(false);
 
   /**
-   * List/Cards is a PROTOTYPE toggle for item #3 (a trimmed-down Explore variant, option C —
-   * a card grid) — local state, not persisted to the URL, a build-to-evaluate spike that
-   * stays a one-line diff to remove if it's dropped after review.
+   * List/Visualize — a swap, not a panel appended below the table: Visualize occupies the
+   * same bounded slot GameList does, rather than competing with it for space as a sibling
+   * (which read as Visualize growing up and covering the table). Local state, not persisted
+   * to the URL.
    *
-   * Analysis is real (item #4) and a swap for the same reason Cards is: it occupies the same
-   * bounded slot GameList/GameCards do, rather than competing with the table for space as a
-   * panel appended below it (which read as Analysis growing up and covering the table).
+   * The card-grid variant (item #3's option C) that used to share this toggle is dropped for
+   * now — GameCards.svelte still exists, just unwired, in case it's worth revisiting later.
    */
-  let view = $state<'list' | 'cards' | 'analysis'>('list');
+  let view = $state<'list' | 'visualize'>('list');
 
   onMount(async () => {
     await initCatalog();
@@ -162,21 +161,19 @@
             </span>
           </p>
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
-
-          <!-- List/Cards is prototype chrome (item #3); Analysis is real (item #4). -->
-          <span class="viewtoggle" role="group" aria-label="View">
-            <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
-            <button type="button" class:on={view === 'cards'} onclick={() => (view = 'cards')}>Cards</button>
-            <button type="button" class:on={view === 'analysis'} onclick={() => (view = 'analysis')}
-              >Analysis</button
-            >
-          </span>
         </div>
 
+        <!-- Its own row, not tucked into .chead's corner — a small toggle competing with the
+             count and filter chips for the same line was easy to miss entirely. -->
+        <span class="viewtoggle" role="group" aria-label="View">
+          <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
+          <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
+            >Visualize</button
+          >
+        </span>
+
         <ShapeStrip {where} {baseWhere} bind:scope />
-        {#if view === 'cards'}
-          <GameCards {where} universe={scope.universe} />
-        {:else if view === 'analysis'}
+        {#if view === 'visualize'}
           <AnalysisPanel {where} universe={scope.universe} bind:scope />
         {:else}
           <GameList {where} universe={scope.universe} />
@@ -274,24 +271,37 @@
 
   /* PROTOTYPE (item #3) — plain toggle, no design pass; the point is to have something to
      click, not to be the final chrome. */
+  /* Matches Rail's Universe segmented control (`.seg`/`.seg button`) — the same visual
+     language for "pick one of a few states," sized up from the old corner-toggle version
+     that read as decoration rather than a real switch. */
   .viewtoggle {
+    flex: none;
     display: inline-flex;
-    gap: 0.2rem;
-    margin-left: auto;
+    gap: 0.3rem;
   }
   .viewtoggle button {
-    background: var(--card);
     border: 1px solid var(--border);
     border-radius: 6px;
+    background: var(--card);
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
-    font-size: 0.76rem;
-    padding: 0.2rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 550;
+    padding: 0.4rem 1rem;
+  }
+  .viewtoggle button:hover {
+    color: var(--foreground);
   }
   .viewtoggle button.on {
-    color: var(--primary);
     border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    font-weight: 650;
+  }
+  .viewtoggle button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
   }
 
   .prov {
