@@ -29,10 +29,11 @@
     width?: string;
   } = $props();
 
-  const [lo, hi] = domain;
-  const pct = $derived(
-    value == null ? 0 : Math.max(0, Math.min(100, ((value - lo) / (hi - lo)) * 100))
-  );
+  const pct = $derived.by(() => {
+    if (value == null) return 0;
+    const [lo, hi] = domain;
+    return Math.max(0, Math.min(100, ((value - lo) / (hi - lo)) * 100));
+  });
   const label = $derived(value == null ? '—' : value.toFixed(decimals));
 </script>
 

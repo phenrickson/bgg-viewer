@@ -78,7 +78,6 @@
     <span class="l2">
       {#if weight}
         <span class="cx" data-step={weightStep}>{weight}</span>
-        <span class="cxmeter"><ComplexityMeter weight={game.average_weight} /></span>
       {/if}
       {#if cats.length}<span class="cats">{cats.join(' · ')}</span>{/if}
     </span>
@@ -99,6 +98,11 @@
     {/if}
   </span>
 
+  <span class="cplx">
+    <span class="lbl">Complexity</span>
+    <ComplexityMeter weight={game.average_weight} />
+  </span>
+
   <span class="rate">
     <span class="lbl">Rating</span>
     <RatingBar value={game.geek_rating} />
@@ -117,7 +121,7 @@
     /* "Recommended" was 7.5rem wide because of the LABEL, not the data — the numbers under it
        are usually four characters. Shortening it to "Also good" lets the column give 2rem back
        to the game's title. */
-    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem;
+    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem 4.5rem;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -228,10 +232,10 @@
   .cx[data-step='4'] { --step: 4; }
   .cx[data-step='5'] { --step: 5; }
 
-  /* The badge already says the word; the meter beside it is the visual indicator the review
-     flagged as missing — same encoding Explore's table uses, just at Discover's row height. */
-  .cxmeter { flex: none; width: 3rem; }
-  .cxmeter :global(.meter) { width: 100%; }
+  /* The badge already says the word; the gauge beside Rating is the visual indicator the
+     review flagged as missing — same component and column treatment as `.rate`, so the two
+     read as a pair rather than complexity sitting off in the title line by itself. */
+  .cplx { justify-self: stretch; text-align: center; }
 
   .cats {
     font-size: 0.73rem; color: var(--muted-foreground);
@@ -246,7 +250,7 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
+    .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 4.5rem; }
     .fact:nth-of-type(2) { display: none; }
   }
 </style>

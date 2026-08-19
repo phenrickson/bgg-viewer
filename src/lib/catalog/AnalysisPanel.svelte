@@ -120,17 +120,42 @@
    * Scatter call lives in one snippet (`weightChart`/`popularityChart`) parameterized on
    * `height`, rendered both inline (small) and in the dialog (big) — one source of truth for
    * the props, so the two can't drift apart.
+   *
+   * The dialog also requests true Fullscreen API on open — the same mechanism a video player
+   * uses — so "expand" means the whole screen, not a bigger box in the middle of the page.
+   * `fsHeight` tracks the chart's height while fullscreen so the plot actually fills the
+   * space rather than sitting at its 560px dialog size inside a much taller viewport.
+   * `requestFullscreen` is optional-chained and its promise swallowed: if a browser or embed
+   * context refuses it, the dialog still opens as a normal centered modal — the size is a
+   * bonus, not a requirement of "expand" working at all.
    */
   let expanded = $state<'weight' | 'popularity' | null>(null);
   let dialogEl = $state<HTMLDialogElement | null>(null);
+  let fsHeight = $state(560);
 
   function expand(which: 'weight' | 'popularity') {
     expanded = which;
     dialogEl?.showModal();
+    dialogEl?.requestFullscreen?.()?.catch(() => {});
   }
   function closeExpanded() {
+    if (document.fullscreenElement === dialogEl) document.exitFullscreen().catch(() => {});
     dialogEl?.close();
   }
+  // The browser's own fullscreen exit (Esc, or an OS/browser fullscreen control) doesn't go
+  // through closeExpanded() — this keeps the dialog in sync when that happens, and sizes the
+  // chart to the real viewport once fullscreen actually takes effect.
+  $effect(() => {
+    function onFsChange() {
+      if (document.fullscreenElement === dialogEl) {
+        fsHeight = Math.max(320, window.innerHeight - 96);
+      } else if (expanded !== null) {
+        dialogEl?.close();
+      }
+    }
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  });
   /** The dialog's own padding area acts as the backdrop — clicking it (not its content) closes. */
   function backdropClick(e: MouseEvent) {
     if (e.target === dialogEl) closeExpanded();
@@ -183,8 +208,6 @@
           >⤢</button
         >
       </div>
-      <!-- PLACEHOLDER copy -->
-      <p class="note">[Caption — what the cloud shows.]</p>
       {@render weightChart(300)}
     </div>
 
@@ -195,8 +218,6 @@
           >⤢</button
         >
       </div>
-      <!-- PLACEHOLDER copy -->
-      <p class="note">[Caption — what the cloud shows.]</p>
       {@render popularityChart(300)}
     </div>
 
@@ -237,9 +258,9 @@
     <button type="button" class="close" onclick={closeExpanded} aria-label="Close">✕</button>
   </div>
   {#if expanded === 'weight'}
-    {@render weightChart(560)}
+    {@render weightChart(fsHeight)}
   {:else if expanded === 'popularity'}
-    {@render popularityChart(560)}
+    {@render popularityChart(fsHeight)}
   {/if}
 </dialog>
 
@@ -276,12 +297,6 @@
     font-size: 0.85rem;
     font-weight: 650;
   }
-  .note {
-    margin: 0 0 0.5rem;
-    font-size: 0.76rem;
-    color: var(--muted-foreground);
-  }
-
   .fhead {
     display: flex;
     align-items: baseline;
@@ -317,6 +332,12 @@
      No custom JS timing needed for either direction — this is what keeps it from being a
      bespoke reimplementation of what the platform already does. */
   .chartdialog {
+    /* Tailwind's preflight resets `margin: 0` on every element, `dialog` included, which
+       quietly overrides the browser's own `dialog:modal { margin: auto }` centering rule —
+       author styles beat UA styles regardless of specificity. Without an explicit margin the
+       dialog falls back to its top-left corner instead of centering. Restoring `auto` here is
+       the standard fix, not a hand-rolled centering scheme. */
+    margin: auto;
     padding: var(--space-md);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -335,6 +356,17 @@
   .chartdialog[open] {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+  /* True Fullscreen API state (not just the modal's own centered-box sizing) — edge to edge,
+     no card border or rounding once it's the whole screen. */
+  .chartdialog:fullscreen {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    border: none;
+    border-radius: 0;
   }
   @starting-style {
     .chartdialog[open] {
@@ -440,7 +472,7 @@
   .fbar i {
     display: block;
     height: 100%;
-    background: var(--chart-4);
+    background: var(--chart-1);
   }
   .fac button.on .fbar i {
     background: var(--primary);

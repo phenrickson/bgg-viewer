@@ -282,7 +282,7 @@
      */
     const hasSelection = points.some((p) => p.selected === false);
     if (hasSelection) {
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = 0.08;
       ctx.fillStyle = 'oklch(0.55 0.015 250)';
       for (let i = 0; i < points.length; i++) {
         const p = points[i];

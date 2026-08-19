@@ -220,7 +220,7 @@
         max={scope.weightMax}
         height={H}
         {scaleMode}
-        color="var(--chart-4)"
+        color="var(--chart-1)"
         label="complexity distribution"
         format={one}
         onbrush={(lo, hi) => {
@@ -247,7 +247,7 @@
         max={scope.yearMax}
         height={H}
         {scaleMode}
-        color="var(--chart-2)"
+        color="var(--chart-1)"
         label="games per year"
         format={int}
         onbrush={(lo, hi) => {
@@ -275,7 +275,7 @@
         max={toLog(scope.usersRatedMax)}
         height={H}
         {scaleMode}
-        color="var(--chart-3)"
+        color="var(--chart-1)"
         label="ratings-count distribution"
         format={fromLog}
         onbrush={(lo, hi) => {
@@ -300,7 +300,7 @@
         selected={scope.bestAt}
         height={H}
         {scaleMode}
-        color="var(--chart-5)"
+        color="var(--chart-1)"
         title={(v, n) => `best at ${v} players — ${n.toLocaleString()} games in scope`}
         onpick={(v) => {
           scope.bestAt = v;
