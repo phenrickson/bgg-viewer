@@ -75,7 +75,12 @@
     interactive = false,
     /** Resolves a hovered/clicked point's `game_id` to its name, for the tooltip. */
     pointName,
-    /** Called with a point's `game_id` on click — the caller decides what "select" means. */
+    /**
+     * Called with a point's `game_id` when its pinned tooltip's "Go to" is clicked. A click on
+     * the point itself only PINS the tooltip (see `pinnedIdx`) rather than navigating
+     * immediately — a miss-click by a pixel in a dense cloud shouldn't cost the reader their
+     * scroll position/filters on a redirect they didn't mean to trigger.
+     */
     onPointClick
   }: {
     points?: { x: number; y: number; c?: number; game_id?: number }[];
@@ -301,6 +306,14 @@
    */
   const HIT_RADIUS = 8;
   let hoverIdx = $state<number | null>(null);
+  /**
+   * A click pins the tooltip on a point instead of navigating immediately — the game name a
+   * dense cloud resolves to is easy to click past by a pixel, and an instant redirect made a
+   * miss-click expensive (losing the panel's filters/scroll position). Pinned, the tooltip
+   * survives the pointer leaving (unlike hover) and offers a "Go to" the click actually
+   * commits to.
+   */
+  let pinnedIdx = $state<number | null>(null);
   let hoverPending: { x: number; y: number } | null = null;
   let hoverRaf = 0;
 
@@ -336,24 +349,31 @@
   function onPointerLeave() {
     hoverPending = null;
     hoverIdx = null;
+    // pinnedIdx deliberately survives — that's the point of pinning.
   }
 
+  /** Click a point to pin its tooltip; click the same one again (or empty space) to unpin. */
   function handleClick() {
-    if (hoverIdx == null) return;
-    const id = points[hoverIdx]?.game_id;
+    pinnedIdx = hoverIdx != null && hoverIdx === pinnedIdx ? null : hoverIdx;
+  }
+
+  function goToPinned() {
+    if (pinnedIdx == null) return;
+    const id = points[pinnedIdx]?.game_id;
     if (id != null && onPointClick) onPointClick(id);
   }
 
-  const hoverPoint = $derived(hoverIdx != null ? points[hoverIdx] : null);
+  const displayIdx = $derived(pinnedIdx ?? hoverIdx);
+  const hoverPoint = $derived(displayIdx != null ? points[displayIdx] : null);
   const hoverLabel = $derived(
     hoverPoint?.game_id != null ? pointName?.(hoverPoint.game_id) : undefined
   );
   /** Same jittered screen position `nearest()` matched against, not the raw data point —
       otherwise the ring sits slightly off the dot it's marking whenever jitter is in play. */
   const hoverPos = $derived.by(() => {
-    if (hoverPoint == null || hoverIdx == null) return null;
-    const jx = jitterX ? rand(hoverIdx, 1) * jitterX : 0;
-    const jy = jitterY ? rand(hoverIdx, 2) * jitterY : 0;
+    if (hoverPoint == null || displayIdx == null) return null;
+    const jx = jitterX ? rand(displayIdx, 1) * jitterX : 0;
+    const jy = jitterY ? rand(displayIdx, 2) * jitterY : 0;
     return { x: sx(hoverPoint.x + jx), y: sy(hoverPoint.y + jy) };
   });
 </script>
@@ -424,11 +444,20 @@
       <div
         class="tip"
         class:flip={hoverPos.x > PAD.l + plotW / 2}
+        class:pinned={pinnedIdx != null}
         style:left="{hoverPos.x}px"
         style:top="{hoverPos.y}px"
       >
         {#if hoverLabel}<b>{hoverLabel}</b>{/if}
         <span>{xLabel}: {fmtTip(hoverPoint.x)} · {yLabel}: {fmtTip(hoverPoint.y)}</span>
+        {#if pinnedIdx != null}
+          <span class="tipactions">
+            {#if onPointClick}<button type="button" onclick={goToPinned}>Go to →</button>{/if}
+            <button type="button" class="dismiss" onclick={() => (pinnedIdx = null)} aria-label="Close"
+              >✕</button
+            >
+          </span>
+        {/if}
       </div>
     {/if}
   {/if}
@@ -501,6 +530,34 @@
      flip it to hang off the point's left instead. */
   .tip.flip {
     transform: translate(calc(-100% - 10px), -50%);
+  }
+  /* Pinned (clicked, not just hovered) — it needs to be clickable itself now, for the "Go to"
+     and close buttons a plain hover preview doesn't have. */
+  .tip.pinned {
+    pointer-events: auto;
+    white-space: normal;
+  }
+  .tipactions {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.15rem;
+  }
+  .tipactions button {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    color: var(--foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+  .tipactions button:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .tipactions .dismiss {
+    color: var(--muted-foreground);
   }
   /* NOT `overflow: visible`: with it the rotated y-axis label escaped the figure and the
      x-axis label collided with the heading of the section below. The padding box already
