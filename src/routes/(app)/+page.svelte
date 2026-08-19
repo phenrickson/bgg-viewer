@@ -117,15 +117,28 @@
          wait is a categorically different experience from an indefinite one, and it costs
          one string. The number is the median of this browser's own past loads (see
          estimate.ts), so it describes the machine actually doing the waiting rather than a
-         figure measured somewhere else. -->
+         figure measured somewhere else.
+
+         No game count while warming: `content.stats.games` is a static number baked into
+         content.json at some point in the past, and the catalog gains new games every day
+         (What's New adds ~195/week) — so it drifts from the real count and had visibly
+         disagreed with `catalog.count` a few seconds later, on the same page. The count
+         belongs only in the ready state, where it's the live, authoritative number. -->
     <span class="warming" class:ready={catalog.status === 'ready'}>
       {#if catalog.status === 'ready'}
         <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
+        <!-- Thumbnails load in the background after the catalog itself, and were otherwise
+             invisible — there was no way to tell "still loading" from "quietly failed"
+             short of the network tab. Only shown for the gap; once art has loaded, the box
+             art appearing on the games below is its own confirmation and this line adds
+             nothing further. -->
+        {#if !catalog.thumbnailsReady}
+          <span class="dim">· loading art…</span>
+        {/if}
       {:else if catalog.status === 'error'}
         Catalog failed to load
       {:else}
-        <span class="spin"></span> Warming the catalog — {wait} ·
-        {content.stats.games.toLocaleString()} games
+        <span class="spin"></span> Warming the catalog — {wait}
       {/if}
     </span>
 
@@ -180,6 +193,8 @@
 
   .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
   .warming.ready { color: var(--foreground); }
+  /* Quieter than the ready state around it — a transient aside, not a second headline. */
+  .warming .dim { color: var(--muted-foreground); font-weight: 400; }
   .warming .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--color-positive, oklch(0.62 0.14 150)); }
   .warming .spin { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

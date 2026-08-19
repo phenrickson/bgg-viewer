@@ -10,8 +10,7 @@
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
-  import { replaceState } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
@@ -40,9 +39,17 @@
   let failed = $state(false);
 
   onMount(() => {
-    const params = $page.url.searchParams;
-    scope = discoverScopeFromParams(params);
     initCatalog();
+  });
+
+  /**
+   * Re-read `scope` from the URL on every navigation that lands here, not just the first —
+   * see the identical fix and full reasoning on Explore's /games page. `patch()` below mirrors
+   * scope to the URL via SvelteKit's `replaceState`, which is explicitly shallow and does not
+   * trigger `afterNavigate`, so there's no feedback loop.
+   */
+  afterNavigate(() => {
+    scope = discoverScopeFromParams(new URLSearchParams(location.search));
   });
 
   /** Apply a dial's patch: update state, then mirror it into the URL. */
@@ -115,6 +122,10 @@
   let token = 0;
   $effect(() => {
     if (catalog.status !== 'ready') return;
+    // Read so a thumbnails load after first render re-runs this query and repaints rows
+    // with real art — the LEFT JOIN itself is unconditional (see catalog.svelte.ts), this
+    // is only what makes the *second* pass happen once there's something new to show.
+    catalog.thumbnailsReady;
     const where = toWhere(scope);
     const n = limit;
     const mine = ++token;
@@ -123,9 +134,10 @@
     Promise.all([
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${where}`),
       query<DiscoverGame>(
-        `SELECT game_id, name, year_published, geek_rating, average_weight,
-                best_player_counts, recommended_player_counts, categories
-         FROM catalog WHERE ${where}
+        `SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_weight,
+                c.best_player_counts, c.recommended_player_counts, c.categories, t.thumbnail
+         FROM catalog c LEFT JOIN thumbnails t USING (game_id)
+         WHERE ${where}
          ORDER BY geek_rating DESC NULLS LAST, game_id
          LIMIT ${n}`
       )

@@ -18,6 +18,13 @@ export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 let status = $state<CatalogStatus>('idle');
 let count = $state(0);
 let error = $state<string | null>(null);
+/**
+ * Flips true once box art has loaded and joined onto `thumbnails`. Starts false and stays
+ * false forever if the fetch fails — a missing thumbnail artifact degrades to today's
+ * initials placeholder, never to a broken page. Never gates `status`: thumbnails are fetched
+ * only *after* `status` is already `'ready'`, so this can never be the thing a reader waits on.
+ */
+let thumbnailsReady = $state(false);
 
 /** Reactive, read-only view of load state for the UI. */
 export const catalog = {
@@ -29,6 +36,9 @@ export const catalog = {
 	},
 	get error() {
 		return error;
+	},
+	get thumbnailsReady() {
+		return thumbnailsReady;
 	}
 };
 
@@ -60,6 +70,12 @@ async function doInit(): Promise<void> {
 		// Load into a native table so queries don't re-parse the artifact each time.
 		await conn.insertArrowFromIPCStream(buf, { name: 'catalog', create: true });
 
+		// Empty, not absent: every query that joins thumbnails can do so unconditionally —
+		// `LEFT JOIN thumbnails USING (game_id)` against zero rows just means every game
+		// reads a NULL thumbnail until `loadThumbnails` below fills the table in. No query
+		// needs to know whether that has happened yet.
+		await conn.query('CREATE TABLE thumbnails (game_id INTEGER, thumbnail VARCHAR)');
+
 		const r = await conn.query('SELECT COUNT(*)::INT AS n FROM catalog');
 		count = Number((r.get(0) as { n: number } | null)?.n ?? 0);
 
@@ -76,9 +92,34 @@ async function doInit(): Promise<void> {
 
 		recordLoad(performance.now() - t0);
 		status = 'ready';
+
+		// Fire-and-forget, deliberately after `status = 'ready'`: box art is a cosmetic
+		// upgrade over the initials placeholder, not something any interaction blocks on.
+		void loadThumbnails();
 	} catch (e) {
 		error = e instanceof Error ? e.message : String(e);
 		status = 'error';
+	}
+}
+
+/**
+ * Fetch the thumbnails artifact and fill in the `thumbnails` table `doInit` already
+ * created empty. Runs after the catalog is `'ready'` — see the call site above — so a slow
+ * or failed thumbnail load never delays first filter, and a failure here degrades to the
+ * initials placeholder everywhere `thumbnailsReady` is read, not to a broken page.
+ */
+async function loadThumbnails(): Promise<void> {
+	if (!conn) return;
+	try {
+		const res = await fetch('/api/thumbnails');
+		if (!res.ok) throw new Error(`thumbnails fetch failed (${res.status})`);
+		const buf = new Uint8Array(await res.arrayBuffer());
+		// `create: false` — the table already exists (empty) from doInit, so this inserts
+		// rather than replacing it.
+		await conn.insertArrowFromIPCStream(buf, { name: 'thumbnails', create: false });
+		thumbnailsReady = true;
+	} catch (e) {
+		console.error('thumbnails load failed (non-fatal — initials placeholder stays)', e);
 	}
 }
 

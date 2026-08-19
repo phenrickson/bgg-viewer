@@ -16,7 +16,7 @@
    * Sorting and paging both run in DuckDB, so a sort orders the *whole* scoped set, not the
    * page on screen. Column keys map to fixed SQL expressions — never user input.
    */
-  import { query } from '$lib/catalog/catalog.svelte';
+  import { catalog, query } from '$lib/catalog/catalog.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import type { Scope } from '$lib/catalog/scope';
@@ -46,6 +46,8 @@
   type Row = {
     game_id: number;
     name: string;
+    /** From the separate thumbnails artifact — NULL until it has loaded, or if a game has none. */
+    thumbnail: string | null;
     year_published: number | null;
     geek_rating: number | null;
     average_rating: number | null;
@@ -130,17 +132,22 @@
     const ord = `${sortCol.sql} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
     const offset = page * PAGE_SIZE;
     const mine = ++token;
+    // Read so a thumbnails load after first render re-runs this query and repaints rows
+    // with real art — the LEFT JOIN itself is unconditional (see catalog.svelte.ts), this
+    // is only what makes the *second* pass happen once there's something new to show.
+    catalog.thumbnailsReady;
     loading = true;
     Promise.all([
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`),
       query<Row>(
-        `SELECT game_id, name, year_published, geek_rating, average_rating,
-                average_weight, users_rated, min_players, max_players,
-                best_player_counts, recommended_player_counts,
-                designers, publishers, categories,
-                predicted_geek_rating, predicted_rating, predicted_complexity,
-                predicted_users_rated, predicted_hurdle_prob
-         FROM catalog WHERE ${w} ORDER BY ${ord}, game_id LIMIT ${PAGE_SIZE} OFFSET ${offset}`
+        `SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_rating,
+                c.average_weight, c.users_rated, c.min_players, c.max_players,
+                c.best_player_counts, c.recommended_player_counts,
+                c.designers, c.publishers, c.categories,
+                c.predicted_geek_rating, c.predicted_rating, c.predicted_complexity,
+                c.predicted_users_rated, c.predicted_hurdle_prob, t.thumbnail
+         FROM catalog c LEFT JOIN thumbnails t USING (game_id)
+         WHERE ${w} ORDER BY ${ord}, game_id LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])
       .then(([c, r]) => {
@@ -231,6 +238,7 @@
 <div class="listwrap">
   <div class="head row" class:pred={upcoming}>
     <span class="rk">#</span>
+    <span class="c-thumb" aria-hidden="true"></span>
     {#each COLS as c (c.key)}
       <span class="c-{c.key}" class:r={c.align === 'r'}>
         <button class:on={c.key === sortKey} onclick={() => sortBy(c)} title={c.hint ?? `Sort by ${c.label}`}>
@@ -248,6 +256,13 @@
     {#each rows as r, i (r.game_id)}
       <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
+
+        {#if r.thumbnail}
+          <img class="c-thumb" src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+        {:else}
+          <!-- Same single-letter placeholder What's New already uses at this row density. -->
+          <span class="c-thumb ph" aria-hidden="true">{r.name.charAt(0).toUpperCase()}</span>
+        {/if}
 
         <span class="c-name">
           <span class="nm">{r.name}</span>
@@ -409,6 +424,7 @@
     display: grid;
     grid-template-columns:
       minmax(2.4rem, 0.25fr)
+      1.85rem
       minmax(11rem, 3.2fr)
       minmax(3rem, 0.45fr)
       minmax(4.6rem, 0.7fr)
@@ -420,6 +436,19 @@
     gap: 0 var(--space-md);
     padding: 0.34rem var(--space-md);
   }
+  /* Fixed at What's New's own dense-table size — Discover's 3.5rem card art would swamp a
+     row this compact. Same footprint for the real image and the placeholder, so a
+     background thumbnails load never reflows the row it fills in. */
+  .c-thumb {
+    width: 1.85rem; height: 1.85rem; border-radius: 6px; flex: none;
+    object-fit: cover;
+    background: color-mix(in oklch, var(--muted) 70%, var(--card));
+  }
+  .c-thumb.ph {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted-foreground); font-size: 0.68rem; font-weight: 650;
+  }
+  .head .c-thumb { background: none; }
   .head {
     border-bottom: 1px solid var(--border);
     background: var(--card);
@@ -581,6 +610,7 @@
   .row.pred {
     grid-template-columns:
       minmax(2.4rem, 0.25fr)
+      1.85rem
       minmax(11rem, 4.1fr)
       minmax(3rem, 0.45fr)
       minmax(4.6rem, 0.7fr)
@@ -612,6 +642,7 @@
     .row {
       grid-template-columns:
         minmax(2.4rem, 0.25fr)
+        1.85rem
         minmax(8rem, 3.2fr)
         minmax(3rem, 0.45fr)
         minmax(4.6rem, 0.7fr)
@@ -621,6 +652,7 @@
     .row.pred {
       grid-template-columns:
         minmax(2.4rem, 0.25fr)
+        1.85rem
         minmax(8rem, 4.1fr)
         minmax(3rem, 0.45fr)
         minmax(4.6rem, 0.7fr)

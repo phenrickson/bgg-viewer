@@ -12,6 +12,7 @@
    * any interaction.
    */
   import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
@@ -31,9 +32,21 @@
   let ready = $state(false);
 
   onMount(async () => {
-    scope = scopeFromParams(new URLSearchParams(location.search));
     await initCatalog();
     ready = catalog.status === 'ready';
+  });
+
+  /**
+   * Re-read `scope` from the URL on every navigation that lands here — not just the first.
+   * `onMount` alone missed same-route navigations: clicking "Upcoming" in the header menu
+   * while already on /games goes from `/games?...` to `/games?u=upcoming`, which SvelteKit
+   * doesn't remount for (same route, querystring-only change), so `onMount` never re-fired
+   * and the click did nothing visible. `afterNavigate` fires for that case too, and for the
+   * first load, back/forward, and a pasted URL — the app's own scope→URL mirror below uses
+   * raw `history.replaceState`, which doesn't trigger this, so there's no feedback loop.
+   */
+  afterNavigate(() => {
+    scope = scopeFromParams(new URLSearchParams(location.search));
   });
 
   const where = $derived(ready ? toWhere(scope) : null);

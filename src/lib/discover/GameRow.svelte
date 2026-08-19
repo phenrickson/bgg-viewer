@@ -80,7 +80,11 @@
   <!-- Position in the returned set. In a panel that scrolls through thousands, this is the
        only thing telling you whether you are at the top of the list or deep inside it. -->
   <span class="rk tnum">{rank.toLocaleString()}</span>
-  <span class="thumb" aria-hidden="true">{initials}</span>
+  {#if game.thumbnail}
+    <img class="thumb" src={game.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+  {:else}
+    <span class="thumb ph" aria-hidden="true">{initials}</span>
+  {/if}
 
   <span class="main">
     <span class="l1">
@@ -177,10 +181,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Shared footprint for both the real thumbnail and the initials placeholder, so a row's
+     art column never shifts size when a background thumbnails load fills it in. */
   .thumb {
     width: 3.5rem; height: 3.5rem; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
+    flex: none; object-fit: cover;
     background: color-mix(in oklch, var(--muted) 70%, var(--card));
+  }
+  .thumb.ph {
+    display: flex; align-items: center; justify-content: center;
     color: var(--muted-foreground);
     font-size: 0.8rem; font-weight: 650; letter-spacing: -0.02em;
   }
