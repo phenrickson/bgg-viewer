@@ -15,6 +15,7 @@
   import { onMount } from 'svelte';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import { gameFromCatalogRow, type CatalogGameRow } from '$lib/catalog/game-from-catalog';
+  import { fetchThumbnailMap } from '$lib/catalog/thumbnails';
   import { decodeEntities } from '$lib/utils/html-entities';
   import { Container } from '$lib/components/ui/layout';
   import PredictionPanel from '$lib/game/PredictionPanel.svelte';
@@ -39,9 +40,41 @@
 
   const g = $derived(data.game ?? fromCatalog);
 
+  /**
+   * `game_id → thumbnail`, for the "Similar games" list only. This page doesn't otherwise
+   * load the catalog or DuckDB in online mode — `data.game` already carries everything else
+   * server-side — so pulling in the whole ~5MB catalog + WASM engine just to look up a
+   * handful of thumbnails would be a bad trade. `fetchThumbnailMap` reads the same small
+   * artifact Explore/Discover use, parsed directly with apache-arrow, no DuckDB involved.
+   * Fire-and-forget: a failed or slow fetch just leaves the initials placeholder in place.
+   */
+  let thumbById = $state<Map<number, string>>(new Map());
+  onMount(() => {
+    fetchThumbnailMap()
+      .then((m) => (thumbById = m))
+      .catch((e) => console.error('similar-games thumbnail lookup failed (non-fatal)', e));
+  });
+
   const num = (n: number | null, digits = 2) =>
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
+
+  /** 1 = exact match, 0 = no relation — the measure's own bounds, clamped defensively
+   *  against the rare negative cosine-distance edge case rather than trusted blindly. */
+  const similarityPct = (s: number) => Math.max(0, Math.min(100, s * 100));
+
+  /**
+   * Same diverging formula as Scatter.svelte's `div()` — rose below the pivot, blue above,
+   * pale where they meet — reused rather than re-derived so the app has one diverging scale,
+   * not two slightly different ones. Pivot at 0.5: below it a game is "more unlike than
+   * like", which is the meaningful midpoint for a 0–1 similarity measure.
+   */
+  function similarityColor(s: number): string {
+    const u = similarityPct(s) / 100;
+    const d = Math.abs(u - 0.5) * 2;
+    const hue = u < 0.5 ? 25 : 250;
+    return `oklch(${0.85 - 0.3 * d} ${0.03 + 0.14 * d} ${hue})`;
+  }
 
   /**
    * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
@@ -585,14 +618,23 @@
 
     <div class="stack">
       <section class="card">
-        <p class="sub">Similar games <span class="sub-note">· by embedding distance</span></p>
+        <p class="sub">Similar games <span class="sub-note">· by similarity</span></p>
         {#if g.similar.length}
           <div class="sim">
             {#each g.similar as s (s.id)}
               <a href="/games/{s.id}">
-                <span class="mono">{s.name?.[0] ?? '?'}</span>
+                {#if thumbById.get(s.id)}
+                  <img class="mono" src={thumbById.get(s.id)} alt="" loading="lazy" />
+                {:else}
+                  <span class="mono ph">{s.name?.[0] ?? '?'}</span>
+                {/if}
                 <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-                <span class="score tnum">{num(s.similarity)}</span>
+                <!-- 1 and 0 are real anchors here — an exact match and no relation at all —
+                     so the color divergence runs over the measure's own natural bounds, not
+                     a per-list min/max. Percent reads faster than a bare decimal. -->
+                <span class="score tnum" style:color={similarityColor(s.similarity)}
+                  >{Math.round(similarityPct(s.similarity))}%</span
+                >
               </a>
             {/each}
           </div>
@@ -1184,17 +1226,22 @@
   .sim a:hover {
     border-color: var(--primary);
   }
+  /* Shared footprint for the real thumbnail and the initials placeholder, so a row never
+     shifts size once the (fire-and-forget, non-blocking) thumbnail lookup resolves. */
   .sim .mono {
     width: 1.8rem;
     height: 1.8rem;
     border-radius: 6px;
     background: var(--muted);
+    flex: none;
+    object-fit: cover;
+  }
+  .sim .mono.ph {
     display: grid;
     place-items: center;
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--muted-foreground);
-    flex: none;
   }
   .sim .nmw {
     flex: 1;
@@ -1214,11 +1261,13 @@
     color: var(--muted-foreground);
     font-size: 0.76rem;
   }
+  /* Color itself is computed per-row in script (see similarityColor) — Scatter.svelte's own
+     diverging formula, reused rather than approximated with a linear color-mix. */
   .sim .score {
     margin-left: auto;
-    font-size: 0.76rem;
-    color: var(--muted-foreground);
     flex: none;
+    font-size: 0.82rem;
+    font-weight: 650;
   }
 
 
