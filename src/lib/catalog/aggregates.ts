@@ -160,6 +160,35 @@ export const popularitySql = (where: string, limit = SCATTER_LIMIT, m: MeasureCo
 	 LIMIT ${limit}`;
 
 /**
+ * Same shape as `scatterSql`/`popularitySql`, but plotted against the WIDER `baseWhere`
+ * population (the universe with the active filters stripped — same idea as the Shape Strip's
+ * comparison population) with a `selected` flag marking which of those rows also satisfy the
+ * narrower `where`. Lets a chart show the whole universe as a faded backdrop with the current
+ * filters highlighted on top — where does this selection sit in the bigger picture — rather
+ * than only ever drawing the narrowed set with no context for what it was narrowed from.
+ */
+export const scatterSelectionSql = (
+	baseWhere: string,
+	selectedWhere: string,
+	limit = SCATTER_LIMIT,
+	m: MeasureColumns = RATED
+): string =>
+	`SELECT ${m.weight} AS x, ${m.rating} AS y, game_id, (${selectedWhere}) AS selected
+	 FROM catalog WHERE ${baseWhere} AND ${m.weight} > 0 AND ${m.rating} > 0
+	 LIMIT ${limit}`;
+
+/** `popularitySql`'s counterpart to `scatterSelectionSql` — see its doc comment. */
+export const popularitySelectionSql = (
+	baseWhere: string,
+	selectedWhere: string,
+	limit = SCATTER_LIMIT,
+	m: MeasureColumns = RATED
+): string =>
+	`SELECT ${m.rating} AS x, ${m.usersRated} AS y, game_id, (${selectedWhere}) AS selected
+	 FROM catalog WHERE ${baseWhere} AND ${m.rating} > 0 AND ${m.usersRated} > 0
+	 LIMIT ${limit}`;
+
+/**
  * Popularity × rating × geek rating — the three-variable version of `popularitySql`, for the
  * About page's plot of how the Bayesian adjustment behaves. Carrying `geek_rating` as a third
  * column is the whole point: it is what shows a sparsely-rated 9.0 being pulled back toward

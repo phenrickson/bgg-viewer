@@ -26,22 +26,36 @@
    * question. Each also has a zoom button that opens the same chart, bigger, in a native
    * `<dialog>` — see the `weightChart`/`popularityChart` snippets below, shared by the inline
    * and dialog renderings so the two can't drift apart.
+   *
+   * The clouds plot the WHOLE universe (`baseWhere` — same comparison population the Shape
+   * Strip uses), not just the narrower `where`-filtered set, with the current filters
+   * highlighted and everything else faded to a backdrop (`Scatter`'s `selected` field). A
+   * chart that only ever draws the filtered set has no visual answer to "where does this
+   * narrowed selection sit within the whole population" — the shape of the backdrop is the
+   * answer.
    */
   import { goto } from '$app/navigation';
   import { query, nameOf } from '$lib/catalog/catalog.svelte';
-  import { scatterSql, popularitySql, facetSearchSql, measures, type Facet } from '$lib/catalog/aggregates';
+  import {
+    scatterSelectionSql,
+    popularitySelectionSql,
+    facetSearchSql,
+    measures,
+    type Facet
+  } from '$lib/catalog/aggregates';
   import type { Scope } from '$lib/catalog/scope';
   import Scatter from '$lib/charts/Scatter.svelte';
 
   let {
     where,
+    baseWhere,
     universe,
     scope = $bindable()
-  }: { where: string; universe: Scope['universe']; scope: Scope } = $props();
+  }: { where: string; baseWhere: string; universe: Scope['universe']; scope: Scope } = $props();
 
   const upcoming = $derived(universe === 'upcoming');
 
-  type Pt = { x: number; y: number; game_id: number };
+  type Pt = { x: number; y: number; game_id: number; selected: boolean };
   type FacetCol = 'categories' | 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
   let weightRating = $state<Pt[]>([]);
@@ -60,9 +74,10 @@
     const w = where;
     const m = measures(universe);
     const mine = ++token;
+    const bw = baseWhere;
     Promise.all([
-      query<Pt>(scatterSql(w, undefined, m)),
-      query<Pt>(popularitySql(w, undefined, m)),
+      query<Pt>(scatterSelectionSql(bw, w, undefined, m)),
+      query<Pt>(popularitySelectionSql(bw, w, undefined, m)),
       query<Facet>(facetSearchSql(w, 'categories', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'families', '', TOP_N)),
@@ -135,7 +150,7 @@
   <Scatter
     points={ratingPopularity}
     xLabel={upcoming ? 'Predicted rating' : 'Average rating'}
-    yLabel={upcoming ? 'Predicted # of ratings (log scale)' : 'People who rated it (log scale)'}
+    yLabel={upcoming ? 'Predicted ratings (log)' : 'Ratings (log)'}
     yLog
     xTicks={[2, 4, 6, 8, 10]}
     yTicks={[30, 100, 1000, 10000, 100000]}

@@ -172,7 +172,7 @@
 
         <ShapeStrip {where} {baseWhere} bind:scope />
         {#if view === 'visualize'}
-          <AnalysisPanel {where} universe={scope.universe} bind:scope />
+          <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
         {:else}
           <GameList {where} universe={scope.universe} />
         {/if}

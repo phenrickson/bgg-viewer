@@ -83,7 +83,13 @@
      */
     onPointClick
   }: {
-    points?: { x: number; y: number; c?: number; game_id?: number }[];
+    /**
+     * `selected: false` draws a point as a faded backdrop instead of the normal cloud style —
+     * for showing where a filtered set sits within the whole universe rather than only ever
+     * drawing the narrowed set with nothing to compare it against. `true` or omitted draws
+     * normally, so passing no `selected` field at all (the common case) is unaffected.
+     */
+    points?: { x: number; y: number; c?: number; game_id?: number; selected?: boolean }[];
     /**
      * Named points called out on top of the cloud. A few hundred anonymous dots state a shape
      * but no fact you can hold onto; naming half a dozen of them turns the plot into something
@@ -248,10 +254,7 @@
      * alpha carry the density.
      */
     const r = points.length > 12000 ? 2 : points.length > 4000 ? 2.6 : 3.2;
-    ctx.globalAlpha = points.length > 12000 ? 0.28 : points.length > 4000 ? 0.38 : 0.55;
-
     const single = !ext.hasC;
-    if (single) ctx.fillStyle = 'oklch(0.62 0.14 250)';
 
     /*
      * Clip to the plot rectangle before drawing. Without it, a point whose jitter pushes it
@@ -265,11 +268,46 @@
     ctx.rect(PAD.l, PAD.t, plotW, plotH);
     ctx.clip();
 
+    const jitter = (i: number) => ({
+      jx: jitterX ? rand(i, 1) * jitterX : 0,
+      jy: jitterY ? rand(i, 2) * jitterY : 0
+    });
+
+    /*
+     * Backdrop pass — the whole universe, faded, drawn first so the highlighted set sits on
+     * top of it rather than under it. Flat muted colour regardless of `c`: a colour-scale
+     * ramp on a backdrop the reader isn't meant to read closely would just be visual noise.
+     * Only runs when the data actually distinguishes selected/unselected — the common case
+     * (no `selected` field at all) skips straight to the normal single-pass draw below.
+     */
+    const hasSelection = points.some((p) => p.selected === false);
+    if (hasSelection) {
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = 'oklch(0.55 0.015 250)';
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (p.selected !== false) continue;
+        const { jx, jy } = jitter(i);
+        ctx.beginPath();
+        ctx.arc(sx(p.x + jx), sy(p.y + jy), r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /*
+     * Foreground pass — everything selected (or, with no selection data at all, everything).
+     * Alpha below 1 so the cloud reads by accumulation: where thousands of games overlap the
+     * colour builds, which is the density a solid dot destroys. The first pass used r≈1.1 at
+     * this count and the points were too small to see at all — legibility first, then let the
+     * alpha carry the density.
+     */
+    ctx.globalAlpha = points.length > 12000 ? 0.28 : points.length > 4000 ? 0.38 : 0.55;
+    if (single) ctx.fillStyle = 'oklch(0.62 0.14 250)';
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
+      if (p.selected === false) continue;
       if (!single && p.c != null) ctx.fillStyle = ramp(p.c);
-      const jx = jitterX ? rand(i, 1) * jitterX : 0;
-      const jy = jitterY ? rand(i, 2) * jitterY : 0;
+      const { jx, jy } = jitter(i);
       ctx.beginPath();
       ctx.arc(sx(p.x + jx), sy(p.y + jy), r, 0, Math.PI * 2);
       ctx.fill();
@@ -441,13 +479,7 @@
       >{yLabel}</text>
     </svg>
     {#if hoverPos && hoverPoint}
-      <div
-        class="tip"
-        class:flip={hoverPos.x > PAD.l + plotW / 2}
-        class:pinned={pinnedIdx != null}
-        style:left="{hoverPos.x}px"
-        style:top="{hoverPos.y}px"
-      >
+      <div class="tip" class:pinned={pinnedIdx != null}>
         {#if hoverLabel}<b>{hoverLabel}</b>{/if}
         <span>{xLabel}: {fmtTip(hoverPoint.x)} · {yLabel}: {fmtTip(hoverPoint.y)}</span>
         {#if pinnedIdx != null}
@@ -495,19 +527,21 @@
     stroke-width: 2;
   }
 
-  /* Follows the cursor's point, not the cursor itself — pinned to the hovered dot so it
-     reads as "about that point" even after the pointer has drifted a couple pixels off it
-     (the hit radius is generous on purpose, for a target this small). */
+  /* A fixed readout in the plot's corner, not a floating box chasing the cursor. A tooltip
+     anchored to the point itself has to dodge every edge (flip left/right, clamp top/bottom,
+     account for its own measured width) — fiddly math that was visibly drifting off-target
+     for points near an edge. A fixed corner needs none of that: it can't overflow, can't
+     drift, and the orange ring on the point itself already answers "which one" — the readout
+     only needs to answer "what is it," which doesn't require being adjacent to it. */
   .tip {
     position: absolute;
-    top: 0;
-    left: 0;
-    transform: translate(10px, -50%);
+    top: 0.5rem;
+    right: 0.5rem;
+    max-width: min(16rem, calc(100% - 1rem));
     pointer-events: none;
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
-    max-width: 14rem;
     padding: 0.3rem 0.5rem;
     border-radius: 6px;
     background: var(--popover, var(--card));
@@ -515,7 +549,6 @@
     box-shadow: 0 2px 8px color-mix(in oklch, black 18%, transparent);
     font-size: 0.72rem;
     line-height: 1.3;
-    white-space: nowrap;
     z-index: 1;
   }
   .tip b {
@@ -526,16 +559,10 @@
   .tip span {
     color: var(--muted-foreground);
   }
-  /* Past the plot's midline the same +10px offset would push the box off the right edge —
-     flip it to hang off the point's left instead. */
-  .tip.flip {
-    transform: translate(calc(-100% - 10px), -50%);
-  }
   /* Pinned (clicked, not just hovered) — it needs to be clickable itself now, for the "Go to"
      and close buttons a plain hover preview doesn't have. */
   .tip.pinned {
     pointer-events: auto;
-    white-space: normal;
   }
   .tipactions {
     display: flex;
