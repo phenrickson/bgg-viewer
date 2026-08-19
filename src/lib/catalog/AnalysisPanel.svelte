@@ -266,9 +266,15 @@
     border-color: var(--primary);
   }
 
-  /* A native <dialog> — Escape-to-close and focus-trapping come for free from
-     showModal(); the two overrides below are just to match the app's own chrome instead of
-     the browser's default dialog border/position. */
+  /* A native <dialog> — Escape-to-close and focus-trapping come for free from showModal().
+     Open/close animation is the standard CSS-only pattern for <dialog> (MDN: "Customizing
+     dialog and popover animations"): transition opacity/transform, plus `display` and the
+     UA-controlled `overlay` property with `allow-discrete` so the element stays rendered
+     through the closing transition instead of vanishing on the first frame, and
+     `@starting-style` so the OPEN transition has a "from" state to animate out of (without
+     it, an element with no prior rendered state can't interpolate into its first frame).
+     No custom JS timing needed for either direction — this is what keeps it from being a
+     bespoke reimplementation of what the platform already does. */
   .chartdialog {
     padding: var(--space-md);
     border: 1px solid var(--border);
@@ -277,9 +283,44 @@
     color: var(--foreground);
     width: min(92vw, 64rem);
     max-height: 88vh;
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+    transition:
+      opacity 0.16s ease,
+      transform 0.16s ease,
+      overlay 0.16s ease allow-discrete,
+      display 0.16s ease allow-discrete;
+  }
+  .chartdialog[open] {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  @starting-style {
+    .chartdialog[open] {
+      opacity: 0;
+      transform: scale(0.96) translateY(6px);
+    }
   }
   .chartdialog::backdrop {
+    background: oklch(0 0 0 / 0);
+    transition:
+      background 0.16s ease,
+      overlay 0.16s ease allow-discrete,
+      display 0.16s ease allow-discrete;
+  }
+  .chartdialog[open]::backdrop {
     background: oklch(0 0 0 / 0.45);
+  }
+  @starting-style {
+    .chartdialog[open]::backdrop {
+      background: oklch(0 0 0 / 0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chartdialog,
+    .chartdialog::backdrop {
+      transition: none;
+    }
   }
   .dhead {
     display: flex;
