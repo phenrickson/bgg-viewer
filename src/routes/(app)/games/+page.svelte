@@ -26,11 +26,19 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
+  import GameCards from '$lib/catalog/views/GameCards.svelte';
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import { Container } from '$lib/components/ui/layout';
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let ready = $state(false);
+
+  /**
+   * PROTOTYPE toggle for item #3 (a trimmed-down Explore variant, option C — a card grid).
+   * Local state, not persisted to the URL: this is a build-to-evaluate spike, not a shipped
+   * mode, so it stays a one-line diff to remove if it's dropped after review.
+   */
+  let view = $state<'list' | 'cards'>('list');
 
   onMount(async () => {
     await initCatalog();
@@ -150,10 +158,20 @@
             </span>
           </p>
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+
+          <!-- PROTOTYPE — see `view` above. -->
+          <span class="viewtoggle" role="group" aria-label="View">
+            <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
+            <button type="button" class:on={view === 'cards'} onclick={() => (view = 'cards')}>Cards</button>
+          </span>
         </div>
 
         <ShapeStrip {where} {baseWhere} bind:scope />
-        <GameList {where} universe={scope.universe} />
+        {#if view === 'cards'}
+          <GameCards {where} universe={scope.universe} />
+        {:else}
+          <GameList {where} universe={scope.universe} />
+        {/if}
         <AnalysisPanel {where} universe={scope.universe} />
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
@@ -244,6 +262,28 @@
   }
   .tnum {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* PROTOTYPE (item #3) — plain toggle, no design pass; the point is to have something to
+     click, not to be the final chrome. */
+  .viewtoggle {
+    display: inline-flex;
+    gap: 0.2rem;
+    margin-left: auto;
+  }
+  .viewtoggle button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+    padding: 0.2rem 0.6rem;
+  }
+  .viewtoggle button.on {
+    color: var(--primary);
+    border-color: var(--primary);
   }
 
   .prov {
