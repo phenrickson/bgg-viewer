@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.0.10](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.9...bgg-viewer-v0.0.10) (2026-08-19)
+
+
+### Features
+
+* **charts:** click pins the tooltip instead of navigating immediately ([28e562b](https://github.com/phenrickson/bgg-viewer/commit/28e562b90632bed187c911ee0c057efd3be74823))
+* **charts:** plot the whole universe, highlight the current filters ([90d4bc4](https://github.com/phenrickson/bgg-viewer/commit/90d4bc499c9a494c3520d20de7cdec3f727b5294))
+* **encodings:** converge Discover onto RatingBar, add reference ticks ([1154f69](https://github.com/phenrickson/bgg-viewer/commit/1154f69a2db457bbfc49729e1be9b74dea298671))
+* **encodings:** shared ComplexityMeter for Discover and Explore ([1421b53](https://github.com/phenrickson/bgg-viewer/commit/1421b53c9412ff029bc77d43511dfe68123498a1))
+* **explore:** add top categories, before top mechanics ([4c359b8](https://github.com/phenrickson/bgg-viewer/commit/4c359b8bea545993868b6e460434582f766e40b8))
+* **explore:** default to All rated instead of Top 10,000 ([b209f4a](https://github.com/phenrickson/bgg-viewer/commit/b209f4a64d2be468f4d191d8e1b58148dd6c482d))
+* **explore:** read-only analysis panel scoped to the current filters ([345d69c](https://github.com/phenrickson/bgg-viewer/commit/345d69ca0efa814afdc1928d8542fde119901aa8))
+* **explore:** swap Analysis with the table instead of appending below ([dbe2140](https://github.com/phenrickson/bgg-viewer/commit/dbe2140b11495f06e1c70702c647737ba26c8401))
+* **explore:** top mechanics/families charts in the analysis panel ([992adac](https://github.com/phenrickson/bgg-viewer/commit/992adac0617a098ebfddf56b1863201115380a1a))
+* **explore:** trim repeated copy, add fullscreen zoom to the scatters ([b6778e8](https://github.com/phenrickson/bgg-viewer/commit/b6778e8a5b8a2df1472455f734599bf7d68860dc))
+
+
+### Bug Fixes
+
+* **charts:** clip Scatter's canvas to the plot rectangle ([c283812](https://github.com/phenrickson/bgg-viewer/commit/c283812b4f5ad51dd4a19e3db9226324ef1aad57))
+* **charts:** pin Scatter's axis domain instead of auto-fitting to points ([7d0ae6b](https://github.com/phenrickson/bgg-viewer/commit/7d0ae6beca58e481acdf0a910df11661a0bbce6c))
+* **explore:** analysis panel no longer crushes the table when opened ([1f7d8aa](https://github.com/phenrickson/bgg-viewer/commit/1f7d8aacdd3fb68fe275c88c67559c87ae8551f9))
+* **explore:** animate the chart zoom dialog with the standard pattern ([63dd8a2](https://github.com/phenrickson/bgg-viewer/commit/63dd8a281fe4b1b1716088aad6a6a65aa633232c))
+* **explore:** put the view toggle back in .chead's corner ([f9b1eb5](https://github.com/phenrickson/bgg-viewer/commit/f9b1eb5d2946f1f18bada6d042ad1bf1ae9e9af8))
+* **explore:** real scatter interactivity, more facets, drop Cards, rename ([b207486](https://github.com/phenrickson/bgg-viewer/commit/b207486f366ab248cec1c188fd52e9b0210dbf04))
+* **explore:** show a loading state instead of empty plots on Visualize ([9918842](https://github.com/phenrickson/bgg-viewer/commit/9918842484b25664cadbf5d34b82a66397682b24))
+* **explore:** stop Analysis from shrinking the table at all ([80ac7d9](https://github.com/phenrickson/bgg-viewer/commit/80ac7d9e31376efa0e7a7cd1d4cf3cf3ea3ed524))
+
+
+### Reverts
+
+* **explore:** drop the layout isolation, back to a plain panel ([c420f32](https://github.com/phenrickson/bgg-viewer/commit/c420f32eff59cc2f3e78d7033eae300e4ca768f7))
+
 ## [0.0.9](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.8...bgg-viewer-v0.0.9) (2026-08-19)
 
 
