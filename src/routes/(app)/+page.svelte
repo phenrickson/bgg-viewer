@@ -117,7 +117,13 @@
          wait is a categorically different experience from an indefinite one, and it costs
          one string. The number is the median of this browser's own past loads (see
          estimate.ts), so it describes the machine actually doing the waiting rather than a
-         figure measured somewhere else. -->
+         figure measured somewhere else.
+
+         No game count while warming: `content.stats.games` is a static number baked into
+         content.json at some point in the past, and the catalog gains new games every day
+         (What's New adds ~195/week) — so it drifts from the real count and had visibly
+         disagreed with `catalog.count` a few seconds later, on the same page. The count
+         belongs only in the ready state, where it's the live, authoritative number. -->
     <span class="warming" class:ready={catalog.status === 'ready'}>
       {#if catalog.status === 'ready'}
         <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
@@ -132,8 +138,7 @@
       {:else if catalog.status === 'error'}
         Catalog failed to load
       {:else}
-        <span class="spin"></span> Warming the catalog — {wait} ·
-        {content.stats.games.toLocaleString()} games
+        <span class="spin"></span> Warming the catalog — {wait}
       {/if}
     </span>
 
