@@ -10,8 +10,7 @@
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
-  import { replaceState } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
@@ -40,9 +39,17 @@
   let failed = $state(false);
 
   onMount(() => {
-    const params = $page.url.searchParams;
-    scope = discoverScopeFromParams(params);
     initCatalog();
+  });
+
+  /**
+   * Re-read `scope` from the URL on every navigation that lands here, not just the first —
+   * see the identical fix and full reasoning on Explore's /games page. `patch()` below mirrors
+   * scope to the URL via SvelteKit's `replaceState`, which is explicitly shallow and does not
+   * trigger `afterNavigate`, so there's no feedback loop.
+   */
+  afterNavigate(() => {
+    scope = discoverScopeFromParams(new URLSearchParams(location.search));
   });
 
   /** Apply a dial's patch: update state, then mirror it into the URL. */
