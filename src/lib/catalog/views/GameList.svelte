@@ -17,6 +17,7 @@
    * page on screen. Column keys map to fixed SQL expressions — never user input.
    */
   import { catalog, query } from '$lib/catalog/catalog.svelte';
+  import Gauge from '$lib/catalog/encodings/Gauge.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
@@ -206,9 +207,6 @@
     if (pc < 10) return `${pc.toFixed(1)}%`;
     return `${Math.round(pc)}%`;
   }
-  /** Fill of the predicted-geek bar, as a percentage of its stated domain. */
-  const pct = (v: number | null, lo: number, hi: number) =>
-    v == null ? 0 : Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
 
 </script>
 
@@ -277,21 +275,22 @@
                `RatingBar`'s 5.5–8.8 was set against a catalog that reaches 8.7, and this
                population tops out at 6.93. -->
           <span class="c-geek">
-            <span class="pv tnum">{num(r.predicted_geek_rating)}</span>
-            <span class="fill" aria-hidden="true"
-              ><i style:width="{pct(r.predicted_geek_rating, PRED_GEEK_LO, PRED_GEEK_HI)}%"></i></span
-            >
+            <Gauge
+              value={r.predicted_geek_rating}
+              domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
+              decimals={2}
+              color="var(--chart-1)"
+              barHeight="3px"
+            />
           </span>
 
           <span class="c-rating r tnum dim">{num(r.predicted_rating)}</span>
 
-          <!-- The SAME five-segment meter the rated universe uses, pointed at the predicted
-               column. It is the same measure on the same 1-5 scale, so it gets the same
-               encoding — a second one invented for this room would mean a reader had to
-               learn complexity twice. -->
+          <!-- The SAME gauge the rated universe uses, pointed at the predicted column. It is
+               the same measure on the same 1-5 scale, so it gets the same encoding — a second
+               one invented for this room would mean a reader had to learn complexity twice. -->
           <span class="c-weight">
-            <ComplexityMeter weight={r.predicted_complexity} height="0.55rem" />
-            <span class="wv tnum">{num(r.predicted_complexity, 1)}</span>
+            <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
           </span>
 
           <!-- The same bar as predicted geek, in a narrower slot. The column inherited
@@ -312,8 +311,7 @@
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
-            <ComplexityMeter weight={r.average_weight} height="0.55rem" />
-            <span class="wv tnum">{num(r.average_weight, 1)}</span>
+            <ComplexityMeter weight={r.average_weight} barHeight="3px" />
           </span>
 
           <span class="c-best">
@@ -404,24 +402,27 @@
   }
 
   /* One grid template shared by the header and every row, so they can't drift.
-     Every column takes a share of the surplus — `minmax(floor, Nfr)` — rather than a fixed
-     rem. With the title column as the only `1fr` it swallowed *all* the extra width on a wide
-     screen: at 2400px that left ~1000px of nothing between a game's name and its numbers,
-     which were crammed against the right edge. Spreading the surplus turns the same width into
-     ordinary table spacing, and the weights keep the proportions roughly as they are at
-     laptop width. */
+     Only the name column grows (`1fr`); every other column is `minmax(floor, max-content)` —
+     sized to its own content, with a floor so a narrow value (an empty "—", a short number)
+     doesn't collapse the column below what its header needs. Giving every column its own `fr`
+     share, tried earlier, sounds even-handed but isn't: each one then grows independently to
+     whatever surplus its share works out to, stranding empty track around a narrow
+     right-aligned number — dead space *between* columns, not just after the name. A single
+     growing column and content-sized everything else has nowhere for that gap to hide, and
+     the floors below are simply "a bit more than the widest thing that column ever holds",
+     not a fraction tuned to balance against the others. */
   .row {
     display: grid;
     grid-template-columns:
-      minmax(2.4rem, 0.25fr)
+      minmax(2.4rem, max-content)
       1.85rem
-      minmax(11rem, 3.2fr)
-      minmax(3rem, 0.45fr)
-      minmax(4.6rem, 0.7fr)
-      minmax(2.8rem, 0.45fr)
-      minmax(5.2rem, 0.9fr)
-      minmax(5.6rem, 0.9fr)
-      minmax(4.4rem, 0.6fr);
+      minmax(11rem, 1fr)
+      minmax(3.4rem, max-content)
+      minmax(4rem, max-content)
+      minmax(3.4rem, max-content)
+      minmax(4.6rem, max-content)
+      minmax(6.2rem, max-content)
+      minmax(5rem, max-content);
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.34rem var(--space-md);
@@ -468,6 +469,17 @@
   }
   .head span.r {
     text-align: right;
+  }
+  /* Geek and Complexity hold a `Gauge`, which always centers its own number and bar — a
+     left-aligned header over a centered value drifts apart whenever the column is wider than
+     either one alone (e.g. "Complexity" the word is wider than the gauge it labels). Centering
+     both the header and the value cell in these two columns keeps them on the same axis
+     regardless of which one is driving the column's width. */
+  .c-geek,
+  .c-weight {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .head button:hover,
   .head button.on {
@@ -534,27 +546,6 @@
     font-size: 0.78rem;
   }
 
-  /* The encodings are capped, so a wide column gives them breathing room rather than
-     stretching them: a 290px five-segment meter reads as decoration, not as a 1-5 scale. */
-  .c-weight {
-    max-width: 7rem;
-  }
-
-  /* Complexity: five segments for the 1–5 scale it measures — see ComplexityMeter.svelte. */
-  .c-weight {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .c-weight :global(.meter) {
-    flex: 1;
-    min-width: 0;
-  }
-  .c-weight .wv {
-    font-size: 0.74rem;
-    color: var(--muted-foreground);
-  }
-
   /* ---- the upcoming universe's two marks ------------------------------------------------
      One hue for both, held back toward muted: a hundred rows of saturated colour reads as
      the content rather than as support for it. `--primary` stays reserved for the sorted
@@ -585,15 +576,15 @@
      surplus on the name is what stops "Industry / Manufacturin…" mid-word. */
   .row.pred {
     grid-template-columns:
-      minmax(2.4rem, 0.25fr)
+      minmax(2.4rem, max-content)
       1.85rem
-      minmax(11rem, 4.1fr)
-      minmax(3rem, 0.45fr)
-      minmax(4.6rem, 0.7fr)
-      minmax(2.8rem, 0.45fr)
-      minmax(5.2rem, 0.9fr)
-      minmax(4.2rem, 0.55fr)
-      minmax(4.4rem, 0.6fr);
+      minmax(11rem, 1fr)
+      minmax(3.4rem, max-content)
+      minmax(4rem, max-content)
+      minmax(3.4rem, max-content)
+      minmax(4.6rem, max-content)
+      minmax(4.6rem, max-content)
+      minmax(5rem, max-content);
   }
   .head .dom {
     display: block;
@@ -617,23 +608,23 @@
   @container (max-width: 62rem) {
     .row {
       grid-template-columns:
-        minmax(2.4rem, 0.25fr)
+        minmax(2.4rem, max-content)
         1.85rem
-        minmax(8rem, 3.2fr)
-        minmax(3rem, 0.45fr)
-        minmax(4.6rem, 0.7fr)
-        minmax(5.2rem, 0.9fr)
-        minmax(5.6rem, 0.9fr);
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(6.2rem, max-content);
     }
     .row.pred {
       grid-template-columns:
-        minmax(2.4rem, 0.25fr)
+        minmax(2.4rem, max-content)
         1.85rem
-        minmax(8rem, 4.1fr)
-        minmax(3rem, 0.45fr)
-        minmax(4.6rem, 0.7fr)
-        minmax(5.2rem, 0.9fr)
-        minmax(4.2rem, 0.55fr);
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(4.6rem, max-content);
     }
     .c-rating,
     .c-rated {
