@@ -145,43 +145,50 @@
       <Rail bind:scope {where} />
 
       <div class="canvas">
-        <div class="chead">
-          <p class="count">
-            <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
-            <span>{total === 1 ? 'game' : 'games'}</span>
-            <span class="dim">
-              {#if narrowed}
-                of <span class="tnum">{universeTotal?.toLocaleString()}</span>
-              {:else}
-                in {universeLabel}
-              {/if}
-            </span>
-          </p>
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+        <!-- Everything that was here before Analysis existed, sized to fill the canvas
+             exactly as it always did — `height: 100%`, not a flex share, so Analysis
+             (appended after, below) can never shrink it. See `.fixed-area` below. -->
+        <div class="fixed-area">
+          <div class="chead">
+            <p class="count">
+              <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
+              <span>{total === 1 ? 'game' : 'games'}</span>
+              <span class="dim">
+                {#if narrowed}
+                  of <span class="tnum">{universeTotal?.toLocaleString()}</span>
+                {:else}
+                  in {universeLabel}
+                {/if}
+              </span>
+            </p>
+            <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
 
-          <!-- PROTOTYPE — see `view` above. -->
-          <span class="viewtoggle" role="group" aria-label="View">
-            <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
-            <button type="button" class:on={view === 'cards'} onclick={() => (view = 'cards')}>Cards</button>
-          </span>
+            <!-- PROTOTYPE — see `view` above. -->
+            <span class="viewtoggle" role="group" aria-label="View">
+              <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
+              <button type="button" class:on={view === 'cards'} onclick={() => (view = 'cards')}>Cards</button>
+            </span>
+          </div>
+
+          <ShapeStrip {where} {baseWhere} bind:scope />
+          {#if view === 'cards'}
+            <GameCards {where} universe={scope.universe} />
+          {:else}
+            <GameList {where} universe={scope.universe} />
+          {/if}
+
+          <!-- Provenance, not decoration. Every game in this universe was published after
+               the model's training cutoff, so every number in the table is a forecast, not
+               a fit. -->
+          {#if scope.universe === 'upcoming'}
+            <p class="prov">
+              Model forecasts{#if cutoff}, from models fitted through <b>{cutoff}</b>{/if}. Every
+              game here was announced after that, so none were in the training data.
+            </p>
+          {/if}
         </div>
 
-        <ShapeStrip {where} {baseWhere} bind:scope />
-        {#if view === 'cards'}
-          <GameCards {where} universe={scope.universe} />
-        {:else}
-          <GameList {where} universe={scope.universe} />
-        {/if}
         <AnalysisPanel {where} universe={scope.universe} bind:scope />
-
-        <!-- Provenance, not decoration. Every game in this universe was published after the
-             model's training cutoff, so every number in the table is a forecast, not a fit. -->
-        {#if scope.universe === 'upcoming'}
-          <p class="prov">
-            Model forecasts{#if cutoff}, from models fitted through <b>{cutoff}</b>{/if}. Every
-            game here was announced after that, so none were in the training data.
-          </p>
-        {/if}
       </div>
     </div>
   </Container>
@@ -238,10 +245,25 @@
     min-height: 0;
     /* The list's column set responds to the canvas, not the viewport. */
     container-type: inline-size;
-    /* GameList/GameCards manage their own internal scroll and rarely need this — but
-       Analysis's charts don't shrink the way a table's rows do, so on a short viewport this
-       is the fallback that reveals the rest by scrolling instead of clipping it. */
+    /* .fixed-area always claims the canvas's full height (see below); Analysis, appended
+       after it, is what makes the canvas's total content taller than its own box once
+       open — this is what actually reveals it: scroll, not shrink anything above it. */
     overflow-y: auto;
+  }
+  /* Everything that rendered here before Analysis existed (chead, ShapeStrip, the table),
+     now walled off in its own box sized to the FULL canvas height — a real `height: 100%`,
+     not a flex share. That's the whole fix: a flex share is a number renegotiated every time
+     a sibling (Analysis) appears or disappears, which is exactly what was shrinking the table
+     down to fit whenever Analysis opened. A fixed 100% is deaf to Analysis entirely — the
+     table sizes/shrinks-to-fit its rows exactly as it always did, and Analysis's extra height
+     is pure overflow the canvas scrolls to reveal. */
+  .fixed-area {
+    flex: none;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
   }
 
   .chead {

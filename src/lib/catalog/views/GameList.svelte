@@ -390,11 +390,7 @@
   .listwrap {
     display: flex;
     flex-direction: column;
-    /* A floor, not zero: without it, opening the Analysis panel below (a sibling in the same
-       flex column) could shrink this arbitrarily far to make room. Past this height the
-       canvas scrolls instead (see +page.svelte's `.canvas`), so Analysis opening always
-       "expands lower using the screen" rather than crushing the table to fit. */
-    min-height: 18rem;
+    min-height: 0;
     flex: 0 1 auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
