@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.9](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.8...bgg-viewer-v0.0.9) (2026-08-19)
+
+
+### Features
+
+* **game-detail:** real box art and a similarity readout for Similar games ([46a0580](https://github.com/phenrickson/bgg-viewer/commit/46a05804b34d470498a86770b45e44d14778836c))
+* **thumbnails:** add a separate thumbnails artifact, fetched after the primary catalog ([c8911df](https://github.com/phenrickson/bgg-viewer/commit/c8911dff23b37f8a612a31866fa3f7c30c64cfb8))
+* **thumbnails:** real box art via a separate artifact, fetched after the catalog ([51fcad7](https://github.com/phenrickson/bgg-viewer/commit/51fcad78611e0aa0cdffc49e5aedcaf459dbe68c))
+* **thumbnails:** show a quiet "loading art" indicator while thumbnails fetch ([6059f28](https://github.com/phenrickson/bgg-viewer/commit/6059f2812e1a5cfd058e6a1bbffc1305e0b5e8d2))
+
+
+### Bug Fixes
+
+* **landing:** drop the stale static game count from the warming pill ([e305fa7](https://github.com/phenrickson/bgg-viewer/commit/e305fa7cce611a1c1acb445887e592db503e9ecd))
+* **nav:** re-sync scope from the URL on every navigation, not just mount ([1c76424](https://github.com/phenrickson/bgg-viewer/commit/1c76424fcdcb49e61d701414dce0fad24bf3884c))
+* **ui:** landing typo, discover column headers, muted log out ([f07a440](https://github.com/phenrickson/bgg-viewer/commit/f07a4407692b688ba27dee6e783c510a92ca41d0))
+* **ui:** landing typo, Discover column headers, muted log out ([2fb0a66](https://github.com/phenrickson/bgg-viewer/commit/2fb0a665ce24969e9009698981f7bd39d53b0057))
+
 ## [0.0.8](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.7...bgg-viewer-v0.0.8) (2026-08-18)
 
 
