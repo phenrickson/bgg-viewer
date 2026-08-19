@@ -2,8 +2,8 @@
   /**
    * Read-only(-ish) analysis of the CURRENT scope, shown under Explore's List/Visualize
    * toggle — About's weight-vs-rating and rating-vs-popularity clouds, pointed at Explore's
-   * `where` instead of the whole catalog, plus five ranked bar charts (mechanics, families,
-   * publishers, designers, artists).
+   * `where` instead of the whole catalog, plus six ranked bar charts (categories, mechanics,
+   * families, publishers, designers, artists).
    *
    * A SWAP with the table, not a panel appended below it. Appending it as a sibling below
    * GameList inside the same bounded `.canvas` fought GameList for the same box — GameList
@@ -14,7 +14,7 @@
    * exists in the DOM (and only queries) while selected.
    *
    * The bar charts overlap with Rail's facet lists (which answer the same "what's in this
-   * set" question for the same five columns and are already click-to-filter), so clicking a
+   * set" question for the same six columns and are already click-to-filter), so clicking a
    * bar here toggles the same `scope.*` arrays Rail's lists bind to — one selection state, not
    * a second one that could disagree. The reason for a second view of the same data: Rail's
    * lists are collapsed by default and easy to miss, while this sits in the open, ranked, next
@@ -42,10 +42,11 @@
   const upcoming = $derived(universe === 'upcoming');
 
   type Pt = { x: number; y: number; game_id: number };
-  type FacetCol = 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
+  type FacetCol = 'categories' | 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
+  let categories = $state<Facet[]>([]);
   let mechanics = $state<Facet[]>([]);
   let families = $state<Facet[]>([]);
   let publishers = $state<Facet[]>([]);
@@ -62,16 +63,18 @@
     Promise.all([
       query<Pt>(scatterSql(w, undefined, m)),
       query<Pt>(popularitySql(w, undefined, m)),
+      query<Facet>(facetSearchSql(w, 'categories', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'families', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'publishers', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'designers', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'artists', '', TOP_N))
     ])
-      .then(([a, b, c, d, e, f, g]) => {
+      .then(([a, b, cat, c, d, e, f, g]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
+        categories = cat;
         mechanics = c;
         families = d;
         publishers = e;
@@ -192,6 +195,7 @@
       </div>
     {/snippet}
 
+    {@render facetChart('categories', 'categories', categories)}
     {@render facetChart('mechanics', 'mechanics', mechanics)}
     {@render facetChart('families', 'families', families)}
     {@render facetChart('publishers', 'publishers', publishers)}
