@@ -172,7 +172,7 @@
         {:else}
           <GameList {where} universe={scope.universe} />
         {/if}
-        <AnalysisPanel {where} universe={scope.universe} />
+        <AnalysisPanel {where} universe={scope.universe} bind:scope />
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
              model's training cutoff, so every number in the table is a forecast, not a fit. -->

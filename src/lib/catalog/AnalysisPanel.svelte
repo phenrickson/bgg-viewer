@@ -11,10 +11,13 @@
    * box, it grows the canvas past that box and the pane scrolls to reveal it — "expand lower
    * using the screen," not "cover what's already there."
    *
-   * No mechanics-frequency chart here — Rail's Mechanics facet list already answers that
-   * scoped to the current filters (its own doc comment: "there is no longer a separate top
-   * mechanics chart competing with it"), and it's already click-to-filter. Duplicating it here
-   * would just be a second, read-only copy of something that already exists and does more.
+   * Also two ranked bar charts — top mechanics, top families — also scoped to the current
+   * filters. These overlap with Rail's Mechanics/Families facet lists (which answer the same
+   * "what's in this set" question and are already click-to-filter), so clicking a bar here
+   * toggles the same `scope.mechanics`/`scope.families` Rail's lists bind to — one selection
+   * state, not two that could disagree. The reason for a second view of the same data: Rail's
+   * lists are collapsed by default and easy to miss, while this sits in the open, ranked, next
+   * to the charts that already tell the rest of the scope's story.
    *
    * Charts are interactive: hover shows the game (via `nameOf`, the id→name map built for
    * exactly this), click navigates to it — unlike About's clouds, every point here is a real
@@ -25,11 +28,15 @@
    */
   import { goto } from '$app/navigation';
   import { query, nameOf } from '$lib/catalog/catalog.svelte';
-  import { scatterSql, popularitySql, measures } from '$lib/catalog/aggregates';
+  import { scatterSql, popularitySql, facetSearchSql, measures, type Facet } from '$lib/catalog/aggregates';
   import type { Scope } from '$lib/catalog/scope';
   import Scatter from '$lib/charts/Scatter.svelte';
 
-  let { where, universe }: { where: string; universe: Scope['universe'] } = $props();
+  let {
+    where,
+    universe,
+    scope = $bindable()
+  }: { where: string; universe: Scope['universe']; scope: Scope } = $props();
 
   let open = $state(false);
   const upcoming = $derived(universe === 'upcoming');
@@ -38,6 +45,10 @@
 
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
+  let mechanics = $state<Facet[]>([]);
+  let families = $state<Facet[]>([]);
+
+  const TOP_N = 10;
 
   let token = 0;
   $effect(() => {
@@ -45,16 +56,28 @@
     const w = where;
     const m = measures(universe);
     const mine = ++token;
-    Promise.all([query<Pt>(scatterSql(w, undefined, m)), query<Pt>(popularitySql(w, undefined, m))])
-      .then(([a, b]) => {
+    Promise.all([
+      query<Pt>(scatterSql(w, undefined, m)),
+      query<Pt>(popularitySql(w, undefined, m)),
+      query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
+      query<Facet>(facetSearchSql(w, 'families', '', TOP_N))
+    ])
+      .then(([a, b, c, d]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
+        mechanics = c;
+        families = d;
       })
       .catch((e) => console.error('analysis panel query failed', e));
   });
 
   const openGame = (id: number) => goto(`/games/${id}`);
+
+  function toggleFacet(col: 'mechanics' | 'families', value: string) {
+    const current = scope[col];
+    scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+  }
 </script>
 
 <details class="grp" bind:open>
@@ -100,6 +123,32 @@
           onPointClick={openGame}
         />
       </div>
+
+      {#snippet facetChart(title: string, col: 'mechanics' | 'families', rows: Facet[])}
+        <div class="figure">
+          <h3>Top {title} in this scope</h3>
+          <!-- PLACEHOLDER copy -->
+          <p class="note">[Caption — click a bar to filter by it.]</p>
+          {#if rows.length}
+            {@const maxN = rows[0]?.n ?? 1}
+            <ul class="fac">
+              {#each rows as f (f.c)}
+                {@const on = scope[col].includes(f.c)}
+                <li>
+                  <button type="button" class:on onclick={() => toggleFacet(col, f.c)}>
+                    <span class="flbl">{f.c}</span>
+                    <span class="fbar" aria-hidden="true"><i style:width="{(f.n / maxN) * 100}%"></i></span>
+                    <span class="fn tnum">{f.n.toLocaleString()}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/snippet}
+
+      {@render facetChart('mechanics', 'mechanics', mechanics)}
+      {@render facetChart('families', 'families', families)}
     </div>
   {/if}
 </details>
@@ -165,5 +214,66 @@
     margin: 0 0 0.5rem;
     font-size: 0.76rem;
     color: var(--muted-foreground);
+  }
+
+  .fac {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .fac button {
+    display: grid;
+    grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr) 3rem;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    padding: 0.2rem 0.3rem;
+    margin: 0 -0.3rem;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    color: inherit;
+    text-align: left;
+  }
+  .fac button:hover {
+    background: color-mix(in oklch, var(--primary) 8%, transparent);
+  }
+  .fac button.on {
+    background: color-mix(in oklch, var(--primary) 14%, transparent);
+  }
+  .flbl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fac button.on .flbl {
+    font-weight: 650;
+    color: var(--primary);
+  }
+  .fbar {
+    display: block;
+    height: 0.55rem;
+    border-radius: 2px;
+    background: color-mix(in oklch, var(--border) 70%, transparent);
+    overflow: hidden;
+  }
+  .fbar i {
+    display: block;
+    height: 100%;
+    background: var(--chart-4);
+  }
+  .fac button.on .fbar i {
+    background: var(--primary);
+  }
+  .fn {
+    text-align: right;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
   }
 </style>
