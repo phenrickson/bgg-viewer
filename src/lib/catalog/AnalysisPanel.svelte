@@ -66,6 +66,9 @@
   let publishers = $state<Facet[]>([]);
   let designers = $state<Facet[]>([]);
   let artists = $state<Facet[]>([]);
+  /** True until the first query batch resolves — without this, switching to Visualize drew
+      empty axes for a beat before any data arrived, which read as broken rather than loading. */
+  let loading = $state(true);
 
   const TOP_N = 10;
 
@@ -95,8 +98,13 @@
         publishers = e;
         designers = f;
         artists = g;
+        loading = false;
       })
-      .catch((e) => console.error('analysis panel query failed', e));
+      .catch((e) => {
+        if (mine !== token) return;
+        loading = false;
+        console.error('analysis panel query failed', e);
+      });
   });
 
   const openGame = (id: number) => goto(`/games/${id}`);
@@ -164,6 +172,9 @@
 {/snippet}
 
 <div class="wrap">
+  {#if loading}
+    <p class="state">Loading…</p>
+  {:else}
   <div class="body">
     <div class="figure">
       <div class="fhead">
@@ -217,6 +228,7 @@
     {@render facetChart('designers', 'designers', designers)}
     {@render facetChart('artists', 'artists', artists)}
   </div>
+  {/if}
 </div>
 
 <dialog bind:this={dialogEl} class="chartdialog" onclick={backdropClick} onclose={() => (expanded = null)}>
@@ -243,6 +255,12 @@
     border-radius: var(--radius);
     background: var(--card);
     overflow-y: auto;
+  }
+  .state {
+    margin: 0;
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--muted-foreground);
   }
 
   /* Side by side on anything wide enough; stacked on a narrow canvas. */
