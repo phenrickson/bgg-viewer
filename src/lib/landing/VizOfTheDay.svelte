@@ -301,14 +301,21 @@
    * percentages of the tallest total) rather than relying on flex stacking order — flex's
    * `justify-content: end` packs from the LAST DOM child, which would put `viz.series[0]`
    * (meant to anchor the bottom, touching the axis) at the top instead.
+   *
+   * Color follows the app's established convention (`.bar.lit` on the columns chart, etc.):
+   * `--primary` (BGG orange) for the highlighted thing, `--chart-N` (blue first) for the
+   * baseline/universe it's measured against. `series[0]` is always the highlighted segment —
+   * every current `stack` viz is a "has X vs. everything else" split, by construction.
    */
   const stackPlot = $derived.by(() => {
     if (viz.kind !== 'stack') return null;
     const totals = viz.points.map((p) => viz.series.reduce((s, ser) => s + (p[ser.key] ?? 0), 0));
     const maxTotal = Math.max(1, ...totals);
     const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
+    const color = (si: number) => (si === 0 ? 'var(--primary)' : `var(--chart-${((si - 1) % 5) + 1})`);
+    const legend = viz.series.map((s, si) => ({ key: s.key, label: s.label, color: color(si) }));
 
-    // Nice gridlines — same stepping idea used elsewhere.
+    // Nice gridlines — same stepping idea as elsewhere.
     const step = (() => {
       const raw = maxTotal / 4;
       const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
@@ -316,6 +323,17 @@
     })();
     const gridlines: { n: number; pct: number }[] = [];
     for (let n = step; n <= maxTotal; n += step) gridlines.push({ n, pct: (n / maxTotal) * 100 });
+
+    /**
+     * With this many columns (36 years, here) each one is too narrow for horizontal text —
+     * same "is there room" call `columns()`'s own `wide` check makes, by count rather than a
+     * live pixel measurement. Vertical needs LESS width but MORE height than horizontal does,
+     * so the minimum segment height a label needs is different for each orientation — a
+     * rotated "28%" needs room for its own length (~3 characters) running top-to-bottom, not
+     * just one line's worth.
+     */
+    const wide = viz.points.length <= 12;
+    const minPctHeight = wide ? 4 : 7;
 
     const cols = viz.points.map((p, i) => {
       let cum = 0;
@@ -326,20 +344,29 @@
           v,
           h: (v / maxTotal) * 100,
           bottom: (cum / maxTotal) * 100,
-          color: `var(--chart-${(si % 5) + 1})`
+          color: color(si)
         };
         cum += v;
         return seg;
       });
+      const labelled = i % every === 0 || i === viz.points.length - 1;
+      const highlighted = segs[0];
+      const showPct = labelled && cum > 0 && highlighted.h >= minPctHeight;
       return {
         x: p.x,
         total: cum,
         segs,
-        label: i % every === 0 || i === viz.points.length - 1 ? String(p.x) : ''
+        label: labelled ? String(p.x) : '',
+        // Same cadence as the x-axis label — every bar would be too cramped to read.
+        pct: showPct ? `${Math.round((highlighted.v / cum) * 100)}%` : '',
+        // Centered ON the segment (its vertical midpoint), not above it — this is a filled-in
+        // label INSIDE the bar, not a value floating over the boundary between two colors.
+        pctMid: highlighted.bottom + highlighted.h / 2,
+        pctVertical: !wide
       };
     });
 
-    return { gridlines: gridlines.slice(-4), cols };
+    return { gridlines: gridlines.slice(-4), cols, legend };
   });
 </script>
 
@@ -434,13 +461,6 @@
     </div>
   {:else if viz.kind === 'stack' && stackPlot}
     <div class="stackwrap">
-      <div class="legend">
-        {#each viz.series as s, i (s.key)}
-          <span class="legenditem">
-            <i style="background: var(--chart-{(i % 5) + 1})"></i>{s.label}
-          </span>
-        {/each}
-      </div>
       <div class="plot" style="height: {HEIGHT}px">
         {#each stackPlot.gridlines as g (g.n)}
           <div class="grid" style="bottom: {g.pct}%">
@@ -458,11 +478,21 @@
                     style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
                   ></div>
                 {/each}
+                {#if c.pct}
+                  <span class="stackpct" class:vertical={c.pctVertical} style="bottom: {c.pctMid}%">{c.pct}</span>
+                {/if}
               </div>
               <span class="tick">{c.label}</span>
             </div>
           {/each}
         </div>
+      </div>
+
+      <!-- To the side, stacked vertically — not a horizontal row above the plot. -->
+      <div class="legend">
+        {#each stackPlot.legend as s (s.key)}
+          <span class="legenditem"><i style="background: {s.color}"></i>{s.label}</span>
+        {/each}
       </div>
     </div>
   {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
@@ -581,10 +611,14 @@
 
   /* Legend above the plot — a stack's colors aren't self-explanatory the way a single-series
      bar's is, so unlike the other chart kinds this one needs a key. */
-  .legend { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-bottom: var(--space-md); }
+  /* Plot + legend side by side, not legend-above-plot — a vertical key reads more like a
+     fixed reference than a header competing with the title for the eye. */
+  .stackwrap { display: flex; align-items: center; gap: var(--space-lg); }
+  .stackwrap .plot { flex: 1 1 auto; min-width: 0; }
+  .legend { flex: none; display: flex; flex-direction: column; gap: .6rem; }
   .legenditem {
-    display: inline-flex; align-items: center; gap: .4rem;
-    font-size: 0.78rem; color: var(--muted-foreground);
+    display: inline-flex; align-items: center; gap: .45rem;
+    font-size: 0.78rem; color: var(--muted-foreground); white-space: nowrap;
   }
   .legenditem i { width: .65rem; height: .65rem; border-radius: 2px; flex: none; }
 
@@ -593,6 +627,21 @@
   .stackbar { position: relative; width: 100%; height: 100%; }
   .stackseg { position: absolute; left: 0; right: 0; min-height: 1px; }
   .col:hover .stackseg { filter: brightness(1.15); }
+  /* The highlighted segment's own share, filled in rather than left for the reader to
+     estimate from bar height — same cadence as the x-axis label, so both line up. */
+  /* Centered ON the segment via `bottom: {pctMid}%` (the segment's own vertical midpoint) +
+     translateY(50%) — `bottom` positions the element's bottom edge, so shifting down by half
+     its own height puts the CENTER at that midpoint instead. `--primary-foreground` (not a
+     literal white) is the token this app already pairs with `--primary` fills, so contrast
+     holds in both themes rather than assuming --primary is always dark enough for white text. */
+  .stackpct {
+    position: absolute; left: 50%; transform: translate(-50%, 50%);
+    font-size: 0.62rem; font-weight: 700; color: var(--primary-foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none;
+  }
+  /* Rotated to run bottom-to-top: needs the segment's own length (height), not a full line's
+     width, so it fits the narrow columns a many-bucket stack (year-by-year) produces. */
+  .stackpct.vertical { writing-mode: vertical-rl; transform: translate(-50%, 50%) rotate(180deg); }
 
   /* Grid rather than flex: the three columns must align across every row, and a label
      column sized to its longest entry (`max-content`, capped) is what keeps the tracks
