@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T16:47:27.986Z",
+	"builtAt": "2026-08-20T16:53:50.545Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -12857,10 +12857,6 @@
 			"yLabel": "Designer",
 			"bars": [
 				{
-					"label": "(Uncredited)",
-					"value": 1667
-				},
-				{
 					"label": "Reiner Knizia",
 					"value": 441
 				},
@@ -12903,6 +12899,10 @@
 				{
 					"label": "Inka Brand",
 					"value": 98
+				},
+				{
+					"label": "Michael Schacht",
+					"value": 94
 				}
 			]
 		},

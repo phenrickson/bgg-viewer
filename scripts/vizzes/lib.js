@@ -162,9 +162,19 @@ export const bars = (title, note, xLabel, yLabel, rows, style) => ({
 /** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */
 export const pair = (cols, where, n) => Promise.all([q(sample(cols, where, n)), q(notable(cols, where))]);
 
-/** Top N values of a repeated string column — the facets this app exists to query by. */
-export const topOf = (col, n) => `
+/**
+ * Top N values of a repeated string column — the facets this app exists to query by.
+ * `exclude` drops specific placeholder values that aren't real facets — BGG's own
+ * `(Uncredited)` on `designers` is real data, not noise, but it's not a designer either, and
+ * at ~19,000 games it would otherwise crowd out every actual name.
+ */
+export const topOf = (col, n, exclude = []) => {
+	const not = exclude.length
+		? `AND x NOT IN (${exclude.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')})`
+		: '';
+	return `
 	SELECT x AS label, COUNT(*) AS n
 	FROM ${F}, UNNEST(${col}) AS x
-	WHERE ${WORKING} AND x IS NOT NULL AND x != ''
+	WHERE ${WORKING} AND x IS NOT NULL AND x != '' ${not}
 	GROUP BY label ORDER BY n DESC LIMIT ${n}`;
+};

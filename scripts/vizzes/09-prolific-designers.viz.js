@@ -7,5 +7,5 @@ export default {
 	note: 'PLACEHOLDER — credited games per designer across the catalog.',
 	xLabel: 'Games',
 	yLabel: 'Designer',
-	query: topOf('designers', 12)
+	query: topOf('designers', 12, ['(Uncredited)'])
 };
