@@ -160,6 +160,16 @@
    * zero-baseline bar. See the `style` field's doc comment in types.ts for why: a bar's
    * length-from-zero is honest for counts and useless for something like an average rating,
    * where the whole story is a half-point band and every bar would end up nearly full-length.
+   *
+   * Lollipop, not a bare dot: a thin stem back to the track's left edge anchors each dot to
+   * its row so a reader's eye doesn't have to hunt for which label a floating dot belongs to.
+   * The stem carries no numeric claim of its own — the axis is zoomed and its ticks say so —
+   * it is purely a visual tether.
+   *
+   * The dot itself is colored along the same one-hue sequential ramp `Scatter.svelte` uses
+   * for its own value coloring (`seq()` there) — same construction, reused rather than
+   * inventing a second ramp, so "pale/low → dark/saturated/high" means the same thing
+   * anywhere this app colors a value.
    */
   const dotPlot = $derived.by(() => {
     if (viz.kind !== 'bars' || viz.style !== 'dots') return null;
@@ -170,6 +180,10 @@
     const domainLo = lo - pad;
     const domainHi = hi + pad;
     const pct = (v: number) => ((v - domainLo) / (domainHi - domainLo)) * 100;
+    const color = (v: number) => {
+      const u = hi > lo ? Math.max(0, Math.min(1, (v - lo) / (hi - lo))) : 0.5;
+      return `oklch(${0.86 - 0.34 * u} ${0.04 + 0.13 * u} 250)`;
+    };
 
     // Nice x-axis ticks across the zoomed domain — same stepping idea used elsewhere.
     const step = (() => {
@@ -184,7 +198,7 @@
 
     return {
       ticks,
-      rows: viz.bars.map((b) => ({ ...b, pct: pct(b.value) }))
+      rows: viz.bars.map((b) => ({ ...b, pct: pct(b.value), color: color(b.value) }))
     };
   });
 
@@ -345,6 +359,23 @@
     </div>
   {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
     <div class="dotswrap" aria-label="{viz.yLabel} by {viz.xLabel}">
+      <ul class="dots">
+        {#each dotPlot.rows as b (b.label)}
+          <li>
+            <span class="blabel" title={b.label}>{b.label}</span>
+            <span class="dot-track">
+              {#each dotPlot.ticks as t (t.v)}
+                <span class="dotgrid" style="left: {t.pct}%"></span>
+              {/each}
+              <span class="dotstem" style="width: {b.pct}%"></span>
+              <span class="dotmark" style="left: {b.pct}%; background: {b.color}"></span>
+            </span>
+            <span class="bval">{b.value.toLocaleString()}</span>
+          </li>
+        {/each}
+      </ul>
+
+      <!-- Axis last, at the bottom — matching where the columns and line charts put theirs. -->
       <div class="dots-axis">
         <span></span>
         <span class="dot-track">
@@ -355,20 +386,6 @@
         </span>
         <span></span>
       </div>
-      <ul class="dots">
-        {#each dotPlot.rows as b (b.label)}
-          <li>
-            <span class="blabel" title={b.label}>{b.label}</span>
-            <span class="dot-track">
-              {#each dotPlot.ticks as t (t.v)}
-                <span class="dotgrid" style="left: {t.pct}%"></span>
-              {/each}
-              <span class="dotmark" style="left: {b.pct}%"></span>
-            </span>
-            <span class="bval">{b.value.toLocaleString()}</span>
-          </li>
-        {/each}
-      </ul>
     </div>
   {:else if viz.kind === 'bars'}
     <ul class="bars" aria-label="{viz.yLabel} by {viz.xLabel}">
@@ -479,21 +496,28 @@
     display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr auto;
     align-items: center; gap: var(--space-md);
   }
-  .dots-axis { margin-bottom: .5rem; }
+  .dots-axis { margin-top: .3rem; }
   .dot-track { position: relative; height: .8rem; }
   .dotgrid {
     position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-.5px);
     background: color-mix(in oklch, var(--border) 70%, transparent);
   }
   .dottick {
-    position: absolute; top: -.1rem; transform: translateX(-50%);
+    position: absolute; top: .3rem; transform: translateX(-50%);
     font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;
   }
-  .dotmark {
-    position: absolute; top: 50%; width: .6rem; height: .6rem; border-radius: 999px;
-    background: var(--chart-1); transform: translate(-50%, -50%);
+  /* The stem: a plain neutral tether from the track's left edge to the dot, left of `.dotmark`
+     in source order so the dot's own stacking context sits visually on top of it. */
+  .dotstem {
+    position: absolute; left: 0; top: 50%; height: 2px; transform: translateY(-50%);
+    background: color-mix(in oklch, var(--border) 85%, transparent);
   }
-  .dots li:hover .dotmark { background: var(--primary); }
+  /* Color is inline per-row (the value ramp) — only size/shape/position live here. */
+  .dotmark {
+    position: absolute; top: 50%; width: .65rem; height: .65rem; border-radius: 999px;
+    transform: translate(-50%, -50%); box-shadow: 0 0 0 2px var(--card);
+  }
+  .dots li:hover .dotmark { outline: 2px solid var(--primary); outline-offset: 1px; }
 
   /* The plotting box, right of the y-axis gutter `.grid`/`.gval` already reserve — the SVG
      polyline and every label (end-of-line, x-ticks) share this one coordinate box so they
