@@ -167,14 +167,27 @@
     }
 
     // A pinned domain wins outright — it's the whole point of setting one: a stable axis
-    // regardless of what the current (possibly filtered) `points` happen to span.
+    // regardless of what the current (possibly filtered) `points` happen to span. Left exact,
+    // not padded below: a caller who pins a domain usually wants it to match something else
+    // (another chart, a fixed scale), so nudging it would defeat the point.
     if (xDomain) {
       x0 = tx(xDomain[0]);
       x1 = tx(xDomain[1]);
+    } else {
+      // A point sitting exactly at the extreme would otherwise render flush against the
+      // plot's own clip rect (see the clip note below) — half the marker clipped off instead
+      // of a full dot. 4% of the span on each side gives it room to sit inside the axis.
+      const pad = (x1 - x0) * 0.04 || 0.5;
+      x0 -= pad;
+      x1 += pad;
     }
     if (yDomain) {
       y0 = ty(yDomain[0]);
       y1 = ty(yDomain[1]);
+    } else {
+      const pad = (y1 - y0) * 0.04 || 0.5;
+      y0 -= pad;
+      y1 += pad;
     }
 
     return { x0, x1, y0, y1, c0, c1, hasC: c0 <= c1 };

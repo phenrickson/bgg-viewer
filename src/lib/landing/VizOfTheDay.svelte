@@ -30,6 +30,13 @@
     .y0(100)
     .y1((d) => d.y)
     .curve(curveMonotoneX);
+  /** Same idea as `areaPath`, but `y0` is per-point rather than a constant 100 — a ridge
+   *  lane's baseline is wherever ITS OWN slot sits, not the bottom of the whole plot. */
+  const ridgeArea = d3Area<{ x: number; y: number; baseline: number }>()
+    .x((d) => d.x)
+    .y0((d) => d.baseline)
+    .y1((d) => d.y)
+    .curve(curveMonotoneX);
 
   let {
     viz,
@@ -241,8 +248,9 @@
     }
     if (xticks[xticks.length - 1]?.x !== xHi) xticks.push({ x: xHi, pct: leftPct(xHi) });
 
-    // Cycles through the app's 5 categorical tokens — a 6th series would repeat a color,
-    // which every current viz avoids by construction (nothing asks for more than 5 series).
+    // Cycles through the app's 6 categorical tokens — a 7th series would repeat a color,
+    // which every current viz avoids by construction (`checkSeriesCount` in lib.js throws
+    // past 6 series at build time rather than letting it happen silently).
     // Only a single series gets an area fill: overlapping semi-transparent fills from several
     // series would just muddy each other, where one line reads cleanly against its own area.
     const lines = viz.series.map((s, i) => {
@@ -258,7 +266,7 @@
         label: s.label,
         d: linePath(pts) ?? '',
         fillD: viz.series.length === 1 ? (areaPath(pts) ?? '') : null,
-        color: `var(--chart-${(i % 5) + 1})`,
+        color: `var(--chart-${(i % 6) + 1})`,
         endLeft: last?.x ?? 0,
         endTop: last?.y ?? 0
       };
@@ -358,6 +366,105 @@
 
     return { gridlines, cols, legend };
   });
+
+  /**
+   * A dot (median) plus a whisker (25th-75th percentile) per discrete category. Domain is
+   * padded on both ends like `Scatter`'s, rather than zero-anchored like `columns` — a rating
+   * axis running 5-8 would otherwise spend most of its height as dead space below the data.
+   */
+  const rangePlot = $derived.by(() => {
+    if (viz.kind !== 'range') return null;
+    const lo = Math.min(...viz.points.map((p) => p.low));
+    const hi = Math.max(...viz.points.map((p) => p.high));
+    const pad = (hi - lo) * 0.08 || 0.5;
+    const domainLo = lo - pad;
+    const domainHi = hi + pad;
+    const pct = (v: number) => ((v - domainLo) / (domainHi - domainLo)) * 100;
+
+    // Nice y gridlines — same stepping idea as everywhere else in this file.
+    const step = (() => {
+      const raw = (domainHi - domainLo) / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
+    })();
+    const gridlines: { v: number; pct: number }[] = [];
+    for (let v = Math.ceil(domainLo / step) * step; v <= domainHi; v += step) {
+      gridlines.push({ v: Math.round(v / step) * step, pct: pct(v) });
+    }
+
+    const dp = viz.precision ?? 1;
+    const cols = viz.points.map((p) => ({
+      x: p.x,
+      lowPct: pct(p.low),
+      highPct: pct(p.high),
+      midPct: pct(p.mid),
+      mid: p.mid.toFixed(dp)
+    }));
+
+    return { gridlines, cols };
+  });
+
+  /**
+   * Overlapping density lanes, one per group in `viz.lanes`' own order — top to bottom, which
+   * is ALSO paint order: earlier lanes are drawn first (further back), later ones drawn on top
+   * of them (nearer), so the bottom-most lane's peaks are never hidden behind the ones above
+   * it. That's the classic ridgeline/joyplot look.
+   *
+   * All lanes share one `viewBox="0 0 100 100"` SVG, `preserveAspectRatio="none"` — same
+   * technique as the line chart's: curve geometry tolerates the non-uniform x/y stretch a
+   * fluid-width section needs, but lane LABELS live outside the SVG as plain HTML (stretched
+   * text would visibly squash the glyphs).
+   */
+  const ridgePlot = $derived.by(() => {
+    if (viz.kind !== 'ridge') return null;
+    const n = viz.lanes.length;
+    const laneH = 100 / n;
+    const globalMax = Math.max(1e-9, ...viz.lanes.flatMap((l) => l.density));
+    // How far above its own baseline a lane's peak may rise, in multiples of one lane's own
+    // slot height — >1 is what produces the overlap a ridgeline is named for.
+    const RISE = 1.7;
+
+    const xLo = viz.buckets[0];
+    const xHi = viz.buckets[viz.buckets.length - 1];
+    const leftPct = (x: number) => (xHi === xLo ? 0 : ((x - xLo) / (xHi - xLo)) * 100);
+
+    const lanes = viz.lanes.map((lane, i) => {
+      const baseline = (i + 1) * laneH;
+      const pts = viz.buckets.map((x, bi) => ({
+        x: leftPct(x),
+        y: baseline - (lane.density[bi] / globalMax) * RISE * laneH,
+        baseline
+      }));
+      return {
+        label: lane.label,
+        baseline,
+        areaD: ridgeArea(pts) ?? '',
+        lineD: linePath(pts) ?? ''
+      };
+    });
+
+    // Shared x-axis ticks — same "nice step" idea as everywhere else in this file.
+    const step = (() => {
+      const raw = (xHi - xLo) / 6;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
+    })();
+    const dp = viz.precision ?? 1;
+    const xticks: { v: string; pct: number }[] = [];
+    for (let v = Math.ceil(xLo / step) * step; v <= xHi; v += step) {
+      xticks.push({ v: v.toFixed(dp), pct: leftPct(v) });
+    }
+    if (!xticks.length || xticks[xticks.length - 1].pct < 99) {
+      xticks.push({ v: xHi.toFixed(dp), pct: leftPct(xHi) });
+    }
+
+    // Gutter reserved for lane labels, sized to the longest one — same technique as the line
+    // chart's `gutterRem`.
+    const longest = Math.max(0, ...viz.lanes.map((l) => l.label.length));
+    const gutterRem = Math.min(12, Math.max(5, longest * 0.5 + 0.6));
+
+    return { lanes, xticks, gutterRem, height: Math.max(320, n * 46) };
+  });
 </script>
 
 <section class="sec" use:reveal aria-label={viz.title}>
@@ -420,7 +527,7 @@
     <div class="plot lineplot" style="height: {HEIGHT}px">
       {#each linePlot.gridlines as g (g.v)}
         <div class="grid" style="bottom: {g.pct}%">
-          <span class="gval">{g.v.toLocaleString()}</span>
+          <span class="gval">{g.v.toLocaleString()}{viz.yPercent ? '%' : ''}</span>
         </div>
       {/each}
 
@@ -497,6 +604,48 @@
       {#if viz.callout}
         <p class="callout"><span class="mark" aria-hidden="true"></span>{viz.callout.text}</p>
       {/if}
+    </div>
+  {:else if viz.kind === 'range' && rangePlot}
+    <div class="plot" style="height: {HEIGHT}px">
+      {#each rangePlot.gridlines as g (g.v)}
+        <div class="grid" style="bottom: {g.pct}%">
+          <span class="gval">{g.v.toFixed(viz.precision ?? 1)}</span>
+        </div>
+      {/each}
+
+      <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
+        {#each rangePlot.cols as c (c.x)}
+          <div class="col">
+            <div class="rangebar">
+              <div class="rangewhisker" style="bottom: {c.lowPct}%; height: {c.highPct - c.lowPct}%"></div>
+              <span class="rangeval" style="bottom: {c.midPct}%">{c.mid}</span>
+              <div class="rangedot" style="bottom: {c.midPct}%"></div>
+            </div>
+            <span class="tick">{c.x}</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {:else if viz.kind === 'ridge' && ridgePlot}
+    <div class="ridgewrap" style="height: {ridgePlot.height}px">
+      <div class="ridgelabels" style="width: {ridgePlot.gutterRem}rem" aria-hidden="true">
+        {#each ridgePlot.lanes as lane (lane.label)}
+          <span class="ridgelabel" style="top: {lane.baseline}%">{lane.label}</span>
+        {/each}
+      </div>
+
+      <div class="ridgearea-wrap" style="left: {ridgePlot.gutterRem}rem" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="ridgesvg" aria-hidden="true">
+          {#each ridgePlot.lanes as lane (lane.label)}
+            <path d={lane.areaD} class="ridgearea" />
+            <path d={lane.lineD} class="ridgeline" />
+          {/each}
+        </svg>
+
+        {#each ridgePlot.xticks as t (t.v)}
+          <span class="ridgetick" style="left: {t.pct}%">{t.v}</span>
+        {/each}
+      </div>
     </div>
   {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
     <div class="dotswrap" aria-label="{viz.yLabel} by {viz.xLabel}">
@@ -737,6 +886,59 @@
   /* Positioned like `.tick` reads (small, muted, below the plot) but by percentage rather
      than as a flex child, since a line chart has no per-column slot to sit under. */
   .linetick {
+    position: absolute; bottom: -1.3rem; transform: translateX(-50%);
+    font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;
+  }
+
+  /* Whisker + dot live in their own full-height box within the column — same reasoning as
+     `.stackbar`: percentages on the children (`bottom`/`height`) need a box whose own height
+     IS the plot's, not the column's post-flex-layout content height. */
+  .rangebar { position: relative; width: 100%; height: 100%; }
+  .rangewhisker {
+    position: absolute; left: 50%; width: 2px; transform: translateX(-50%);
+    background: var(--chart-1); border-radius: 1px;
+  }
+  /* T-caps at each end — a bare vertical line reads as "this bar is thin," not "this band has
+     defined edges at these two values." */
+  .rangewhisker::before,
+  .rangewhisker::after {
+    content: ''; position: absolute; left: 50%; width: .6rem; height: 2px;
+    background: var(--chart-1); transform: translateX(-50%);
+  }
+  .rangewhisker::before { top: 0; }
+  .rangewhisker::after { bottom: 0; }
+  .rangedot {
+    position: absolute; left: 50%; width: .55rem; height: .55rem; border-radius: 999px;
+    background: var(--primary); transform: translate(-50%, 50%);
+    box-shadow: 0 0 0 2px var(--card);
+  }
+  /* The median value, above the dot — the whisker's own ends aren't labelled (that's what the
+     y-axis gridlines are for), but the number the dot marks is worth stating outright. */
+  .rangeval {
+    position: absolute; left: 50%; transform: translate(-50%, calc(-100% - .4rem));
+    font-size: 0.65rem; font-weight: 600; color: var(--foreground);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+
+  /* No `.plot`/`.grid`/`.gval` y-axis here — a ridgeline's y-axis is "density," which has no
+     meaningful absolute number to show (only relative height, lane to lane, means anything).
+     `.ridgewrap` needs its own `position: relative` since `.ridgelabels`/`.ridgearea-wrap`
+     both anchor to it, not to the shared `.plot` box every other kind uses. */
+  .ridgewrap { position: relative; }
+  .ridgelabels { position: absolute; left: 0; top: 0; bottom: 0; }
+  .ridgelabel {
+    position: absolute; left: 0; right: .6rem; transform: translateY(-50%);
+    font-size: 0.72rem; color: var(--muted-foreground); text-align: right;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ridgearea-wrap { position: absolute; top: 0; bottom: 0; right: 0; }
+  .ridgesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  /* Semi-transparent fill, drawn back-to-front (`viz.lanes`' own order — see the `ridgePlot`
+     derivation) so a nearer lane's peak visibly sits IN FRONT of the ones behind it, the
+     classic ridgeline look, rather than everything just piling into one indistinct mass. */
+  .ridgearea { fill: color-mix(in oklch, var(--chart-1) 30%, transparent); stroke: none; }
+  .ridgeline { fill: none; stroke: var(--chart-1); stroke-width: 1.3; stroke-linejoin: round; }
+  .ridgetick {
     position: absolute; bottom: -1.3rem; transform: translateX(-50%);
     font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;
   }

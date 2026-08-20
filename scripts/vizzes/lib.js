@@ -107,6 +107,10 @@ export const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision 
 	const bins = rows.map((r) => [Number(r.v), Number(r.n)]);
 	const total = bins.reduce((s, [, n]) => s + n, 0);
 	const peak = bins.reduce((a, b) => (b[1] > a[1] ? b : a), bins[0]);
+	// Weighted mean of the bucket midpoints — `v` IS the bucket center (the query rounds to
+	// it), so this is the true mean to within half a bucket width. Cheaper than a second query
+	// for callers whose claim is about the average rather than the peak bucket.
+	const mean = total > 0 ? bins.reduce((s, [v, n]) => s + v * n, 0) / total : 0;
 	return {
 		kind: 'columns',
 		title,
@@ -117,7 +121,7 @@ export const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision 
 		tickEvery,
 		precision,
 		callout: say
-			? { text: say(peak[0], peak[1], Math.round((peak[1] / total) * 100), total), at: peak[0] }
+			? { text: say(peak[0], peak[1], Math.round((peak[1] / total) * 100), total, mean), at: peak[0] }
 			: undefined
 	};
 };
@@ -144,20 +148,20 @@ const pivot = (rows) => {
 	};
 };
 
-// VizOfTheDay cycles 5 categorical colors; a 6th series would collide with the 1st and render
+// VizOfTheDay cycles 6 categorical colors; a 7th series would collide with the 1st and render
 // indistinguishable from it instead of failing anything — this makes that loud, for both kinds
 // that can have multiple series.
 const checkSeriesCount = (kind, title, series) => {
-	if (series.length > 5) {
-		throw new Error(`${title}: ${kind} viz has ${series.length} series, but only 5 colors exist`);
+	if (series.length > 6) {
+		throw new Error(`${title}: ${kind} viz has ${series.length} series, but only 6 colors exist`);
 	}
 };
 
 /** A trend chart — one or more series sharing one x-axis, drawn as connected lines. */
-export const line = (title, note, xLabel, yLabel, rows) => {
+export const line = (title, note, xLabel, yLabel, rows, opts = {}) => {
 	const { series, points } = pivot(rows);
 	checkSeriesCount('line', title, series);
-	return { kind: 'line', title, note, xLabel, yLabel, series, points };
+	return { kind: 'line', title, note, xLabel, yLabel, series, points, ...opts };
 };
 
 /**
@@ -198,6 +202,70 @@ export const bars = (title, note, xLabel, yLabel, rows, style) => ({
 	bars: rows.map((r) => ({ label: r.label, value: Number(r.n) })),
 	...(style ? { style } : {})
 });
+
+/**
+ * A median + 50% band (25th-75th percentile) per discrete category — `rows` are expected to
+ * already carry `x`/`low`/`mid`/`high` columns (BigQuery's `APPROX_QUANTILES` does the actual
+ * statistics; this just rounds and repackages).
+ */
+export const range = (title, note, xLabel, yLabel, rows, precision = 1) => ({
+	kind: 'range',
+	title,
+	note,
+	xLabel,
+	yLabel,
+	precision,
+	points: rows.map((r) => ({
+		x: Number(r.x),
+		low: Number(Number(r.low).toFixed(precision)),
+		mid: Number(Number(r.mid).toFixed(precision)),
+		high: Number(Number(r.high).toFixed(precision))
+	}))
+});
+
+/**
+ * Overlapping distribution curves ("ridgeline"/joyplot), one lane per group in `order`. `rows`
+ * are sparse `{label, bucket, n}` triples — not every group has games in every bucket — so
+ * this reconstructs ONE shared bucket grid across every group (lanes overlay on one x-axis
+ * without per-lane interpolation in the renderer), zero-filling wherever a group has none, and
+ * normalizes each lane's counts to a share of ITS OWN total: comparing distribution SHAPE, not
+ * volume, is the point of a ridge chart, so a group with far more games can't just visually
+ * dwarf a smaller one regardless of what their shapes actually look like.
+ *
+ * `bucketWidth` must match whatever rounding the query used to produce `bucket` (every current
+ * ridge query rounds `average_rating` to the nearest eighth, i.e. 0.125).
+ */
+export const ridge = (title, note, xLabel, yLabel, rows, order, bucketWidth = 0.125, precision = 1) => {
+	// Keyed by an integer tick index, not the raw float bucket value — floating-point
+	// arithmetic on eighth-point increments can disagree with BigQuery's own ROUND() by a
+	// last-bit epsilon, which would silently drop buckets on a raw-float Map lookup.
+	const tick = (v) => Math.round(v / bucketWidth);
+
+	let loTick = Infinity;
+	let hiTick = -Infinity;
+	const byLabel = new Map();
+	for (const r of rows) {
+		const t = tick(Number(r.bucket));
+		if (t < loTick) loTick = t;
+		if (t > hiTick) hiTick = t;
+		const label = String(r.label);
+		if (!byLabel.has(label)) byLabel.set(label, new Map());
+		byLabel.get(label).set(t, Number(r.n));
+	}
+
+	const ticks = [];
+	for (let t = loTick; t <= hiTick; t++) ticks.push(t);
+	const buckets = ticks.map((t) => Number((t * bucketWidth).toFixed(3)));
+
+	const lanes = order.map((label) => {
+		const counts = byLabel.get(label) ?? new Map();
+		const total = [...counts.values()].reduce((s, n) => s + n, 0);
+		const density = ticks.map((t) => (total > 0 ? (counts.get(t) ?? 0) / total : 0));
+		return { label, n: total, density };
+	});
+
+	return { kind: 'ridge', title, note, xLabel, yLabel, precision, buckets, lanes };
+};
 
 /** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */
 export const pair = (cols, where, n) => Promise.all([q(sample(cols, where, n)), q(notable(cols, where))]);

@@ -3,7 +3,7 @@ import { F, WORKING } from './lib.js';
 export default {
 	id: 'weight-distribution',
 	kind: 'columns',
-	title: 'How complex are games on BoardGameGeek?',
+	title: 'The spread of game complexity',
 	note: 'Distribution of complexity ratings for games on BGG',
 	xLabel: 'Complexity',
 	yLabel: 'Games',
@@ -17,6 +17,4 @@ export default {
 	   GROUP BY v ORDER BY v`,
 	tickEvery: 4,
 	precision: 2,
-	calloutTemplate: (v, n, pct) =>
-		`PLACEHOLDER — ${v.toFixed(2)} is the most common weight, ${pct}% of games with a settled complexity score.`
 };

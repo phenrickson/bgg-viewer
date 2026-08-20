@@ -3,14 +3,14 @@ import { F, WORKING } from './lib.js';
 export default {
 	id: 'rating-distribution',
 	kind: 'columns',
-	title: 'How Users Rate Games on BoardGameGeek',
-	note: 'PLACEHOLDER — average rating, in half-point buckets.',
+	title: 'The spread of average ratings',
+	note: 'How users rate games on BoardGameGeek',
 	xLabel: 'Average rating',
 	yLabel: 'Games',
-	query: `SELECT ROUND(average_rating*2)/2 AS v, COUNT(*) AS n FROM ${F}
+	query: `SELECT ROUND(average_rating*8)/8 AS v, COUNT(*) AS n FROM ${F}
 	   WHERE ${WORKING} AND average_rating > 0 GROUP BY v ORDER BY v`,
 	tickEvery: 4,
 	precision: 1,
-	calloutTemplate: (v, n, pct) =>
-		`PLACEHOLDER — the catalog piles up around ${v.toFixed(1)}: ${pct}% of games sit in this one half-point bucket.`
+	calloutTemplate: (v, n, pct, total, mean) =>
+		`The average rating for a game is ${mean.toFixed(2)} out of 10.`
 };

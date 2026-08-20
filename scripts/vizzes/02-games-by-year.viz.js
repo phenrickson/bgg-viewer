@@ -13,5 +13,5 @@ export default {
 	tickEvery: 5,
 	precision: 0,
 	calloutTemplate: (v, n) =>
-		`${v} was the biggest year on record, with ${n.toLocaleString()} releases rated by BGG.`
+		`${v} was the biggest year on record, with ${n.toLocaleString()} releases.`
 };

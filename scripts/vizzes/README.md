@@ -86,10 +86,14 @@ into the thousands of points. The only thing that actually grows is
   series/x-point. For a single-series chart, alias a literal string as
   `series` (`SELECT 'Solo / Solitaire Game' AS series, ...`); for multiple
   series, select the grouping column as `series` and the builder pivots the
-  rows for you (see `03-mechanics-over-time.viz.js`).
-- Capped at 5 series in practice — `VizOfTheDay` cycles through the app's 5
-  categorical `--chart-N` tokens and repeats past that, so a 6th series
-  would share a color with the 1st.
+  rows for you (see `16-mechanics-over-time.viz.js`).
+- `opts` (optional) — e.g. `{ yPercent: true }` to append `%` to the y-axis
+  gridline labels, for a chart whose `y` is already a 0-100 share rather
+  than a raw count.
+- Capped at 6 series in practice — `VizOfTheDay` cycles through the app's 6
+  categorical `--chart-N` tokens and repeats past that, so a 7th series
+  would share a color with the 1st. `checkSeriesCount` in `lib.js` throws at
+  build time rather than letting this happen silently.
 - Prefer a **share** (percent of that x's total), not a raw count, whenever
   the underlying total itself is changing over the period — otherwise "this
   grew" and "everything grew" are indistinguishable in the chart.
@@ -97,7 +101,7 @@ into the thousands of points. The only thing that actually grows is
 **`stack`** — 100%-stacked vertical bars over a continuous axis (typically
 year), one bar per x-point normalized to its own total. Same `query` shape
 as `line` (`series`, `x`, `y` — one row per series/x-point, pivoted the same
-way), same 5-series cap.
+way), same 6-series cap.
 
 - `tickEvery` (optional) — label every Nth bucket by index, same as
   `columns`. Defaults to roughly 8 labels spread across the range if unset.
@@ -115,15 +119,76 @@ way), same 5-series cap.
   `14-solo-games-over-time.viz.js`) since sub-query execution order isn't
   guaranteed otherwise.
 
+**`range`** — a median dot plus a 25th-75th percentile whisker, one per
+discrete category (e.g. player count). For a metric where the SPREAD within
+each category matters, not just its center — but the categories themselves
+are discrete, not points on a continuum, so `line`/`stack` (which imply
+something meaningful *between* two x values) would be the wrong shape.
+
+- `query` — full SQL returning `x`, `low`, `mid`, `high` columns, one row
+  per category. `low`/`mid`/`high` are typically
+  `APPROX_QUANTILES(metric, 4)[OFFSET(1|2|3)]` — see
+  `17-rating-by-player-count.viz.js`.
+- `precision` (optional) — decimal places for the y-axis gridlines and the
+  value label above each dot. Defaults to `1`.
+- This is a spread of the actual data (an interquartile range), not a
+  statistical confidence interval on the mean — with a few thousand rows
+  per category a true CI would be too narrow to read. Say so in the note if
+  it isn't obvious from context.
+- Reach for `geek_rating` and check the result before committing to it: it's
+  Bayesian-shrunk toward BGG's floor (~5.5) for anything short on votes,
+  and the *working set* alone is thin enough (`users_rated >= 30` still
+  leaves ~44% of it under 100 votes) that every category can end up
+  clustered at that floor regardless of what the category actually is —
+  the same trap `10-weight-distribution.viz.js`'s `num_weights >= 5` filter
+  exists to dodge, just for rating instead of weight. `average_rating` has
+  no such shrinkage and is usually the more honest choice here.
+
+**`ridge`** — overlapping distribution curves ("ridgeline"/joyplot), one
+lane per named group, for comparing the SHAPE of a metric's distribution
+across several groups at once. A `columns` histogram shows one group's
+shape at a time; a `bars`/`dots` chart shows one number per group; `ridge`
+is for when you want both the shape AND the side-by-side comparison.
+
+- `query` — full SQL returning `label`, `bucket`, `n` columns (`bucket` is
+  typically `ROUND(metric*8)/8`, an eighth-point histogram bucket — see
+  `18-rating-by-publisher.viz.js`). One row per (group, bucket) pair;
+  sparse is fine, a group with no games in a bucket just doesn't get a row.
+- `order` — required. An array of the `label` values, in the exact
+  top-to-bottom lane order you want drawn. Also the PAINT order: earlier
+  entries are drawn first (further back), later ones on top (nearer) — the
+  bottom lane's peaks are never hidden behind the ones above it. Not
+  derived from the query, because "which order do these belong in" is
+  usually an editorial call (rank by some value, alphabetical, whatever
+  tells the right story), not something to infer from row order.
+- `bucketWidth` (optional) — must match whatever rounding the query's
+  `bucket` used. Defaults to `0.125` (the eighth-point convention above).
+- `precision` (optional) — decimal places for the shared x-axis tick
+  labels. Defaults to `1`.
+- Each lane is normalized to ITS OWN total (a density, not a raw count) —
+  a group with far more games would otherwise visually dwarf a smaller
+  group's curve regardless of what their shapes actually look like, which
+  defeats the point of comparing shapes rather than volumes.
+- The curve is a smoothed histogram (same `curveMonotoneX` the `line` chart
+  uses), not a true kernel density estimate — a reasonable approximation
+  at these bucket widths and group sizes, but don't oversell it as more
+  statistically rigorous than it is.
+- Group selection is usually its own judgment call, same as `order` above —
+  see `18-rating-by-publisher.viz.js`'s comment for why an explicit
+  allowlist beat a top-N-by-volume query there (the top of the catalog by
+  raw publisher volume is almost entirely regional reprint/localization
+  houses, not the well-known original-content publishers a reader would
+  actually recognize).
+
 ## Shared helpers (`lib.js`)
 
 `F` (the games table, fully qualified), `WORKING` (the working-set filter),
 `q()` (run arbitrary SQL), `pair()` (the scatter sample + its notable-games
 query, run together), `topOf()` (top-N of a repeated column), and the
-`scatter()`/`columns()`/`bars()`/`line()`/`stack()` builders that turn query rows into
-the `Viz` shape `build-landing-content.js` writes to `content.json`. You
-shouldn't need to touch any of this to add a viz — it's what the fields
-above drive.
+`scatter()`/`columns()`/`bars()`/`line()`/`stack()`/`range()`/`ridge()`
+builders that turn query rows into the `Viz` shape `build-landing-content.js`
+writes to `content.json`. You shouldn't need to touch any of this to add a
+viz — it's what the fields above drive.
 
 ## Removing a viz
 

@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T20:04:34.347Z",
+	"builtAt": "2026-08-20T21:18:51.837Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -4278,7 +4278,7 @@
 			"tickEvery": 5,
 			"precision": 0,
 			"callout": {
-				"text": "2019 was the biggest year on record, with 1,657 releases rated by BGG.",
+				"text": "2019 was the biggest year on record, with 1,657 releases.",
 				"at": 2019
 			}
 		},
@@ -8498,8 +8498,8 @@
 		},
 		{
 			"kind": "columns",
-			"title": "How player counts shake out",
-			"note": "PLACEHOLDER — the count each game is *best* at. This is the question BGG cannot answer.",
+			"title": "What player counts games are best at",
+			"note": "How many games are best at different player counts.",
 			"xLabel": "Players",
 			"yLabel": "Games",
 			"bins": [
@@ -8539,14 +8539,14 @@
 			"tickEvery": 1,
 			"precision": 0,
 			"callout": {
-				"text": "PLACEHOLDER — 4 players is the most common sweet spot: 4,685 games are best at it, more than any other count.",
+				"text": "4 players is the most common sweet spot: 4,685 games are best at this player count, more than any other.",
 				"at": 4
 			}
 		},
 		{
 			"kind": "bars",
 			"title": "The most common categories",
-			"note": "PLACEHOLDER — how often each category appears across the catalog.",
+			"note": "The most popular categories on BoardGameGeek",
 			"xLabel": "Games",
 			"yLabel": "Category",
 			"bars": [
@@ -8602,92 +8602,296 @@
 		},
 		{
 			"kind": "columns",
-			"title": "How Users Rate Games on BoardGameGeek",
-			"note": "PLACEHOLDER — average rating, in half-point buckets.",
+			"title": "The spread of average ratings",
+			"note": "How users rate games on BoardGameGeek",
 			"xLabel": "Average rating",
 			"yLabel": "Games",
 			"bins": [
 				[
-					1,
+					1.125,
 					1
 				],
 				[
+					1.25,
+					2
+				],
+				[
+					1.375,
+					2
+				],
+				[
 					1.5,
-					7
+					1
+				],
+				[
+					1.625,
+					1
+				],
+				[
+					1.75,
+					2
+				],
+				[
+					1.875,
+					2
 				],
 				[
 					2,
-					6
+					1
+				],
+				[
+					2.125,
+					1
+				],
+				[
+					2.25,
+					2
+				],
+				[
+					2.375,
+					2
 				],
 				[
 					2.5,
+					5
+				],
+				[
+					2.625,
+					3
+				],
+				[
+					2.75,
+					5
+				],
+				[
+					2.875,
 					11
 				],
 				[
 					3,
-					42
+					8
+				],
+				[
+					3.125,
+					10
+				],
+				[
+					3.25,
+					15
+				],
+				[
+					3.375,
+					24
 				],
 				[
 					3.5,
-					109
+					23
+				],
+				[
+					3.625,
+					30
+				],
+				[
+					3.75,
+					47
+				],
+				[
+					3.875,
+					48
 				],
 				[
 					4,
-					262
+					57
+				],
+				[
+					4.125,
+					83
+				],
+				[
+					4.25,
+					104
+				],
+				[
+					4.375,
+					133
 				],
 				[
 					4.5,
-					715
+					186
+				],
+				[
+					4.625,
+					219
+				],
+				[
+					4.75,
+					257
+				],
+				[
+					4.875,
+					280
 				],
 				[
 					5,
-					1456
+					338
+				],
+				[
+					5.125,
+					450
+				],
+				[
+					5.25,
+					555
+				],
+				[
+					5.375,
+					708
 				],
 				[
 					5.5,
-					3286
+					829
+				],
+				[
+					5.625,
+					917
+				],
+				[
+					5.75,
+					1114
+				],
+				[
+					5.875,
+					1154
 				],
 				[
 					6,
-					5323
+					1320
+				],
+				[
+					6.125,
+					1496
+				],
+				[
+					6.25,
+					1619
+				],
+				[
+					6.375,
+					1705
 				],
 				[
 					6.5,
-					6977
+					1828
+				],
+				[
+					6.625,
+					1764
+				],
+				[
+					6.75,
+					1645
+				],
+				[
+					6.875,
+					1615
 				],
 				[
 					7,
-					6139
+					1582
+				],
+				[
+					7.125,
+					1476
+				],
+				[
+					7.25,
+					1260
+				],
+				[
+					7.375,
+					1157
 				],
 				[
 					7.5,
-					3931
+					1005
+				],
+				[
+					7.625,
+					824
+				],
+				[
+					7.75,
+					665
+				],
+				[
+					7.875,
+					550
 				],
 				[
 					8,
-					1822
+					431
+				],
+				[
+					8.125,
+					360
+				],
+				[
+					8.25,
+					287
+				],
+				[
+					8.375,
+					201
 				],
 				[
 					8.5,
-					649
+					164
+				],
+				[
+					8.625,
+					109
+				],
+				[
+					8.75,
+					83
+				],
+				[
+					8.875,
+					40
 				],
 				[
 					9,
-					142
+					35
+				],
+				[
+					9.125,
+					22
+				],
+				[
+					9.25,
+					7
+				],
+				[
+					9.375,
+					6
 				],
 				[
 					9.5,
-					14
+					4
 				],
 				[
-					10,
+					9.625,
+					2
+				],
+				[
+					9.875,
 					2
 				]
 			],
 			"tickEvery": 4,
 			"precision": 1,
 			"callout": {
-				"text": "PLACEHOLDER — the catalog piles up around 6.5: 23% of games sit in this one half-point bucket.",
+				"text": "The average rating for a game is 6.52 out of 10.",
 				"at": 6.5
 			}
 		},
@@ -12852,7 +13056,7 @@
 		{
 			"kind": "bars",
 			"title": "The most prolific designers",
-			"note": "PLACEHOLDER — credited games per designer across the catalog.",
+			"note": "Designers with the most credited games on BoardGameGeek.",
 			"xLabel": "Games",
 			"yLabel": "Designer",
 			"bars": [
@@ -12908,7 +13112,7 @@
 		},
 		{
 			"kind": "columns",
-			"title": "How complex are games on BoardGameGeek?",
+			"title": "The spread of game complexity",
 			"note": "Distribution of complexity ratings for games on BGG",
 			"xLabel": "Complexity",
 			"yLabel": "Games",
@@ -13043,16 +13247,12 @@
 				]
 			],
 			"tickEvery": 4,
-			"precision": 2,
-			"callout": {
-				"text": "PLACEHOLDER — 1.13 is the most common weight, 7% of games with a settled complexity score.",
-				"at": 1.125
-			}
+			"precision": 2
 		},
 		{
 			"kind": "scatter",
-			"title": "Playing time (logged) against complexity",
-			"note": "PLACEHOLDER — stated playing time against community weight, over a sample stratified across ratings.",
+			"title": "Playing time vs complexity",
+			"note": "Unsurprisingly, games with longer playing times tend to be more complex.",
 			"xLabel": "Minutes",
 			"yLabel": "Complexity",
 			"points": [
@@ -17097,7 +17297,7 @@
 		{
 			"kind": "bars",
 			"title": "Which mechanics rate best?",
-			"note": "PLACEHOLDER — average geek rating by mechanic, best and worst 6, among mechanics used in at least 500 rated games.",
+			"note": "Average geek rating by mechanic, best and worst 6, for popular game mechanics",
 			"xLabel": "Average geek rating",
 			"yLabel": "Mechanic",
 			"bars": [
@@ -17155,7 +17355,7 @@
 		{
 			"kind": "bars",
 			"title": "The highest-rated designers",
-			"note": "PLACEHOLDER — average geek rating by designer, among designers credited on at least 5 rated games.",
+			"note": "Average geek rating by designer, among designers credited on at least 5 games.",
 			"xLabel": "Average geek rating",
 			"yLabel": "Designer",
 			"bars": [
@@ -17213,7 +17413,7 @@
 		{
 			"kind": "stack",
 			"title": "The rise of solo games",
-			"note": "PLACEHOLDER — rated releases each year, split by whether they have a Solo / Solitaire Game mechanic.",
+			"note": "Solo/Solitaire mechanics jumped during the pandemic and have been popular ever since",
 			"xLabel": "Year",
 			"yLabel": "Games",
 			"series": [
@@ -17410,13 +17610,13 @@
 			],
 			"tickEvery": 5,
 			"callout": {
-				"text": "PLACEHOLDER — 25% of 2025's rated releases (324 games) had a Solo / Solitaire Game mechanic."
+				"text": "25% of 2025's releases (324 games) had a Solo / Solitaire Game mechanic."
 			}
 		},
 		{
 			"kind": "stack",
 			"title": "The rise of Kickstarter",
-			"note": "PLACEHOLDER — rated releases each year, split by whether they were tagged Crowdfunding: Kickstarter.",
+			"note": "Kickstarter releases jumped in popularity shortly after 2010 and have remained popular ever since.",
 			"xLabel": "Year",
 			"yLabel": "Games",
 			"series": [
@@ -17613,13 +17813,13 @@
 			],
 			"tickEvery": 5,
 			"callout": {
-				"text": "PLACEHOLDER — 28% of 2025's rated releases (369 games) were tagged Crowdfunding: Kickstarter."
+				"text": "28% of 2025's releases (369 games) were tagged Crowdfunding: Kickstarter."
 			}
 		},
 		{
 			"kind": "line",
 			"title": "How mechanics have risen and fallen",
-			"note": "PLACEHOLDER — share of that year's rated releases, for the 5 mechanics whose share moved the most between 1990-1999 and 2015-2024.",
+			"note": "Game mechanics that have changed the most in for releases between 1990 and present",
 			"xLabel": "Year",
 			"yLabel": "% of releases",
 			"series": [
@@ -17636,6 +17836,10 @@
 					"label": "Hexagon Grid"
 				},
 				{
+					"key": "Open Drafting",
+					"label": "Open Drafting"
+				},
+				{
 					"key": "Simulation",
 					"label": "Simulation"
 				},
@@ -17650,6 +17854,7 @@
 					"Cooperative Game": 1.9,
 					"Hand Management": 6.9,
 					"Hexagon Grid": 25.8,
+					"Open Drafting": 3.8,
 					"Simulation": 22.6,
 					"Variable Player Powers": 4.4
 				},
@@ -17658,6 +17863,7 @@
 					"Cooperative Game": 3.8,
 					"Hand Management": 4.9,
 					"Hexagon Grid": 25.3,
+					"Open Drafting": 2.2,
 					"Simulation": 18.7,
 					"Variable Player Powers": 5.5
 				},
@@ -17666,6 +17872,7 @@
 					"Cooperative Game": 2.8,
 					"Hand Management": 6.5,
 					"Hexagon Grid": 37.4,
+					"Open Drafting": 1.9,
 					"Simulation": 18.2,
 					"Variable Player Powers": 5.6
 				},
@@ -17674,6 +17881,7 @@
 					"Cooperative Game": 2,
 					"Hand Management": 9.5,
 					"Hexagon Grid": 29.1,
+					"Open Drafting": 3.5,
 					"Simulation": 19.1,
 					"Variable Player Powers": 5.5
 				},
@@ -17682,6 +17890,7 @@
 					"Cooperative Game": 2.6,
 					"Hand Management": 11.3,
 					"Hexagon Grid": 29.2,
+					"Open Drafting": 2.1,
 					"Simulation": 16.4,
 					"Variable Player Powers": 7.7
 				},
@@ -17690,6 +17899,7 @@
 					"Cooperative Game": 1.8,
 					"Hand Management": 12.3,
 					"Hexagon Grid": 24.2,
+					"Open Drafting": 4,
 					"Simulation": 15.9,
 					"Variable Player Powers": 6.2
 				},
@@ -17698,6 +17908,7 @@
 					"Cooperative Game": 0.9,
 					"Hand Management": 14.8,
 					"Hexagon Grid": 18.7,
+					"Open Drafting": 4.8,
 					"Simulation": 11.3,
 					"Variable Player Powers": 5.2
 				},
@@ -17706,6 +17917,7 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 12.4,
 					"Hexagon Grid": 20.7,
+					"Open Drafting": 2.5,
 					"Simulation": 14.5,
 					"Variable Player Powers": 6.6
 				},
@@ -17714,6 +17926,7 @@
 					"Cooperative Game": 1.5,
 					"Hand Management": 15.2,
 					"Hexagon Grid": 14.8,
+					"Open Drafting": 5.7,
 					"Simulation": 8.7,
 					"Variable Player Powers": 6.5
 				},
@@ -17722,6 +17935,7 @@
 					"Cooperative Game": 0.3,
 					"Hand Management": 13.3,
 					"Hexagon Grid": 14.7,
+					"Open Drafting": 2.1,
 					"Simulation": 8.7,
 					"Variable Player Powers": 6.3
 				},
@@ -17730,6 +17944,7 @@
 					"Cooperative Game": 1.9,
 					"Hand Management": 11.8,
 					"Hexagon Grid": 13.4,
+					"Open Drafting": 3.5,
 					"Simulation": 7.7,
 					"Variable Player Powers": 8.3
 				},
@@ -17738,6 +17953,7 @@
 					"Cooperative Game": 2.2,
 					"Hand Management": 13,
 					"Hexagon Grid": 11.4,
+					"Open Drafting": 4.4,
 					"Simulation": 7.9,
 					"Variable Player Powers": 6.6
 				},
@@ -17746,6 +17962,7 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.6,
+					"Open Drafting": 4.2,
 					"Simulation": 9.6,
 					"Variable Player Powers": 9
 				},
@@ -17754,6 +17971,7 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 20,
 					"Hexagon Grid": 9.9,
+					"Open Drafting": 6,
 					"Simulation": 8.7,
 					"Variable Player Powers": 8.7
 				},
@@ -17762,6 +17980,7 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 18.1,
 					"Hexagon Grid": 12,
+					"Open Drafting": 5.9,
 					"Simulation": 10.9,
 					"Variable Player Powers": 10.5
 				},
@@ -17770,6 +17989,7 @@
 					"Cooperative Game": 2.3,
 					"Hand Management": 16.7,
 					"Hexagon Grid": 10.5,
+					"Open Drafting": 6.7,
 					"Simulation": 8.9,
 					"Variable Player Powers": 6.7
 				},
@@ -17778,6 +17998,7 @@
 					"Cooperative Game": 1.3,
 					"Hand Management": 17.9,
 					"Hexagon Grid": 9.7,
+					"Open Drafting": 8.3,
 					"Simulation": 7.2,
 					"Variable Player Powers": 8.5
 				},
@@ -17786,6 +18007,7 @@
 					"Cooperative Game": 1.8,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.9,
+					"Open Drafting": 7.8,
 					"Simulation": 9.7,
 					"Variable Player Powers": 9
 				},
@@ -17794,6 +18016,7 @@
 					"Cooperative Game": 2.9,
 					"Hand Management": 19.2,
 					"Hexagon Grid": 10.9,
+					"Open Drafting": 6.5,
 					"Simulation": 9.3,
 					"Variable Player Powers": 7
 				},
@@ -17802,6 +18025,7 @@
 					"Cooperative Game": 3.6,
 					"Hand Management": 20.8,
 					"Hexagon Grid": 9.7,
+					"Open Drafting": 8.4,
 					"Simulation": 9,
 					"Variable Player Powers": 8.8
 				},
@@ -17810,6 +18034,7 @@
 					"Cooperative Game": 4.3,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 12.5,
+					"Open Drafting": 9.5,
 					"Simulation": 11.9,
 					"Variable Player Powers": 9.7
 				},
@@ -17818,6 +18043,7 @@
 					"Cooperative Game": 3.3,
 					"Hand Management": 25.1,
 					"Hexagon Grid": 8,
+					"Open Drafting": 11,
 					"Simulation": 7.5,
 					"Variable Player Powers": 10.9
 				},
@@ -17826,6 +18052,7 @@
 					"Cooperative Game": 4.4,
 					"Hand Management": 28.5,
 					"Hexagon Grid": 9.6,
+					"Open Drafting": 10.7,
 					"Simulation": 8.8,
 					"Variable Player Powers": 12.5
 				},
@@ -17834,6 +18061,7 @@
 					"Cooperative Game": 7.4,
 					"Hand Management": 26.4,
 					"Hexagon Grid": 6.4,
+					"Open Drafting": 10.3,
 					"Simulation": 6.8,
 					"Variable Player Powers": 15.5
 				},
@@ -17842,6 +18070,7 @@
 					"Cooperative Game": 6.1,
 					"Hand Management": 30.9,
 					"Hexagon Grid": 5.9,
+					"Open Drafting": 12,
 					"Simulation": 5.9,
 					"Variable Player Powers": 14.2
 				},
@@ -17850,6 +18079,7 @@
 					"Cooperative Game": 9.3,
 					"Hand Management": 27.1,
 					"Hexagon Grid": 6,
+					"Open Drafting": 13.1,
 					"Simulation": 6.6,
 					"Variable Player Powers": 17.8
 				},
@@ -17858,6 +18088,7 @@
 					"Cooperative Game": 9.6,
 					"Hand Management": 27.9,
 					"Hexagon Grid": 4.2,
+					"Open Drafting": 11.5,
 					"Simulation": 6.2,
 					"Variable Player Powers": 16
 				},
@@ -17866,6 +18097,7 @@
 					"Cooperative Game": 12.7,
 					"Hand Management": 29,
 					"Hexagon Grid": 4.7,
+					"Open Drafting": 13.5,
 					"Simulation": 5.5,
 					"Variable Player Powers": 17.9
 				},
@@ -17874,6 +18106,7 @@
 					"Cooperative Game": 14,
 					"Hand Management": 25.5,
 					"Hexagon Grid": 5.7,
+					"Open Drafting": 12.3,
 					"Simulation": 6.9,
 					"Variable Player Powers": 19.2
 				},
@@ -17882,6 +18115,7 @@
 					"Cooperative Game": 16,
 					"Hand Management": 24.4,
 					"Hexagon Grid": 4.5,
+					"Open Drafting": 12.7,
 					"Simulation": 6.9,
 					"Variable Player Powers": 17.7
 				},
@@ -17890,6 +18124,7 @@
 					"Cooperative Game": 16.9,
 					"Hand Management": 22.6,
 					"Hexagon Grid": 6.1,
+					"Open Drafting": 11.7,
 					"Simulation": 6.9,
 					"Variable Player Powers": 13.8
 				},
@@ -17898,6 +18133,7 @@
 					"Cooperative Game": 18.9,
 					"Hand Management": 21.8,
 					"Hexagon Grid": 5.7,
+					"Open Drafting": 14.1,
 					"Simulation": 6,
 					"Variable Player Powers": 15.7
 				},
@@ -17906,6 +18142,7 @@
 					"Cooperative Game": 18.2,
 					"Hand Management": 20.7,
 					"Hexagon Grid": 6.6,
+					"Open Drafting": 12.2,
 					"Simulation": 4.7,
 					"Variable Player Powers": 13.9
 				},
@@ -17914,6 +18151,7 @@
 					"Cooperative Game": 17.2,
 					"Hand Management": 24.5,
 					"Hexagon Grid": 6.1,
+					"Open Drafting": 11.1,
 					"Simulation": 5.1,
 					"Variable Player Powers": 14.5
 				},
@@ -17922,6 +18160,7 @@
 					"Cooperative Game": 16.2,
 					"Hand Management": 23.1,
 					"Hexagon Grid": 6.7,
+					"Open Drafting": 9.9,
 					"Simulation": 2.7,
 					"Variable Player Powers": 13.8
 				},
@@ -17930,8 +18169,778 @@
 					"Cooperative Game": 15.2,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 6.2,
+					"Open Drafting": 11.6,
 					"Simulation": 3.6,
 					"Variable Player Powers": 15.4
+				}
+			],
+			"yPercent": true
+		},
+		{
+			"kind": "range",
+			"title": "Rating spread by player count",
+			"note": "PLACEHOLDER — median average rating by player count, with the middle 50% of games (25th-75th percentile) as the band.",
+			"xLabel": "Players",
+			"yLabel": "Average rating",
+			"precision": 2,
+			"points": [
+				{
+					"x": 1,
+					"low": 6.53,
+					"mid": 7.07,
+					"high": 7.56
+				},
+				{
+					"x": 2,
+					"low": 5.97,
+					"mid": 6.58,
+					"high": 7.17
+				},
+				{
+					"x": 3,
+					"low": 5.87,
+					"mid": 6.48,
+					"high": 7.07
+				},
+				{
+					"x": 4,
+					"low": 5.87,
+					"mid": 6.49,
+					"high": 7.05
+				},
+				{
+					"x": 5,
+					"low": 5.82,
+					"mid": 6.4,
+					"high": 6.96
+				},
+				{
+					"x": 6,
+					"low": 5.69,
+					"mid": 6.3,
+					"high": 6.88
+				},
+				{
+					"x": 7,
+					"low": 5.68,
+					"mid": 6.3,
+					"high": 6.85
+				},
+				{
+					"x": 8,
+					"low": 5.65,
+					"mid": 6.28,
+					"high": 6.84
+				}
+			]
+		},
+		{
+			"kind": "ridge",
+			"title": "Rating distribution by publisher",
+			"note": "PLACEHOLDER — the shape of average rating across each publisher’s catalog, not just its average.",
+			"xLabel": "Average rating",
+			"yLabel": "Share of games",
+			"precision": 1,
+			"buckets": [
+				2,
+				2.125,
+				2.25,
+				2.375,
+				2.5,
+				2.625,
+				2.75,
+				2.875,
+				3,
+				3.125,
+				3.25,
+				3.375,
+				3.5,
+				3.625,
+				3.75,
+				3.875,
+				4,
+				4.125,
+				4.25,
+				4.375,
+				4.5,
+				4.625,
+				4.75,
+				4.875,
+				5,
+				5.125,
+				5.25,
+				5.375,
+				5.5,
+				5.625,
+				5.75,
+				5.875,
+				6,
+				6.125,
+				6.25,
+				6.375,
+				6.5,
+				6.625,
+				6.75,
+				6.875,
+				7,
+				7.125,
+				7.25,
+				7.375,
+				7.5,
+				7.625,
+				7.75,
+				7.875,
+				8,
+				8.125,
+				8.25,
+				8.375,
+				8.5,
+				8.625,
+				8.75,
+				8.875,
+				9,
+				9.125
+			],
+			"lanes": [
+				{
+					"label": "GMT Games",
+					"n": 347,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.002881844380403458,
+						0.002881844380403458,
+						0,
+						0,
+						0.008645533141210375,
+						0.008645533141210375,
+						0.020172910662824207,
+						0.01440922190201729,
+						0.0345821325648415,
+						0.025936599423631124,
+						0.03170028818443804,
+						0.037463976945244955,
+						0.05187319884726225,
+						0.04610951008645533,
+						0.07204610951008646,
+						0.07780979827089338,
+						0.07204610951008646,
+						0.08645533141210375,
+						0.07492795389048991,
+						0.0893371757925072,
+						0.09221902017291066,
+						0.05475504322766571,
+						0.037463976945244955,
+						0.02881844380403458,
+						0.011527377521613832,
+						0.002881844380403458,
+						0.011527377521613832,
+						0,
+						0,
+						0.002881844380403458
+					]
+				},
+				{
+					"label": "IELLO",
+					"n": 485,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.002061855670103093,
+						0,
+						0.004123711340206186,
+						0.006185567010309278,
+						0.004123711340206186,
+						0.01443298969072165,
+						0.016494845360824743,
+						0.016494845360824743,
+						0.02268041237113402,
+						0.026804123711340205,
+						0.04329896907216495,
+						0.0577319587628866,
+						0.06391752577319587,
+						0.06391752577319587,
+						0.07010309278350516,
+						0.05567010309278351,
+						0.07216494845360824,
+						0.09484536082474226,
+						0.06597938144329897,
+						0.06391752577319587,
+						0.05567010309278351,
+						0.04536082474226804,
+						0.04329896907216495,
+						0.032989690721649485,
+						0.006185567010309278,
+						0.01443298969072165,
+						0.01443298969072165,
+						0.012371134020618556,
+						0.010309278350515464,
+						0,
+						0,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Fantasy Flight Games",
+					"n": 257,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.0038910505836575876,
+						0.0038910505836575876,
+						0.0038910505836575876,
+						0.0038910505836575876,
+						0.011673151750972763,
+						0.0038910505836575876,
+						0.01556420233463035,
+						0.03501945525291829,
+						0.011673151750972763,
+						0.007782101167315175,
+						0.038910505836575876,
+						0.038910505836575876,
+						0.05058365758754864,
+						0.038910505836575876,
+						0.042801556420233464,
+						0.042801556420233464,
+						0.0622568093385214,
+						0.0622568093385214,
+						0.054474708171206226,
+						0.042801556420233464,
+						0.07392996108949416,
+						0.08171206225680934,
+						0.06614785992217899,
+						0.04669260700389105,
+						0.0311284046692607,
+						0.0311284046692607,
+						0.023346303501945526,
+						0.019455252918287938,
+						0.01556420233463035,
+						0.0038910505836575876,
+						0.0038910505836575876,
+						0.011673151750972763,
+						0.007782101167315175,
+						0.007782101167315175,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Pegasus Spiele",
+					"n": 708,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.0014124293785310734,
+						0,
+						0,
+						0,
+						0.0014124293785310734,
+						0,
+						0.0014124293785310734,
+						0.007062146892655367,
+						0.005649717514124294,
+						0.00423728813559322,
+						0.0014124293785310734,
+						0.009887005649717515,
+						0.009887005649717515,
+						0.01694915254237288,
+						0.02401129943502825,
+						0.03248587570621469,
+						0.04096045197740113,
+						0.0480225988700565,
+						0.05084745762711865,
+						0.046610169491525424,
+						0.08333333333333333,
+						0.06497175141242938,
+						0.0692090395480226,
+						0.07344632768361582,
+						0.062146892655367235,
+						0.062146892655367235,
+						0.06073446327683616,
+						0.05508474576271186,
+						0.05508474576271186,
+						0.026836158192090395,
+						0.012711864406779662,
+						0.022598870056497175,
+						0.012711864406779662,
+						0.018361581920903956,
+						0.007062146892655367,
+						0.007062146892655367,
+						0.0014124293785310734,
+						0,
+						0.0014124293785310734,
+						0.0014124293785310734,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Z-Man Games",
+					"n": 320,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.003125,
+						0.00625,
+						0.003125,
+						0.009375,
+						0,
+						0.0125,
+						0.025,
+						0.01875,
+						0.03125,
+						0.0375,
+						0.053125,
+						0.053125,
+						0.075,
+						0.04375,
+						0.0875,
+						0.071875,
+						0.034375,
+						0.071875,
+						0.08125,
+						0.05625,
+						0.06875,
+						0.04375,
+						0.025,
+						0.025,
+						0.01875,
+						0.015625,
+						0.00625,
+						0.00625,
+						0.0125,
+						0.003125,
+						0,
+						0,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Rio Grande Games",
+					"n": 452,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.00663716814159292,
+						0,
+						0.0022123893805309734,
+						0.004424778761061947,
+						0.008849557522123894,
+						0.0022123893805309734,
+						0.0022123893805309734,
+						0.008849557522123894,
+						0.022123893805309734,
+						0.022123893805309734,
+						0.033185840707964605,
+						0.028761061946902654,
+						0.035398230088495575,
+						0.033185840707964605,
+						0.05530973451327434,
+						0.06415929203539823,
+						0.08849557522123894,
+						0.08628318584070796,
+						0.06858407079646017,
+						0.08185840707964602,
+						0.08849557522123894,
+						0.059734513274336286,
+						0.046460176991150445,
+						0.030973451327433628,
+						0.035398230088495575,
+						0.02654867256637168,
+						0.022123893805309734,
+						0.015486725663716814,
+						0.004424778761061947,
+						0.008849557522123894,
+						0.0022123893805309734,
+						0.004424778761061947,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Queen Games",
+					"n": 201,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.004975124378109453,
+						0,
+						0,
+						0,
+						0.009950248756218905,
+						0.004975124378109453,
+						0.004975124378109453,
+						0.009950248756218905,
+						0.029850746268656716,
+						0.04975124378109453,
+						0.03980099502487562,
+						0.024875621890547265,
+						0.03482587064676617,
+						0.04477611940298507,
+						0.04975124378109453,
+						0.07960199004975124,
+						0.08955223880597014,
+						0.03980099502487562,
+						0.05970149253731343,
+						0.04477611940298507,
+						0.05472636815920398,
+						0.05970149253731343,
+						0.05970149253731343,
+						0.03980099502487562,
+						0.03980099502487562,
+						0.03482587064676617,
+						0.024875621890547265,
+						0.014925373134328358,
+						0.014925373134328358,
+						0.024875621890547265,
+						0.004975124378109453,
+						0,
+						0.004975124378109453,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Avalon Hill",
+					"n": 298,
+					"density": [
+						0.003355704697986577,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.003355704697986577,
+						0,
+						0,
+						0,
+						0.003355704697986577,
+						0.006711409395973154,
+						0.003355704697986577,
+						0.006711409395973154,
+						0.006711409395973154,
+						0.003355704697986577,
+						0.006711409395973154,
+						0.013422818791946308,
+						0.010067114093959731,
+						0.016778523489932886,
+						0,
+						0.013422818791946308,
+						0.02348993288590604,
+						0.02348993288590604,
+						0.050335570469798654,
+						0.05704697986577181,
+						0.040268456375838924,
+						0.04697986577181208,
+						0.053691275167785234,
+						0.053691275167785234,
+						0.08389261744966443,
+						0.07046979865771812,
+						0.06040268456375839,
+						0.026845637583892617,
+						0.06711409395973154,
+						0.06040268456375839,
+						0.05704697986577181,
+						0.026845637583892617,
+						0.02348993288590604,
+						0.030201342281879196,
+						0.016778523489932886,
+						0.013422818791946308,
+						0.013422818791946308,
+						0,
+						0,
+						0,
+						0,
+						0.003355704697986577,
+						0,
+						0,
+						0,
+						0
+					]
+				},
+				{
+					"label": "Ravensburger",
+					"n": 570,
+					"density": [
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0,
+						0.0017543859649122807,
+						0.0017543859649122807,
+						0,
+						0,
+						0,
+						0.0017543859649122807,
+						0.0035087719298245615,
+						0.0035087719298245615,
+						0.005263157894736842,
+						0.0017543859649122807,
+						0.005263157894736842,
+						0.0035087719298245615,
+						0.0035087719298245615,
+						0.005263157894736842,
+						0.012280701754385965,
+						0.017543859649122806,
+						0.02631578947368421,
+						0.02456140350877193,
+						0.02982456140350877,
+						0.04912280701754386,
+						0.05087719298245614,
+						0.042105263157894736,
+						0.05263157894736842,
+						0.03684210526315789,
+						0.03684210526315789,
+						0.05263157894736842,
+						0.04736842105263158,
+						0.0456140350877193,
+						0.043859649122807015,
+						0.054385964912280704,
+						0.05263157894736842,
+						0.03508771929824561,
+						0.04736842105263158,
+						0.05087719298245614,
+						0.031578947368421054,
+						0.02982456140350877,
+						0.02456140350877193,
+						0.03684210526315789,
+						0.014035087719298246,
+						0.0035087719298245615,
+						0.0035087719298245615,
+						0,
+						0.0035087719298245615,
+						0,
+						0.0017543859649122807,
+						0.0017543859649122807,
+						0.0017543859649122807,
+						0,
+						0,
+						0,
+						0.0017543859649122807
+					]
+				},
+				{
+					"label": "Hasbro",
+					"n": 740,
+					"density": [
+						0,
+						0,
+						0,
+						0.002702702702702703,
+						0,
+						0.0013513513513513514,
+						0.0013513513513513514,
+						0.0013513513513513514,
+						0.0013513513513513514,
+						0,
+						0.0013513513513513514,
+						0.004054054054054054,
+						0,
+						0.006756756756756757,
+						0.002702702702702703,
+						0.006756756756756757,
+						0.006756756756756757,
+						0.022972972972972974,
+						0.013513513513513514,
+						0.025675675675675677,
+						0.02837837837837838,
+						0.022972972972972974,
+						0.02702702702702703,
+						0.033783783783783786,
+						0.05405405405405406,
+						0.05,
+						0.06351351351351352,
+						0.05810810810810811,
+						0.07162162162162163,
+						0.05675675675675676,
+						0.060810810810810814,
+						0.06486486486486487,
+						0.04054054054054054,
+						0.04864864864864865,
+						0.0472972972972973,
+						0.03648648648648649,
+						0.02702702702702703,
+						0.02702702702702703,
+						0.021621621621621623,
+						0.012162162162162163,
+						0.016216216216216217,
+						0.00945945945945946,
+						0.005405405405405406,
+						0.002702702702702703,
+						0.005405405405405406,
+						0.004054054054054054,
+						0,
+						0.0013513513513513514,
+						0,
+						0,
+						0.0013513513513513514,
+						0,
+						0,
+						0.002702702702702703,
+						0,
+						0,
+						0,
+						0
+					]
 				}
 			]
 		}

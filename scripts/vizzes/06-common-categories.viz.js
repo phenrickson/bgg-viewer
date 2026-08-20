@@ -4,7 +4,7 @@ export default {
 	id: 'common-categories',
 	kind: 'bars',
 	title: 'The most common categories',
-	note: 'PLACEHOLDER — how often each category appears across the catalog.',
+	note: 'The most popular categories on BoardGameGeek',
 	xLabel: 'Games',
 	yLabel: 'Category',
 	query: topOf('categories', 12)

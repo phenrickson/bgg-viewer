@@ -4,7 +4,7 @@ export default {
 	id: 'kickstarter-over-time',
 	kind: 'stack',
 	title: 'The rise of Kickstarter',
-	note: 'PLACEHOLDER — rated releases each year, split by whether they were tagged Crowdfunding: Kickstarter.',
+	note: 'Kickstarter releases jumped in popularity shortly after 2010 and have remained popular ever since.',
 	xLabel: 'Year',
 	yLabel: 'Games',
 	tickEvery: 5,
@@ -23,5 +23,5 @@ export default {
 	   )
 	   ORDER BY ord, x`,
 	calloutTemplate: (year, count, pct) =>
-		`PLACEHOLDER — ${pct}% of ${year}'s rated releases (${count.toLocaleString()} games) were tagged Crowdfunding: Kickstarter.`
+		`${pct}% of ${year}'s releases (${count.toLocaleString()} games) were tagged Crowdfunding: Kickstarter.`
 };

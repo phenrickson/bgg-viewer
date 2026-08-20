@@ -27,7 +27,7 @@
  */
 import { writeFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { F, WORKING, PROJECT, q, pair, scatter, columns, bars, line, stack } from './vizzes/lib.js';
+import { F, WORKING, PROJECT, q, pair, scatter, columns, bars, line, stack, range, ridge } from './vizzes/lib.js';
 
 const num = (v) => (v == null ? null : Number(v));
 
@@ -58,7 +58,10 @@ function validate(mod, file) {
 	};
 	req(mod && typeof mod === 'object', 'default export must be an object');
 	req(typeof mod.id === 'string' && mod.id, 'missing "id"');
-	req(['scatter', 'columns', 'bars', 'line', 'stack'].includes(mod.kind), 'missing/invalid "kind"');
+	req(
+		['scatter', 'columns', 'bars', 'line', 'stack', 'range', 'ridge'].includes(mod.kind),
+		'missing/invalid "kind"'
+	);
 	req(typeof mod.title === 'string' && mod.title, 'missing "title"');
 	req(typeof mod.note === 'string' && mod.note, 'missing "note"');
 	req(typeof mod.xLabel === 'string' && mod.xLabel, 'missing "xLabel"');
@@ -80,6 +83,12 @@ function validate(mod, file) {
 			req(
 				mod.style === undefined || mod.style === 'bars' || mod.style === 'dots',
 				'bars viz "style" must be "bars" or "dots" if set'
+			);
+		}
+		if (mod.kind === 'ridge') {
+			req(
+				Array.isArray(mod.order) && mod.order.length > 0 && mod.order.every((s) => typeof s === 'string'),
+				'ridge viz missing "order" (array of lane labels, top-to-bottom draw order)'
 			);
 		}
 	}
@@ -105,10 +114,16 @@ async function runViz(mod) {
 		);
 	}
 	if (mod.kind === 'line') {
-		return line(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
+		return line(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.opts ?? {});
 	}
 	if (mod.kind === 'stack') {
 		return stack(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.tickEvery, mod.calloutTemplate);
+	}
+	if (mod.kind === 'range') {
+		return range(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.precision);
+	}
+	if (mod.kind === 'ridge') {
+		return ridge(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.order, mod.bucketWidth, mod.precision);
 	}
 	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.style);
 }

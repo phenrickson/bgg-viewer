@@ -5,7 +5,7 @@ export default {
 	kind: 'bars',
 	style: 'dots',
 	title: 'The highest-rated designers',
-	note: 'PLACEHOLDER — average geek rating by designer, among designers credited on at least 5 rated games.',
+	note: 'Average geek rating by designer, among designers credited on at least 5 games.',
 	xLabel: 'Average geek rating',
 	yLabel: 'Designer',
 	query: `SELECT d AS label, ROUND(AVG(geek_rating), 2) AS n

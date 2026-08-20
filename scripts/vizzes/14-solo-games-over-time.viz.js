@@ -4,7 +4,7 @@ export default {
 	id: 'solo-games-over-time',
 	kind: 'stack',
 	title: 'The rise of solo games',
-	note: 'PLACEHOLDER — rated releases each year, split by whether they have a Solo / Solitaire Game mechanic.',
+	note: 'Solo/Solitaire mechanics jumped during the pandemic and have been popular ever since',
 	xLabel: 'Year',
 	yLabel: 'Games',
 	tickEvery: 5,
@@ -26,5 +26,5 @@ export default {
 	   )
 	   ORDER BY ord, x`,
 	calloutTemplate: (year, count, pct) =>
-		`PLACEHOLDER — ${pct}% of ${year}'s rated releases (${count.toLocaleString()} games) had a Solo / Solitaire Game mechanic.`
+		`${pct}% of ${year}'s releases (${count.toLocaleString()} games) had a Solo / Solitaire Game mechanic.`
 };

@@ -1,8 +1,8 @@
 export default {
 	id: 'playtime-vs-weight',
 	kind: 'scatter',
-	title: 'Playing time (logged) against complexity',
-	note: 'PLACEHOLDER — stated playing time against community weight, over a sample stratified across ratings.',
+	title: 'Playing time vs complexity',
+	note: 'Unsurprisingly, games with longer playing times tend to be more complex.',
 	xLabel: 'Minutes',
 	yLabel: 'Complexity',
 	// `max_playtime` is the upper bound of the stated range — there is no single

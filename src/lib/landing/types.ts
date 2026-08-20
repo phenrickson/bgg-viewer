@@ -95,6 +95,12 @@ export interface LineViz {
 	/** Which fields on `points` are series, in draw order (also legend/color order). */
 	series: { key: string; label: string }[];
 	points: ({ x: number } & Record<string, number>)[];
+	/**
+	 * `points`' y values are already a 0-100 share, not a raw count — a `line` viz can plot
+	 * either, so this is what tells the gridline labels to append `%` instead of guessing from
+	 * `yLabel`'s text.
+	 */
+	yPercent?: boolean;
 }
 
 /**
@@ -124,7 +130,59 @@ export interface StackViz {
 	callout?: { text: string };
 }
 
-export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz | StackViz;
+/**
+ * A point (median) plus a band (interquartile range) per discrete category. For a metric
+ * where the shape of each category's distribution matters, not just its center — but the
+ * categories themselves (player counts) are discrete, not points on a continuum, so drawing
+ * this as a `line`/area (which implies something meaningful *between* x=3 and x=4) would be
+ * wrong the way it wouldn't be for a year axis.
+ */
+export interface RangeViz {
+	kind: 'range';
+	title: string;
+	note: string;
+	xLabel: string;
+	yLabel: string;
+	/** One entry per category. `low`/`high` are the 25th/75th percentile — the "50% band" —
+	 *  and `mid` is the median, drawn as the dot. Not a statistical confidence interval on the
+	 *  mean: with thousands of games per category a true CI would be too narrow to read, so
+	 *  this shows the actual spread of individual games' ratings instead. */
+	points: { x: number; low: number; mid: number; high: number }[];
+	/** Decimal places for the y-axis gridline labels — same reasoning as `ColumnsViz.precision`. */
+	precision?: number;
+}
+
+/**
+ * Overlapping distribution curves, one lane per group (a "ridgeline"/joyplot) — for comparing
+ * the SHAPE of a metric's distribution across several groups at once, where a `columns`
+ * histogram (one group at a time) or a `bars`/`dots` chart (one number per group) would each
+ * lose either the shape or the side-by-side comparison.
+ */
+export interface RidgeViz {
+	kind: 'ridge';
+	title: string;
+	note: string;
+	xLabel: string;
+	yLabel: string;
+	/** Decimal places for the shared x-axis tick labels. */
+	precision?: number;
+	/**
+	 * The shared x-axis (e.g. rating) bucket centers — every lane's `density` is indexed
+	 * against this same array, so lanes overlay on one x-axis without per-lane interpolation
+	 * in the renderer.
+	 */
+	buckets: number[];
+	/**
+	 * One lane per group, top to bottom in draw order. `density[i]` is `buckets[i]`'s share of
+	 * THIS LANE'S OWN total (not a raw count) — normalized per-lane so a group with far more
+	 * games doesn't dwarf a smaller group's curve regardless of shape, which is the whole
+	 * point of comparing distributions rather than volumes. `n` is the lane's total game count,
+	 * for context (e.g. a hover detail), not itself plotted.
+	 */
+	lanes: { label: string; n: number; density: number[] }[];
+}
+
+export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz | StackViz | RangeViz | RidgeViz;
 
 export interface Featured {
 	id: number;
