@@ -66,6 +66,10 @@ function validate(mod, file) {
 	if (mod.kind === 'scatter') {
 		req(typeof mod.cols === 'string' && mod.cols, 'scatter viz missing "cols"');
 		req(typeof mod.where === 'string' && mod.where, 'scatter viz missing "where"');
+		req(
+			mod.sample === undefined || (Number.isInteger(mod.sample) && mod.sample > 0),
+			'scatter viz "sample" must be a positive integer if set'
+		);
 	} else {
 		req(typeof mod.query === 'string' && mod.query, `${mod.kind} viz missing "query"`);
 		if (mod.kind === 'columns') {
@@ -78,7 +82,7 @@ function validate(mod, file) {
 /** Run one viz module's query/queries and build its `Viz`. */
 async function runViz(mod) {
 	if (mod.kind === 'scatter') {
-		const rows = await pair(mod.cols, mod.where);
+		const rows = await pair(mod.cols, mod.where, mod.sample);
 		return scatter(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.opts ?? {});
 	}
 	const rows = await q(mod.query);

@@ -16,8 +16,8 @@ export const F = `\`${PROJECT}.analytics.games_features\``;
 /** The working set, matching the catalog's own definition so the charts describe what loads. */
 export const WORKING = 'users_rated >= 30';
 
-/** Scatter sample size. 500 points read as a cloud; more just costs bytes. */
-export const SAMPLE = 500;
+/** Default scatter sample size — a `.viz.js` file can override via its `sample` field. More just costs bytes (see the budget check in build-landing-content.js). */
+export const SAMPLE = 1000;
 
 const bq = new BigQuery({ projectId: PROJECT });
 export const q = async (sql) => (await bq.query({ query: sql }))[0];
@@ -33,9 +33,9 @@ export const q = async (sql) => (await bq.query({ query: sql }))[0];
  *   - it is deterministic, so a rebuild on unchanged data produces byte-identical output.
  *
  * Only x and y are selected. Names live on the annotations (see `notable`) and nowhere else,
- * so 500 points cost 500 number pairs rather than 500 strings.
+ * so N points cost N number pairs rather than N strings.
  */
-export const sample = (cols, where) => `
+export const sample = (cols, where, n = SAMPLE) => `
 	WITH pool AS (
 	  SELECT ${cols},
 	         ROW_NUMBER() OVER (ORDER BY average_rating, game_id) AS rn,
@@ -44,7 +44,7 @@ export const sample = (cols, where) => `
 	  WHERE ${WORKING} AND ${where}
 	)
 	SELECT x, y FROM pool
-	WHERE MOD(rn, GREATEST(1, CAST(DIV(total, ${SAMPLE}) AS INT64))) = 0`;
+	WHERE MOD(rn, GREATEST(1, CAST(DIV(total, ${n}) AS INT64))) = 0`;
 
 /**
  * The games to NAME on a cloud — queried separately, and deliberately not part of `points`.
@@ -131,8 +131,8 @@ export const bars = (title, note, xLabel, yLabel, rows) => ({
 	bars: rows.map((r) => ({ label: r.label, value: Number(r.n) }))
 });
 
-/** The cloud and its labels, fetched together — they always come as a pair. */
-export const pair = (cols, where) => Promise.all([q(sample(cols, where)), q(notable(cols, where))]);
+/** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */
+export const pair = (cols, where, n) => Promise.all([q(sample(cols, where, n)), q(notable(cols, where))]);
 
 /** Top N values of a repeated string column — the facets this app exists to query by. */
 export const topOf = (col, n) => `

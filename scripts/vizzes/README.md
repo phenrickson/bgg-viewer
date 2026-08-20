@@ -29,19 +29,31 @@ Every viz needs: `id` (string, unique), `kind`, `title`, `note`, `xLabel`,
 `yLabel`.
 
 **`scatter`** — a cloud of points, e.g. one stat against another.
+
 - `cols` — the two columns to select, aliased `x` and `y`
   (`'ROUND(average_weight,2) AS x, ROUND(average_rating,2) AS y'`).
 - `where` — filter applied on top of the working-set filter (`lib.js`'s
   `WORKING`, currently `users_rated >= 30`).
 - `opts` (optional) — e.g. `{ xLog: true }` for an axis spanning orders of
   magnitude (vote counts, not ratings).
+- `sample` (optional) — point count, overriding `lib.js`'s default (1000).
+  Bump it for a cloud that reads sparse; drop it for one that's mostly
+  overplotted. Costs payload bytes, not query cost or render time (see
+  below) — the 60 KB gzip budget is the only real ceiling.
 
-The plotted sample is 500 points, stratified across the rating range (see
-`sample()` in `lib.js`), plus up to 6 named annotations picked from the most
-popular games spread across the x range (see `notable()`/`label()`). You
-don't write either query yourself — `cols`/`where` drive both.
+The plotted sample is stratified across the rating range (see `sample()` in
+`lib.js`), plus up to 6 named annotations picked from the most popular games
+spread across the x range (see `notable()`/`label()`). You don't write
+either query yourself — `cols`/`where`/`sample` drive both.
+
+A bigger `sample` is close to free: the query already scans the whole
+filtered table to compute its window functions before subsampling, so BQ
+cost doesn't change; rendering is a non-interactive `<canvas>` draw, cheap
+into the thousands of points. The only thing that actually grows is
+`content.json`'s size, since `points` ships inside the JS bundle.
 
 **`columns`** — discrete numeric buckets (a distribution, a histogram).
+
 - `query` — full SQL returning `v` (bucket value) and `n` (count) columns.
 - `tickEvery` — label every Nth bucket (by index, not value).
 - `precision` — decimal places on bucket labels (`0` for years/counts, `1`
@@ -52,6 +64,7 @@ don't write either query yourself — `cols`/`where` drive both.
   peak is worth calling out.
 
 **`bars`** — a ranked list of categories (horizontal bars).
+
 - `query` — full SQL returning `label` and `n` columns. The `topOf(col, n)`
   helper in `lib.js` covers the common case: top N values of a repeated
   string column (mechanics, categories, designers).
