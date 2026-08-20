@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.11](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.10...bgg-viewer-v0.0.11) (2026-08-20)
+
+
+### Bug Fixes
+
+* **footer:** shrink oversized BGG attribution badge ([3429316](https://github.com/phenrickson/bgg-viewer/commit/34293169ac8f7a4a9a4068a83d57ebbc2c190368))
+* **footer:** shrink oversized BGG attribution badge ([9007ec3](https://github.com/phenrickson/bgg-viewer/commit/9007ec32f3d135802e31c8c24b34f36bbbfba2c0))
+
 ## [0.0.10](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.9...bgg-viewer-v0.0.10) (2026-08-19)
 
 
