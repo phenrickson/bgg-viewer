@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T16:30:19.570Z",
+	"builtAt": "2026-08-20T16:47:27.986Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17154,8 +17154,8 @@
 		},
 		{
 			"kind": "bars",
-			"title": "The highest- and lowest-rated designers",
-			"note": "PLACEHOLDER — average geek rating by designer, best and worst 6, among designers credited on at least 5 rated games.",
+			"title": "The highest-rated designers",
+			"note": "PLACEHOLDER — average geek rating by designer, among designers credited on at least 5 rated games.",
 			"xLabel": "Average geek rating",
 			"yLabel": "Designer",
 			"bars": [
@@ -17180,32 +17180,32 @@
 					"value": 6.85
 				},
 				{
+					"label": "Jenny Iglesias",
+					"value": 6.78
+				},
+				{
 					"label": "James A. Wilson",
 					"value": 6.78
 				},
 				{
-					"label": "Scott Abbott",
-					"value": 5.43
+					"label": "Jarratt Gray",
+					"value": 6.75
 				},
 				{
-					"label": "Terry Miller Associates",
-					"value": 5.43
+					"label": "Nate French",
+					"value": 6.74
 				},
 				{
-					"label": "A. Eddie Goldfarb",
-					"value": 5.42
+					"label": "Lukas Litzsinger",
+					"value": 6.7
 				},
 				{
-					"label": "Reuben Klamer",
-					"value": 5.41
+					"label": "James Kniffen",
+					"value": 6.68
 				},
 				{
-					"label": "Marvin Glass",
-					"value": 5.36
-				},
-				{
-					"label": "Charles Darrow",
-					"value": 5.28
+					"label": "S J Macdonald",
+					"value": 6.66
 				}
 			],
 			"style": "dots"
