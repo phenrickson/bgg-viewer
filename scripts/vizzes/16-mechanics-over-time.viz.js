@@ -4,7 +4,7 @@ export default {
 	id: 'mechanics-over-time',
 	kind: 'line',
 	title: 'How mechanics have risen and fallen',
-	note: 'PLACEHOLDER — share of that year\'s rated releases, for the 6 mechanics whose share moved the most between 1995-2004 and 2015-2024.',
+	note: 'PLACEHOLDER — share of that year\'s rated releases, for the 5 mechanics whose share moved the most between 1995-2004 and 2015-2024.',
 	xLabel: 'Year',
 	yLabel: '% of releases',
 	/**
@@ -39,7 +39,9 @@ export default {
 	     WHERE COALESCE(early.m, late.m) != 'Solo / Solitaire Game'
 	   ),
 	   top_mechs AS (
-	     SELECT m FROM swing ORDER BY ABS(late_pct - early_pct) DESC LIMIT 6
+	     -- 5, not 6: VizOfTheDay cycles 5 categorical colors, so a 6th series silently
+	     -- collided with the 1st and rendered indistinguishable from it.
+	     SELECT m FROM swing ORDER BY ABS(late_pct - early_pct) DESC LIMIT 5
 	   )
 	   SELECT w.m AS series, w.yr AS x, ROUND(100*COUNT(*)/t.total, 1) AS y
 	   FROM windowed w

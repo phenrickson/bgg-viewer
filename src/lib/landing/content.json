@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T16:53:50.545Z",
+	"builtAt": "2026-08-20T16:57:37.404Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17471,7 +17471,7 @@
 		{
 			"kind": "line",
 			"title": "How mechanics have risen and fallen",
-			"note": "PLACEHOLDER — share of that year's rated releases, for the 6 mechanics whose share moved the most between 1995-2004 and 2015-2024.",
+			"note": "PLACEHOLDER — share of that year's rated releases, for the 5 mechanics whose share moved the most between 1995-2004 and 2015-2024.",
 			"xLabel": "Year",
 			"yLabel": "% of releases",
 			"series": [
@@ -17488,10 +17488,6 @@
 					"label": "Hexagon Grid"
 				},
 				{
-					"key": "Open Drafting",
-					"label": "Open Drafting"
-				},
-				{
 					"key": "Roll / Spin and Move",
 					"label": "Roll / Spin and Move"
 				},
@@ -17506,7 +17502,6 @@
 					"Cooperative Game": 1.8,
 					"Hand Management": 12.3,
 					"Hexagon Grid": 24.2,
-					"Open Drafting": 4,
 					"Roll / Spin and Move": 7,
 					"Variable Player Powers": 6.2
 				},
@@ -17515,7 +17510,6 @@
 					"Cooperative Game": 0.9,
 					"Hand Management": 14.8,
 					"Hexagon Grid": 18.7,
-					"Open Drafting": 4.8,
 					"Roll / Spin and Move": 12.2,
 					"Variable Player Powers": 5.2
 				},
@@ -17524,7 +17518,6 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 12.4,
 					"Hexagon Grid": 20.7,
-					"Open Drafting": 2.5,
 					"Roll / Spin and Move": 8.7,
 					"Variable Player Powers": 6.6
 				},
@@ -17533,7 +17526,6 @@
 					"Cooperative Game": 1.5,
 					"Hand Management": 15.2,
 					"Hexagon Grid": 14.8,
-					"Open Drafting": 5.7,
 					"Roll / Spin and Move": 11.8,
 					"Variable Player Powers": 6.5
 				},
@@ -17542,7 +17534,6 @@
 					"Cooperative Game": 0.3,
 					"Hand Management": 13.3,
 					"Hexagon Grid": 14.7,
-					"Open Drafting": 2.1,
 					"Roll / Spin and Move": 8.4,
 					"Variable Player Powers": 6.3
 				},
@@ -17551,7 +17542,6 @@
 					"Cooperative Game": 1.9,
 					"Hand Management": 11.8,
 					"Hexagon Grid": 13.4,
-					"Open Drafting": 3.5,
 					"Roll / Spin and Move": 12.5,
 					"Variable Player Powers": 8.3
 				},
@@ -17560,7 +17550,6 @@
 					"Cooperative Game": 2.2,
 					"Hand Management": 13,
 					"Hexagon Grid": 11.4,
-					"Open Drafting": 4.4,
 					"Roll / Spin and Move": 10.1,
 					"Variable Player Powers": 6.6
 				},
@@ -17569,7 +17558,6 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.6,
-					"Open Drafting": 4.2,
 					"Roll / Spin and Move": 14.6,
 					"Variable Player Powers": 9
 				},
@@ -17578,7 +17566,6 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 20,
 					"Hexagon Grid": 9.9,
-					"Open Drafting": 6,
 					"Roll / Spin and Move": 10.1,
 					"Variable Player Powers": 8.7
 				},
@@ -17587,7 +17574,6 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 18.1,
 					"Hexagon Grid": 12,
-					"Open Drafting": 5.9,
 					"Roll / Spin and Move": 9.2,
 					"Variable Player Powers": 10.5
 				},
@@ -17596,7 +17582,6 @@
 					"Cooperative Game": 2.3,
 					"Hand Management": 16.7,
 					"Hexagon Grid": 10.5,
-					"Open Drafting": 6.7,
 					"Roll / Spin and Move": 10.1,
 					"Variable Player Powers": 6.7
 				},
@@ -17605,7 +17590,6 @@
 					"Cooperative Game": 1.3,
 					"Hand Management": 17.9,
 					"Hexagon Grid": 9.7,
-					"Open Drafting": 8.3,
 					"Roll / Spin and Move": 7.9,
 					"Variable Player Powers": 8.5
 				},
@@ -17614,7 +17598,6 @@
 					"Cooperative Game": 1.8,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.9,
-					"Open Drafting": 7.8,
 					"Roll / Spin and Move": 8.8,
 					"Variable Player Powers": 9
 				},
@@ -17623,7 +17606,6 @@
 					"Cooperative Game": 2.9,
 					"Hand Management": 19.2,
 					"Hexagon Grid": 10.9,
-					"Open Drafting": 6.5,
 					"Roll / Spin and Move": 8.3,
 					"Variable Player Powers": 7
 				},
@@ -17632,7 +17614,6 @@
 					"Cooperative Game": 3.6,
 					"Hand Management": 20.8,
 					"Hexagon Grid": 9.7,
-					"Open Drafting": 8.4,
 					"Roll / Spin and Move": 7.8,
 					"Variable Player Powers": 8.8
 				},
@@ -17641,7 +17622,6 @@
 					"Cooperative Game": 4.3,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 12.5,
-					"Open Drafting": 9.5,
 					"Roll / Spin and Move": 5.3,
 					"Variable Player Powers": 9.7
 				},
@@ -17650,7 +17630,6 @@
 					"Cooperative Game": 3.3,
 					"Hand Management": 25.1,
 					"Hexagon Grid": 8,
-					"Open Drafting": 11,
 					"Roll / Spin and Move": 5.2,
 					"Variable Player Powers": 10.9
 				},
@@ -17659,7 +17638,6 @@
 					"Cooperative Game": 4.4,
 					"Hand Management": 28.5,
 					"Hexagon Grid": 9.6,
-					"Open Drafting": 10.7,
 					"Roll / Spin and Move": 3.4,
 					"Variable Player Powers": 12.5
 				},
@@ -17668,7 +17646,6 @@
 					"Cooperative Game": 7.4,
 					"Hand Management": 26.4,
 					"Hexagon Grid": 6.4,
-					"Open Drafting": 10.3,
 					"Roll / Spin and Move": 4.4,
 					"Variable Player Powers": 15.5
 				},
@@ -17677,7 +17654,6 @@
 					"Cooperative Game": 6.1,
 					"Hand Management": 30.9,
 					"Hexagon Grid": 5.9,
-					"Open Drafting": 12,
 					"Roll / Spin and Move": 4.2,
 					"Variable Player Powers": 14.2
 				},
@@ -17686,7 +17662,6 @@
 					"Cooperative Game": 9.3,
 					"Hand Management": 27.1,
 					"Hexagon Grid": 6,
-					"Open Drafting": 13.1,
 					"Roll / Spin and Move": 2.6,
 					"Variable Player Powers": 17.8
 				},
@@ -17695,7 +17670,6 @@
 					"Cooperative Game": 9.6,
 					"Hand Management": 27.9,
 					"Hexagon Grid": 4.2,
-					"Open Drafting": 11.5,
 					"Roll / Spin and Move": 2.8,
 					"Variable Player Powers": 16
 				},
@@ -17704,7 +17678,6 @@
 					"Cooperative Game": 12.7,
 					"Hand Management": 29,
 					"Hexagon Grid": 4.7,
-					"Open Drafting": 13.5,
 					"Roll / Spin and Move": 1.7,
 					"Variable Player Powers": 17.9
 				},
@@ -17713,7 +17686,6 @@
 					"Cooperative Game": 14,
 					"Hand Management": 25.5,
 					"Hexagon Grid": 5.7,
-					"Open Drafting": 12.3,
 					"Roll / Spin and Move": 2.6,
 					"Variable Player Powers": 19.2
 				},
@@ -17722,7 +17694,6 @@
 					"Cooperative Game": 16,
 					"Hand Management": 24.4,
 					"Hexagon Grid": 4.5,
-					"Open Drafting": 12.7,
 					"Roll / Spin and Move": 1.6,
 					"Variable Player Powers": 17.7
 				},
@@ -17731,7 +17702,6 @@
 					"Cooperative Game": 16.9,
 					"Hand Management": 22.6,
 					"Hexagon Grid": 6.1,
-					"Open Drafting": 11.7,
 					"Roll / Spin and Move": 1.9,
 					"Variable Player Powers": 13.8
 				},
@@ -17740,7 +17710,6 @@
 					"Cooperative Game": 18.9,
 					"Hand Management": 21.8,
 					"Hexagon Grid": 5.7,
-					"Open Drafting": 14.1,
 					"Roll / Spin and Move": 1.4,
 					"Variable Player Powers": 15.7
 				},
@@ -17749,7 +17718,6 @@
 					"Cooperative Game": 18.2,
 					"Hand Management": 20.7,
 					"Hexagon Grid": 6.6,
-					"Open Drafting": 12.2,
 					"Roll / Spin and Move": 1.8,
 					"Variable Player Powers": 13.9
 				},
@@ -17758,7 +17726,6 @@
 					"Cooperative Game": 17.2,
 					"Hand Management": 24.5,
 					"Hexagon Grid": 6.1,
-					"Open Drafting": 11.1,
 					"Roll / Spin and Move": 0.5,
 					"Variable Player Powers": 14.5
 				},
@@ -17767,7 +17734,6 @@
 					"Cooperative Game": 16.2,
 					"Hand Management": 23.1,
 					"Hexagon Grid": 6.7,
-					"Open Drafting": 9.9,
 					"Roll / Spin and Move": 1,
 					"Variable Player Powers": 13.8
 				},
@@ -17776,7 +17742,6 @@
 					"Cooperative Game": 15.2,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 6.2,
-					"Open Drafting": 11.6,
 					"Roll / Spin and Move": 0.7,
 					"Variable Player Powers": 15.4
 				}

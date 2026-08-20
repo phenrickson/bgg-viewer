@@ -138,6 +138,11 @@ export const line = (title, note, xLabel, yLabel, rows) => {
 		if (!byX.has(x)) byX.set(x, { x });
 		byX.get(x)[key] = Number(r.y);
 	}
+	// VizOfTheDay cycles 5 categorical colors; a 6th series would collide with the 1st and
+	// render indistinguishable from it instead of failing anything — this makes that loud.
+	if (keys.length > 5) {
+		throw new Error(`${title}: line viz has ${keys.length} series, but only 5 colors exist`);
+	}
 	return {
 		kind: 'line',
 		title,
