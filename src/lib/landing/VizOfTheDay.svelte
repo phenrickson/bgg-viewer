@@ -369,8 +369,8 @@
               {/each}
               <span class="dotstem" style="width: {b.pct}%"></span>
               <span class="dotmark" style="left: {b.pct}%; background: {b.color}"></span>
+              <span class="dotval" style="left: {b.pct}%; color: {b.color}">{b.value.toLocaleString()}</span>
             </span>
-            <span class="bval">{b.value.toLocaleString()}</span>
           </li>
         {/each}
       </ul>
@@ -384,7 +384,6 @@
             <span class="dottick" style="left: {t.pct}%">{t.v}</span>
           {/each}
         </span>
-        <span></span>
       </div>
     </div>
   {:else if viz.kind === 'bars'}
@@ -488,12 +487,15 @@
   .bars li:hover .fill { background: var(--primary); }
   .bval { font-size: 0.8rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 
-  /* Same grid/label/value shell as `.bars`, swapping the length-encoded `.track`/`.fill` for a
-     zoomed-scale dot — see the `dotPlot` derivation for why. `.dots-axis` is a header row using
-     the identical grid so its tick labels land directly above the track column beneath them. */
+  /* Same label/track shell as `.bars`, swapping the length-encoded `.track`/`.fill` for a
+     zoomed-scale dot — see the `dotPlot` derivation for why. No trailing value column like
+     `.bars` has: the value renders as `.dotval`, right at the dot it belongs to, rather than
+     in a column whose own horizontal position bears no relation to where the dot sits.
+     `.dots-axis` is a footer row using the identical grid so its ticks land under the same
+     track column the rows above use. */
   .dots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
   .dots li, .dots-axis {
-    display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr auto;
+    display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr;
     align-items: center; gap: var(--space-md);
   }
   .dots-axis { margin-top: .3rem; }
@@ -518,6 +520,12 @@
     transform: translate(-50%, -50%); box-shadow: 0 0 0 2px var(--card);
   }
   .dots li:hover .dotmark { outline: 2px solid var(--primary); outline-offset: 1px; }
+  /* To the right of the dot, colored to match it — same idea as the line chart's end labels:
+     the number sits where the value actually is, not off in a detached column. */
+  .dotval {
+    position: absolute; top: 50%; transform: translate(.6rem, -50%);
+    font-size: 0.72rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
 
   /* The plotting box, right of the y-axis gutter `.grid`/`.gval` already reserve — the SVG
      polyline and every label (end-of-line, x-ticks) share this one coordinate box so they
