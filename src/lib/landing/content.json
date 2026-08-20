@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T16:57:37.404Z",
+	"builtAt": "2026-08-20T17:12:08.475Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17224,6 +17224,26 @@
 			],
 			"points": [
 				{
+					"x": 1990,
+					"Solo / Solitaire Game": 1.3
+				},
+				{
+					"x": 1991,
+					"Solo / Solitaire Game": 2.2
+				},
+				{
+					"x": 1992,
+					"Solo / Solitaire Game": 1.4
+				},
+				{
+					"x": 1993,
+					"Solo / Solitaire Game": 1
+				},
+				{
+					"x": 1994,
+					"Solo / Solitaire Game": 0.5
+				},
+				{
 					"x": 1995,
 					"Solo / Solitaire Game": 0.9
 				},
@@ -17363,6 +17383,46 @@
 			],
 			"points": [
 				{
+					"x": 1990,
+					"Kickstarter": 0
+				},
+				{
+					"x": 1991,
+					"Kickstarter": 0.5
+				},
+				{
+					"x": 1992,
+					"Kickstarter": 0.5
+				},
+				{
+					"x": 1993,
+					"Kickstarter": 1
+				},
+				{
+					"x": 1994,
+					"Kickstarter": 0.5
+				},
+				{
+					"x": 1995,
+					"Kickstarter": 1.3
+				},
+				{
+					"x": 1996,
+					"Kickstarter": 0
+				},
+				{
+					"x": 1997,
+					"Kickstarter": 0.4
+				},
+				{
+					"x": 1998,
+					"Kickstarter": 0.8
+				},
+				{
+					"x": 1999,
+					"Kickstarter": 0.3
+				},
+				{
 					"x": 2000,
 					"Kickstarter": 0
 				},
@@ -17471,7 +17531,7 @@
 		{
 			"kind": "line",
 			"title": "How mechanics have risen and fallen",
-			"note": "PLACEHOLDER — share of that year's rated releases, for the 5 mechanics whose share moved the most between 1995-2004 and 2015-2024.",
+			"note": "PLACEHOLDER — share of that year's rated releases, for the 5 mechanics whose share moved the most between 1990-1999 and 2015-2024.",
 			"xLabel": "Year",
 			"yLabel": "% of releases",
 			"series": [
@@ -17488,8 +17548,8 @@
 					"label": "Hexagon Grid"
 				},
 				{
-					"key": "Roll / Spin and Move",
-					"label": "Roll / Spin and Move"
+					"key": "Simulation",
+					"label": "Simulation"
 				},
 				{
 					"key": "Variable Player Powers",
@@ -17498,11 +17558,51 @@
 			],
 			"points": [
 				{
+					"x": 1990,
+					"Cooperative Game": 1.9,
+					"Hand Management": 6.9,
+					"Hexagon Grid": 25.8,
+					"Simulation": 22.6,
+					"Variable Player Powers": 4.4
+				},
+				{
+					"x": 1991,
+					"Cooperative Game": 3.8,
+					"Hand Management": 4.9,
+					"Hexagon Grid": 25.3,
+					"Simulation": 18.7,
+					"Variable Player Powers": 5.5
+				},
+				{
+					"x": 1992,
+					"Cooperative Game": 2.8,
+					"Hand Management": 6.5,
+					"Hexagon Grid": 37.4,
+					"Simulation": 18.2,
+					"Variable Player Powers": 5.6
+				},
+				{
+					"x": 1993,
+					"Cooperative Game": 2,
+					"Hand Management": 9.5,
+					"Hexagon Grid": 29.1,
+					"Simulation": 19.1,
+					"Variable Player Powers": 5.5
+				},
+				{
+					"x": 1994,
+					"Cooperative Game": 2.6,
+					"Hand Management": 11.3,
+					"Hexagon Grid": 29.2,
+					"Simulation": 16.4,
+					"Variable Player Powers": 7.7
+				},
+				{
 					"x": 1995,
 					"Cooperative Game": 1.8,
 					"Hand Management": 12.3,
 					"Hexagon Grid": 24.2,
-					"Roll / Spin and Move": 7,
+					"Simulation": 15.9,
 					"Variable Player Powers": 6.2
 				},
 				{
@@ -17510,7 +17610,7 @@
 					"Cooperative Game": 0.9,
 					"Hand Management": 14.8,
 					"Hexagon Grid": 18.7,
-					"Roll / Spin and Move": 12.2,
+					"Simulation": 11.3,
 					"Variable Player Powers": 5.2
 				},
 				{
@@ -17518,7 +17618,7 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 12.4,
 					"Hexagon Grid": 20.7,
-					"Roll / Spin and Move": 8.7,
+					"Simulation": 14.5,
 					"Variable Player Powers": 6.6
 				},
 				{
@@ -17526,7 +17626,7 @@
 					"Cooperative Game": 1.5,
 					"Hand Management": 15.2,
 					"Hexagon Grid": 14.8,
-					"Roll / Spin and Move": 11.8,
+					"Simulation": 8.7,
 					"Variable Player Powers": 6.5
 				},
 				{
@@ -17534,7 +17634,7 @@
 					"Cooperative Game": 0.3,
 					"Hand Management": 13.3,
 					"Hexagon Grid": 14.7,
-					"Roll / Spin and Move": 8.4,
+					"Simulation": 8.7,
 					"Variable Player Powers": 6.3
 				},
 				{
@@ -17542,7 +17642,7 @@
 					"Cooperative Game": 1.9,
 					"Hand Management": 11.8,
 					"Hexagon Grid": 13.4,
-					"Roll / Spin and Move": 12.5,
+					"Simulation": 7.7,
 					"Variable Player Powers": 8.3
 				},
 				{
@@ -17550,7 +17650,7 @@
 					"Cooperative Game": 2.2,
 					"Hand Management": 13,
 					"Hexagon Grid": 11.4,
-					"Roll / Spin and Move": 10.1,
+					"Simulation": 7.9,
 					"Variable Player Powers": 6.6
 				},
 				{
@@ -17558,7 +17658,7 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.6,
-					"Roll / Spin and Move": 14.6,
+					"Simulation": 9.6,
 					"Variable Player Powers": 9
 				},
 				{
@@ -17566,7 +17666,7 @@
 					"Cooperative Game": 2.1,
 					"Hand Management": 20,
 					"Hexagon Grid": 9.9,
-					"Roll / Spin and Move": 10.1,
+					"Simulation": 8.7,
 					"Variable Player Powers": 8.7
 				},
 				{
@@ -17574,7 +17674,7 @@
 					"Cooperative Game": 1.7,
 					"Hand Management": 18.1,
 					"Hexagon Grid": 12,
-					"Roll / Spin and Move": 9.2,
+					"Simulation": 10.9,
 					"Variable Player Powers": 10.5
 				},
 				{
@@ -17582,7 +17682,7 @@
 					"Cooperative Game": 2.3,
 					"Hand Management": 16.7,
 					"Hexagon Grid": 10.5,
-					"Roll / Spin and Move": 10.1,
+					"Simulation": 8.9,
 					"Variable Player Powers": 6.7
 				},
 				{
@@ -17590,7 +17690,7 @@
 					"Cooperative Game": 1.3,
 					"Hand Management": 17.9,
 					"Hexagon Grid": 9.7,
-					"Roll / Spin and Move": 7.9,
+					"Simulation": 7.2,
 					"Variable Player Powers": 8.5
 				},
 				{
@@ -17598,7 +17698,7 @@
 					"Cooperative Game": 1.8,
 					"Hand Management": 16.3,
 					"Hexagon Grid": 9.9,
-					"Roll / Spin and Move": 8.8,
+					"Simulation": 9.7,
 					"Variable Player Powers": 9
 				},
 				{
@@ -17606,7 +17706,7 @@
 					"Cooperative Game": 2.9,
 					"Hand Management": 19.2,
 					"Hexagon Grid": 10.9,
-					"Roll / Spin and Move": 8.3,
+					"Simulation": 9.3,
 					"Variable Player Powers": 7
 				},
 				{
@@ -17614,7 +17714,7 @@
 					"Cooperative Game": 3.6,
 					"Hand Management": 20.8,
 					"Hexagon Grid": 9.7,
-					"Roll / Spin and Move": 7.8,
+					"Simulation": 9,
 					"Variable Player Powers": 8.8
 				},
 				{
@@ -17622,7 +17722,7 @@
 					"Cooperative Game": 4.3,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 12.5,
-					"Roll / Spin and Move": 5.3,
+					"Simulation": 11.9,
 					"Variable Player Powers": 9.7
 				},
 				{
@@ -17630,7 +17730,7 @@
 					"Cooperative Game": 3.3,
 					"Hand Management": 25.1,
 					"Hexagon Grid": 8,
-					"Roll / Spin and Move": 5.2,
+					"Simulation": 7.5,
 					"Variable Player Powers": 10.9
 				},
 				{
@@ -17638,7 +17738,7 @@
 					"Cooperative Game": 4.4,
 					"Hand Management": 28.5,
 					"Hexagon Grid": 9.6,
-					"Roll / Spin and Move": 3.4,
+					"Simulation": 8.8,
 					"Variable Player Powers": 12.5
 				},
 				{
@@ -17646,7 +17746,7 @@
 					"Cooperative Game": 7.4,
 					"Hand Management": 26.4,
 					"Hexagon Grid": 6.4,
-					"Roll / Spin and Move": 4.4,
+					"Simulation": 6.8,
 					"Variable Player Powers": 15.5
 				},
 				{
@@ -17654,7 +17754,7 @@
 					"Cooperative Game": 6.1,
 					"Hand Management": 30.9,
 					"Hexagon Grid": 5.9,
-					"Roll / Spin and Move": 4.2,
+					"Simulation": 5.9,
 					"Variable Player Powers": 14.2
 				},
 				{
@@ -17662,7 +17762,7 @@
 					"Cooperative Game": 9.3,
 					"Hand Management": 27.1,
 					"Hexagon Grid": 6,
-					"Roll / Spin and Move": 2.6,
+					"Simulation": 6.6,
 					"Variable Player Powers": 17.8
 				},
 				{
@@ -17670,7 +17770,7 @@
 					"Cooperative Game": 9.6,
 					"Hand Management": 27.9,
 					"Hexagon Grid": 4.2,
-					"Roll / Spin and Move": 2.8,
+					"Simulation": 6.2,
 					"Variable Player Powers": 16
 				},
 				{
@@ -17678,7 +17778,7 @@
 					"Cooperative Game": 12.7,
 					"Hand Management": 29,
 					"Hexagon Grid": 4.7,
-					"Roll / Spin and Move": 1.7,
+					"Simulation": 5.5,
 					"Variable Player Powers": 17.9
 				},
 				{
@@ -17686,7 +17786,7 @@
 					"Cooperative Game": 14,
 					"Hand Management": 25.5,
 					"Hexagon Grid": 5.7,
-					"Roll / Spin and Move": 2.6,
+					"Simulation": 6.9,
 					"Variable Player Powers": 19.2
 				},
 				{
@@ -17694,7 +17794,7 @@
 					"Cooperative Game": 16,
 					"Hand Management": 24.4,
 					"Hexagon Grid": 4.5,
-					"Roll / Spin and Move": 1.6,
+					"Simulation": 6.9,
 					"Variable Player Powers": 17.7
 				},
 				{
@@ -17702,7 +17802,7 @@
 					"Cooperative Game": 16.9,
 					"Hand Management": 22.6,
 					"Hexagon Grid": 6.1,
-					"Roll / Spin and Move": 1.9,
+					"Simulation": 6.9,
 					"Variable Player Powers": 13.8
 				},
 				{
@@ -17710,7 +17810,7 @@
 					"Cooperative Game": 18.9,
 					"Hand Management": 21.8,
 					"Hexagon Grid": 5.7,
-					"Roll / Spin and Move": 1.4,
+					"Simulation": 6,
 					"Variable Player Powers": 15.7
 				},
 				{
@@ -17718,7 +17818,7 @@
 					"Cooperative Game": 18.2,
 					"Hand Management": 20.7,
 					"Hexagon Grid": 6.6,
-					"Roll / Spin and Move": 1.8,
+					"Simulation": 4.7,
 					"Variable Player Powers": 13.9
 				},
 				{
@@ -17726,7 +17826,7 @@
 					"Cooperative Game": 17.2,
 					"Hand Management": 24.5,
 					"Hexagon Grid": 6.1,
-					"Roll / Spin and Move": 0.5,
+					"Simulation": 5.1,
 					"Variable Player Powers": 14.5
 				},
 				{
@@ -17734,7 +17834,7 @@
 					"Cooperative Game": 16.2,
 					"Hand Management": 23.1,
 					"Hexagon Grid": 6.7,
-					"Roll / Spin and Move": 1,
+					"Simulation": 2.7,
 					"Variable Player Powers": 13.8
 				},
 				{
@@ -17742,7 +17842,7 @@
 					"Cooperative Game": 15.2,
 					"Hand Management": 22.4,
 					"Hexagon Grid": 6.2,
-					"Roll / Spin and Move": 0.7,
+					"Simulation": 3.6,
 					"Variable Player Powers": 15.4
 				}
 			]

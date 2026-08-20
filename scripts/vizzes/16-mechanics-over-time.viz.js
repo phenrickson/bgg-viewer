@@ -4,7 +4,7 @@ export default {
 	id: 'mechanics-over-time',
 	kind: 'line',
 	title: 'How mechanics have risen and fallen',
-	note: 'PLACEHOLDER — share of that year\'s rated releases, for the 5 mechanics whose share moved the most between 1995-2004 and 2015-2024.',
+	note: 'PLACEHOLDER — share of that year\'s rated releases, for the 5 mechanics whose share moved the most between 1990-1999 and 2015-2024.',
 	xLabel: 'Year',
 	yLabel: '% of releases',
 	/**
@@ -20,16 +20,16 @@ export default {
 	query: `WITH windowed AS (
 	     SELECT m, year_published AS yr
 	     FROM ${F}, UNNEST(mechanics) AS m
-	     WHERE ${WORKING} AND year_published BETWEEN 1995 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
+	     WHERE ${WORKING} AND year_published BETWEEN 1990 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
 	   ),
 	   yearly_totals AS (
 	     SELECT year_published AS yr, COUNT(*) AS total FROM ${F}
-	     WHERE ${WORKING} AND year_published BETWEEN 1995 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
+	     WHERE ${WORKING} AND year_published BETWEEN 1990 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
 	     GROUP BY yr
 	   ),
-	   early AS (SELECT m, COUNT(*) AS c FROM windowed WHERE yr BETWEEN 1995 AND 2004 GROUP BY m),
+	   early AS (SELECT m, COUNT(*) AS c FROM windowed WHERE yr BETWEEN 1990 AND 1999 GROUP BY m),
 	   late AS (SELECT m, COUNT(*) AS c FROM windowed WHERE yr BETWEEN 2015 AND 2024 GROUP BY m),
-	   early_total AS (SELECT SUM(total) AS t FROM yearly_totals WHERE yr BETWEEN 1995 AND 2004),
+	   early_total AS (SELECT SUM(total) AS t FROM yearly_totals WHERE yr BETWEEN 1990 AND 1999),
 	   late_total AS (SELECT SUM(total) AS t FROM yearly_totals WHERE yr BETWEEN 2015 AND 2024),
 	   swing AS (
 	     SELECT COALESCE(early.m, late.m) AS m,

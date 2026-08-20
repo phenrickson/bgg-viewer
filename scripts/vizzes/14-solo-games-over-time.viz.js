@@ -13,7 +13,7 @@ export default {
 	     SELECT year_published AS yr, COUNT(*) AS total,
 	            COUNTIF('Solo / Solitaire Game' IN UNNEST(mechanics)) AS solo
 	     FROM ${F}
-	     WHERE ${WORKING} AND year_published BETWEEN 1995 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
+	     WHERE ${WORKING} AND year_published BETWEEN 1990 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
 	     GROUP BY yr
 	   )
 	   SELECT 'Solo / Solitaire Game' AS series, yr AS x, ROUND(100*solo/total, 1) AS y
