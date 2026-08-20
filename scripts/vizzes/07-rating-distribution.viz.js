@@ -3,7 +3,7 @@ import { F, WORKING } from './lib.js';
 export default {
 	id: 'rating-distribution',
 	kind: 'columns',
-	title: 'What the catalog is rated',
+	title: 'How Users Rate Games on BoardGameGeek',
 	note: 'PLACEHOLDER — average rating, in half-point buckets.',
 	xLabel: 'Average rating',
 	yLabel: 'Games',

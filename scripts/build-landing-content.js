@@ -27,7 +27,7 @@
  */
 import { writeFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { F, WORKING, PROJECT, q, pair, scatter, columns, bars } from './vizzes/lib.js';
+import { F, WORKING, PROJECT, q, pair, scatter, columns, bars, line } from './vizzes/lib.js';
 
 const num = (v) => (v == null ? null : Number(v));
 
@@ -58,7 +58,7 @@ function validate(mod, file) {
 	};
 	req(mod && typeof mod === 'object', 'default export must be an object');
 	req(typeof mod.id === 'string' && mod.id, 'missing "id"');
-	req(['scatter', 'columns', 'bars'].includes(mod.kind), 'missing/invalid "kind"');
+	req(['scatter', 'columns', 'bars', 'line'].includes(mod.kind), 'missing/invalid "kind"');
 	req(typeof mod.title === 'string' && mod.title, 'missing "title"');
 	req(typeof mod.note === 'string' && mod.note, 'missing "note"');
 	req(typeof mod.xLabel === 'string' && mod.xLabel, 'missing "xLabel"');
@@ -97,6 +97,9 @@ async function runViz(mod) {
 			mod.precision,
 			mod.calloutTemplate
 		);
+	}
+	if (mod.kind === 'line') {
+		return line(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
 	}
 	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
 }

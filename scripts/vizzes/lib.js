@@ -122,6 +122,33 @@ export const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision 
 	};
 };
 
+/**
+ * A trend chart — one or more series sharing one x per row. `rows` is flat `{x, series, y}`
+ * triples (one row per series/x-point, however many series that is), pivoted here into the
+ * wide per-x shape the renderer wants — so a viz file just returns whatever its query
+ * naturally produces (a single-series file's query can alias a literal string as `series`).
+ */
+export const line = (title, note, xLabel, yLabel, rows) => {
+	const keys = [];
+	const byX = new Map();
+	for (const r of rows) {
+		const key = String(r.series);
+		if (!keys.includes(key)) keys.push(key);
+		const x = Number(r.x);
+		if (!byX.has(x)) byX.set(x, { x });
+		byX.get(x)[key] = Number(r.y);
+	}
+	return {
+		kind: 'line',
+		title,
+		note,
+		xLabel,
+		yLabel,
+		series: keys.map((key) => ({ key, label: key })),
+		points: [...byX.values()].sort((a, b) => a.x - b.x)
+	};
+};
+
 export const bars = (title, note, xLabel, yLabel, rows) => ({
 	kind: 'bars',
 	title,

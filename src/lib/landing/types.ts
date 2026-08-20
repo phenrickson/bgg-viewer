@@ -71,7 +71,23 @@ export interface BarsViz {
 	bars: { label: string; value: number }[];
 }
 
-export type Viz = ScatterViz | ColumnsViz | BarsViz;
+/**
+ * A trend over a continuous axis (year). Wide format — one row per x, each series reading its
+ * own field off that row — rather than one array per series, so multiple series share exactly
+ * one x-axis without duplicating it or risking two series disagreeing on what x means.
+ */
+export interface LineViz {
+	kind: 'line';
+	title: string;
+	note: string;
+	xLabel: string;
+	yLabel: string;
+	/** Which fields on `points` are series, in draw order (also legend/color order). */
+	series: { key: string; label: string }[];
+	points: ({ x: number } & Record<string, number>)[];
+}
+
+export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz;
 
 export interface Featured {
 	id: number;

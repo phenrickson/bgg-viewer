@@ -67,15 +67,31 @@ into the thousands of points. The only thing that actually grows is
 
 - `query` — full SQL returning `label` and `n` columns. The `topOf(col, n)`
   helper in `lib.js` covers the common case: top N values of a repeated
-  string column (mechanics, categories, designers).
+  string column (mechanics, categories, designers). `n` doesn't have to be
+  a count — it's just "the value," so an aggregate like average rating
+  works the same way (see `12-rating-by-mechanic.viz.js`).
+
+**`line`** — one or more trends over a continuous axis (typically year).
+
+- `query` — full SQL returning `series`, `x`, and `y` columns, one row per
+  series/x-point. For a single-series chart, alias a literal string as
+  `series` (`SELECT 'Solo / Solitaire Game' AS series, ...`); for multiple
+  series, select the grouping column as `series` and the builder pivots the
+  rows for you (see `03-mechanics-over-time.viz.js`).
+- Capped at 5 series in practice — `VizOfTheDay` cycles through the app's 5
+  categorical `--chart-N` tokens and repeats past that, so a 6th series
+  would share a color with the 1st.
+- Prefer a **share** (percent of that x's total), not a raw count, whenever
+  the underlying total itself is changing over the period — otherwise "this
+  grew" and "everything grew" are indistinguishable in the chart.
 
 ## Shared helpers (`lib.js`)
 
 `F` (the games table, fully qualified), `WORKING` (the working-set filter),
 `q()` (run arbitrary SQL), `pair()` (the scatter sample + its notable-games
 query, run together), `topOf()` (top-N of a repeated column), and the
-`scatter()`/`columns()`/`bars()` builders that turn query rows into the
-`Viz` shape `build-landing-content.js` writes to `content.json`. You
+`scatter()`/`columns()`/`bars()`/`line()` builders that turn query rows into
+the `Viz` shape `build-landing-content.js` writes to `content.json`. You
 shouldn't need to touch any of this to add a viz — it's what the fields
 above drive.
 

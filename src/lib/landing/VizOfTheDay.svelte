@@ -140,6 +140,66 @@
     const max = Math.max(1, ...viz.bars.map((b) => b.value));
     return viz.bars.map((b) => ({ ...b, w: (b.value / max) * 100 }));
   });
+
+  /**
+   * One or more trend lines sharing an x-axis (year). Percentages throughout, not pixels or
+   * viewBox units — the polyline and the HTML tick/end labels are positioned from the same
+   * two functions, so a text label and the geometry it names can never disagree about where
+   * they sit. (An SVG viewBox with `preserveAspectRatio="none"` scales x/y non-uniformly to
+   * fill the section's width, which would visibly squash text glyphs if it drew them too —
+   * so only the polyline geometry lives in the SVG; every label is a plain absolutely
+   * positioned span, same technique the columns chart already uses for its gridlines.)
+   */
+  const linePlot = $derived.by(() => {
+    if (viz.kind !== 'line') return null;
+    const xs = viz.points.map((p) => p.x);
+    const xLo = Math.min(...xs);
+    const xHi = Math.max(...xs);
+    const yHi = Math.max(
+      1,
+      ...viz.series.flatMap((s) => viz.points.map((p) => p[s.key]).filter((v) => v != null))
+    );
+
+    const leftPct = (x: number) => (xHi === xLo ? 0 : ((x - xLo) / (xHi - xLo)) * 100);
+    const bottomPct = (y: number) => (y / yHi) * 100;
+
+    // Nice y gridlines — same stepping idea as the columns chart's.
+    const step = (() => {
+      const raw = yHi / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
+    })();
+    const gridlines: { v: number; pct: number }[] = [];
+    for (let v = step; v <= yHi; v += step) gridlines.push({ v, pct: bottomPct(v) });
+
+    // ~6 evenly spaced year ticks, plus the final year so the range's edge always shows.
+    const xStep = Math.max(1, Math.round((xHi - xLo) / 6));
+    const xticks: { x: number; pct: number }[] = [];
+    for (let x = Math.ceil(xLo / xStep) * xStep; x <= xHi; x += xStep) {
+      xticks.push({ x, pct: leftPct(x) });
+    }
+    if (xticks[xticks.length - 1]?.x !== xHi) xticks.push({ x: xHi, pct: leftPct(xHi) });
+
+    // Cycles through the app's 5 categorical tokens — a 6th series would repeat a color,
+    // which every current viz avoids by construction (nothing asks for more than 5 series).
+    const lines = viz.series.map((s, i) => {
+      const pts = viz.points
+        .filter((p) => p[s.key] != null)
+        .map((p) => `${leftPct(p.x)},${100 - bottomPct(p[s.key])}`)
+        .join(' ');
+      const last = [...viz.points].reverse().find((p) => p[s.key] != null);
+      return {
+        key: s.key,
+        label: s.label,
+        pts,
+        color: `var(--chart-${(i % 5) + 1})`,
+        endLeft: last ? leftPct(last.x) : 0,
+        endTop: last ? 100 - bottomPct(last[s.key]) : 0
+      };
+    });
+
+    return { gridlines, xticks, lines };
+  });
 </script>
 
 <section class="sec" use:reveal aria-label={viz.title}>
@@ -198,7 +258,31 @@
         <p class="callout"><span class="mark" aria-hidden="true"></span>{viz.callout.text}</p>
       {/if}
     </div>
-  {:else}
+  {:else if viz.kind === 'line' && linePlot}
+    <div class="plot lineplot" style="height: {HEIGHT}px">
+      {#each linePlot.gridlines as g (g.v)}
+        <div class="grid" style="bottom: {g.pct}%">
+          <span class="gval">{g.v.toLocaleString()}</span>
+        </div>
+      {/each}
+
+      <div class="linearea" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="linesvg" aria-hidden="true">
+          {#each linePlot.lines as s (s.key)}
+            <polyline points={s.pts} style="stroke: {s.color}" vector-effect="non-scaling-stroke" />
+          {/each}
+        </svg>
+
+        {#each linePlot.lines as s (s.key)}
+          <span class="lineend" style="left: {s.endLeft}%; top: {s.endTop}%; color: {s.color}">{s.label}</span>
+        {/each}
+
+        {#each linePlot.xticks as t (t.x)}
+          <span class="linetick" style="left: {t.pct}%">{t.x}</span>
+        {/each}
+      </div>
+    </div>
+  {:else if viz.kind === 'bars'}
     <ul class="bars" aria-label="{viz.yLabel} by {viz.xLabel}">
       {#each rows as b (b.label)}
         <li>
@@ -298,4 +382,23 @@
   .fill { display: block; height: 100%; background: var(--chart-1); border-radius: 999px; }
   .bars li:hover .fill { background: var(--primary); }
   .bval { font-size: 0.8rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+  /* The plotting box, right of the y-axis gutter `.grid`/`.gval` already reserve — the SVG
+     polyline and every label (end-of-line, x-ticks) share this one coordinate box so they
+     can never drift apart from each other. */
+  .linearea { position: absolute; left: 3.2rem; right: 0; top: 0; bottom: 0; }
+  .linesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .linesvg polyline { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .lineend {
+    position: absolute; transform: translateY(-50%); margin-left: .4rem;
+    font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+  }
+
+  /* Positioned like `.tick` reads (small, muted, below the plot) but by percentage rather
+     than as a flex child, since a line chart has no per-column slot to sit under. */
+  .linetick {
+    position: absolute; bottom: -1.3rem; transform: translateX(-50%);
+    font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;
+  }
 </style>
