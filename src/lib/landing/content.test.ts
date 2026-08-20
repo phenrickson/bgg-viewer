@@ -11,7 +11,7 @@ import type { Viz } from './types';
 const isViz = (v: Viz) => {
 	if (v.kind === 'scatter') return v.points.length > 0;
 	if (v.kind === 'columns') return v.bins.length > 0;
-	if (v.kind === 'line') return v.series.length > 0 && v.points.length > 0;
+	if (v.kind === 'line' || v.kind === 'stack') return v.series.length > 0 && v.points.length > 0;
 	return v.bars.length > 0;
 };
 

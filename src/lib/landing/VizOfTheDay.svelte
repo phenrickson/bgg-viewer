@@ -295,6 +295,52 @@
 
     return { gridlines, xticks, lines: linesWithLabels, gutterRem };
   });
+
+  /**
+   * Stacked vertical bars. Segments are positioned absolutely (`bottom`/`height`, both
+   * percentages of the tallest total) rather than relying on flex stacking order — flex's
+   * `justify-content: end` packs from the LAST DOM child, which would put `viz.series[0]`
+   * (meant to anchor the bottom, touching the axis) at the top instead.
+   */
+  const stackPlot = $derived.by(() => {
+    if (viz.kind !== 'stack') return null;
+    const totals = viz.points.map((p) => viz.series.reduce((s, ser) => s + (p[ser.key] ?? 0), 0));
+    const maxTotal = Math.max(1, ...totals);
+    const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
+
+    // Nice gridlines — same stepping idea used elsewhere.
+    const step = (() => {
+      const raw = maxTotal / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
+    })();
+    const gridlines: { n: number; pct: number }[] = [];
+    for (let n = step; n <= maxTotal; n += step) gridlines.push({ n, pct: (n / maxTotal) * 100 });
+
+    const cols = viz.points.map((p, i) => {
+      let cum = 0;
+      const segs = viz.series.map((s, si) => {
+        const v = p[s.key] ?? 0;
+        const seg = {
+          key: s.key,
+          v,
+          h: (v / maxTotal) * 100,
+          bottom: (cum / maxTotal) * 100,
+          color: `var(--chart-${(si % 5) + 1})`
+        };
+        cum += v;
+        return seg;
+      });
+      return {
+        x: p.x,
+        total: cum,
+        segs,
+        label: i % every === 0 || i === viz.points.length - 1 ? String(p.x) : ''
+      };
+    });
+
+    return { gridlines: gridlines.slice(-4), cols };
+  });
 </script>
 
 <section class="sec" use:reveal aria-label={viz.title}>
@@ -384,6 +430,39 @@
         {#each linePlot.xticks as t (t.x)}
           <span class="linetick" style="left: {t.pct}%">{t.x}</span>
         {/each}
+      </div>
+    </div>
+  {:else if viz.kind === 'stack' && stackPlot}
+    <div class="stackwrap">
+      <div class="legend">
+        {#each viz.series as s, i (s.key)}
+          <span class="legenditem">
+            <i style="background: var(--chart-{(i % 5) + 1})"></i>{s.label}
+          </span>
+        {/each}
+      </div>
+      <div class="plot" style="height: {HEIGHT}px">
+        {#each stackPlot.gridlines as g (g.n)}
+          <div class="grid" style="bottom: {g.pct}%">
+            <span class="gval">{g.n.toLocaleString()}</span>
+          </div>
+        {/each}
+
+        <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
+          {#each stackPlot.cols as c (c.x)}
+            <div class="col">
+              <div class="stackbar" title="{c.x}: {c.total.toLocaleString()}">
+                {#each c.segs as seg (seg.key)}
+                  <div
+                    class="stackseg"
+                    style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
+                  ></div>
+                {/each}
+              </div>
+              <span class="tick">{c.label}</span>
+            </div>
+          {/each}
+        </div>
       </div>
     </div>
   {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
@@ -499,6 +578,21 @@
     font-size: 0.65rem; color: var(--muted-foreground); text-align: center;
     margin-top: .4rem; height: .9rem; overflow: visible; white-space: nowrap;
   }
+
+  /* Legend above the plot — a stack's colors aren't self-explanatory the way a single-series
+     bar's is, so unlike the other chart kinds this one needs a key. */
+  .legend { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-bottom: var(--space-md); }
+  .legenditem {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: 0.78rem; color: var(--muted-foreground);
+  }
+  .legenditem i { width: .65rem; height: .65rem; border-radius: 2px; flex: none; }
+
+  /* Segments positioned absolutely within the column (`bottom`/`height`, both percentages of
+     the tallest total) — see the `stackPlot` derivation for why not flex stacking order. */
+  .stackbar { position: relative; width: 100%; height: 100%; }
+  .stackseg { position: absolute; left: 0; right: 0; min-height: 1px; }
+  .col:hover .stackseg { filter: brightness(1.15); }
 
   /* Grid rather than flex: the three columns must align across every row, and a label
      column sized to its longest entry (`max-content`, capped) is what keeps the tracks

@@ -97,7 +97,27 @@ export interface LineViz {
 	points: ({ x: number } & Record<string, number>)[];
 }
 
-export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz;
+/**
+ * Stacked vertical bars over a continuous axis (year) — same `series`/`points` shape as
+ * `LineViz` (one row per x, each series its own field), rendered as cumulative segments
+ * instead of a connected line. For "how many releases have X vs. don't," where both the
+ * absolute count AND the split matter — a line of shares alone drops the absolute-growth
+ * story a stack keeps.
+ */
+export interface StackViz {
+	kind: 'stack';
+	title: string;
+	note: string;
+	xLabel: string;
+	yLabel: string;
+	/** Stack order bottom-to-top (also legend/color order). */
+	series: { key: string; label: string }[];
+	points: ({ x: number } & Record<string, number>)[];
+	/** Label every Nth bucket (by index) — same reasoning as `ColumnsViz`'s. */
+	tickEvery?: number;
+}
+
+export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz | StackViz;
 
 export interface Featured {
 	id: number;

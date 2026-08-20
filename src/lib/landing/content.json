@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T17:12:08.475Z",
+	"builtAt": "2026-08-20T17:25:37.574Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17211,322 +17211,404 @@
 			"style": "dots"
 		},
 		{
-			"kind": "line",
+			"kind": "stack",
 			"title": "The rise of solo games",
-			"note": "PLACEHOLDER — share of that year's rated releases with a Solo / Solitaire Game mechanic.",
+			"note": "PLACEHOLDER — rated releases each year, split by whether they have a Solo / Solitaire Game mechanic.",
 			"xLabel": "Year",
-			"yLabel": "% of releases",
+			"yLabel": "Games",
 			"series": [
 				{
 					"key": "Solo / Solitaire Game",
 					"label": "Solo / Solitaire Game"
+				},
+				{
+					"key": "Everything else",
+					"label": "Everything else"
 				}
 			],
 			"points": [
 				{
 					"x": 1990,
-					"Solo / Solitaire Game": 1.3
+					"Solo / Solitaire Game": 2,
+					"Everything else": 157
 				},
 				{
 					"x": 1991,
-					"Solo / Solitaire Game": 2.2
+					"Solo / Solitaire Game": 4,
+					"Everything else": 178
 				},
 				{
 					"x": 1992,
-					"Solo / Solitaire Game": 1.4
+					"Solo / Solitaire Game": 3,
+					"Everything else": 211
 				},
 				{
 					"x": 1993,
-					"Solo / Solitaire Game": 1
+					"Solo / Solitaire Game": 2,
+					"Everything else": 197
 				},
 				{
 					"x": 1994,
-					"Solo / Solitaire Game": 0.5
+					"Solo / Solitaire Game": 1,
+					"Everything else": 194
 				},
 				{
 					"x": 1995,
-					"Solo / Solitaire Game": 0.9
+					"Solo / Solitaire Game": 2,
+					"Everything else": 225
 				},
 				{
 					"x": 1996,
-					"Solo / Solitaire Game": 1.3
+					"Solo / Solitaire Game": 3,
+					"Everything else": 227
 				},
 				{
 					"x": 1997,
-					"Solo / Solitaire Game": 0
+					"Solo / Solitaire Game": 0,
+					"Everything else": 241
 				},
 				{
 					"x": 1998,
-					"Solo / Solitaire Game": 0.4
+					"Solo / Solitaire Game": 1,
+					"Everything else": 262
 				},
 				{
 					"x": 1999,
-					"Solo / Solitaire Game": 0.7
+					"Solo / Solitaire Game": 2,
+					"Everything else": 284
 				},
 				{
 					"x": 2000,
-					"Solo / Solitaire Game": 1.6
+					"Solo / Solitaire Game": 5,
+					"Everything else": 308
 				},
 				{
 					"x": 2001,
-					"Solo / Solitaire Game": 0
+					"Solo / Solitaire Game": 0,
+					"Everything else": 316
 				},
 				{
 					"x": 2002,
-					"Solo / Solitaire Game": 0.8
+					"Solo / Solitaire Game": 3,
+					"Everything else": 353
 				},
 				{
 					"x": 2003,
-					"Solo / Solitaire Game": 0.5
+					"Solo / Solitaire Game": 2,
+					"Everything else": 433
 				},
 				{
 					"x": 2004,
-					"Solo / Solitaire Game": 0.4
+					"Solo / Solitaire Game": 2,
+					"Everything else": 522
 				},
 				{
 					"x": 2005,
-					"Solo / Solitaire Game": 1.2
+					"Solo / Solitaire Game": 7,
+					"Everything else": 556
 				},
 				{
 					"x": 2006,
-					"Solo / Solitaire Game": 0.7
+					"Solo / Solitaire Game": 4,
+					"Everything else": 550
 				},
 				{
 					"x": 2007,
-					"Solo / Solitaire Game": 0.9
+					"Solo / Solitaire Game": 5,
+					"Everything else": 560
 				},
 				{
 					"x": 2008,
-					"Solo / Solitaire Game": 1.9
+					"Solo / Solitaire Game": 12,
+					"Everything else": 614
 				},
 				{
 					"x": 2009,
-					"Solo / Solitaire Game": 2.7
+					"Solo / Solitaire Game": 19,
+					"Everything else": 672
 				},
 				{
 					"x": 2010,
-					"Solo / Solitaire Game": 2.9
+					"Solo / Solitaire Game": 22,
+					"Everything else": 737
 				},
 				{
 					"x": 2011,
-					"Solo / Solitaire Game": 3.4
+					"Solo / Solitaire Game": 27,
+					"Everything else": 762
 				},
 				{
 					"x": 2012,
-					"Solo / Solitaire Game": 3.1
+					"Solo / Solitaire Game": 28,
+					"Everything else": 862
 				},
 				{
 					"x": 2013,
-					"Solo / Solitaire Game": 4.2
+					"Solo / Solitaire Game": 39,
+					"Everything else": 899
 				},
 				{
 					"x": 2014,
-					"Solo / Solitaire Game": 3.7
+					"Solo / Solitaire Game": 41,
+					"Everything else": 1065
 				},
 				{
 					"x": 2015,
-					"Solo / Solitaire Game": 5
+					"Solo / Solitaire Game": 64,
+					"Everything else": 1215
 				},
 				{
 					"x": 2016,
-					"Solo / Solitaire Game": 5.5
+					"Solo / Solitaire Game": 79,
+					"Everything else": 1360
 				},
 				{
 					"x": 2017,
-					"Solo / Solitaire Game": 6
+					"Solo / Solitaire Game": 90,
+					"Everything else": 1414
 				},
 				{
 					"x": 2018,
-					"Solo / Solitaire Game": 8.7
+					"Solo / Solitaire Game": 138,
+					"Everything else": 1452
 				},
 				{
 					"x": 2019,
-					"Solo / Solitaire Game": 10.1
+					"Solo / Solitaire Game": 168,
+					"Everything else": 1489
 				},
 				{
 					"x": 2020,
-					"Solo / Solitaire Game": 14.6
+					"Solo / Solitaire Game": 202,
+					"Everything else": 1184
 				},
 				{
 					"x": 2021,
-					"Solo / Solitaire Game": 19.6
+					"Solo / Solitaire Game": 269,
+					"Everything else": 1105
 				},
 				{
 					"x": 2022,
-					"Solo / Solitaire Game": 21.9
+					"Solo / Solitaire Game": 324,
+					"Everything else": 1157
 				},
 				{
 					"x": 2023,
-					"Solo / Solitaire Game": 22
+					"Solo / Solitaire Game": 316,
+					"Everything else": 1122
 				},
 				{
 					"x": 2024,
-					"Solo / Solitaire Game": 21.3
+					"Solo / Solitaire Game": 285,
+					"Everything else": 1053
 				},
 				{
 					"x": 2025,
-					"Solo / Solitaire Game": 25
+					"Solo / Solitaire Game": 324,
+					"Everything else": 973
 				}
-			]
+			],
+			"tickEvery": 5
 		},
 		{
-			"kind": "line",
+			"kind": "stack",
 			"title": "The rise of Kickstarter",
-			"note": "PLACEHOLDER — share of that year's rated releases tagged Crowdfunding: Kickstarter.",
+			"note": "PLACEHOLDER — rated releases each year, split by whether they were tagged Crowdfunding: Kickstarter.",
 			"xLabel": "Year",
-			"yLabel": "% of releases",
+			"yLabel": "Games",
 			"series": [
 				{
 					"key": "Kickstarter",
 					"label": "Kickstarter"
+				},
+				{
+					"key": "Everything else",
+					"label": "Everything else"
 				}
 			],
 			"points": [
 				{
 					"x": 1990,
-					"Kickstarter": 0
+					"Kickstarter": 0,
+					"Everything else": 159
 				},
 				{
 					"x": 1991,
-					"Kickstarter": 0.5
+					"Kickstarter": 1,
+					"Everything else": 181
 				},
 				{
 					"x": 1992,
-					"Kickstarter": 0.5
+					"Kickstarter": 1,
+					"Everything else": 213
 				},
 				{
 					"x": 1993,
-					"Kickstarter": 1
+					"Kickstarter": 2,
+					"Everything else": 197
 				},
 				{
 					"x": 1994,
-					"Kickstarter": 0.5
+					"Kickstarter": 1,
+					"Everything else": 194
 				},
 				{
 					"x": 1995,
-					"Kickstarter": 1.3
+					"Kickstarter": 3,
+					"Everything else": 224
 				},
 				{
 					"x": 1996,
-					"Kickstarter": 0
+					"Kickstarter": 0,
+					"Everything else": 230
 				},
 				{
 					"x": 1997,
-					"Kickstarter": 0.4
+					"Kickstarter": 1,
+					"Everything else": 240
 				},
 				{
 					"x": 1998,
-					"Kickstarter": 0.8
+					"Kickstarter": 2,
+					"Everything else": 261
 				},
 				{
 					"x": 1999,
-					"Kickstarter": 0.3
+					"Kickstarter": 1,
+					"Everything else": 285
 				},
 				{
 					"x": 2000,
-					"Kickstarter": 0
+					"Kickstarter": 0,
+					"Everything else": 313
 				},
 				{
 					"x": 2001,
-					"Kickstarter": 2.2
+					"Kickstarter": 7,
+					"Everything else": 309
 				},
 				{
 					"x": 2002,
-					"Kickstarter": 0.8
+					"Kickstarter": 3,
+					"Everything else": 353
 				},
 				{
 					"x": 2003,
-					"Kickstarter": 0.7
+					"Kickstarter": 3,
+					"Everything else": 432
 				},
 				{
 					"x": 2004,
-					"Kickstarter": 0.6
+					"Kickstarter": 3,
+					"Everything else": 521
 				},
 				{
 					"x": 2005,
-					"Kickstarter": 0.4
+					"Kickstarter": 2,
+					"Everything else": 561
 				},
 				{
 					"x": 2006,
-					"Kickstarter": 0.9
+					"Kickstarter": 5,
+					"Everything else": 549
 				},
 				{
 					"x": 2007,
-					"Kickstarter": 0.9
+					"Kickstarter": 5,
+					"Everything else": 560
 				},
 				{
 					"x": 2008,
-					"Kickstarter": 0.6
+					"Kickstarter": 4,
+					"Everything else": 622
 				},
 				{
 					"x": 2009,
-					"Kickstarter": 1.3
+					"Kickstarter": 9,
+					"Everything else": 682
 				},
 				{
 					"x": 2010,
-					"Kickstarter": 2.8
+					"Kickstarter": 21,
+					"Everything else": 738
 				},
 				{
 					"x": 2011,
-					"Kickstarter": 5.7
+					"Kickstarter": 45,
+					"Everything else": 744
 				},
 				{
 					"x": 2012,
-					"Kickstarter": 12.7
+					"Kickstarter": 113,
+					"Everything else": 777
 				},
 				{
 					"x": 2013,
-					"Kickstarter": 21.6
+					"Kickstarter": 203,
+					"Everything else": 735
 				},
 				{
 					"x": 2014,
-					"Kickstarter": 28.4
+					"Kickstarter": 314,
+					"Everything else": 792
 				},
 				{
 					"x": 2015,
-					"Kickstarter": 28.1
+					"Kickstarter": 359,
+					"Everything else": 920
 				},
 				{
 					"x": 2016,
-					"Kickstarter": 27.1
+					"Kickstarter": 390,
+					"Everything else": 1049
 				},
 				{
 					"x": 2017,
-					"Kickstarter": 23.4
+					"Kickstarter": 352,
+					"Everything else": 1152
 				},
 				{
 					"x": 2018,
-					"Kickstarter": 26.8
+					"Kickstarter": 426,
+					"Everything else": 1164
 				},
 				{
 					"x": 2019,
-					"Kickstarter": 26.7
+					"Kickstarter": 442,
+					"Everything else": 1215
 				},
 				{
 					"x": 2020,
-					"Kickstarter": 27.1
+					"Kickstarter": 376,
+					"Everything else": 1010
 				},
 				{
 					"x": 2021,
-					"Kickstarter": 31.1
+					"Kickstarter": 427,
+					"Everything else": 947
 				},
 				{
 					"x": 2022,
-					"Kickstarter": 28.4
+					"Kickstarter": 421,
+					"Everything else": 1060
 				},
 				{
 					"x": 2023,
-					"Kickstarter": 27.1
+					"Kickstarter": 390,
+					"Everything else": 1048
 				},
 				{
 					"x": 2024,
-					"Kickstarter": 25.3
+					"Kickstarter": 338,
+					"Everything else": 1000
 				},
 				{
 					"x": 2025,
-					"Kickstarter": 28.5
+					"Kickstarter": 369,
+					"Everything else": 928
 				}
-			]
+			],
+			"tickEvery": 5
 		},
 		{
 			"kind": "line",

@@ -2,20 +2,27 @@ import { F, WORKING } from './lib.js';
 
 export default {
 	id: 'solo-games-over-time',
-	kind: 'line',
+	kind: 'stack',
 	title: 'The rise of solo games',
-	note: 'PLACEHOLDER — share of that year\'s rated releases with a Solo / Solitaire Game mechanic.',
+	note: 'PLACEHOLDER — rated releases each year, split by whether they have a Solo / Solitaire Game mechanic.',
 	xLabel: 'Year',
-	yLabel: '% of releases',
-	// Share, not raw count: total yearly output nearly doubled over this window, so a raw
-	// count would conflate "solo games grew" with "everything grew."
+	yLabel: 'Games',
+	tickEvery: 5,
+	// Two segments, one row per (year, has-mechanic) pair — `stack()` in lib.js pivots this the
+	// same way `line()` does. Explicit `1 AS ord`/`2 AS ord` (rather than relying on UNION ALL's
+	// execution order, which isn't guaranteed) fixes which segment stacks on the bottom.
 	query: `WITH yearly AS (
-	     SELECT year_published AS yr, COUNT(*) AS total,
-	            COUNTIF('Solo / Solitaire Game' IN UNNEST(mechanics)) AS solo
+	     SELECT year_published AS yr,
+	            COUNTIF('Solo / Solitaire Game' IN UNNEST(mechanics)) AS solo,
+	            COUNTIF(NOT 'Solo / Solitaire Game' IN UNNEST(mechanics)) AS other
 	     FROM ${F}
 	     WHERE ${WORKING} AND year_published BETWEEN 1990 AND EXTRACT(YEAR FROM CURRENT_DATE()) - 1
 	     GROUP BY yr
 	   )
-	   SELECT 'Solo / Solitaire Game' AS series, yr AS x, ROUND(100*solo/total, 1) AS y
-	   FROM yearly ORDER BY yr`
+	   SELECT series, x, y FROM (
+	     SELECT 'Solo / Solitaire Game' AS series, yr AS x, solo AS y, 1 AS ord FROM yearly
+	     UNION ALL
+	     SELECT 'Everything else' AS series, yr AS x, other AS y, 2 AS ord FROM yearly
+	   )
+	   ORDER BY ord, x`
 };

@@ -123,12 +123,12 @@ export const columns = (title, note, xLabel, yLabel, rows, tickEvery, precision 
 };
 
 /**
- * A trend chart — one or more series sharing one x per row. `rows` is flat `{x, series, y}`
- * triples (one row per series/x-point, however many series that is), pivoted here into the
- * wide per-x shape the renderer wants — so a viz file just returns whatever its query
- * naturally produces (a single-series file's query can alias a literal string as `series`).
+ * Pivots `{x, series, y}` triples (one row per series/x-point, however many series that is)
+ * into the wide per-x shape both `line` and `stack` render from — so a viz file just returns
+ * whatever its query naturally produces (a single-series file's query can alias a literal
+ * string as `series`), regardless of which of the two kinds it's building.
  */
-export const line = (title, note, xLabel, yLabel, rows) => {
+const pivot = (rows) => {
 	const keys = [];
 	const byX = new Map();
 	for (const r of rows) {
@@ -138,20 +138,36 @@ export const line = (title, note, xLabel, yLabel, rows) => {
 		if (!byX.has(x)) byX.set(x, { x });
 		byX.get(x)[key] = Number(r.y);
 	}
-	// VizOfTheDay cycles 5 categorical colors; a 6th series would collide with the 1st and
-	// render indistinguishable from it instead of failing anything — this makes that loud.
-	if (keys.length > 5) {
-		throw new Error(`${title}: line viz has ${keys.length} series, but only 5 colors exist`);
-	}
 	return {
-		kind: 'line',
-		title,
-		note,
-		xLabel,
-		yLabel,
 		series: keys.map((key) => ({ key, label: key })),
 		points: [...byX.values()].sort((a, b) => a.x - b.x)
 	};
+};
+
+// VizOfTheDay cycles 5 categorical colors; a 6th series would collide with the 1st and render
+// indistinguishable from it instead of failing anything — this makes that loud, for both kinds
+// that can have multiple series.
+const checkSeriesCount = (kind, title, series) => {
+	if (series.length > 5) {
+		throw new Error(`${title}: ${kind} viz has ${series.length} series, but only 5 colors exist`);
+	}
+};
+
+/** A trend chart — one or more series sharing one x-axis, drawn as connected lines. */
+export const line = (title, note, xLabel, yLabel, rows) => {
+	const { series, points } = pivot(rows);
+	checkSeriesCount('line', title, series);
+	return { kind: 'line', title, note, xLabel, yLabel, series, points };
+};
+
+/**
+ * Stacked vertical bars — one or more series sharing one x-axis, drawn as cumulative segments
+ * instead of lines. `tickEvery` labels every Nth bucket by index, same as `columns()`.
+ */
+export const stack = (title, note, xLabel, yLabel, rows, tickEvery) => {
+	const { series, points } = pivot(rows);
+	checkSeriesCount('stack', title, series);
+	return { kind: 'stack', title, note, xLabel, yLabel, series, points, tickEvery };
 };
 
 export const bars = (title, note, xLabel, yLabel, rows, style) => ({

@@ -94,12 +94,28 @@ into the thousands of points. The only thing that actually grows is
   the underlying total itself is changing over the period — otherwise "this
   grew" and "everything grew" are indistinguishable in the chart.
 
+**`stack`** — stacked vertical bars over a continuous axis (typically year).
+Same `query` shape as `line` (`series`, `x`, `y` — one row per series/
+x-point, pivoted the same way), same 5-series cap, drawn as cumulative
+segments instead of connected lines.
+
+- `tickEvery` (optional) — label every Nth bucket by index, same as
+  `columns`. Defaults to roughly 8 labels spread across the range if unset.
+- Use this instead of `line` when the **absolute** count matters alongside
+  the split — e.g. "how many releases have X vs. don't," where a line of
+  shares alone would drop the story of the underlying total growing too.
+  If only the share matters, `line` is the plainer choice.
+- Row order controls stack order (bottom to top), not alphabetical — a
+  query relying on `UNION ALL` needs an explicit `ORDER BY` (see
+  `14-solo-games-over-time.viz.js`) since sub-query execution order isn't
+  guaranteed otherwise.
+
 ## Shared helpers (`lib.js`)
 
 `F` (the games table, fully qualified), `WORKING` (the working-set filter),
 `q()` (run arbitrary SQL), `pair()` (the scatter sample + its notable-games
 query, run together), `topOf()` (top-N of a repeated column), and the
-`scatter()`/`columns()`/`bars()`/`line()` builders that turn query rows into
+`scatter()`/`columns()`/`bars()`/`line()`/`stack()` builders that turn query rows into
 the `Viz` shape `build-landing-content.js` writes to `content.json`. You
 shouldn't need to touch any of this to add a viz — it's what the fields
 above drive.
