@@ -332,22 +332,23 @@
       const segs = viz.series.map((s, si) => {
         const v = raw[si];
         const h = total > 0 ? (v / total) * 100 : 0;
-        const seg = { key: s.key, v, h, bottom: total > 0 ? (cum / total) * 100 : 0, color: color(si) };
+        const seg = {
+          key: s.key,
+          label: s.label,
+          v,
+          h,
+          bottom: total > 0 ? (cum / total) * 100 : 0,
+          color: color(si)
+        };
         cum += v;
         return seg;
       });
       const labelled = i % every === 0 || i === viz.points.length - 1;
-      // Year + every series' count and share — the detail the always-on label used to carry.
-      const tooltip = [
-        String(p.x),
-        ...viz.series.map((s, si) => `${s.label}: ${raw[si].toLocaleString()} (${Math.round(segs[si].h)}%)`)
-      ].join('\n');
       return {
         x: p.x,
         total,
         segs,
-        label: labelled ? String(p.x) : '',
-        tooltip
+        label: labelled ? String(p.x) : ''
       };
     });
 
@@ -456,13 +457,23 @@
         <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
           {#each stackPlot.cols as c (c.x)}
             <div class="col">
-              <div class="stackbar" title={c.tooltip}>
+              <div class="stackbar">
                 {#each c.segs as seg (seg.key)}
                   <div
                     class="stackseg"
                     style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
                   ></div>
                 {/each}
+                <div class="stacktip">
+                  <p class="tipyear">{c.x}</p>
+                  {#each c.segs as seg (seg.key)}
+                    <p class="tiprow">
+                      <i style="background: {seg.color}"></i>{seg.label}: {seg.v.toLocaleString()} ({Math.round(
+                        seg.h
+                      )}%)
+                    </p>
+                  {/each}
+                </div>
               </div>
               <span class="tick">{c.label}</span>
             </div>
@@ -609,6 +620,32 @@
   .stackbar { position: relative; width: 100%; height: 100%; }
   .stackseg { position: absolute; left: 0; right: 0; min-height: 1px; }
   .col:hover .stackseg { filter: brightness(1.15); }
+
+  /* A styled hover card instead of the browser's native `title` tooltip — the OS-drawn box
+     (plain background, ~1s delay before it appears) reads as broken next to a chart otherwise
+     styled with the app's own tokens. Pure CSS `:hover`, no added interactivity/state; anchored
+     above the bar, matching the .tick/.lineend precedent of overflowing a narrow column rather
+     than being clipped to it (nothing up the ancestor chain sets `overflow: hidden`). */
+  .stacktip {
+    position: absolute; left: 50%; bottom: calc(100% + .5rem);
+    transform: translateX(-50%) translateY(4px);
+    background: var(--card); color: var(--card-foreground);
+    border: 1px solid var(--border); border-radius: .5rem;
+    padding: .5rem .65rem; box-shadow: 0 8px 20px oklch(0 0 0 / 0.16);
+    white-space: nowrap; z-index: 5;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .12s ease, transform .12s ease;
+  }
+  .stackbar:hover .stacktip { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+  .tipyear {
+    margin: 0 0 .3rem; font-size: 0.72rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .tiprow {
+    display: flex; align-items: center; gap: .4rem; margin: 0; padding: .08rem 0;
+    font-size: 0.72rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums;
+  }
+  .tiprow i { width: .5rem; height: .5rem; border-radius: 2px; flex: none; }
 
   /* Grid rather than flex: the three columns must align across every row, and a label
      column sized to its longest entry (`max-content`, capped) is what keeps the tracks
