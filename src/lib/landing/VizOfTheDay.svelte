@@ -351,13 +351,15 @@
       });
       const labelled = i % every === 0 || i === viz.points.length - 1;
       const highlighted = segs[0];
-      const showPct = labelled && cum > 0 && highlighted.h >= minPctHeight;
+      // Independent of the x-axis tick cadence: the percent IS the trend this chart exists to
+      // show, so thinning it to every 5th bar (matching the year ticks) hid the trend it was
+      // added to communicate. Only gated by whether the segment is tall enough to hold text.
+      const showPct = cum > 0 && highlighted.h >= minPctHeight;
       return {
         x: p.x,
         total: cum,
         segs,
         label: labelled ? String(p.x) : '',
-        // Same cadence as the x-axis label — every bar would be too cramped to read.
         pct: showPct ? `${Math.round((highlighted.v / cum) * 100)}%` : '',
         // Centered ON the segment (its vertical midpoint), not above it — this is a filled-in
         // label INSIDE the bar, not a value floating over the boundary between two colors.
@@ -628,15 +630,17 @@
   .stackseg { position: absolute; left: 0; right: 0; min-height: 1px; }
   .col:hover .stackseg { filter: brightness(1.15); }
   /* The highlighted segment's own share, filled in rather than left for the reader to
-     estimate from bar height — same cadence as the x-axis label, so both line up. */
+     estimate from bar height, on every bar tall enough to hold it. */
   /* Centered ON the segment via `bottom: {pctMid}%` (the segment's own vertical midpoint) +
      translateY(50%) — `bottom` positions the element's bottom edge, so shifting down by half
-     its own height puts the CENTER at that midpoint instead. `--primary-foreground` (not a
-     literal white) is the token this app already pairs with `--primary` fills, so contrast
-     holds in both themes rather than assuming --primary is always dark enough for white text. */
+     its own height puts the CENTER at that midpoint instead. Deliberately a literal near-white
+     rather than `--primary-foreground`: that token is the app's button-text pairing, which
+     flips to near-black in dark mode because dark-mode buttons pair a lighter `--primary` with
+     dark text. This bar's `--primary` fill doesn't get lighter the same way, so white reads
+     correctly in both themes here. */
   .stackpct {
     position: absolute; left: 50%; transform: translate(-50%, 50%);
-    font-size: 0.62rem; font-weight: 700; color: var(--primary-foreground);
+    font-size: 0.62rem; font-weight: 700; color: oklch(0.99 0.01 80);
     font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none;
   }
   /* Rotated to run bottom-to-top: needs the segment's own length (height), not a full line's
