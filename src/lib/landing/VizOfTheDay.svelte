@@ -525,14 +525,23 @@
   /* `right: 10rem` (not 0) reserves room for direct end-of-line labels — the standard fix for
      labels that sit at a line's rightmost point, which is always the plot's own right edge
      here. Without it, "Solo / Solitaire Game" ran straight off the section. */
-  .linearea { position: absolute; left: 3.2rem; right: 10rem; top: 0; bottom: 0; }
+  /* Full width, matching every other chart kind here — `right: 0`, not a reserved gutter.
+     `.lineend` grows LEFTWARD from its endpoint instead, so labeling a line doesn't cost the
+     plot itself any width. */
+  .linearea { position: absolute; left: 3.2rem; right: 0; top: 0; bottom: 0; }
   .linesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .linesvg .lineseries { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .linesvg .lineseriesfill { opacity: 0.16; stroke: none; }
 
+  /* Anchored at the endpoint (`left: {endLeft}%`, same coordinate the line itself ends at) but
+     rendered to its left via the transform — so a line ending at the plot's right edge (the
+     common case: every series here shares the same final year) never needs room past it. A
+     background pill keeps it legible where it now overlaps the plot instead of sitting in
+     dedicated margin. */
   .lineend {
-    position: absolute; transform: translateY(-50%); margin-left: .4rem;
+    position: absolute; transform: translate(calc(-100% - .5rem), -50%);
     font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+    background: var(--background); padding: .05rem .35rem; border-radius: 3px;
   }
 
   /* Positioned like `.tick` reads (small, muted, below the plot) but by percentage rather
