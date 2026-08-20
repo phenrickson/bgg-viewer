@@ -108,7 +108,7 @@ async function runViz(mod) {
 		return line(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
 	}
 	if (mod.kind === 'stack') {
-		return stack(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.tickEvery);
+		return stack(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.tickEvery, mod.calloutTemplate);
 	}
 	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.style);
 }

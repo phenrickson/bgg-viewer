@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T17:25:37.574Z",
+	"builtAt": "2026-08-20T20:04:34.347Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17408,7 +17408,10 @@
 					"Everything else": 973
 				}
 			],
-			"tickEvery": 5
+			"tickEvery": 5,
+			"callout": {
+				"text": "PLACEHOLDER — 25% of 2025's rated releases (324 games) had a Solo / Solitaire Game mechanic."
+			}
 		},
 		{
 			"kind": "stack",
@@ -17608,7 +17611,10 @@
 					"Everything else": 928
 				}
 			],
-			"tickEvery": 5
+			"tickEvery": 5,
+			"callout": {
+				"text": "PLACEHOLDER — 28% of 2025's rated releases (369 games) were tagged Crowdfunding: Kickstarter."
+			}
 		},
 		{
 			"kind": "line",

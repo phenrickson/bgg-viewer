@@ -115,6 +115,13 @@ export interface StackViz {
 	points: ({ x: number } & Record<string, number>)[];
 	/** Label every Nth bucket (by index) — same reasoning as `ColumnsViz`'s. */
 	tickEvery?: number;
+	/**
+	 * The claim the chart is making, stated — same idea as `ColumnsViz.callout`, computed
+	 * from the same rows the bars are drawn from so it can't drift when the catalog
+	 * refreshes. Always about the LAST point (the most recent year): no `at` position like
+	 * `ColumnsViz` needs, since "most recent" is unambiguous and always the rightmost column.
+	 */
+	callout?: { text: string };
 }
 
 export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz | StackViz;

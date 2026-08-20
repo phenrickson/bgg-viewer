@@ -163,11 +163,30 @@ export const line = (title, note, xLabel, yLabel, rows) => {
 /**
  * Stacked vertical bars — one or more series sharing one x-axis, drawn as cumulative segments
  * instead of lines. `tickEvery` labels every Nth bucket by index, same as `columns()`.
+ *
+ * `say`, like `columns()`'s, is a function of the data rather than a hand-written sentence —
+ * always about the LAST point (the most recent year), since that's the number a "rise of X"
+ * chart exists to update as the catalog refreshes. `pivot()` sorts `points` ascending by x, so
+ * the last element is always the most recent year regardless of the query's own row order.
  */
-export const stack = (title, note, xLabel, yLabel, rows, tickEvery) => {
+export const stack = (title, note, xLabel, yLabel, rows, tickEvery, say) => {
 	const { series, points } = pivot(rows);
 	checkSeriesCount('stack', title, series);
-	return { kind: 'stack', title, note, xLabel, yLabel, series, points, tickEvery };
+	const last = points[points.length - 1];
+	const total = series.reduce((s, ser) => s + (last?.[ser.key] ?? 0), 0);
+	const count = last?.[series[0]?.key] ?? 0;
+	const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+	return {
+		kind: 'stack',
+		title,
+		note,
+		xLabel,
+		yLabel,
+		series,
+		points,
+		tickEvery,
+		callout: say && last ? { text: say(last.x, count, pct, total) } : undefined
+	};
 };
 
 export const bars = (title, note, xLabel, yLabel, rows, style) => ({

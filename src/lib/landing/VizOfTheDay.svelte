@@ -310,15 +310,19 @@
    * column reaches full height, position alone already shows the share; a persistent label
    * repeating it in text is now redundant clutter across 36 narrow columns.
    *
-   * Color follows the app's established convention (`.bar.lit` on the columns chart, etc.):
-   * `--primary` (BGG orange) for the highlighted thing, `--chart-N` (blue first) for the
-   * baseline/universe it's measured against. `series[0]` is always the highlighted segment —
-   * every current `stack` viz is a "has X vs. everything else" split, by construction.
+   * Color: the thing being highlighted gets `--primary` (BGG orange); everything else is
+   * `--chart-1` darkened rather than full grey — grey read as "no data here" instead of "a
+   * real category, just not the one this chart is about," and dropped the blue-vs-orange
+   * identity the legend swatch relies on. Darkening (not just muting) is what keeps it from
+   * competing with the orange, since "everything else" is usually most of the bar's area.
+   * `series[0]` is always the highlighted segment — every current `stack` viz is a "has X vs.
+   * everything else" split, by construction, so there's only ever one baseline tone to pick.
    */
   const stackPlot = $derived.by(() => {
     if (viz.kind !== 'stack') return null;
     const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
-    const color = (si: number) => (si === 0 ? 'var(--primary)' : `var(--chart-${((si - 1) % 5) + 1})`);
+    const color = (si: number) =>
+      si === 0 ? 'var(--primary)' : 'color-mix(in oklch, var(--chart-1) 55%, black)';
     const legend = viz.series.map((s, si) => ({ key: s.key, label: s.label, color: color(si) }));
 
     // Every column is normalized to the same 0-100 scale, so the gridlines are fixed quarters
@@ -447,46 +451,52 @@
     </div>
   {:else if viz.kind === 'stack' && stackPlot}
     <div class="stackwrap">
-      <div class="plot" style="height: {HEIGHT}px">
-        {#each stackPlot.gridlines as g (g.n)}
-          <div class="grid" style="bottom: {g.pct}%">
-            <span class="gval">{g.n}%</span>
-          </div>
-        {/each}
-
-        <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
-          {#each stackPlot.cols as c (c.x)}
-            <div class="col">
-              <div class="stackbar">
-                {#each c.segs as seg (seg.key)}
-                  <div
-                    class="stackseg"
-                    style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
-                  ></div>
-                {/each}
-                <div class="stacktip">
-                  <p class="tipyear">{c.x}</p>
-                  {#each c.segs as seg (seg.key)}
-                    <p class="tiprow">
-                      <i style="background: {seg.color}"></i>{seg.label}: {seg.v.toLocaleString()} ({Math.round(
-                        seg.h
-                      )}%)
-                    </p>
-                  {/each}
-                </div>
-              </div>
-              <span class="tick">{c.label}</span>
+      <div class="stackrow">
+        <div class="plot" style="height: {HEIGHT}px">
+          {#each stackPlot.gridlines as g (g.n)}
+            <div class="grid" style="bottom: {g.pct}%">
+              <span class="gval">{g.n}%</span>
             </div>
+          {/each}
+
+          <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
+            {#each stackPlot.cols as c (c.x)}
+              <div class="col">
+                <div class="stackbar">
+                  {#each c.segs as seg (seg.key)}
+                    <div
+                      class="stackseg"
+                      style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
+                    ></div>
+                  {/each}
+                  <div class="stacktip">
+                    <p class="tipyear">{c.x}</p>
+                    {#each c.segs as seg (seg.key)}
+                      <p class="tiprow">
+                        <i style="background: {seg.color}"></i>{seg.label}: {seg.v.toLocaleString()} ({Math.round(
+                          seg.h
+                        )}%)
+                      </p>
+                    {/each}
+                  </div>
+                </div>
+                <span class="tick">{c.label}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- To the side, stacked vertically — not a horizontal row above the plot. -->
+        <div class="legend">
+          {#each stackPlot.legend as s (s.key)}
+            <span class="legenditem"><i style="background: {s.color}"></i>{s.label}</span>
           {/each}
         </div>
       </div>
 
-      <!-- To the side, stacked vertically — not a horizontal row above the plot. -->
-      <div class="legend">
-        {#each stackPlot.legend as s (s.key)}
-          <span class="legenditem"><i style="background: {s.color}"></i>{s.label}</span>
-        {/each}
-      </div>
+      {#if viz.callout}
+        <p class="callout"><span class="mark" aria-hidden="true"></span>{viz.callout.text}</p>
+      {/if}
     </div>
   {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
     <div class="dotswrap" aria-label="{viz.yLabel} by {viz.xLabel}">
@@ -606,12 +616,17 @@
      bar's is, so unlike the other chart kinds this one needs a key. */
   /* Plot + legend side by side, not legend-above-plot — a vertical key reads more like a
      fixed reference than a header competing with the title for the eye. */
-  .stackwrap { display: flex; align-items: center; gap: var(--space-lg); }
-  .stackwrap .plot { flex: 1 1 auto; min-width: 0; }
-  .legend { flex: none; display: flex; flex-direction: column; gap: .6rem; }
+  .stackrow { display: flex; align-items: center; gap: var(--space-lg); }
+  .stackrow .plot { flex: 1 1 auto; min-width: 0; }
+  /* Fixed width, not sized to this viz's own labels — a `stack` viz's `.plot` is otherwise
+     however much width is left after the legend, so two vizzes with different label lengths
+     ("Solo / Solitaire Game" vs. "Kickstarter") get different-width plots and their columns
+     don't line up when the sections stack down the page one after another. */
+  .legend { flex: 0 0 11rem; display: flex; flex-direction: column; gap: .6rem; }
   .legenditem {
     display: inline-flex; align-items: center; gap: .45rem;
     font-size: 0.78rem; color: var(--muted-foreground); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
   }
   .legenditem i { width: .65rem; height: .65rem; border-radius: 2px; flex: none; }
 

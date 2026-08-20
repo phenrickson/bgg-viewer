@@ -21,5 +21,7 @@ export default {
 	     UNION ALL
 	     SELECT 'Everything else' AS series, yr AS x, other AS y, 2 AS ord FROM yearly
 	   )
-	   ORDER BY ord, x`
+	   ORDER BY ord, x`,
+	calloutTemplate: (year, count, pct) =>
+		`PLACEHOLDER — ${pct}% of ${year}'s rated releases (${count.toLocaleString()} games) were tagged Crowdfunding: Kickstarter.`
 };
