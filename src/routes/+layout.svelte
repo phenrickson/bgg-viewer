@@ -303,7 +303,7 @@
     padding: var(--space-sm) var(--space-lg);
   }
   .bgg-badge { flex: none; display: flex; align-items: center; }
-  .bgg-badge img { height: 44px; width: auto; opacity: 0.85; }
+  .bgg-badge img { height: 28px; width: auto; opacity: 0.85; }
   .bgg-badge:hover img { opacity: 1; }
   .disclaimer { margin: 0; font-size: 0.75rem; color: var(--muted-foreground); }
 </style>
