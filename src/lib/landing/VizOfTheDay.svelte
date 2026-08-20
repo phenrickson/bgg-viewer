@@ -264,7 +264,26 @@
       };
     });
 
-    return { gridlines, xticks, lines };
+    /**
+     * Declutter end labels that land close enough to overlap — two series ending at nearly
+     * the same share (a real case: two mechanics 0.2 points apart) otherwise stack their
+     * labels exactly on top of each other, and only the last-drawn one is ever readable.
+     * `labelTop` is a separate, nudged position for the TEXT only; `endTop`/`endLeft` (used
+     * for nothing else right now, but kept) still describe where the line actually ends.
+     */
+    const MIN_LABEL_GAP = 6;
+    const order = lines.map((l, i) => ({ i, t: l.endTop })).sort((a, b) => a.t - b.t);
+    const placed = order.map((o) => o.t);
+    for (let k = 1; k < placed.length; k++) {
+      if (placed[k] - placed[k - 1] < MIN_LABEL_GAP) placed[k] = placed[k - 1] + MIN_LABEL_GAP;
+    }
+    const overflow = placed[placed.length - 1] - 100;
+    if (overflow > 0) for (let k = 0; k < placed.length; k++) placed[k] -= overflow;
+    const labelTop = new Array(lines.length);
+    order.forEach((o, k) => (labelTop[o.i] = placed[k]));
+    const linesWithLabels = lines.map((l, i) => ({ ...l, labelTop: labelTop[i] }));
+
+    return { gridlines, xticks, lines: linesWithLabels };
   });
 </script>
 
@@ -349,7 +368,7 @@
         </svg>
 
         {#each linePlot.lines as s (s.key)}
-          <span class="lineend" style="left: {s.endLeft}%; top: {s.endTop}%; color: {s.color}">{s.label}</span>
+          <span class="lineend" style="left: {s.endLeft}%; top: {s.labelTop}%; color: {s.color}">{s.label}</span>
         {/each}
 
         {#each linePlot.xticks as t (t.x)}
