@@ -15,8 +15,21 @@
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import Scatter from '$lib/charts/Scatter.svelte';
+  import { line as d3Line, area as d3Area, curveMonotoneX } from 'd3-shape';
   import { reveal } from './reveal';
   import type { Viz } from './types';
+
+  /** Smoothed paths, matching the curve `TimeSeriesArea` already uses elsewhere in the app —
+   *  a raw connect-the-dots polyline through noisy year-over-year data reads as jagged/amateur. */
+  const linePath = d3Line<{ x: number; y: number }>()
+    .x((d) => d.x)
+    .y((d) => d.y)
+    .curve(curveMonotoneX);
+  const areaPath = d3Area<{ x: number; y: number }>()
+    .x((d) => d.x)
+    .y0(100)
+    .y1((d) => d.y)
+    .curve(curveMonotoneX);
 
   let {
     viz,
@@ -142,6 +155,40 @@
   });
 
   /**
+   * `style: 'dots'` — each value positioned on a scale zoomed to the data's own range (with
+   * ~12% padding so extreme dots aren't flush against the track ends), rather than a
+   * zero-baseline bar. See the `style` field's doc comment in types.ts for why: a bar's
+   * length-from-zero is honest for counts and useless for something like an average rating,
+   * where the whole story is a half-point band and every bar would end up nearly full-length.
+   */
+  const dotPlot = $derived.by(() => {
+    if (viz.kind !== 'bars' || viz.style !== 'dots') return null;
+    const values = viz.bars.map((b) => b.value);
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.05 || 1;
+    const domainLo = lo - pad;
+    const domainHi = hi + pad;
+    const pct = (v: number) => ((v - domainLo) / (domainHi - domainLo)) * 100;
+
+    // Nice x-axis ticks across the zoomed domain — same stepping idea used elsewhere.
+    const step = (() => {
+      const raw = (domainHi - domainLo) / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
+    })();
+    const ticks: { v: number; pct: number }[] = [];
+    for (let t = Math.ceil(domainLo / step) * step; t <= domainHi; t += step) {
+      ticks.push({ v: Math.round(t * 100) / 100, pct: pct(t) });
+    }
+
+    return {
+      ticks,
+      rows: viz.bars.map((b) => ({ ...b, pct: pct(b.value) }))
+    };
+  });
+
+  /**
    * One or more trend lines sharing an x-axis (year). Percentages throughout, not pixels or
    * viewBox units — the polyline and the HTML tick/end labels are positioned from the same
    * two functions, so a text label and the geometry it names can never disagree about where
@@ -182,19 +229,24 @@
 
     // Cycles through the app's 5 categorical tokens — a 6th series would repeat a color,
     // which every current viz avoids by construction (nothing asks for more than 5 series).
+    // Only a single series gets an area fill: overlapping semi-transparent fills from several
+    // series would just muddy each other, where one line reads cleanly against its own area.
     const lines = viz.series.map((s, i) => {
+      // `viz.points` is already sorted ascending by x (the `line()` builder guarantees it), and
+      // filtering preserves that order — so the last element is the series' true last point,
+      // even if a series doesn't have a value at every x.
       const pts = viz.points
         .filter((p) => p[s.key] != null)
-        .map((p) => `${leftPct(p.x)},${100 - bottomPct(p[s.key])}`)
-        .join(' ');
-      const last = [...viz.points].reverse().find((p) => p[s.key] != null);
+        .map((p) => ({ x: leftPct(p.x), y: 100 - bottomPct(p[s.key]) }));
+      const last = pts[pts.length - 1];
       return {
         key: s.key,
         label: s.label,
-        pts,
+        d: linePath(pts) ?? '',
+        fillD: viz.series.length === 1 ? (areaPath(pts) ?? '') : null,
         color: `var(--chart-${(i % 5) + 1})`,
-        endLeft: last ? leftPct(last.x) : 0,
-        endTop: last ? 100 - bottomPct(last[s.key]) : 0
+        endLeft: last?.x ?? 0,
+        endTop: last?.y ?? 0
       };
     });
 
@@ -269,7 +321,16 @@
       <div class="linearea" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="linesvg" aria-hidden="true">
           {#each linePlot.lines as s (s.key)}
-            <polyline points={s.pts} style="stroke: {s.color}" vector-effect="non-scaling-stroke" />
+            {#if s.fillD}
+              <path d={s.fillD} style="fill: {s.color}" class="lineseriesfill" />
+            {/if}
+            <path
+              d={s.d}
+              style="stroke: {s.color}"
+              class="lineseries"
+              fill="none"
+              vector-effect="non-scaling-stroke"
+            />
           {/each}
         </svg>
 
@@ -281,6 +342,33 @@
           <span class="linetick" style="left: {t.pct}%">{t.x}</span>
         {/each}
       </div>
+    </div>
+  {:else if viz.kind === 'bars' && viz.style === 'dots' && dotPlot}
+    <div class="dotswrap" aria-label="{viz.yLabel} by {viz.xLabel}">
+      <div class="dots-axis">
+        <span></span>
+        <span class="dot-track">
+          {#each dotPlot.ticks as t (t.v)}
+            <span class="dotgrid" style="left: {t.pct}%"></span>
+            <span class="dottick" style="left: {t.pct}%">{t.v}</span>
+          {/each}
+        </span>
+        <span></span>
+      </div>
+      <ul class="dots">
+        {#each dotPlot.rows as b (b.label)}
+          <li>
+            <span class="blabel" title={b.label}>{b.label}</span>
+            <span class="dot-track">
+              {#each dotPlot.ticks as t (t.v)}
+                <span class="dotgrid" style="left: {t.pct}%"></span>
+              {/each}
+              <span class="dotmark" style="left: {b.pct}%"></span>
+            </span>
+            <span class="bval">{b.value.toLocaleString()}</span>
+          </li>
+        {/each}
+      </ul>
     </div>
   {:else if viz.kind === 'bars'}
     <ul class="bars" aria-label="{viz.yLabel} by {viz.xLabel}">
@@ -383,12 +471,40 @@
   .bars li:hover .fill { background: var(--primary); }
   .bval { font-size: 0.8rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 
+  /* Same grid/label/value shell as `.bars`, swapping the length-encoded `.track`/`.fill` for a
+     zoomed-scale dot — see the `dotPlot` derivation for why. `.dots-axis` is a header row using
+     the identical grid so its tick labels land directly above the track column beneath them. */
+  .dots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+  .dots li, .dots-axis {
+    display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr auto;
+    align-items: center; gap: var(--space-md);
+  }
+  .dots-axis { margin-bottom: .5rem; }
+  .dot-track { position: relative; height: .8rem; }
+  .dotgrid {
+    position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-.5px);
+    background: color-mix(in oklch, var(--border) 70%, transparent);
+  }
+  .dottick {
+    position: absolute; top: -.1rem; transform: translateX(-50%);
+    font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;
+  }
+  .dotmark {
+    position: absolute; top: 50%; width: .6rem; height: .6rem; border-radius: 999px;
+    background: var(--chart-1); transform: translate(-50%, -50%);
+  }
+  .dots li:hover .dotmark { background: var(--primary); }
+
   /* The plotting box, right of the y-axis gutter `.grid`/`.gval` already reserve — the SVG
      polyline and every label (end-of-line, x-ticks) share this one coordinate box so they
      can never drift apart from each other. */
-  .linearea { position: absolute; left: 3.2rem; right: 0; top: 0; bottom: 0; }
+  /* `right: 10rem` (not 0) reserves room for direct end-of-line labels — the standard fix for
+     labels that sit at a line's rightmost point, which is always the plot's own right edge
+     here. Without it, "Solo / Solitaire Game" ran straight off the section. */
+  .linearea { position: absolute; left: 3.2rem; right: 10rem; top: 0; bottom: 0; }
   .linesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .linesvg polyline { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .linesvg .lineseries { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .linesvg .lineseriesfill { opacity: 0.16; stroke: none; }
 
   .lineend {
     position: absolute; transform: translateY(-50%); margin-left: .4rem;

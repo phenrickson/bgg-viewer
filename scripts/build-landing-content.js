@@ -76,6 +76,12 @@ function validate(mod, file) {
 			req(typeof mod.tickEvery === 'number', 'columns viz missing "tickEvery"');
 			req(typeof mod.precision === 'number', 'columns viz missing "precision"');
 		}
+		if (mod.kind === 'bars') {
+			req(
+				mod.style === undefined || mod.style === 'bars' || mod.style === 'dots',
+				'bars viz "style" must be "bars" or "dots" if set'
+			);
+		}
 	}
 }
 
@@ -101,7 +107,7 @@ async function runViz(mod) {
 	if (mod.kind === 'line') {
 		return line(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
 	}
-	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows);
+	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.style);
 }
 
 console.log(`querying ${PROJECT}…`);

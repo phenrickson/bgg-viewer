@@ -69,6 +69,16 @@ export interface BarsViz {
 	xLabel: string;
 	yLabel: string;
 	bars: { label: string; value: number }[];
+	/**
+	 * `'dots'` positions each value on a shared scale zoomed to the data's own range, instead
+	 * of a zero-baseline bar. Length-from-zero is right for counts (a mechanic used in 8,000
+	 * games really is that many times longer than one used in 500); it's wrong for something
+	 * like an average rating, where every bar ends up nearly full-length and the real
+	 * differences — the entire point of the chart — become imperceptible. Position doesn't
+	 * carry bar's implicit "from nothing" claim, so zooming the scale here isn't the
+	 * truncated-axis anti-pattern it would be on a bar.
+	 */
+	style?: 'bars' | 'dots';
 }
 
 /**

@@ -149,13 +149,14 @@ export const line = (title, note, xLabel, yLabel, rows) => {
 	};
 };
 
-export const bars = (title, note, xLabel, yLabel, rows) => ({
+export const bars = (title, note, xLabel, yLabel, rows, style) => ({
 	kind: 'bars',
 	title,
 	note,
 	xLabel,
 	yLabel,
-	bars: rows.map((r) => ({ label: r.label, value: Number(r.n) }))
+	bars: rows.map((r) => ({ label: r.label, value: Number(r.n) })),
+	...(style ? { style } : {})
 });
 
 /** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */

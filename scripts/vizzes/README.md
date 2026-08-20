@@ -70,6 +70,15 @@ into the thousands of points. The only thing that actually grows is
   string column (mechanics, categories, designers). `n` doesn't have to be
   a count — it's just "the value," so an aggregate like average rating
   works the same way (see `12-rating-by-mechanic.viz.js`).
+- `style` (optional) — `'bars'` (default) or `'dots'`. Use `'dots'` for a
+  value with no meaningful zero, like an average rating: bars encode
+  *length from zero*, so a metric that only spans a half-point band renders
+  as a dozen nearly-identical-length bars. `'dots'` positions each value on
+  a scale zoomed to the data's own range instead, where position (not
+  length) carries the comparison — see the `style` field's doc comment in
+  `types.ts` for the full reasoning. Pairs naturally with a top-N-and-
+  bottom-N query (see `12-rating-by-mechanic.viz.js`) rather than a bare
+  top-N, since best-and-worst is what actually uses the widened scale.
 
 **`line`** — one or more trends over a continuous axis (typically year).
 

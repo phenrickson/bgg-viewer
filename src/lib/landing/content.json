@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-20T16:05:26.753Z",
+	"builtAt": "2026-08-20T16:21:32.245Z",
 	"stats": {
 		"games": 30894,
 		"newestYear": 2027,
@@ -17097,7 +17097,7 @@
 		{
 			"kind": "bars",
 			"title": "Which mechanics rate best?",
-			"note": "PLACEHOLDER — average geek rating by mechanic, among mechanics used in at least 500 rated games.",
+			"note": "PLACEHOLDER — average geek rating by mechanic, best and worst 6, among mechanics used in at least 500 rated games.",
 			"xLabel": "Average geek rating",
 			"yLabel": "Mechanic",
 			"bars": [
@@ -17126,35 +17126,36 @@
 					"value": 5.89
 				},
 				{
-					"label": "Network and Route Building",
-					"value": 5.88
+					"label": "Simulation",
+					"value": 5.65
 				},
 				{
-					"label": "Scenario / Mission / Campaign Game",
-					"value": 5.86
+					"label": "Betting and Bluffing",
+					"value": 5.64
 				},
 				{
-					"label": "Open Drafting",
-					"value": 5.85
+					"label": "Trick-taking",
+					"value": 5.63
 				},
 				{
-					"label": "Events",
-					"value": 5.84
+					"label": "Memory",
+					"value": 5.62
 				},
 				{
-					"label": "Variable Player Powers",
-					"value": 5.84
+					"label": "Pattern Recognition",
+					"value": 5.59
 				},
 				{
-					"label": "Race",
-					"value": 5.84
+					"label": "Roll / Spin and Move",
+					"value": 5.53
 				}
-			]
+			],
+			"style": "dots"
 		},
 		{
 			"kind": "bars",
-			"title": "The highest-rated designers",
-			"note": "PLACEHOLDER — average geek rating by designer, among designers credited on at least 5 rated games.",
+			"title": "The highest- and lowest-rated designers",
+			"note": "PLACEHOLDER — average geek rating by designer, best and worst 6, among designers credited on at least 5 rated games.",
 			"xLabel": "Average geek rating",
 			"yLabel": "Designer",
 			"bars": [
@@ -17179,34 +17180,35 @@
 					"value": 6.85
 				},
 				{
-					"label": "Jenny Iglesias",
-					"value": 6.78
-				},
-				{
 					"label": "James A. Wilson",
 					"value": 6.78
 				},
 				{
-					"label": "Jarratt Gray",
-					"value": 6.75
+					"label": "Scott Abbott",
+					"value": 5.43
 				},
 				{
-					"label": "Nate French",
-					"value": 6.74
+					"label": "Terry Miller Associates",
+					"value": 5.43
 				},
 				{
-					"label": "Lukas Litzsinger",
-					"value": 6.7
+					"label": "A. Eddie Goldfarb",
+					"value": 5.42
 				},
 				{
-					"label": "James Kniffen",
-					"value": 6.68
+					"label": "Reuben Klamer",
+					"value": 5.41
 				},
 				{
-					"label": "S J Macdonald",
-					"value": 6.66
+					"label": "Marvin Glass",
+					"value": 5.36
+				},
+				{
+					"label": "Charles Darrow",
+					"value": 5.28
 				}
-			]
+			],
+			"style": "dots"
 		},
 		{
 			"kind": "line",
