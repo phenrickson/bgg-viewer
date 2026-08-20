@@ -297,10 +297,18 @@
   });
 
   /**
-   * Stacked vertical bars. Segments are positioned absolutely (`bottom`/`height`, both
-   * percentages of the tallest total) rather than relying on flex stacking order — flex's
+   * Stacked vertical bars, normalized to 100% per column — the split (share of releases with
+   * X vs. without) is the trend this chart exists to show, and a common 0-100 baseline puts
+   * every column's share on the same position scale, the top tier of the Cleveland-McGill
+   * hierarchy. Segments are positioned absolutely (`bottom`/`height`, both percentages of that
+   * column's own total) rather than relying on flex stacking order — flex's
    * `justify-content: end` packs from the LAST DOM child, which would put `viz.series[0]`
    * (meant to anchor the bottom, touching the axis) at the top instead.
+   *
+   * The underlying counts (which is what actually distinguishes this from just plotting a
+   * `line` of shares) move to a hover tooltip instead of an always-on in-bar label — once every
+   * column reaches full height, position alone already shows the share; a persistent label
+   * repeating it in text is now redundant clutter across 36 narrow columns.
    *
    * Color follows the app's established convention (`.bar.lit` on the columns chart, etc.):
    * `--primary` (BGG orange) for the highlighted thing, `--chart-N` (blue first) for the
@@ -309,66 +317,41 @@
    */
   const stackPlot = $derived.by(() => {
     if (viz.kind !== 'stack') return null;
-    const totals = viz.points.map((p) => viz.series.reduce((s, ser) => s + (p[ser.key] ?? 0), 0));
-    const maxTotal = Math.max(1, ...totals);
     const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
     const color = (si: number) => (si === 0 ? 'var(--primary)' : `var(--chart-${((si - 1) % 5) + 1})`);
     const legend = viz.series.map((s, si) => ({ key: s.key, label: s.label, color: color(si) }));
 
-    // Nice gridlines — same stepping idea as elsewhere.
-    const step = (() => {
-      const raw = maxTotal / 4;
-      const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
-      return raw / mag > 5 ? 10 * mag : raw / mag > 2 ? 5 * mag : raw / mag > 1 ? 2 * mag : mag;
-    })();
-    const gridlines: { n: number; pct: number }[] = [];
-    for (let n = step; n <= maxTotal; n += step) gridlines.push({ n, pct: (n / maxTotal) * 100 });
-
-    /**
-     * With this many columns (36 years, here) each one is too narrow for horizontal text —
-     * same "is there room" call `columns()`'s own `wide` check makes, by count rather than a
-     * live pixel measurement. Vertical needs LESS width but MORE height than horizontal does,
-     * so the minimum segment height a label needs is different for each orientation — a
-     * rotated "28%" needs room for its own length (~3 characters) running top-to-bottom, not
-     * just one line's worth.
-     */
-    const wide = viz.points.length <= 12;
-    const minPctHeight = wide ? 4 : 7;
+    // Every column is normalized to the same 0-100 scale, so the gridlines are fixed quarters
+    // rather than computed from the data's own magnitude.
+    const gridlines = [25, 50, 75].map((n) => ({ n, pct: n }));
 
     const cols = viz.points.map((p, i) => {
+      const raw = viz.series.map((s) => p[s.key] ?? 0);
+      const total = raw.reduce((a, b) => a + b, 0);
       let cum = 0;
       const segs = viz.series.map((s, si) => {
-        const v = p[s.key] ?? 0;
-        const seg = {
-          key: s.key,
-          v,
-          h: (v / maxTotal) * 100,
-          bottom: (cum / maxTotal) * 100,
-          color: color(si)
-        };
+        const v = raw[si];
+        const h = total > 0 ? (v / total) * 100 : 0;
+        const seg = { key: s.key, v, h, bottom: total > 0 ? (cum / total) * 100 : 0, color: color(si) };
         cum += v;
         return seg;
       });
       const labelled = i % every === 0 || i === viz.points.length - 1;
-      const highlighted = segs[0];
-      // Independent of the x-axis tick cadence: the percent IS the trend this chart exists to
-      // show, so thinning it to every 5th bar (matching the year ticks) hid the trend it was
-      // added to communicate. Only gated by whether the segment is tall enough to hold text.
-      const showPct = cum > 0 && highlighted.h >= minPctHeight;
+      // Year + every series' count and share — the detail the always-on label used to carry.
+      const tooltip = [
+        String(p.x),
+        ...viz.series.map((s, si) => `${s.label}: ${raw[si].toLocaleString()} (${Math.round(segs[si].h)}%)`)
+      ].join('\n');
       return {
         x: p.x,
-        total: cum,
+        total,
         segs,
         label: labelled ? String(p.x) : '',
-        pct: showPct ? `${Math.round((highlighted.v / cum) * 100)}%` : '',
-        // Centered ON the segment (its vertical midpoint), not above it — this is a filled-in
-        // label INSIDE the bar, not a value floating over the boundary between two colors.
-        pctMid: highlighted.bottom + highlighted.h / 2,
-        pctVertical: !wide
+        tooltip
       };
     });
 
-    return { gridlines: gridlines.slice(-4), cols, legend };
+    return { gridlines, cols, legend };
   });
 </script>
 
@@ -466,23 +449,20 @@
       <div class="plot" style="height: {HEIGHT}px">
         {#each stackPlot.gridlines as g (g.n)}
           <div class="grid" style="bottom: {g.pct}%">
-            <span class="gval">{g.n.toLocaleString()}</span>
+            <span class="gval">{g.n}%</span>
           </div>
         {/each}
 
         <div class="cols" role="img" aria-label="{viz.yLabel} by {viz.xLabel}">
           {#each stackPlot.cols as c (c.x)}
             <div class="col">
-              <div class="stackbar" title="{c.x}: {c.total.toLocaleString()}">
+              <div class="stackbar" title={c.tooltip}>
                 {#each c.segs as seg (seg.key)}
                   <div
                     class="stackseg"
                     style="bottom: {seg.bottom}%; height: {seg.h}%; background: {seg.color}"
                   ></div>
                 {/each}
-                {#if c.pct}
-                  <span class="stackpct" class:vertical={c.pctVertical} style="bottom: {c.pctMid}%">{c.pct}</span>
-                {/if}
               </div>
               <span class="tick">{c.label}</span>
             </div>
@@ -629,23 +609,6 @@
   .stackbar { position: relative; width: 100%; height: 100%; }
   .stackseg { position: absolute; left: 0; right: 0; min-height: 1px; }
   .col:hover .stackseg { filter: brightness(1.15); }
-  /* The highlighted segment's own share, filled in rather than left for the reader to
-     estimate from bar height, on every bar tall enough to hold it. */
-  /* Centered ON the segment via `bottom: {pctMid}%` (the segment's own vertical midpoint) +
-     translateY(50%) — `bottom` positions the element's bottom edge, so shifting down by half
-     its own height puts the CENTER at that midpoint instead. Deliberately a literal near-white
-     rather than `--primary-foreground`: that token is the app's button-text pairing, which
-     flips to near-black in dark mode because dark-mode buttons pair a lighter `--primary` with
-     dark text. This bar's `--primary` fill doesn't get lighter the same way, so white reads
-     correctly in both themes here. */
-  .stackpct {
-    position: absolute; left: 50%; transform: translate(-50%, 50%);
-    font-size: 0.62rem; font-weight: 700; color: oklch(0.99 0.01 80);
-    font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none;
-  }
-  /* Rotated to run bottom-to-top: needs the segment's own length (height), not a full line's
-     width, so it fits the narrow columns a many-bucket stack (year-by-year) produces. */
-  .stackpct.vertical { writing-mode: vertical-rl; transform: translate(-50%, 50%) rotate(180deg); }
 
   /* Grid rather than flex: the three columns must align across every row, and a label
      column sized to its longest entry (`max-content`, capped) is what keeps the tracks

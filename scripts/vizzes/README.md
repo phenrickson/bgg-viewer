@@ -94,17 +94,22 @@ into the thousands of points. The only thing that actually grows is
   the underlying total itself is changing over the period — otherwise "this
   grew" and "everything grew" are indistinguishable in the chart.
 
-**`stack`** — stacked vertical bars over a continuous axis (typically year).
-Same `query` shape as `line` (`series`, `x`, `y` — one row per series/
-x-point, pivoted the same way), same 5-series cap, drawn as cumulative
-segments instead of connected lines.
+**`stack`** — 100%-stacked vertical bars over a continuous axis (typically
+year), one bar per x-point normalized to its own total. Same `query` shape
+as `line` (`series`, `x`, `y` — one row per series/x-point, pivoted the same
+way), same 5-series cap.
 
 - `tickEvery` (optional) — label every Nth bucket by index, same as
   `columns`. Defaults to roughly 8 labels spread across the range if unset.
-- Use this instead of `line` when the **absolute** count matters alongside
-  the split — e.g. "how many releases have X vs. don't," where a line of
-  shares alone would drop the story of the underlying total growing too.
-  If only the share matters, `line` is the plainer choice.
+- Use this instead of `line` when the story is a **part-to-whole split**
+  changing over time — e.g. "what share of releases have X vs. don't." Every
+  column reaches full height, so the share itself sits on a common
+  position scale (easier to compare than a line's slope). The underlying
+  counts (and each segment's own share) are in a hover tooltip on the bar,
+  not an always-on label — with a many-column chart, a persistent label on
+  every segment is clutter once height already encodes the share. If the
+  story is a **trend of raw counts** (not normalized), `line` is the
+  plainer choice.
 - Row order controls stack order (bottom to top), not alphabetical — a
   query relying on `UNION ALL` needs an explicit `ORDER BY` (see
   `14-solo-games-over-time.viz.js`) since sub-query execution order isn't
