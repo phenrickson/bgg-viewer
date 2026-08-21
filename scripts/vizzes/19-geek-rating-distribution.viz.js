@@ -4,7 +4,7 @@ export default {
 	id: 'geek-rating-distribution',
 	kind: 'columns',
 	title: 'The spread of Geek ratings',
-	note: 'BoardGameGeek uses Bayesian averaging for its Geek Rating, starting all games at 5.5',
+	note: 'BoardGameGeek uses Bayesian averaging for its Geek Rating, starting all games at 5.5. Very few games achieve a Geek rating above 6.5',
 	xLabel: 'Geek rating',
 	yLabel: 'Games',
 	query: `SELECT ROUND(geek_rating*8)/8 AS v, COUNT(*) AS n FROM ${F}

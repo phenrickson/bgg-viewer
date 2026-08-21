@@ -21,7 +21,7 @@ export default {
 	title: 'Rating distribution by publisher',
 	note: 'PLACEHOLDER — the shape of average rating across each publisher’s catalog, not just its average.',
 	xLabel: 'Average rating',
-	yLabel: 'Share of games',
+	yLabel: 'Density',
 	precision: 1,
 	order: ORDER,
 	// Ten well-known publishers that actually release original games (not the regional
@@ -29,18 +29,16 @@ export default {
 	// Hobby Japan, Devir, etc.). `Avalon Hill` merges BGG's two label variants for the same
 	// publisher across eras — the raw '(Self-Published)'/'(Web published)' pseudo-publishers
 	// and other noise never enters into it since this is an explicit allowlist, not a top-N.
-	query: `WITH tagged AS (
-	     SELECT
-	       CASE WHEN p IN ('Avalon Hill', 'The Avalon Hill Game Co') THEN 'Avalon Hill' ELSE p END AS label,
-	       ROUND(average_rating*8)/8 AS bucket
-	     FROM ${F}, UNNEST(publishers) AS p
-	     WHERE ${WORKING} AND average_rating > 0
-	       AND p IN ('Hasbro', 'Pegasus Spiele', 'Ravensburger', 'IELLO', 'Rio Grande Games',
-	                 'Avalon Hill', 'The Avalon Hill Game Co', 'GMT Games', 'Z-Man Games',
-	                 'Fantasy Flight Games', 'Queen Games')
-	   )
-	   SELECT label, bucket, COUNT(*) AS n
-	   FROM tagged
-	   GROUP BY label, bucket
-	   ORDER BY label, bucket`
+	//
+	// One row per game, no bucketing/rounding — ridge() computes a real KDE from the raw
+	// values. An earlier version grouped into histogram buckets here, which at these group
+	// sizes (a couple hundred games each) just produced sampling noise dressed up as a curve.
+	query: `SELECT
+	     CASE WHEN p IN ('Avalon Hill', 'The Avalon Hill Game Co') THEN 'Avalon Hill' ELSE p END AS label,
+	     average_rating AS x
+	   FROM ${F}, UNNEST(publishers) AS p
+	   WHERE ${WORKING} AND average_rating > 0
+	     AND p IN ('Hasbro', 'Pegasus Spiele', 'Ravensburger', 'IELLO', 'Rio Grande Games',
+	               'Avalon Hill', 'The Avalon Hill Game Co', 'GMT Games', 'Z-Man Games',
+	               'Fantasy Flight Games', 'Queen Games')`
 };

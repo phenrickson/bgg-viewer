@@ -418,28 +418,53 @@
   const ridgePlot = $derived.by(() => {
     if (viz.kind !== 'ridge') return null;
     const n = viz.lanes.length;
-    const laneH = 100 / n;
-    const globalMax = Math.max(1e-9, ...viz.lanes.flatMap((l) => l.density));
     // How far above its own baseline a lane's peak may rise, in multiples of one lane's own
     // slot height — >1 is what produces the overlap a ridgeline is named for.
     const RISE = 1.7;
+    // The topmost lane has no lane above it to rise into, so it needs real headroom reserved
+    // ABOVE baseline 0, not just enough room for the other n-1 lanes — otherwise its peak has
+    // nowhere to go and either clips (renders outside the viewBox) or gets clamped flat,
+    // showing a wrong shape instead of its real one. Solved for the padding that makes even a
+    // maximum-height peak in lane 0 land exactly at y=0.
+    const topPad = (100 * (RISE - 1)) / (n + RISE - 1);
+    const laneH = (100 - topPad) / n;
+    const globalMax = Math.max(1e-9, ...viz.lanes.flatMap((l) => l.density));
 
-    const xLo = viz.buckets[0];
-    const xHi = viz.buckets[viz.buckets.length - 1];
+    const xLo = viz.grid[0];
+    const xHi = viz.grid[viz.grid.length - 1];
     const leftPct = (x: number) => (xHi === xLo ? 0 : ((x - xLo) / (xHi - xLo)) * 100);
 
     const lanes = viz.lanes.map((lane, i) => {
-      const baseline = (i + 1) * laneH;
-      const pts = viz.buckets.map((x, bi) => ({
+      const baseline = topPad + (i + 1) * laneH;
+      const pts = viz.grid.map((x, bi) => ({
         x: leftPct(x),
-        y: baseline - (lane.density[bi] / globalMax) * RISE * laneH,
+        // Still clamped to 0 as a last resort (rounding, or a future RISE/n combo the
+        // `topPad` formula wasn't tuned for) — but `topPad` is what actually prevents this
+        // from being needed in the normal case.
+        y: Math.max(0, baseline - (lane.density[bi] / globalMax) * RISE * laneH),
         baseline
       }));
+
+      // The median marker's y — the curve's own height at the nearest grid point to the
+      // median, so the line visibly lands ON the curve rather than floating at some unrelated
+      // height.
+      let medianIdx = 0;
+      let bestDist = Infinity;
+      for (let bi = 0; bi < viz.grid.length; bi++) {
+        const d = Math.abs(viz.grid[bi] - lane.median);
+        if (d < bestDist) {
+          bestDist = d;
+          medianIdx = bi;
+        }
+      }
+
       return {
         label: lane.label,
         baseline,
         areaD: ridgeArea(pts) ?? '',
-        lineD: linePath(pts) ?? ''
+        lineD: linePath(pts) ?? '',
+        medianX: leftPct(lane.median),
+        medianY: pts[medianIdx].y
       };
     });
 
@@ -463,7 +488,10 @@
     const longest = Math.max(0, ...viz.lanes.map((l) => l.label.length));
     const gutterRem = Math.min(12, Math.max(5, longest * 0.5 + 0.6));
 
-    return { lanes, xticks, gutterRem, height: Math.max(320, n * 46) };
+    // A fixed height per lane, not a floor-clamped formula — every lane needs the same room
+    // regardless of how many there are, so it's just `n * one lane's worth`.
+    const LANE_PX = 58;
+    return { lanes, xticks, gutterRem, height: n * LANE_PX };
   });
 </script>
 
@@ -638,7 +666,15 @@
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="ridgesvg" aria-hidden="true">
           {#each ridgePlot.lanes as lane (lane.label)}
             <path d={lane.areaD} class="ridgearea" />
-            <path d={lane.lineD} class="ridgeline" />
+            <path d={lane.lineD} class="ridgeline" vector-effect="non-scaling-stroke" />
+            <line
+              x1={lane.medianX}
+              y1={lane.baseline}
+              x2={lane.medianX}
+              y2={lane.medianY}
+              class="ridgemedian"
+              vector-effect="non-scaling-stroke"
+            />
           {/each}
         </svg>
 
@@ -937,7 +973,9 @@
      derivation) so a nearer lane's peak visibly sits IN FRONT of the ones behind it, the
      classic ridgeline look, rather than everything just piling into one indistinct mass. */
   .ridgearea { fill: color-mix(in oklch, var(--chart-1) 30%, transparent); stroke: none; }
-  .ridgeline { fill: none; stroke: var(--chart-1); stroke-width: 1.3; stroke-linejoin: round; }
+  .ridgeline { fill: none; stroke: var(--chart-1); stroke-width: 1.1; stroke-linejoin: round; }
+  /* Where the median actually sits, marked on the curve itself. */
+  .ridgemedian { stroke: white; stroke-width: 1.5; }
   .ridgetick {
     position: absolute; bottom: -1.3rem; transform: translateX(-50%);
     font-size: 0.65rem; color: var(--muted-foreground); white-space: nowrap;

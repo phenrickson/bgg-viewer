@@ -150,10 +150,13 @@ across several groups at once. A `columns` histogram shows one group's
 shape at a time; a `bars`/`dots` chart shows one number per group; `ridge`
 is for when you want both the shape AND the side-by-side comparison.
 
-- `query` — full SQL returning `label`, `bucket`, `n` columns (`bucket` is
-  typically `ROUND(metric*8)/8`, an eighth-point histogram bucket — see
-  `18-rating-by-publisher.viz.js`). One row per (group, bucket) pair;
-  sparse is fine, a group with no games in a bucket just doesn't get a row.
+- `query` — full SQL returning `label` and `x` columns, ONE ROW PER GAME —
+  no rounding/bucketing (see `18-rating-by-publisher.viz.js`). `ridge()`
+  computes a real Gaussian KDE (Silverman's rule of thumb for bandwidth)
+  from the raw values. An earlier version grouped into histogram buckets
+  first and smoothed the result; at these group sizes (a couple hundred
+  games each) that just produced sampling noise dressed up as a curve —
+  don't go back to it.
 - `order` — required. An array of the `label` values, in the exact
   top-to-bottom lane order you want drawn. Also the PAINT order: earlier
   entries are drawn first (further back), later ones on top (nearer) — the
@@ -161,18 +164,15 @@ is for when you want both the shape AND the side-by-side comparison.
   derived from the query, because "which order do these belong in" is
   usually an editorial call (rank by some value, alphabetical, whatever
   tells the right story), not something to infer from row order.
-- `bucketWidth` (optional) — must match whatever rounding the query's
-  `bucket` used. Defaults to `0.125` (the eighth-point convention above).
 - `precision` (optional) — decimal places for the shared x-axis tick
   labels. Defaults to `1`.
-- Each lane is normalized to ITS OWN total (a density, not a raw count) —
-  a group with far more games would otherwise visually dwarf a smaller
-  group's curve regardless of what their shapes actually look like, which
-  defeats the point of comparing shapes rather than volumes.
-- The curve is a smoothed histogram (same `curveMonotoneX` the `line` chart
-  uses), not a true kernel density estimate — a reasonable approximation
-  at these bucket widths and group sizes, but don't oversell it as more
-  statistically rigorous than it is.
+- `gridSize` (optional) — how many points the KDE is evaluated at across
+  the shared x-axis. Defaults to `120`; rarely worth changing.
+- No separate per-lane normalization needed — a KDE integrates to 1 by
+  construction (dividing by `n` is part of the formula), so a group with
+  far more games produces a more statistically reliable curve rather than
+  a taller one. Comparing shape rather than volume falls out of using a
+  real density estimate instead of raw counts.
 - Group selection is usually its own judgment call, same as `order` above —
   see `18-rating-by-publisher.viz.js`'s comment for why an explicit
   allowlist beat a top-N-by-volume query there (the top of the catalog by

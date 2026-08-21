@@ -167,19 +167,21 @@ export interface RidgeViz {
 	/** Decimal places for the shared x-axis tick labels. */
 	precision?: number;
 	/**
-	 * The shared x-axis (e.g. rating) bucket centers — every lane's `density` is indexed
-	 * against this same array, so lanes overlay on one x-axis without per-lane interpolation
-	 * in the renderer.
+	 * The shared x-axis (e.g. rating) grid points a KDE was evaluated at — every lane's
+	 * `density` is indexed against this same array, so lanes overlay on one x-axis without
+	 * per-lane interpolation in the renderer. NOT histogram bucket centers — there's no
+	 * discretization here, just where along a continuous axis each lane's density was sampled.
 	 */
-	buckets: number[];
+	grid: number[];
 	/**
-	 * One lane per group, top to bottom in draw order. `density[i]` is `buckets[i]`'s share of
-	 * THIS LANE'S OWN total (not a raw count) — normalized per-lane so a group with far more
-	 * games doesn't dwarf a smaller group's curve regardless of shape, which is the whole
-	 * point of comparing distributions rather than volumes. `n` is the lane's total game count,
-	 * for context (e.g. a hover detail), not itself plotted.
+	 * One lane per group, top to bottom in draw order. `density[i]` is the lane's actual KDE
+	 * density at `grid[i]` (a real density estimate, not a normalized share) — a KDE
+	 * integrates to 1 by construction, so a group with far more games produces a more
+	 * statistically reliable curve rather than a taller one; comparing shape rather than
+	 * volume falls out of that automatically. `n` is the lane's total game count, for context
+	 * (e.g. a hover detail), not itself plotted. `median` is the lane's actual sample median.
 	 */
-	lanes: { label: string; n: number; density: number[] }[];
+	lanes: { label: string; n: number; density: number[]; median: number }[];
 }
 
 export type Viz = ScatterViz | ColumnsViz | BarsViz | LineViz | StackViz | RangeViz | RidgeViz;

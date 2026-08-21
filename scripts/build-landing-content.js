@@ -123,7 +123,7 @@ async function runViz(mod) {
 		return range(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.precision);
 	}
 	if (mod.kind === 'ridge') {
-		return ridge(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.order, mod.bucketWidth, mod.precision);
+		return ridge(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.order, mod.precision, mod.gridSize);
 	}
 	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.style);
 }

@@ -13,7 +13,7 @@ const isViz = (v: Viz) => {
 	if (v.kind === 'columns') return v.bins.length > 0;
 	if (v.kind === 'line' || v.kind === 'stack') return v.series.length > 0 && v.points.length > 0;
 	if (v.kind === 'range') return v.points.length > 0;
-	if (v.kind === 'ridge') return v.buckets.length > 0 && v.lanes.length > 0;
+	if (v.kind === 'ridge') return v.grid.length > 0 && v.lanes.length > 0;
 	return v.bars.length > 0;
 };
 

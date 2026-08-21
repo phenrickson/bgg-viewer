@@ -224,47 +224,95 @@ export const range = (title, note, xLabel, yLabel, rows, precision = 1) => ({
 });
 
 /**
- * Overlapping distribution curves ("ridgeline"/joyplot), one lane per group in `order`. `rows`
- * are sparse `{label, bucket, n}` triples — not every group has games in every bucket — so
- * this reconstructs ONE shared bucket grid across every group (lanes overlay on one x-axis
- * without per-lane interpolation in the renderer), zero-filling wherever a group has none, and
- * normalizes each lane's counts to a share of ITS OWN total: comparing distribution SHAPE, not
- * volume, is the point of a ridge chart, so a group with far more games can't just visually
- * dwarf a smaller one regardless of what their shapes actually look like.
+ * Overlapping KDE density curves ("ridgeline"/joyplot), one lane per group in `order`. `rows`
+ * are RAW `{label, x}` pairs — one row per data point, no discretization. An earlier version
+ * bucketed into a histogram first and smoothed the result; at these group sizes (a few hundred
+ * points spread across a few dozen bins) that averages out to single-digit counts per bin, so
+ * what it actually drew was sampling noise, not a density. A real Gaussian KDE reads every
+ * point directly.
  *
- * `bucketWidth` must match whatever rounding the query used to produce `bucket` (every current
- * ridge query rounds `average_rating` to the nearest eighth, i.e. 0.125).
+ * Bandwidth is Silverman's rule of thumb (`1.06 * stdev * n^-0.2`) — the standard default when
+ * there's no reason to hand-tune it per group. Evaluated on ONE shared grid across every lane
+ * (so lanes overlay on one x-axis without per-lane interpolation in the renderer). No separate
+ * per-lane normalization is needed the way the histogram version required — a KDE integrates
+ * to 1 by construction (dividing by `n` is part of the formula, not a separate step), so a
+ * bigger group naturally produces a more RELIABLE curve rather than a taller one; comparing
+ * shape rather than volume falls out of using a real density estimate instead of raw counts.
  */
-export const ridge = (title, note, xLabel, yLabel, rows, order, bucketWidth = 0.125, precision = 1) => {
-	// Keyed by an integer tick index, not the raw float bucket value — floating-point
-	// arithmetic on eighth-point increments can disagree with BigQuery's own ROUND() by a
-	// last-bit epsilon, which would silently drop buckets on a raw-float Map lookup.
-	const tick = (v) => Math.round(v / bucketWidth);
-
-	let loTick = Infinity;
-	let hiTick = -Infinity;
+export const ridge = (title, note, xLabel, yLabel, rows, order, precision = 1, gridSize = 120) => {
 	const byLabel = new Map();
 	for (const r of rows) {
-		const t = tick(Number(r.bucket));
-		if (t < loTick) loTick = t;
-		if (t > hiTick) hiTick = t;
 		const label = String(r.label);
-		if (!byLabel.has(label)) byLabel.set(label, new Map());
-		byLabel.get(label).set(t, Number(r.n));
+		if (!byLabel.has(label)) byLabel.set(label, []);
+		byLabel.get(label).push(Number(r.x));
 	}
 
-	const ticks = [];
-	for (let t = loTick; t <= hiTick; t++) ticks.push(t);
-	const buckets = ticks.map((t) => Number((t * bucketWidth).toFixed(3)));
+	const allX = rows.map((r) => Number(r.x));
+	const dataLo = Math.min(...allX);
+	const dataHi = Math.max(...allX);
+	// Padded so a lane's curve doesn't get chopped off right at the data's own extreme — same
+	// reasoning as Scatter's domain padding.
+	const pad = (dataHi - dataLo) * 0.08 || 0.5;
+	const gridLo = dataLo - pad;
+	const gridHi = dataHi + pad;
+	const grid = [];
+	for (let i = 0; i < gridSize; i++) grid.push(gridLo + ((gridHi - gridLo) * i) / (gridSize - 1));
+
+	const gaussian = (u) => Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI);
 
 	const lanes = order.map((label) => {
-		const counts = byLabel.get(label) ?? new Map();
-		const total = [...counts.values()].reduce((s, n) => s + n, 0);
-		const density = ticks.map((t) => (total > 0 ? (counts.get(t) ?? 0) / total : 0));
-		return { label, n: total, density };
+		const values = (byLabel.get(label) ?? []).slice().sort((a, b) => a - b);
+		const n = values.length;
+		if (n === 0) return { label, n: 0, density: grid.map(() => 0), median: 0 };
+
+		const mean = values.reduce((s, v) => s + v, 0) / n;
+		const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, n - 1);
+		const h = 1.06 * Math.sqrt(variance || 1e-6) * Math.pow(n, -0.2);
+
+		const density = grid.map((x) => {
+			let sum = 0;
+			for (const v of values) sum += gaussian((x - v) / h);
+			return sum / (n * h);
+		});
+
+		const median = n % 2 === 1 ? values[(n - 1) / 2] : (values[n / 2 - 1] + values[n / 2]) / 2;
+		return { label, n, density, median: Number(median.toFixed(3)) };
 	});
 
-	return { kind: 'ridge', title, note, xLabel, yLabel, precision, buckets, lanes };
+	// Trim leading/trailing grid points where the POOLED density (every lane's actual count
+	// summed together) is negligible — a handful of outlier games in just one or two lanes can
+	// otherwise drag the shared axis out to cover a range that's visually empty for every lane.
+	const pooled = grid.map((_, i) => lanes.reduce((s, l) => s + l.density[i] * l.n, 0));
+	const grandTotal = pooled.reduce((s, c) => s + c, 0);
+	const tailBudget = grandTotal * 0.01; // 1% of the pooled total per tail
+	let start = 0;
+	let cum = 0;
+	while (start < pooled.length - 1 && cum + pooled[start] < tailBudget) {
+		cum += pooled[start];
+		start++;
+	}
+	let end = pooled.length - 1;
+	cum = 0;
+	while (end > start && cum + pooled[end] < tailBudget) {
+		cum += pooled[end];
+		end--;
+	}
+
+	return {
+		kind: 'ridge',
+		title,
+		note,
+		xLabel,
+		yLabel,
+		precision,
+		grid: grid.slice(start, end + 1).map((v) => Number(v.toFixed(3))),
+		lanes: lanes.map((l) => ({
+			label: l.label,
+			n: l.n,
+			median: l.median,
+			density: l.density.slice(start, end + 1)
+		}))
+	};
 };
 
 /** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */
