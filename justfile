@@ -10,6 +10,8 @@
 #   just dev-bg     # dev server (background)
 #   just stop       # stop it, however it was started
 #   just status     # is it up?
+#   just vizzes     # regenerate landing content, print the /dev/vizzes review URL
+#   just dev-vizzes # regenerate + start the dev server, one command/one terminal
 #   just verify     # types + tests + build (run before every PR)
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
@@ -76,6 +78,21 @@ stop:
 [unix]
 stop:
     -@lsof -ti tcp:5173 -sTCP:LISTEN | xargs -r kill
+
+# --- Landing content ---------------------------------------------------------
+
+# Doesn't start or restart the dev server — run `just dev` separately, and reload that tab
+# after this finishes; /dev/vizzes reads the file fresh on every request, no rebuild needed.
+# Regenerate landing content from BigQuery, then print the /dev/vizzes review URL.
+vizzes:
+    pnpm landing:content
+    @echo "→ http://localhost:5173/dev/vizzes"
+
+# `vizzes` runs first (just's recipe-dependency order), then this starts the server in the same
+# terminal — one command instead of juggling two. Foreground, same as `dev`: Ctrl-C to stop.
+# Regenerate landing content, then start the dev server.
+dev-vizzes: vizzes
+    -pnpm exec vite dev --port 5173
 
 # Type-check (svelte-check).
 check:

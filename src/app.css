@@ -45,6 +45,7 @@
   --chart-3: oklch(0.65 0.12 170);   /* teal */
   --chart-4: oklch(0.62 0.12 300);   /* violet */
   --chart-5: oklch(0.65 0.15 25);    /* rose */
+  --chart-6: oklch(0.68 0.14 140);   /* green */
 
   /* Semantic status tokens — pair with a label/icon, never color alone */
   --color-positive: oklch(0.62 0.14 150);
@@ -120,6 +121,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
   --radius-lg: var(--radius);
 }
 
