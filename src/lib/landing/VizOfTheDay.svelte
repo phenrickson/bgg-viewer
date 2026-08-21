@@ -364,7 +364,16 @@
       };
     });
 
-    return { gridlines, cols, legend };
+    // Sized to THIS chart's own longest label, not a shared constant across every stack viz —
+    // a fixed 11rem (big enough for "Solo / Solitaire Game") left a wide dead-space gap on
+    // charts with short labels like "Kickstarter"/"Everything else". Same formula the line
+    // chart uses for its own end-label gutter. Trade-off: plot width now varies slightly
+    // chart-to-chart with label length, instead of being pixel-identical — a much smaller sin
+    // than the wasted space was.
+    const longestLabel = Math.max(0, ...legend.map((s) => s.label.length));
+    const legendRem = Math.min(11, Math.max(4, longestLabel * 0.42 + 0.9));
+
+    return { gridlines, cols, legend, legendRem };
   });
 
   /**
@@ -516,10 +525,11 @@
       annotations={viz.annotations ?? []}
       xLabel={viz.xLabel}
       yLabel={viz.yLabel}
-      xTicks={ticks.x}
+      xTicks={viz.xTicks ?? ticks.x}
       yTicks={ticks.y}
       xLog={viz.xLog ?? false}
       yLog={viz.yLog ?? false}
+      xPlain={viz.xPlain ?? false}
       height={HEIGHT}
       {...jitter}
     />
@@ -622,7 +632,7 @@
         </div>
 
         <!-- To the side, stacked vertically — not a horizontal row above the plot. -->
-        <div class="legend">
+        <div class="legend" style="flex-basis: {stackPlot.legendRem}rem">
           {#each stackPlot.legend as s (s.key)}
             <span class="legenditem"><i style="background: {s.color}"></i>{s.label}</span>
           {/each}
@@ -803,11 +813,12 @@
      fixed reference than a header competing with the title for the eye. */
   .stackrow { display: flex; align-items: center; gap: var(--space-lg); }
   .stackrow .plot { flex: 1 1 auto; min-width: 0; }
-  /* Fixed width, not sized to this viz's own labels — a `stack` viz's `.plot` is otherwise
-     however much width is left after the legend, so two vizzes with different label lengths
-     ("Solo / Solitaire Game" vs. "Kickstarter") get different-width plots and their columns
-     don't line up when the sections stack down the page one after another. */
-  .legend { flex: 0 0 11rem; display: flex; flex-direction: column; gap: .6rem; }
+  /* Width set inline per-instance (`stackPlot.legendRem`, same formula the line chart's own
+     label gutter uses) — sized to THIS chart's own longest label, not a shared constant big
+     enough for the worst case across every stack viz, which left a dead-space gap on charts
+     with short labels. `flex-grow`/`flex-shrink` still pinned to 0 so it doesn't stretch or
+     compress with the plot. */
+  .legend { flex: 0 0 auto; display: flex; flex-direction: column; gap: .6rem; }
   .legenditem {
     display: inline-flex; align-items: center; gap: .45rem;
     font-size: 0.78rem; color: var(--muted-foreground); white-space: nowrap;

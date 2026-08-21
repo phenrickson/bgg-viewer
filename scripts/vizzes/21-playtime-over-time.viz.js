@@ -4,7 +4,7 @@ export default {
 	id: 'playtime-over-time',
 	kind: 'line',
 	title: 'Average playtime over time',
-	note: 'PLACEHOLDER — average stated playing time by year of release.',
+	note: 'Average listed playing time for games by year of release.',
 	xLabel: 'Year',
 	yLabel: 'Minutes',
 	// max_playtime < 1000 excludes a handful of outlier entries (miscoded or genuinely

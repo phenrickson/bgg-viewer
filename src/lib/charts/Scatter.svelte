@@ -45,6 +45,9 @@
      */
     xDomain = null,
     yDomain = null,
+    /** Skip the `1.5k` compaction on x-axis tick labels — for an axis like a year, which only
+     *  looks like a "thousands" value by coincidence, not because it needs compacting. */
+    xPlain = false,
     /**
      * Clamp the colour scale to this window. Without it the ramp stretches to the data's true
      * extremes and a handful of outliers flatten everything else into one indistinguishable
@@ -108,6 +111,7 @@
     yTicks?: number[];
     xDomain?: [number, number] | null;
     yDomain?: [number, number] | null;
+    xPlain?: boolean;
     colorDomain?: [number, number] | null;
     colorPivot?: number | null;
     jitterX?: number;
@@ -330,6 +334,7 @@
   });
 
   const fmt = (v: number) => (v >= 1000 ? `${v / 1000}k` : String(v));
+  const fmtX = (v: number) => (xPlain ? String(v) : fmt(v));
   /** Tooltip values are raw data (ratings, weights), not tick labels — round rather than
       dump float noise like "7.234000000001". */
   const fmtTip = (v: number) => (v >= 1000 ? `${Math.round(v).toLocaleString()}` : v.toFixed(2));
@@ -459,7 +464,7 @@
       {/each}
 
       {#each xTicks as t (t)}
-        <text x={sx(t)} y={PAD.t + plotH + 14} class="tick" text-anchor="middle">{fmt(t)}</text>
+        <text x={sx(t)} y={PAD.t + plotH + 14} class="tick" text-anchor="middle">{fmtX(t)}</text>
       {/each}
 
       <!-- Named points, above the grid and below nothing. Each label gets a stroked copy

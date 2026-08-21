@@ -4,7 +4,7 @@ export default {
 	id: 'solo-games-over-time',
 	kind: 'stack',
 	title: 'The rise of solo games',
-	note: 'Solo/Solitaire mechanics jumped during the pandemic and have been popular ever since',
+	note: 'Solo/Solitaire mechanics jumped during the pandemic and have been popular ever since.',
 	xLabel: 'Year',
 	yLabel: 'Games',
 	tickEvery: 5,

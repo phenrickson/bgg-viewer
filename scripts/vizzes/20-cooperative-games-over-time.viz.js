@@ -4,7 +4,7 @@ export default {
 	id: 'cooperative-games-over-time',
 	kind: 'stack',
 	title: 'The rise of cooperative games',
-	note: 'PLACEHOLDER — rated releases each year, split by whether they have a Cooperative Game mechanic.',
+	note: 'Cooperative games have become more common in the last decade.',
 	xLabel: 'Year',
 	yLabel: 'Games',
 	tickEvery: 5,
@@ -26,5 +26,5 @@ export default {
 	   )
 	   ORDER BY ord, x`,
 	calloutTemplate: (year, count, pct) =>
-		`PLACEHOLDER — ${pct}% of ${year}'s releases (${count.toLocaleString()} games) had a Cooperative Game mechanic.`
+		`${pct}% of ${year}'s releases (${count.toLocaleString()} games) had a Cooperative Game mechanic.`
 };

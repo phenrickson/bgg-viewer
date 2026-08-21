@@ -4,7 +4,7 @@ export default {
 	id: 'mechanics-over-time',
 	kind: 'line',
 	title: 'How mechanics have risen and fallen',
-	note: 'Game mechanics that have changed the most in for releases between 1990 and present',
+	note: 'Game mechanics that have changed the most for games released between 1990 and present',
 	xLabel: 'Year',
 	yLabel: '% of releases',
 	opts: { yPercent: true },

@@ -19,7 +19,7 @@ export default {
 	id: 'rating-by-publisher',
 	kind: 'ridge',
 	title: 'Rating distribution by publisher',
-	note: 'PLACEHOLDER — the shape of average rating across each publisher’s catalog, not just its average.',
+	note: 'The shape of average rating across a publisher’s catalog, not just its average.',
 	xLabel: 'Average rating',
 	yLabel: 'Density',
 	precision: 1,

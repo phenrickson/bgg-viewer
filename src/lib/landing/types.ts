@@ -30,6 +30,16 @@ export interface ScatterViz {
 	/** Log10 the axis — for anything spanning orders of magnitude, like vote counts. */
 	xLog?: boolean;
 	yLog?: boolean;
+	/** Skip the `1.5k`-style compaction on x-axis tick labels — right for a vote count in the
+	 *  thousands, wrong for a value like a year that only looks like one by coincidence. */
+	xPlain?: boolean;
+	/**
+	 * Explicit x-axis tick values, overriding the auto-computed "nice step" ones. For when x
+	 * is really a discrete category axis (e.g. decades) rather than a continuous one — the
+	 * generic step-picker optimizes for round numbers given an arbitrary span, which doesn't
+	 * reliably land on "one tick per category."
+	 */
+	xTicks?: number[];
 }
 
 /** Discrete numeric buckets as `[value, count]` pairs, same reasoning. */

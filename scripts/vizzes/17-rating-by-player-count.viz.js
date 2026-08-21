@@ -7,7 +7,7 @@ export default {
 	id: 'rating-by-player-count',
 	kind: 'ridge',
 	title: 'Rating distribution by best player count',
-	note: 'PLACEHOLDER — the shape of average rating among games best at each player count, not just its average.',
+	note: 'The shape of average rating among games best at each player count, not just its average.',
 	xLabel: 'Average rating',
 	yLabel: 'Density',
 	precision: 1,

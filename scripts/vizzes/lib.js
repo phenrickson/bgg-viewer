@@ -87,16 +87,45 @@ export const label = (rows, n = 6) => {
 		.map((r) => ({ x: Number(r.x), y: Number(r.y), label: r.name }));
 };
 
-export const scatter = (title, note, xLabel, yLabel, [rows, named], opts = {}) => ({
-	kind: 'scatter',
-	title,
-	note,
-	xLabel,
-	yLabel,
-	points: rows.map((r) => [Number(r.x), Number(r.y)]),
-	annotations: label(named),
-	...opts
-});
+/**
+ * Like `label()`, but groups candidates by an explicit key instead of bucketing by x
+ * POSITION — for when the visual x (possibly jittered, like a decade-jitter plot's) doesn't
+ * cleanly divide into the categories you actually want named. A candidate near a bucket edge
+ * under `label()`'s x-range split can land in the neighbor's bucket; grouping by an exact key
+ * pulled straight off the row (e.g. a `decade` column the query selected alongside `x`) has no
+ * such edge case.
+ */
+export const labelByGroup = (rows, groupKey, perGroup = 1) => {
+	const usable = rows.filter((r) => r.name && r.x != null && r.y != null);
+	const byGroup = new Map();
+	for (const r of usable) {
+		const g = groupKey(r);
+		if (!byGroup.has(g)) byGroup.set(g, []);
+		byGroup.get(g).push(r);
+	}
+	const out = [];
+	for (const group of byGroup.values()) {
+		group.sort((a, b) => Number(b.pop) - Number(a.pop));
+		for (const r of group.slice(0, perGroup)) {
+			out.push({ x: Number(r.x), y: Number(r.y), label: r.name });
+		}
+	}
+	return out.sort((a, b) => a.x - b.x);
+};
+
+export const scatter = (title, note, xLabel, yLabel, [rows, named], opts = {}) => {
+	const { groupKey, perGroup, ...rest } = opts;
+	return {
+		kind: 'scatter',
+		title,
+		note,
+		xLabel,
+		yLabel,
+		points: rows.map((r) => [Number(r.x), Number(r.y)]),
+		annotations: groupKey ? labelByGroup(named, groupKey, perGroup ?? 2) : label(named),
+		...rest
+	};
+};
 
 /**
  * `callout` is a function of the data, not a hand-written sentence: the numbers in it are
@@ -238,6 +267,13 @@ export const range = (title, note, xLabel, yLabel, rows, precision = 1) => ({
  * to 1 by construction (dividing by `n` is part of the formula, not a separate step), so a
  * bigger group naturally produces a more RELIABLE curve rather than a taller one; comparing
  * shape rather than volume falls out of using a real density estimate instead of raw counts.
+ *
+ * Bandwidth is HALF of Silverman's rule of thumb, not the full thing. Checked against real
+ * data (GMT Games: n=347, sd=0.6, full Silverman h=0.198 against a 3.72-point span) — that's
+ * not an unreasonable bandwidth by general KDE standards, but Silverman's rule assumes the
+ * underlying distribution is roughly bell-shaped, and rating distributions usually aren't
+ * (skewed, sometimes multiple bumps), so it over-smooths and erases real texture. Halving it
+ * is a standard practical correction for exactly this case.
  */
 export const ridge = (title, note, xLabel, yLabel, rows, order, precision = 1, gridSize = 120) => {
 	const byLabel = new Map();
@@ -267,7 +303,7 @@ export const ridge = (title, note, xLabel, yLabel, rows, order, precision = 1, g
 
 		const mean = values.reduce((s, v) => s + v, 0) / n;
 		const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, n - 1);
-		const h = 1.06 * Math.sqrt(variance || 1e-6) * Math.pow(n, -0.2);
+		const h = 0.5 * 1.06 * Math.sqrt(variance || 1e-6) * Math.pow(n, -0.2);
 
 		const density = grid.map((x) => {
 			let sum = 0;
