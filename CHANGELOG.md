@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.12](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.11...bgg-viewer-v0.0.12) (2026-08-21)
+
+
+### Features
+
+* **landing:** viz-module refactor, new chart kinds, and new vizzes ([f4e6041](https://github.com/phenrickson/bgg-viewer/commit/f4e6041a83626777f2d2211e01ab6ed1e4198ebe))
+
+
+### Bug Fixes
+
+* trigger release-please for the merged landing-viz work ([4e269c1](https://github.com/phenrickson/bgg-viewer/commit/4e269c105f7575c5ba2cbb0e9d6c4b9e3f90b06c))
+
 ## [0.0.11](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.10...bgg-viewer-v0.0.11) (2026-08-20)
 
 
