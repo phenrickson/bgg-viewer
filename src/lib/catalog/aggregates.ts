@@ -173,7 +173,7 @@ export const scatterSelectionSql = (
 	limit = SCATTER_LIMIT,
 	m: MeasureColumns = RATED
 ): string =>
-	`SELECT ${m.weight} AS x, ${m.rating} AS y, game_id, (${selectedWhere}) AS selected
+	`SELECT ${m.weight} AS x, ${m.rating} AS y, game_id, COALESCE((${selectedWhere}), FALSE) AS selected
 	 FROM catalog WHERE ${baseWhere} AND ${m.weight} > 0 AND ${m.rating} > 0
 	 LIMIT ${limit}`;
 
@@ -184,7 +184,7 @@ export const popularitySelectionSql = (
 	limit = SCATTER_LIMIT,
 	m: MeasureColumns = RATED
 ): string =>
-	`SELECT ${m.rating} AS x, ${m.usersRated} AS y, game_id, (${selectedWhere}) AS selected
+	`SELECT ${m.rating} AS x, ${m.usersRated} AS y, game_id, COALESCE((${selectedWhere}), FALSE) AS selected
 	 FROM catalog WHERE ${baseWhere} AND ${m.rating} > 0 AND ${m.usersRated} > 0
 	 LIMIT ${limit}`;
 
