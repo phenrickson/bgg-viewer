@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// release-please bumps this on every release, so it doubles as the app's displayed version.
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
+
 export default defineConfig({
+	define: {
+		__APP_VERSION__: JSON.stringify(pkg.version)
+	},
 	/**
 	 * duckdb-wasm ships prebuilt workers whose sourcemaps point into `@duckdb/apache-arrow`,
 	 * outside their own package. Pre-bundling them makes esbuild warn once per referenced file

@@ -185,6 +185,7 @@
         />
       </a>
       <p class="disclaimer">Data sourced from BoardGameGeek. Not affiliated with or endorsed by BoardGameGeek.</p>
+      <span class="version">v{__APP_VERSION__}</span>
     </Container>
   </footer>
 </div>
@@ -306,4 +307,12 @@
   .bgg-badge img { height: 28px; width: auto; opacity: 0.85; }
   .bgg-badge:hover img { opacity: 1; }
   .disclaimer { margin: 0; font-size: 0.75rem; color: var(--muted-foreground); }
+  .version {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground);
+    opacity: 0.7;
+  }
 </style>
