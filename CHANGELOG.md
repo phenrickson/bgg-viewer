@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.0.13](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.12...bgg-viewer-v0.0.13) (2026-08-22)
+
+
+### Features
+
+* explore scatter improvements and landing viz fixes ([4056dac](https://github.com/phenrickson/bgg-viewer/commit/4056dac72c2afc679ab88c2e9ee0378e5480f5fd))
+* **explore:** toggle to hide the scatter backdrop, and show a hovered point's filter status ([4d061ce](https://github.com/phenrickson/bgg-viewer/commit/4d061cebce81140ef37df71563ffbebf0d2db70f))
+* **landing:** editorial control over scatter annotations, fix two axis bugs ([c6679e6](https://github.com/phenrickson/bgg-viewer/commit/c6679e6c222cd9d1e5e1250993f41185d58a74ac))
+* show the app version in the footer ([6a15535](https://github.com/phenrickson/bgg-viewer/commit/6a1553590f03d37853c29996e9e76e01cc11d2ac))
+
+
+### Bug Fixes
+
+* **explore:** don't mark a null-column filter match as "selected" ([52e7577](https://github.com/phenrickson/bgg-viewer/commit/52e75776a4e1712ad0a1234bd0849abdc1de40d1))
+* **game:** cap the ratings estimate display at &gt;100k ([d7fbcad](https://github.com/phenrickson/bgg-viewer/commit/d7fbcada3151dcc8312a3a0d8b21ff860698a127))
+* **landing:** stop the viz rotation from just walking the file order every day ([b088e3d](https://github.com/phenrickson/bgg-viewer/commit/b088e3d0b4516eef1bf12d98030ea8355646c43f))
+
 ## [0.0.12](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.11...bgg-viewer-v0.0.12) (2026-08-21)
 
 
