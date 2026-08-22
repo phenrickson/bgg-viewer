@@ -3,6 +3,10 @@
 import type { SessionUser } from '$lib/server/auth/session';
 
 declare global {
+	/** Injected by vite.config.ts's `define`, from package.json's version — the same number
+	    release-please bumps on every release. */
+	const __APP_VERSION__: string;
+
 	namespace App {
 		// interface Error {}
 		interface Locals {

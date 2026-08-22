@@ -35,7 +35,16 @@ Every viz needs: `id` (string, unique), `kind`, `title`, `note`, `xLabel`,
 - `where` — filter applied on top of the working-set filter (`lib.js`'s
   `WORKING`, currently `users_rated >= 30`).
 - `opts` (optional) — e.g. `{ xLog: true }` for an axis spanning orders of
-  magnitude (vote counts, not ratings).
+  magnitude (vote counts, not ratings). Only apply this to whichever axis
+  actually spans orders of magnitude — `08-popularity-vs-rating.viz.js` once
+  had `xLog: true` on an average-rating axis (a plain ~1-10 scale) and it
+  silently produced zero x-axis ticks, because the tick generator only
+  places ticks at powers of ten.
+  - `opts.highlights` (optional) — an array of exact game `name`s to label
+    on the cloud instead of the automatic pick (see below). Use this when
+    the annotations should be an editorial choice — specific well-known
+    games — rather than whichever game happens to be most-rated in each
+    x-bucket.
 - `sample` (optional) — point count, overriding `lib.js`'s default (1000).
   Bump it for a cloud that reads sparse; drop it for one that's mostly
   overplotted. Costs payload bytes, not query cost or render time (see
@@ -43,8 +52,10 @@ Every viz needs: `id` (string, unique), `kind`, `title`, `note`, `xLabel`,
 
 The plotted sample is stratified across the rating range (see `sample()` in
 `lib.js`), plus up to 6 named annotations picked from the most popular games
-spread across the x range (see `notable()`/`label()`). You don't write
-either query yourself — `cols`/`where`/`sample` drive both.
+spread across the x range (see `notable()`/`label()`) — or, with
+`opts.highlights` set, exactly the named games you listed, however many
+there are, each one labelled (see `pinned()`). You don't write either query
+yourself — `cols`/`where`/`sample`/`opts.highlights` drive all of them.
 
 A bigger `sample` is close to free: the query already scans the whole
 filtered table to compute its window functions before subsampling, so BQ
@@ -184,7 +195,8 @@ is for when you want both the shape AND the side-by-side comparison.
 
 `F` (the games table, fully qualified), `WORKING` (the working-set filter),
 `q()` (run arbitrary SQL), `pair()` (the scatter sample + its notable-games
-query, run together), `topOf()` (top-N of a repeated column), and the
+or, with `opts.highlights` set, `pinned()`'s exact-name query, run
+together), `topOf()` (top-N of a repeated column), and the
 `scatter()`/`columns()`/`bars()`/`line()`/`stack()`/`range()`/`ridge()`
 builders that turn query rows into the `Viz` shape `build-landing-content.js`
 writes to `content.json`. You shouldn't need to touch any of this to add a

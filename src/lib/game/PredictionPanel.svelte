@@ -92,7 +92,7 @@
           [
             { k: 'Geek rating', v: p.geek, actual: g.geek, digits: 2, lo: 5.0, hi: 8.8, dom: '5–8.8', log: false },
             { k: 'Average', v: p.rating, actual: g.average, digits: 2, lo: 5.0, hi: 10, dom: '5–10', log: false },
-            { k: 'Ratings', v: p.usersRated, actual: g.ratings, digits: 0, lo: 10, hi: 100_000, dom: '10–100k', log: true },
+            { k: 'Ratings', v: p.usersRated, actual: g.ratings, digits: 0, lo: 10, hi: 100_000, dom: '10–100k', log: true, capEst: '>100k' },
             { k: 'Complexity', v: p.complexity, actual: g.weight, digits: 1, lo: 1, hi: 5, dom: '1–5', log: false }
           ] as const
         ).filter((r) => r.v != null)
@@ -115,6 +115,10 @@
     );
   };
   const fmtPred = (v: number | null, digits: number) => (digits === 0 ? int(v) : num(v, digits));
+  /** A predicted ratings count above the row's own ceiling reads as false precision — 103,482
+      vs. 118,910 is not a claim this model can make, so above `hi` it says only "a lot". */
+  const fmtEstimate = (r: (typeof predRows)[number]) =>
+    'capEst' in r && r.v != null && r.v > r.hi ? r.capEst : fmtPred(r.v, r.digits);
 
   /** `users_rated` → `Ratings`, so the disclosure names targets the way the rows above do. */
   const TARGET_LABEL: Record<string, string> = {
@@ -176,7 +180,7 @@
               {/if}
             </span>
             <span class="pdom">{r.dom}{#if r.log}<span class="lg">log</span>{/if}</span>
-            <span class="pv">{fmtPred(r.v, r.digits)}</span>
+            <span class="pv">{fmtEstimate(r)}</span>
             {#if isRated}<span class="pa">{fmtPred(pos(r.actual), r.digits)}</span>{/if}
           </div>
         {/each}

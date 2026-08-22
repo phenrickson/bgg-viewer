@@ -12,31 +12,61 @@ describe('dayIndex', () => {
 });
 
 describe('pick', () => {
-	it('wraps at list length', () => {
-		expect(pick(L3, 0)).toBe('a');
-		expect(pick(L3, 3)).toBe('a');
-		expect(pick(L3, 4)).toBe('b');
+	it('is deterministic — the same day always starts at the same item', () => {
+		const day = 12345;
+		expect(pick(L3, day)).toBe(pick(L3, day));
+		expect(pick(L3, day, 2)).toBe(pick(L3, day, 2));
+	});
+
+	it('wraps at list length, offset from whatever the day starts at', () => {
+		const day = 9;
+		const start = pick(L3, day);
+		expect(pick(L3, day, 3)).toBe(start); // a full lap of a 3-item list returns to start
+		expect(pick(L3, day, -3)).toBe(start);
+	});
+
+	it('steps through consecutive elements in order as offset increases', () => {
+		const day = 40;
+		const seq = [0, 1, 2, 3].map((o) => pick(L3, day, o));
+		// Each step should be the next item in L3, cyclically, from wherever day 40 starts.
+		for (let k = 1; k < seq.length; k++) {
+			const prevIdx = L3.indexOf(seq[k - 1] as (typeof L3)[number]);
+			expect(seq[k]).toBe(L3[(prevIdx + 1) % L3.length]);
+		}
 	});
 
 	it('handles negative offsets — JS % keeps the dividend sign, so this would go OOB', () => {
-		expect(pick(L3, 0, -1)).toBe('c');
-		expect(pick(L3, 0, -4)).toBe('c');
-		expect(pick(L3, 1, -5)).toBe('c'); // (1-5) mod 3 = 2
+		const day = 200;
+		const start = pick(L3, day);
+		const startIdx = L3.indexOf(start as (typeof L3)[number]);
+		expect(pick(L3, day, -1)).toBe(L3[(startIdx - 1 + L3.length) % L3.length]);
 	});
 
 	it('returns null for an empty list rather than undefined', () => {
 		expect(pick([], 7)).toBeNull();
 	});
 
-	it('pairs two lists of coprime length without repeating before their product', () => {
-		// 2 vizzes and 8 games in the fallback; the real set is ~12 and ~30. The pairing is
-		// what the user actually sees, and it should outlast either list on its own.
-		const vizzes = [0, 1, 2, 3];
-		const games = [0, 1, 2, 3, 4];
-		const seen = new Set<string>();
-		for (let d = 0; d < vizzes.length * games.length; d++) {
-			seen.add(`${pick(vizzes, d)}-${pick(games, d)}`);
+	it('does not just walk the list in order, one step per day', () => {
+		// The old behaviour (`day % length` as the index) always advanced by exactly one
+		// position a day — with vizzes ordered by filename prefix, that meant the rotation
+		// visited them in that same fixed order forever. A large sample of consecutive days
+		// should NOT reproduce that lockstep pattern.
+		const list = Array.from({ length: 8 }, (_, i) => i);
+		let lockstep = 0;
+		let total = 0;
+		for (let d = 1; d < 200; d++) {
+			const prev = pick(list, d - 1) as number;
+			const cur = pick(list, d) as number;
+			total++;
+			if (cur === (prev + 1) % list.length) lockstep++;
 		}
-		expect(seen.size).toBe(vizzes.length * games.length);
+		expect(lockstep / total).toBeLessThan(0.5);
+	});
+
+	it('visits most of a list across enough days, rather than favouring a few slots', () => {
+		const list = Array.from({ length: 8 }, (_, i) => i);
+		const seen = new Set<number>();
+		for (let d = 0; d < 500; d++) seen.add(pick(list, d) as number);
+		expect(seen.size).toBe(list.length);
 	});
 });

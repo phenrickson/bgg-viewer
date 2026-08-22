@@ -76,6 +76,14 @@
      * so it opts in.
      */
     interactive = false,
+    /**
+     * Draw the `selected: false` backdrop at all. `true` (the default) draws it faded behind
+     * the selection, per the `selected` doc below; `false` skips that pass entirely, for a
+     * caller offering a "just the filtered games" toggle — the selected points still draw in
+     * their highlighted colour either way, so switching this off doesn't fall back to the
+     * plain single-population look, it just removes the context cloud around it.
+     */
+    showBackdrop = true,
     /** Resolves a hovered/clicked point's `game_id` to its name, for the tooltip. */
     pointName,
     /**
@@ -117,6 +125,7 @@
     jitterX?: number;
     jitterY?: number;
     interactive?: boolean;
+    showBackdrop?: boolean;
     pointName?: (id: number) => string | undefined;
     onPointClick?: (id: number) => void;
   } = $props();
@@ -136,6 +145,10 @@
 
   const tx = (v: number) => (xLog ? Math.log10(Math.max(1, v)) : v);
   const ty = (v: number) => (yLog ? Math.log10(Math.max(1, v)) : v);
+
+  /** Whether `points` actually distinguishes selected/unselected — hoisted out of the draw
+   *  effect so the tooltip can ask the same question about whichever point is hovered. */
+  const hasSelection = $derived(points.some((p) => p.selected === false));
 
   /** Data-space extents, computed once per data change. */
   const ext = $derived.by(() => {
@@ -264,6 +277,8 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, height);
 
+    const single = !ext.hasC;
+
     /*
      * Alpha below 1 so the cloud reads by accumulation: where thousands of games overlap the
      * colour builds, which is the density a solid dot destroys. The first pass used r≈1.1 at
@@ -271,7 +286,6 @@
      * alpha carry the density.
      */
     const r = points.length > 12000 ? 2 : points.length > 4000 ? 2.6 : 3.2;
-    const single = !ext.hasC;
 
     /*
      * Clip to the plot rectangle before drawing. Without it, a point whose jitter pushes it
@@ -295,10 +309,14 @@
      * top of it rather than under it. Flat muted colour regardless of `c`: a colour-scale
      * ramp on a backdrop the reader isn't meant to read closely would just be visual noise.
      * Only runs when the data actually distinguishes selected/unselected — the common case
-     * (no `selected` field at all) skips straight to the normal single-pass draw below.
+     * (no `selected` field at all) skips straight to the normal single-pass draw below. Also
+     * skipped outright when the caller has turned it off via `showBackdrop`.
+     *
+     * Low alpha, filled — the orange/blue foreground pass below is what actually separates
+     * the selected points now, so the backdrop just needs to stay faint enough not to compete
+     * with it, not a different draw style of its own.
      */
-    const hasSelection = points.some((p) => p.selected === false);
-    if (hasSelection) {
+    if (hasSelection && showBackdrop) {
       ctx.globalAlpha = 0.08;
       ctx.fillStyle = 'oklch(0.55 0.015 250)';
       for (let i = 0; i < points.length; i++) {
@@ -313,10 +331,9 @@
 
     /*
      * Foreground pass — everything selected (or, with no selection data at all, everything).
-     * Alpha below 1 so the cloud reads by accumulation: where thousands of games overlap the
-     * colour builds, which is the density a solid dot destroys. The first pass used r≈1.1 at
-     * this count and the points were too small to see at all — legibility first, then let the
-     * alpha carry the density.
+     * Plain blue regardless of selection — `showBackdrop` is what now separates the selected
+     * set from the rest (hide it outright rather than needing a second colour to fight
+     * through it), so the color itself doesn't have to carry that distinction anymore.
      */
     ctx.globalAlpha = points.length > 12000 ? 0.28 : points.length > 4000 ? 0.38 : 0.55;
     if (single) ctx.fillStyle = 'oklch(0.62 0.14 250)';
@@ -378,6 +395,10 @@
     let bestD = HIT_RADIUS * HIT_RADIUS;
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
+      // Skip points that aren't actually drawn — with `showBackdrop` off, hovering the empty
+      // space where an unselected point WOULD have been shouldn't surface a tooltip for a dot
+      // that isn't visible.
+      if (!showBackdrop && p.selected === false) continue;
       const jx = jitterX ? rand(i, 1) * jitterX : 0;
       const jy = jitterY ? rand(i, 2) * jitterY : 0;
       const dx = sx(p.x + jx) - px;
@@ -424,6 +445,11 @@
   const hoverLabel = $derived(
     hoverPoint?.game_id != null ? pointName?.(hoverPoint.game_id) : undefined
   );
+  /** Whether the hovered point is IN the current filter, not just somewhere in the backdrop —
+   *  with a big faded cloud behind a small highlighted set, the dot alone doesn't always say
+   *  which one you're actually pointing at, so the tooltip states it outright. `true` when
+   *  there's no selection distinction at all (a plain single-population chart). */
+  const hoverInSelection = $derived(hoverPoint?.selected !== false);
   /** Same jittered screen position `nearest()` matched against, not the raw data point —
       otherwise the ring sits slightly off the dot it's marking whenever jitter is in play. */
   const hoverPos = $derived.by(() => {
@@ -452,7 +478,10 @@
     ></canvas>
     <svg width={w} {height} aria-hidden="true">
       {#if hoverPos}
-        <circle cx={hoverPos.x} cy={hoverPos.y} r="5.5" class="hoverring" />
+        <!-- Muted (not `--primary`) when the hovered point is backdrop, not selection — the
+             ring alone otherwise looked identical whether or not the point it's marking is
+             actually inside the current filter. -->
+        <circle cx={hoverPos.x} cy={hoverPos.y} r="5.5" class="hoverring" class:out={!hoverInSelection} />
       {/if}
       <!-- Frame -->
       <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + plotH} class="ax" />
@@ -500,6 +529,16 @@
       <div class="tip" class:pinned={pinnedIdx != null}>
         {#if hoverLabel}<b>{hoverLabel}</b>{/if}
         <span>{xLabel}: {fmtTip(hoverPoint.x)} · {yLabel}: {fmtTip(hoverPoint.y)}</span>
+        <!-- Only worth stating when the chart actually distinguishes the two — on a plain
+             single-population chart (About's clouds) every point is trivially "in" and the
+             line would be dead weight. Also moot with the backdrop hidden: every point left
+             to hover IS selected (see `nearest()`), so the note would just always say the
+             same trivial thing. -->
+        {#if hasSelection && showBackdrop}
+          <span class="scopenote" class:out={!hoverInSelection}
+            >{hoverInSelection ? 'In current filter' : 'Outside current filter'}</span
+          >
+        {/if}
         {#if pinnedIdx != null}
           <span class="tipactions">
             {#if onPointClick}<button type="button" onclick={goToPinned}>Go to →</button>{/if}
@@ -544,6 +583,11 @@
     stroke: var(--primary);
     stroke-width: 2;
   }
+  /* Backdrop point hovered, not a selected one — muted rather than the orange used everywhere
+     else "this is the one to look at" applies, since this point is specifically NOT that. */
+  .hoverring.out {
+    stroke: var(--muted-foreground);
+  }
 
   /* A fixed readout in the plot's corner, not a floating box chasing the cursor. A tooltip
      anchored to the point itself has to dodge every edge (flip left/right, clamp top/bottom,
@@ -576,6 +620,16 @@
   }
   .tip span {
     color: var(--muted-foreground);
+  }
+  /* Orange to match the selected/foreground points' own colour when the hovered point IS one
+     of them; muted (the default `.tip span` colour) when it's outside the filter, so the
+     tooltip's own colour echoes the same distinction the dots on the canvas already draw. */
+  .scopenote {
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .scopenote.out {
+    font-weight: 400;
   }
   /* Pinned (clicked, not just hovered) — it needs to be clickable itself now, for the "Go to"
      and close buttons a plain hover preview doesn't have. */

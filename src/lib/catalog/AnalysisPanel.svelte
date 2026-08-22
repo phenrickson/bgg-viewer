@@ -70,6 +70,12 @@
       empty axes for a beat before any data arrived, which read as broken rather than loading. */
   let loading = $state(true);
 
+  /** Shared across both scatter charts, not per-chart — they're two views of the SAME
+   *  selection, so hiding the comparison cloud on one and not the other would read as a bug
+   *  rather than a choice. Default on: the backdrop is the reason these plot the whole
+   *  universe instead of just the filtered set (see the file doc comment above). */
+  let showBackdrop = $state(true);
+
   const TOP_N = 10;
 
   let token = 0;
@@ -174,6 +180,7 @@
     jitterX={0.06}
     height={h}
     interactive
+    {showBackdrop}
     pointName={nameOf}
     onPointClick={openGame}
   />
@@ -191,6 +198,7 @@
     yDomain={[30, 100000]}
     height={h}
     interactive
+    {showBackdrop}
     pointName={nameOf}
     onPointClick={openGame}
   />
@@ -204,6 +212,22 @@
     <div class="figure">
       <div class="fhead">
         <h3>Complexity vs. rating</h3>
+        <div class="seg" role="group" aria-label="Backdrop">
+          <button
+            type="button"
+            class:on={showBackdrop}
+            aria-pressed={showBackdrop}
+            title="Show every game in scope as a faded backdrop behind the selection."
+            onclick={() => (showBackdrop = true)}>All</button
+          >
+          <button
+            type="button"
+            class:on={!showBackdrop}
+            aria-pressed={!showBackdrop}
+            title="Show only the selected games — no backdrop."
+            onclick={() => (showBackdrop = false)}>Selected</button
+          >
+        </div>
         <button type="button" class="zoom" onclick={() => expand('weight')} aria-label="Expand this chart"
           >⤢</button
         >
@@ -214,6 +238,22 @@
     <div class="figure">
       <div class="fhead">
         <h3>Rating vs. popularity</h3>
+        <div class="seg" role="group" aria-label="Backdrop">
+          <button
+            type="button"
+            class:on={showBackdrop}
+            aria-pressed={showBackdrop}
+            title="Show every game in scope as a faded backdrop behind the selection."
+            onclick={() => (showBackdrop = true)}>All</button
+          >
+          <button
+            type="button"
+            class:on={!showBackdrop}
+            aria-pressed={!showBackdrop}
+            title="Show only the selected games — no backdrop."
+            onclick={() => (showBackdrop = false)}>Selected</button
+          >
+        </div>
         <button type="button" class="zoom" onclick={() => expand('popularity')} aria-label="Expand this chart"
           >⤢</button
         >
@@ -306,7 +346,6 @@
     margin: 0;
   }
   .zoom {
-    margin-left: auto;
     flex: none;
     background: none;
     border: 1px solid var(--border);
@@ -320,6 +359,34 @@
   .zoom:hover {
     color: var(--primary);
     border-color: var(--primary);
+  }
+  /* Same segmented-pill pattern as the Shape Strip's Count|Share control directly above this
+     panel — two boolean-ish toggles in the same workspace should look like the same control,
+     not two different UI languages for the same idea. Carries the `margin-left: auto` that
+     pushes the trailing pair (this + `.zoom`) to the right of the title. */
+  .seg {
+    margin-left: auto;
+    flex: none;
+    display: flex;
+    gap: 0.15rem;
+    background: var(--muted);
+    border-radius: 7px;
+    padding: 0.1rem;
+  }
+  .seg button {
+    border: none;
+    background: none;
+    border-radius: 5px;
+    color: var(--muted-foreground);
+    font: inherit;
+    font-size: 0.7rem;
+    padding: 0.08rem 0.4rem;
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 600;
   }
 
   /* A native <dialog> — Escape-to-close and focus-trapping come for free from showModal().

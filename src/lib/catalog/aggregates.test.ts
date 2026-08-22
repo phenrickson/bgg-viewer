@@ -6,6 +6,8 @@ import {
 	scatterSql,
 	popularitySql,
 	popularityRatingGeekSql,
+	scatterSelectionSql,
+	popularitySelectionSql,
 	facetSearchSql,
 	RATING_BIN,
 	SCATTER_LIMIT,
@@ -60,6 +62,25 @@ describe('aggregate SQL builders', () => {
 		expect(sql).toContain('geek_rating > 0');
 		expect(sql).toContain(W);
 		expect(sql).toContain('FROM catalog');
+	});
+
+	it('never lets a NULL-column filter read as "selected" — a null year under a year filter is NOT in scope', () => {
+		// `selectedWhere` is a boolean SQL expression evaluated against the WIDER `baseWhere`
+		// population, which can include rows the expression's own columns are null for (e.g. a
+		// year filter against a game with no recorded `year_published`, like Tic-Tac-Toe or
+		// Chutes and Ladders). SQL's three-valued logic makes `year_published >= 2025` evaluate
+		// to NULL there, not FALSE — and an un-coalesced `NULL AS selected` reads in JS as
+		// "not === false", i.e. wrongly treated as selected/in-filter by every strict
+		// `selected === false` / `selected !== false` check in Scatter.svelte. COALESCE to
+		// FALSE pins the three-valued result down to a real boolean before it ever reaches JS.
+		const selectedWhere = 'year_published >= 2025';
+		for (const sql of [
+			scatterSelectionSql(W, selectedWhere),
+			popularitySelectionSql(W, selectedWhere)
+		]) {
+			expect(sql).toContain(`COALESCE((${selectedWhere}), FALSE) AS selected`);
+			expect(sql).toContain(`WHERE ${W}`); // still scoped to the wider backdrop population
+		}
 	});
 
 	it('marshals numbers only — game_id, never the name string (lazy names)', () => {
