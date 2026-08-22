@@ -73,6 +73,15 @@ function validate(mod, file) {
 			mod.sample === undefined || (Number.isInteger(mod.sample) && mod.sample > 0),
 			'scatter viz "sample" must be a positive integer if set'
 		);
+		const namesArray = (v) => Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'string' && n);
+		req(
+			mod.opts?.highlights === undefined || namesArray(mod.opts.highlights),
+			'scatter viz "opts.highlights" must be a non-empty array of exact game names if set'
+		);
+		req(
+			mod.opts?.exclude === undefined || namesArray(mod.opts.exclude),
+			'scatter viz "opts.exclude" must be a non-empty array of exact game names if set'
+		);
 	} else {
 		req(typeof mod.query === 'string' && mod.query, `${mod.kind} viz missing "query"`);
 		if (mod.kind === 'columns') {
@@ -97,7 +106,7 @@ function validate(mod, file) {
 /** Run one viz module's query/queries and build its `Viz`. */
 async function runViz(mod) {
 	if (mod.kind === 'scatter') {
-		const rows = await pair(mod.cols, mod.where, mod.sample);
+		const rows = await pair(mod.cols, mod.where, mod.sample, mod.opts ?? {});
 		return scatter(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.opts ?? {});
 	}
 	const rows = await q(mod.query);

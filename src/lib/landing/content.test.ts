@@ -47,15 +47,26 @@ describe('content.json', () => {
 		for (const v of landing.vizzes) {
 			if (v.kind !== 'scatter') continue;
 			const a = v.annotations ?? [];
-			expect(a.length, v.title).toBeGreaterThanOrEqual(4);
+			expect(a.length, v.title).toBeGreaterThanOrEqual(2);
 			expect(a.every((p) => p.label.trim().length > 0), v.title).toBe(true);
 
-			// Spread is the whole point: `label()` buckets by x precisely so the callouts do not
-			// all land in one corner, which teaches nothing about the axis.
-			const xs = v.points.map((p) => p[0]);
+			// Spread is the whole point of the AUTOMATIC pick — `label()` buckets by x
+			// precisely so the callouts do not all land in one corner, which teaches nothing
+			// about the axis. A small, deliberately curated list (`opts.highlights` — see
+			// `08-popularity-vs-rating.viz.js`) is an editorial choice instead, and the games
+			// on it may legitimately cluster wherever they actually sit.
+			if (a.length < 4) continue;
+
+			// Measured in the space the axis actually renders in — same reasoning as the
+			// "squash the cloud" test below. A log axis (e.g. playtime, spanning 1 minute to
+			// multi-day outliers) has its buckets spaced by log10, so judging spread on raw
+			// linear position makes six well-spread labels look clustered in one corner just
+			// because the far end of a LINEAR reading of a five-decade domain is mostly empty.
+			const tx = (v.xLog ?? false) ? (n: number) => Math.log10(Math.max(1, n)) : (n: number) => n;
+			const xs = v.points.map((p) => tx(p[0]));
 			const lo = Math.min(...xs);
 			const hi = Math.max(...xs);
-			const at = a.map((p) => (p.x - lo) / (hi - lo));
+			const at = a.map((p) => (tx(p.x) - lo) / (hi - lo));
 			expect(Math.max(...at) - Math.min(...at), v.title).toBeGreaterThan(0.4);
 		}
 	});

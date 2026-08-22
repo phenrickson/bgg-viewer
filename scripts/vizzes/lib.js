@@ -55,10 +55,33 @@ export const sample = (cols, where, n = SAMPLE) => `
  * sample biased toward hits. Annotations are drawn as their own marks on top of the cloud,
  * so they never needed to be in it.
  */
-export const notable = (cols, where) => `
+const notIn = (names) => `name NOT IN (${names.map((n) => `'${n.replace(/'/g, "''")}'`).join(', ')})`;
+const in_ = (names) => `name IN (${names.map((n) => `'${n.replace(/'/g, "''")}'`).join(', ')})`;
+
+/**
+ * `exclude` keeps specific games out of the pool `label()` picks from — for a game that keeps
+ * winning its x-bucket by raw popularity but isn't the one you want naming that part of the
+ * axis (see `08-popularity-vs-rating.viz.js`'s `opts.exclude`). The other 249 slots still fill
+ * normally; this only removes candidates, it doesn't choose replacements.
+ */
+export const notable = (cols, where, exclude = []) => `
 	SELECT ${cols}, name, users_rated AS pop FROM ${F}
-	WHERE ${WORKING} AND ${where}
+	WHERE ${WORKING} AND ${where} ${exclude.length ? `AND ${notIn(exclude)}` : ''}
 	ORDER BY users_rated DESC LIMIT 250`;
+
+/**
+ * Named games to force-include, by exact title — for when a SPECIFIC game should always be
+ * labelled (see `08-popularity-vs-rating.viz.js`'s `opts.highlights`), on top of whatever
+ * `label()` still picks automatically for the remaining slots. Not filtered by `where`: a viz
+ * naming a game explicitly has already decided it belongs, and it silently vanishing because
+ * it fell just outside the plot's own filter would be confusing.
+ * Named `pinned` rather than `named` — `scatter()` below already uses `named` as its
+ * notable-rows parameter, and shadowing that with the query builder invited exactly the kind
+ * of mix-up this comment is now preventing.
+ */
+export const pinned = (cols, names) => `
+	SELECT ${cols}, name FROM ${F}
+	WHERE ${WORKING} AND ${in_(names)}`;
 
 /**
  * Pick the games to name on a cloud.
@@ -113,8 +136,33 @@ export const labelByGroup = (rows, groupKey, perGroup = 1) => {
 	return out.sort((a, b) => a.x - b.x);
 };
 
-export const scatter = (title, note, xLabel, yLabel, [rows, named], opts = {}) => {
-	const { groupKey, perGroup, ...rest } = opts;
+/** Default target annotation count — `label()`'s own default, pulled out so `scatter()` can
+ *  reserve slots from the same number when `opts.highlights` forces some in. */
+const LABEL_COUNT = 6;
+
+export const scatter = (title, note, xLabel, yLabel, [rows, named, forcedRows], opts = {}) => {
+	const { groupKey, perGroup, highlights, exclude, ...rest } = opts;
+
+	// `highlights` force these specific games onto the chart, on top of — not instead of —
+	// whatever `label()` still picks for the rest. `exclude` (see `notable()`) is how a game
+	// that keeps auto-winning a bucket gets removed from consideration; the two together are
+	// how a viz does a targeted swap (drop this game, add that one) without hand-writing the
+	// whole annotation list.
+	const forced = (forcedRows ?? [])
+		.filter((r) => r.name && r.x != null && r.y != null)
+		.map((r) => ({ x: Number(r.x), y: Number(r.y), label: r.name }));
+	const forcedNames = new Set(forced.map((f) => f.label));
+
+	const autoSlots = Math.max(0, LABEL_COUNT - forced.length);
+	const auto = groupKey
+		? labelByGroup(named, groupKey, perGroup ?? 2)
+		: label(named, autoSlots);
+	// A forced game could also legitimately win its own bucket under `label()` — dedupe rather
+	// than show it twice.
+	const annotations = [...forced, ...auto.filter((a) => !forcedNames.has(a.label))].sort(
+		(a, b) => a.x - b.x
+	);
+
 	return {
 		kind: 'scatter',
 		title,
@@ -122,7 +170,7 @@ export const scatter = (title, note, xLabel, yLabel, [rows, named], opts = {}) =
 		xLabel,
 		yLabel,
 		points: rows.map((r) => [Number(r.x), Number(r.y)]),
-		annotations: groupKey ? labelByGroup(named, groupKey, perGroup ?? 2) : label(named),
+		annotations,
 		...rest
 	};
 };
@@ -351,8 +399,21 @@ export const ridge = (title, note, xLabel, yLabel, rows, order, precision = 1, g
 	};
 };
 
-/** The cloud and its labels, fetched together — they always come as a pair. `n` overrides the default sample size (see `SAMPLE`). */
-export const pair = (cols, where, n) => Promise.all([q(sample(cols, where, n)), q(notable(cols, where))]);
+/**
+ * The cloud and its labels, fetched together — they always come as a pair. `n` overrides the
+ * default sample size (see `SAMPLE`). `opts.exclude`/`opts.highlights` (see `notable()`/
+ * `pinned()`) shape the auto-pick pool and add a forced-include query respectively; the forced
+ * query only runs when `highlights` is actually set, so a viz using neither pays for one query,
+ * same as before either option existed.
+ */
+export const pair = (cols, where, n, opts = {}) => {
+	const { exclude, highlights } = opts;
+	return Promise.all([
+		q(sample(cols, where, n)),
+		q(notable(cols, where, exclude)),
+		highlights?.length ? q(pinned(cols, highlights)) : []
+	]);
+};
 
 /**
  * Top N values of a repeated string column — the facets this app exists to query by.
