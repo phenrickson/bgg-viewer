@@ -40,11 +40,17 @@
     scatterSelectionSql,
     popularitySelectionSql,
     facetSearchSql,
+    bestAtDistributionSql,
+    playerCountSupportSql,
+    recommendedOnlyDistributionSql,
     measures,
-    type Facet
+    type Facet,
+    type PlayerCountBin
   } from '$lib/catalog/aggregates';
   import type { Scope } from '$lib/catalog/scope';
   import Scatter from '$lib/charts/Scatter.svelte';
+  import MiniColumns from '$lib/charts/MiniColumns.svelte';
+  import StackedColumns from '$lib/charts/StackedColumns.svelte';
 
   let {
     where,
@@ -58,8 +64,16 @@
   type Pt = { x: number; y: number; game_id: number; selected: boolean };
   type FacetCol = 'categories' | 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
+  /** Player counts games 1–8, matching ShapeStrip's BEST_AT_DOMAIN — see the design doc for
+   *  why both new charts share this cap. */
+  const PLAYER_COUNT_DOMAIN = [1, 2, 3, 4, 5, 6, 7, 8];
+
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
+  let supportsBins = $state<PlayerCountBin[]>([]);
+  let supportsBackdrop = $state<PlayerCountBin[]>([]);
+  let bestBins = $state<PlayerCountBin[]>([]);
+  let recommendedOnlyBins = $state<PlayerCountBin[]>([]);
   let categories = $state<Facet[]>([]);
   let mechanics = $state<Facet[]>([]);
   let families = $state<Facet[]>([]);
@@ -87,6 +101,10 @@
     Promise.all([
       query<Pt>(scatterSelectionSql(bw, w, undefined, m)),
       query<Pt>(popularitySelectionSql(bw, w, undefined, m)),
+      query<PlayerCountBin>(playerCountSupportSql(w)),
+      query<PlayerCountBin>(playerCountSupportSql(bw)),
+      query<PlayerCountBin>(bestAtDistributionSql(w)),
+      query<PlayerCountBin>(recommendedOnlyDistributionSql(w)),
       query<Facet>(facetSearchSql(w, 'categories', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'families', '', TOP_N)),
@@ -94,10 +112,14 @@
       query<Facet>(facetSearchSql(w, 'designers', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'artists', '', TOP_N))
     ])
-      .then(([a, b, cat, c, d, e, f, g]) => {
+      .then(([a, b, supports, supportsBack, best, recOnly, cat, c, d, e, f, g]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
+        supportsBins = supports;
+        supportsBackdrop = supportsBack;
+        bestBins = best;
+        recommendedOnlyBins = recOnly;
         categories = cat;
         mechanics = c;
         families = d;
@@ -118,6 +140,18 @@
   function toggleFacet(col: FacetCol, value: string) {
     const current = scope[col];
     scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+  }
+
+  /** Mirrors ShapeStrip's onpick exclusivity (ShapeStrip.svelte:305-311): one player-count
+   *  question active at a time, so the two questions can never disagree about which count is
+   *  filtered. */
+  function pickSupports(v: number | null) {
+    scope.players = v;
+    if (v != null) scope.bestAt = null;
+  }
+  function pickBestAt(v: number | null) {
+    scope.bestAt = v;
+    if (v != null) scope.players = null;
   }
 
   /**
@@ -261,6 +295,38 @@
       {@render popularityChart(300)}
     </div>
 
+    <div class="figure">
+      <h3>Supports N players</h3>
+      <MiniColumns
+        bins={supportsBins.map((b) => ({ v: b.count, n: b.n }))}
+        backdrop={supportsBackdrop.map((b) => ({ v: b.count, n: b.n }))}
+        domain={PLAYER_COUNT_DOMAIN}
+        selected={scope.players}
+        height={104}
+        color="var(--chart-1)"
+        title={(v, n) => `supports ${v} players — ${n.toLocaleString()} games in scope`}
+        onpick={pickSupports}
+      />
+    </div>
+
+    <div class="figure">
+      <h3>Best / recommended at N players</h3>
+      <div class="legend">
+        <span class="swatch" style:--sw="var(--chart-1)"></span>best
+        <span class="swatch" style:--sw="var(--chart-2)"></span>recommended
+      </div>
+      <StackedColumns
+        bins={bestBins.map((b) => ({ v: b.count, n: b.n }))}
+        bins2={recommendedOnlyBins.map((b) => ({ v: b.count, n: b.n }))}
+        domain={PLAYER_COUNT_DOMAIN}
+        selected={scope.bestAt}
+        height={104}
+        title={(v, n1, n2) =>
+          `${v} players — best: ${n1.toLocaleString()}, recommended: ${n2.toLocaleString()}`}
+        onpick={pickBestAt}
+      />
+    </div>
+
     {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
       <div class="figure">
         <h3>Top {title}</h3>
@@ -336,6 +402,24 @@
     margin: 0 0 0.2rem;
     font-size: 0.85rem;
     font-weight: 650;
+  }
+  /* Only the stacked chart needs a colour key — the single-colour charts don't. */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+  }
+  .swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    background: var(--sw);
+  }
+  .swatch:not(:first-child) {
+    margin-left: 0.5rem;
   }
   .fhead {
     display: flex;
