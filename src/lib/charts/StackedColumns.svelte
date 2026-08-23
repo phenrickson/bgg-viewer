@@ -3,19 +3,35 @@
    * A two-series stacked sibling of [MiniColumns](MiniColumns.svelte) — same discrete-domain,
    * click-to-filter grammar (one real `<button>` per bucket, whole column is the click target),
    * but each column stacks two disjoint counts instead of drawing one foreground series over a
-   * muted backdrop silhouette. There is deliberately no backdrop here: a third silhouette layer
-   * behind two already-stacked foreground segments is too much to read in a chart this small,
-   * and the two segments already carry their own comparison (see the explore player-count
-   * charts design doc).
+   * muted backdrop silhouette. There is deliberately no VISIBLE backdrop layer here: a third
+   * silhouette behind two already-stacked foreground segments is too much to read in a chart
+   * this small, and the two segments already carry their own comparison (see the explore
+   * player-count charts design doc).
+   *
+   * The scale still needs a backdrop, even though nothing is drawn from it. `scale.ts`'s whole
+   * point is ONE stable scale so a filter shrinks bars instead of quietly re-normalising the
+   * chart to fill itself every time — omitting the backdrop *data* (not just its silhouette)
+   * broke that: with no unfiltered reference, `peak`/`grand` recomputed from whatever was
+   * currently in scope, so filtering to a small set could make its tallest bar jump back to
+   * 100% instead of shrinking, out of step with every other chart on the page (found via
+   * `just dev` with a "plays with 1" filter applied — the stacked chart's bars didn't shrink
+   * the way `MiniColumns`' backdrop-anchored ones did, right next to it). `backdropBins`/
+   * `backdropBins2` supply that unfiltered reference for scaling only.
    */
   import type { ColBin } from './types';
   import type { ScaleMode } from './scale';
 
   let {
-    /** Bottom segment. */
+    /** Bottom segment (current scope). */
     bins = [],
-    /** Top segment — stacked on `bins`. Disjoint from it, so heights sum without double count. */
+    /** Top segment (current scope) — stacked on `bins`. Disjoint from it, so heights sum
+     *  without double count. */
     bins2 = [],
+    /** Unfiltered counterpart of `bins`, for scale anchoring only — never drawn. Falls back to
+     *  `bins` (rescale-to-filtered-peak) if omitted. */
+    backdropBins,
+    /** Unfiltered counterpart of `bins2` — see `backdropBins`. */
+    backdropBins2,
     /** Every bucket to draw, in order — including ones with no games in scope. */
     domain,
     selected = null,
@@ -24,10 +40,14 @@
     scaleMode = 'count',
     label = (v: number) => String(v),
     title = (v: number, n1: number, n2: number) => `${v}: ${(n1 + n2).toLocaleString()}`,
-    onpick
+    onpick,
+    /** Fires on hover/focus enter (the bucket's value) and leave (`null`) — see MiniColumns. */
+    onhover
   }: {
     bins?: ColBin[];
     bins2?: ColBin[];
+    backdropBins?: ColBin[];
+    backdropBins2?: ColBin[];
     domain: number[];
     selected?: number | null;
     colors?: [string, string];
@@ -36,24 +56,28 @@
     label?: (v: number) => string;
     title?: (v: number, n1: number, n2: number) => string;
     onpick: (v: number | null) => void;
+    onhover?: (v: number | null) => void;
   } = $props();
 
   const at = (s: ColBin[], v: number) => s.find((b) => b.v === v)?.n ?? 0;
-  const stackTotal = (v: number) => at(bins, v) + at(bins2, v);
+  const stackTotal = (s1: ColBin[], s2: ColBin[], v: number) => at(s1, v) + at(s2, v);
+
+  const scaleBins = $derived(backdropBins ?? bins);
+  const scaleBins2 = $derived(backdropBins2 ?? bins2);
 
   /**
-   * Scaled so the TWO STACKED segments sum to at most 100% of the plot height — unlike
-   * MiniColumns' `barScale`, which scales two *independent* series (foreground + backdrop)
-   * against each series' own peak. Reusing that here would size each segment against its own
-   * peak and let a stack's total height exceed the plot (a real bug: found via `just dev` —
-   * tall columns rendered past the container and over the title). `count` scales against the
-   * tallest *stack total*; `share` scales each bin's share of the grand total against the
-   * largest such share — the stacked analogue of `barScale`'s two modes.
+   * Scaled so the TWO STACKED segments sum to at most 100% of the plot height, against the
+   * STABLE (unfiltered) stack totals — see the file doc comment. `count` scales against the
+   * tallest stack total; `share` scales each bin's share of the grand total against the
+   * largest such share — the stacked analogue of `barScale`'s two modes (`scale.ts`).
    */
-  const grand = $derived(domain.reduce((sum, v) => sum + stackTotal(v), 0));
-  const peak = $derived(Math.max(...domain.map(stackTotal), 1));
+  const grand = $derived(domain.reduce((sum, v) => sum + stackTotal(scaleBins, scaleBins2, v), 0));
+  const peak = $derived(Math.max(...domain.map((v) => stackTotal(scaleBins, scaleBins2, v)), 1));
   const maxShare = $derived(
-    Math.max(...domain.map((v) => (grand > 0 ? stackTotal(v) / grand : 0)), Number.EPSILON)
+    Math.max(
+      ...domain.map((v) => (grand > 0 ? stackTotal(scaleBins, scaleBins2, v) / grand : 0)),
+      Number.EPSILON
+    )
   );
   const pct = (n: number): number => {
     if (n <= 0) return 0;
@@ -75,6 +99,10 @@
       title={title(v, n1, n2)}
       disabled={n1 === 0 && n2 === 0 && selected !== v}
       onclick={() => onpick(selected === v ? null : v)}
+      onmouseenter={() => onhover?.(v)}
+      onmouseleave={() => onhover?.(null)}
+      onfocus={() => onhover?.(v)}
+      onblur={() => onhover?.(null)}
     >
       <span class="plot">
         <i class="seg2" style:height="{pct(n2)}%" style:bottom="{pct(n1)}%"></i>
