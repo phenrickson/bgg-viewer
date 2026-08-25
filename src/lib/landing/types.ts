@@ -205,7 +205,14 @@ export interface Featured {
 	usersRated: number;
 	/** BGG's CDN, so box art costs this app nothing to serve. */
 	image: string | null;
+	/** The baseline fact every featured game carries: "Ranked #N of M rated games — top X%",
+	 *  computed at build time (see `scripts/featured/lib.js`'s `rankFact`) — the same language
+	 *  the game detail page shows client-side. */
 	note: string;
+	/** An additional fun fact for a game pulled into the pool BY a specific category (top game
+	 *  of a year, most-rated ever, …) — `null` for a plain top-rated fill, which has nothing
+	 *  beyond the baseline `note`. */
+	fact: string | null;
 }
 
 export interface LandingContent {

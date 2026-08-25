@@ -11,7 +11,10 @@
    * Box art is BGG's CDN, so it costs this app nothing to serve and does not compete with the
    * catalog build for the container's single CPU.
    *
-   * Copy is PLACEHOLDER — Phil writes the final strings.
+   * `note` and `fact` are both computed at build time (`scripts/build-landing-content.js` /
+   * `scripts/featured/`), not hand-written — see `Featured` in `./types.ts`. `fact` reuses the
+   * `.callout`/`.mark` visual language `VizOfTheDay.svelte` uses for "the claim, stated," so
+   * the two "of the day" sections share one vocabulary for their own takeaway line.
    */
   import { reveal } from './reveal';
   import type { Featured } from './types';
@@ -32,6 +35,9 @@
       <p class="eyebrow">{eyebrow}</p>
       <h2><a href="/games/{game.id}">{game.name}</a></h2>
       <p class="note">{game.year ?? '—'} · {game.note}</p>
+      {#if game.fact}
+        <p class="callout"><span class="mark" aria-hidden="true"></span>{game.fact}</p>
+      {/if}
     </div>
     {#if onprev || onnext}
       <div class="nav">
@@ -78,6 +84,17 @@
   .note {
     font-size: 0.9rem; color: var(--muted-foreground); margin: .4rem 0 0;
     line-height: 1.45; max-width: 44rem;
+  }
+  /* The one-line "why this game" fact — same `.callout`/`.mark` visual language
+     VizOfTheDay.svelte uses for its own "the claim, stated" line, minus that component's
+     left margin (there's no y-axis gutter here to align with). */
+  .callout {
+    display: flex; align-items: baseline; gap: .5rem; margin: .5rem 0 0;
+    font-size: 0.85rem; line-height: 1.45; color: var(--foreground); max-width: 44rem;
+  }
+  .mark {
+    flex: none; width: .7rem; height: .7rem; border-radius: 2px;
+    background: var(--primary); transform: translateY(1px);
   }
 
   .nav { display: flex; gap: .3rem; margin-left: auto; flex: none; }
