@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-25T02:32:47.981Z",
+	"builtAt": "2026-08-25T03:33:13.247Z",
 	"stats": {
 		"games": 30909,
 		"newestYear": 2027,
@@ -24184,6 +24184,22 @@
 			"weight": 2.84,
 			"usersRated": 10365,
 			"image": "https://cf.geekdo-images.com/JUrmY8GgFPQlENiPT7BGZw__small/img/Ftdtb0LiIqTAjpSlOVGnxdPaD9A=/fit-in/200x150/filters:strip_icc()/pic6884563.jpg",
+			"publishers": [
+				"alea"
+			],
+			"designers": [
+				"Stefan Feld"
+			],
+			"categories": [
+				"Dice",
+				"Territory Building",
+				"Medieval"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Set Collection",
+				"Team-Based Game"
+			],
 			"note": "Ranked #1 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2023"
 		},
@@ -24195,6 +24211,23 @@
 			"weight": 3.87,
 			"usersRated": 55417,
 			"image": "https://cf.geekdo-images.com/x3zxjr-Vw5iU4yDPg70Jgw__small/img/o18rjEemoWaVru9Y2TyPwuIaRfE=/fit-in/200x150/filters:strip_icc()/pic3490053.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Martin Wallace",
+				"Gavan Brown"
+			],
+			"categories": [
+				"Industry / Manufacturing",
+				"Transportation",
+				"Trains"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Hand Management",
+				"Network and Route Building"
+			],
 			"note": "Ranked #2 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2018"
 		},
@@ -24206,6 +24239,22 @@
 			"weight": 2.83,
 			"usersRated": 55704,
 			"image": "https://cf.geekdo-images.com/-Qer2BBPG7qGGDu6KcVDIw__thumb/img/NQQcjS31TO0DE246N9rpt0hd9eo=/fit-in/200x150/filters:strip_icc()/pic2452831.png",
+			"publishers": [
+				"Z-Man Games"
+			],
+			"designers": [
+				"Matt Leacock",
+				"Rob Daviau"
+			],
+			"categories": [
+				"Medical",
+				"Environmental"
+			],
+			"mechanics": [
+				"Action Points",
+				"Set Collection",
+				"Trading"
+			],
 			"note": "Ranked #3 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2015"
 		},
@@ -24217,6 +24266,22 @@
 			"weight": 3.79,
 			"usersRated": 56972,
 			"image": "https://cf.geekdo-images.com/SoU8p28Sk1s8MSvoM4N8pQ__small/img/4KuHNTWSMPf8vTNDKSRMMI3oOv8=/fit-in/200x150/filters:strip_icc()/pic6293412.jpg",
+			"publishers": [
+				"Portal Games"
+			],
+			"designers": [
+				"Mathias Wigge"
+			],
+			"categories": [
+				"Environmental",
+				"Card Game",
+				"Animals"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Set Collection",
+				"Variable Player Powers"
+			],
 			"note": "Ranked #4 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2021"
 		},
@@ -24228,6 +24293,22 @@
 			"weight": 3.91,
 			"usersRated": 66128,
 			"image": "https://cf.geekdo-images.com/sZYp_3BTDGjh2unaZfZmuA__small/img/veqFeP4d_3zNhFc3GNBkV95rBEQ=/fit-in/200x150/filters:strip_icc()/pic2437871.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Isaac Childres"
+			],
+			"categories": [
+				"Exploration",
+				"Adventure",
+				"Fantasy"
+			],
+			"mechanics": [
+				"Modular Board",
+				"Variable Player Powers",
+				"Campaign / Battle Card Driven"
+			],
 			"note": "Ranked #5 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2017"
 		},
@@ -24239,6 +24320,23 @@
 			"weight": 4.33,
 			"usersRated": 26219,
 			"image": "https://cf.geekdo-images.com/_Ppn5lssO5OaildSE-FgFA__thumb/img/lfEukJE0JsoZZObaF9K9YnFp62E=/fit-in/200x150/filters:strip_icc()/pic3727516.jpg",
+			"publishers": [
+				"Fantasy Flight Games"
+			],
+			"designers": [
+				"Christian T. Petersen",
+				"Corey Konieczka"
+			],
+			"categories": [
+				"Science Fiction",
+				"Territory Building",
+				"Political"
+			],
+			"mechanics": [
+				"Trading",
+				"Modular Board",
+				"Variable Player Powers"
+			],
 			"note": "Ranked #6 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24250,6 +24348,22 @@
 			"weight": 3.07,
 			"usersRated": 55702,
 			"image": "https://cf.geekdo-images.com/PhjygpWSo-0labGrPBMyyg__small/img/JGgY-nBmkyB8WRp8vcoBLlNMQ5U=/fit-in/200x150/filters:strip_icc()/pic5666597.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Paul Dennen"
+			],
+			"categories": [
+				"Science Fiction",
+				"Movies / TV / Radio theme",
+				"Political"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Open Drafting",
+				"Worker Placement"
+			],
 			"note": "Ranked #7 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2020"
 		},
@@ -24261,6 +24375,22 @@
 			"weight": 3.27,
 			"usersRated": 106710,
 			"image": "https://cf.geekdo-images.com/wg9oOLcsKvDesSUdZQ4rxw__thumb/img/BTxqxgYay5tHJfVoJ2NF5g43_gA=/fit-in/200x150/filters:strip_icc()/pic3536616.jpg",
+			"publishers": [
+				"Lautapelit.fi"
+			],
+			"designers": [
+				"Jacob Fryxelius"
+			],
+			"categories": [
+				"Economic",
+				"Environmental",
+				"Industry / Manufacturing"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Set Collection",
+				"Variable Player Powers"
+			],
 			"note": "Ranked #8 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2016"
 		},
@@ -24272,6 +24402,23 @@
 			"weight": 4.23,
 			"usersRated": 23386,
 			"image": "https://cf.geekdo-images.com/ImPgGag98W6gpV1KV812aA__thumb/img/X-lBBdG4uO6LT0y1vXxCN4jdR4M=/fit-in/200x150/filters:strip_icc()/pic1215633.jpg",
+			"publishers": [
+				"Sophisticated Games"
+			],
+			"designers": [
+				"Marco Maggi",
+				"Francesco Nepitello"
+			],
+			"categories": [
+				"Wargame",
+				"Fighting",
+				"Territory Building"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Campaign / Battle Card Driven",
+				"Team-Based Game"
+			],
 			"note": "Ranked #9 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2011"
 		},
@@ -24283,6 +24430,22 @@
 			"weight": 3.52,
 			"usersRated": 15494,
 			"image": "https://cf.geekdo-images.com/UVUkjMV_Q2paVUIUP30Vvw__small/img/H6qmxJrRFjtOAPZOfDoZ480-46I=/fit-in/200x150/filters:strip_icc()/pic7664424.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Paul Dennen"
+			],
+			"categories": [
+				"Science Fiction",
+				"Movies / TV / Radio theme",
+				"Novel-based"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Team-Based Game",
+				"Open Drafting"
+			],
 			"note": "Ranked #10 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24294,6 +24457,22 @@
 			"weight": 3.74,
 			"usersRated": 34628,
 			"image": "https://cf.geekdo-images.com/7SrPNGBKg9IIsP4UQpOi8g__thumb/img/gAxzddRVQiRdjZHYFUZ2xc5Jlbw=/fit-in/200x150/filters:strip_icc()/pic4325841.jpg",
+			"publishers": [
+				"Fantasy Flight Games"
+			],
+			"designers": [
+				"Corey Konieczka"
+			],
+			"categories": [
+				"Space Exploration",
+				"Civil War",
+				"Miniatures"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Team-Based Game",
+				"Hand Management"
+			],
 			"note": "Ranked #11 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24305,6 +24484,22 @@
 			"weight": 4.08,
 			"usersRated": 60562,
 			"image": "https://cf.geekdo-images.com/kjCm4ZvPjIZxS-mYgSPy1g__small/img/aUlIih2_R7P8IYKeyNl2heLQbu8=/fit-in/200x150/filters:strip_icc()/pic7013651.jpg",
+			"publishers": [
+				"Pegasus Spiele"
+			],
+			"designers": [
+				"R. Eric Reuss"
+			],
+			"categories": [
+				"Environmental",
+				"Fantasy",
+				"Mythology"
+			],
+			"mechanics": [
+				"Modular Board",
+				"Variable Player Powers",
+				"Campaign / Battle Card Driven"
+			],
 			"note": "Ranked #12 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24316,6 +24511,22 @@
 			"weight": 3.63,
 			"usersRated": 39631,
 			"image": "https://cf.geekdo-images.com/_HhIdavYW-hid20Iq3hhmg__small/img/OMkN_E5eyWrkID_cHCnQEbIixGM=/fit-in/200x150/filters:strip_icc()/pic5055631.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Isaac Childres"
+			],
+			"categories": [
+				"Fantasy",
+				"Miniatures",
+				"Adventure"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Campaign / Battle Card Driven",
+				"Simultaneous Action Selection"
+			],
 			"note": "Ranked #13 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24327,6 +24538,23 @@
 			"weight": 4.4,
 			"usersRated": 29497,
 			"image": "https://cf.geekdo-images.com/hGWFm3hbMlCDsfCsauOQ4g__thumb/img/NNG7Ijyx4evp5gcVReis9i0koas=/fit-in/200x150/filters:strip_icc()/pic5375625.png",
+			"publishers": [
+				"Z-Man Games"
+			],
+			"designers": [
+				"Jens Drögemüller",
+				"Helge Ostertag"
+			],
+			"categories": [
+				"Miniatures",
+				"Science Fiction",
+				"Territory Building"
+			],
+			"mechanics": [
+				"Modular Board",
+				"Variable Player Powers",
+				"Hexagon Grid"
+			],
 			"note": "Ranked #14 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24338,6 +24566,23 @@
 			"weight": 3.61,
 			"usersRated": 50583,
 			"image": "https://cf.geekdo-images.com/pNCiUUphnoeWOYfsWq0kng__thumb/img/p7alNkNy8Avm8UISmhYHCiMz5bE=/fit-in/200x150/filters:strip_icc()/pic3530661.jpg",
+			"publishers": [
+				"GMT Games"
+			],
+			"designers": [
+				"Ananda Gupta",
+				"Jason Matthews"
+			],
+			"categories": [
+				"Political",
+				"Modern Warfare",
+				"Wargame"
+			],
+			"mechanics": [
+				"Campaign / Battle Card Driven",
+				"Simultaneous Action Selection",
+				"Hand Management"
+			],
 			"note": "Ranked #15 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24349,6 +24594,22 @@
 			"weight": 4.44,
 			"usersRated": 33445,
 			"image": "https://cf.geekdo-images.com/fVwPntkJKgaEo0rIC0RwpA__thumb/img/31usGlzlBReEFf60bcgbvDTjwCg=/fit-in/200x150/filters:strip_icc()/pic2663291.jpg",
+			"publishers": [
+				"Heidelberger Spieleverlag"
+			],
+			"designers": [
+				"Vlaada Chvátil"
+			],
+			"categories": [
+				"Economic",
+				"Card Game",
+				"Civilization"
+			],
+			"mechanics": [
+				"Action Points",
+				"Auction / Bidding",
+				"Open Drafting"
+			],
 			"note": "Ranked #16 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24360,6 +24621,22 @@
 			"weight": 2.97,
 			"usersRated": 66122,
 			"image": "https://cf.geekdo-images.com/sH2YTQ10dHj1ibfS-KKtGA__thumb/img/f5zFXdTcH9RNY0iMNBppd8D-_r0=/fit-in/200x150/filters:strip_icc()/pic8745814.jpg",
+			"publishers": [
+				"alea"
+			],
+			"designers": [
+				"Stefan Feld"
+			],
+			"categories": [
+				"Territory Building",
+				"Animals",
+				"Dice"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Hexagon Grid",
+				"Open Drafting"
+			],
 			"note": "Ranked #17 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24371,6 +24648,22 @@
 			"weight": 3.7,
 			"usersRated": 42572,
 			"image": "https://cf.geekdo-images.com/u1l0gH7sb_vnvDvoO_QHqA__thumb/img/9lxFidyDb8j6D1vobx4e3UwZ-FI=/fit-in/200x150/filters:strip_icc()/pic4887376.jpg",
+			"publishers": [
+				"Pegasus Spiele"
+			],
+			"designers": [
+				"Alexander Pfister"
+			],
+			"categories": [
+				"Economic",
+				"American West",
+				"Animals"
+			],
+			"mechanics": [
+				"Set Collection",
+				"Hand Management",
+				"Deck, Bag, and Pool Building"
+			],
 			"note": "Ranked #18 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24382,6 +24675,22 @@
 			"weight": 2.92,
 			"usersRated": 14027,
 			"image": "https://cf.geekdo-images.com/VrNrk7XVU1hN0j1ZFhjcjw__small/img/6XPO0XNGGw3V77NjWR0K7Y33fqc=/fit-in/200x150/filters:strip_icc()/pic4934938.jpg",
+			"publishers": [
+				"alea"
+			],
+			"designers": [
+				"Stefan Feld"
+			],
+			"categories": [
+				"Medieval",
+				"Dice",
+				"Territory Building"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Set Collection",
+				"Team-Based Game"
+			],
 			"note": "Ranked #19 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2019"
 		},
@@ -24393,6 +24702,22 @@
 			"weight": 4.41,
 			"usersRated": 9461,
 			"image": "https://cf.geekdo-images.com/cwUgf-f-qwri8UHBUnifuQ__small/img/3o2Hc_N5mmfpOt8s9kP0ap8Jti8=/fit-in/200x150/filters:strip_icc()/pic5092291.png",
+			"publishers": [
+				"Albi"
+			],
+			"designers": [
+				"Isaac Childres"
+			],
+			"categories": [
+				"Fantasy",
+				"Fighting",
+				"Exploration"
+			],
+			"mechanics": [
+				"Modular Board",
+				"Variable Player Powers",
+				"Campaign / Battle Card Driven"
+			],
 			"note": "Ranked #20 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2022"
 		},
@@ -24404,6 +24729,23 @@
 			"weight": 4.66,
 			"usersRated": 8100,
 			"image": "https://cf.geekdo-images.com/jgsT5y5qKlOR08CuHG7xfw__small/img/DM78RCe2olPBHUesY9V-GS56gCU=/fit-in/200x150/filters:strip_icc()/pic4411189.jpg",
+			"publishers": [
+				"Pegasus Spiele"
+			],
+			"designers": [
+				"Vlaada Chvátil",
+				"Paul Grogan"
+			],
+			"categories": [
+				"Adventure",
+				"Fantasy",
+				"Exploration"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Modular Board",
+				"Variable Player Powers"
+			],
 			"note": "Ranked #21 of 30,909 rated games — top 0.1%",
 			"fact": null
 		},
@@ -24415,6 +24757,21 @@
 			"weight": 3.81,
 			"usersRated": 15768,
 			"image": "https://cf.geekdo-images.com/_BUXOVRDU9g_eRwgpR5ZZw__small/img/icamIZ4nP3HHH3vczZqTr1hQgKY=/fit-in/200x150/filters:strip_icc()/pic8160466.jpg",
+			"publishers": [
+				"Hobby Japan"
+			],
+			"designers": [
+				"Tomáš Holek"
+			],
+			"categories": [
+				"Science Fiction",
+				"Space Exploration"
+			],
+			"mechanics": [
+				"Area Majority / Influence",
+				"Solo / Solitaire Game",
+				"Turn Order: Progressive"
+			],
 			"note": "Ranked #26 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2024"
 		},
@@ -24426,6 +24783,22 @@
 			"weight": 2.99,
 			"usersRated": 42968,
 			"image": "https://cf.geekdo-images.com/CzwSm8i7tkLz6cBnrILZBg__thumb/img/ESPSltYYSFK-aJw6jOTdQrJGpOc=/fit-in/200x150/filters:strip_icc()/pic3453267.jpg",
+			"publishers": [
+				"Rio Grande Games"
+			],
+			"designers": [
+				"Mac Gerdts"
+			],
+			"categories": [
+				"Ancient",
+				"Nautical",
+				"Economic"
+			],
+			"mechanics": [
+				"Set Collection",
+				"Hand Management",
+				"Open Drafting"
+			],
 			"note": "Ranked #32 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2013"
 		},
@@ -24437,6 +24810,23 @@
 			"weight": 3.98,
 			"usersRated": 49651,
 			"image": "https://cf.geekdo-images.com/bre12I1YiXkZr7elvriz4A__thumb/img/GW-ip0dfeAee7KQqJ04SRZxF1lg=/fit-in/200x150/filters:strip_icc()/pic5375624.jpg",
+			"publishers": [
+				"Z-Man Games"
+			],
+			"designers": [
+				"Jens Drögemüller",
+				"Helge Ostertag"
+			],
+			"categories": [
+				"Territory Building",
+				"Fantasy",
+				"Civilization"
+			],
+			"mechanics": [
+				"Variable Player Powers",
+				"Hexagon Grid",
+				"Network and Route Building"
+			],
 			"note": "Ranked #38 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2012"
 		},
@@ -24448,6 +24838,22 @@
 			"weight": 3.02,
 			"usersRated": 33750,
 			"image": "https://cf.geekdo-images.com/nagl1li6kYt9elV9jbfVQw__thumb/img/ykeqdM_Naz4IiqOgyB1arzteOiU=/fit-in/200x150/filters:strip_icc()/pic6228507.jpg",
+			"publishers": [
+				"Arclight Games"
+			],
+			"designers": [
+				"Reiner Stockhausen"
+			],
+			"categories": [
+				"Medieval",
+				"Travel",
+				"Religious"
+			],
+			"mechanics": [
+				"Simultaneous Action Selection",
+				"Point to Point Movement",
+				"Deck, Bag, and Pool Building"
+			],
 			"note": "Ranked #40 of 30,909 rated games — top 0.1%",
 			"fact": "Top game of 2014"
 		},
@@ -24459,6 +24865,21 @@
 			"weight": 3.11,
 			"usersRated": 10869,
 			"image": "https://cf.geekdo-images.com/scw36iBIad7l-rGzxPGcGg__small/img/dyMBa6SBkPwpWfA4FINqbX8RNDQ=/fit-in/200x150/filters:strip_icc()/pic8662670.png",
+			"publishers": [
+				"Z-Man Games"
+			],
+			"designers": [
+				"Matt Leacock"
+			],
+			"categories": [
+				"Novel-based",
+				"Fantasy"
+			],
+			"mechanics": [
+				"Action Points",
+				"Set Collection",
+				"Variable Player Powers"
+			],
 			"note": "Ranked #67 of 30,909 rated games — top 0.2%",
 			"fact": "Top game of 2025"
 		},
@@ -24470,6 +24891,22 @@
 			"weight": 4.04,
 			"usersRated": 21935,
 			"image": "https://cf.geekdo-images.com/oeygRZntjNUJWvc8SxDfww__thumb/img/PUmSkY6ZKL81b6YuP1U59R3VdRE=/fit-in/200x150/filters:strip_icc()/pic784193.jpg",
+			"publishers": [
+				"GMT Games"
+			],
+			"designers": [
+				"Chad Jensen"
+			],
+			"categories": [
+				"Prehistoric",
+				"Animals",
+				"Environmental"
+			],
+			"mechanics": [
+				"Tile Placement",
+				"Variable Player Powers",
+				"Hexagon Grid"
+			],
 			"note": "Ranked #115 of 30,909 rated games — top 0.4%",
 			"fact": "Top game of 2010"
 		},
@@ -24481,6 +24918,22 @@
 			"weight": 3.6,
 			"usersRated": 2844,
 			"image": "https://cf.geekdo-images.com/bOs_Um4cUUOpKnypCMykJA__small/img/WLGTv9N3yOkGWZSki-c0nc-L_oY=/fit-in/200x150/filters:strip_icc()/pic8844519.png",
+			"publishers": [
+				"Cranio Creations"
+			],
+			"designers": [
+				"Paulo Soledade",
+				"Nuno Bizarro Sentieiro"
+			],
+			"categories": [
+				"Economic",
+				"Industry / Manufacturing"
+			],
+			"mechanics": [
+				"Open Drafting",
+				"Area Majority / Influence",
+				"Worker Placement"
+			],
 			"note": "Ranked #441 of 30,909 rated games — top 1%",
 			"fact": "Top game of 2026"
 		},
@@ -24492,6 +24945,21 @@
 			"weight": 2.29,
 			"usersRated": 135151,
 			"image": "https://cf.geekdo-images.com/PyUol9QxBnZQCJqZI6bmSA__thumb/img/virV2Bm82Dql7gh-LZScBwqByik=/fit-in/200x150/filters:strip_icc()/pic8632666.png",
+			"publishers": [
+				"Mayfair Games"
+			],
+			"designers": [
+				"Klaus Teuber"
+			],
+			"categories": [
+				"Negotiation",
+				"Economic"
+			],
+			"mechanics": [
+				"Trading",
+				"Modular Board",
+				"Hexagon Grid"
+			],
 			"note": "Ranked #641 of 30,909 rated games — top 2%",
 			"fact": "The most-rated game on BGG, with 135,151 ratings"
 		},
@@ -24503,6 +24971,22 @@
 			"weight": 4.88,
 			"usersRated": 139,
 			"image": "https://cf.geekdo-images.com/gpY2MIpKnjCwMbg7HzRFRw__thumb/img/pW3feIcPXrVA4lwqknagYbLvNdM=/fit-in/200x150/filters:strip_icc()/pic4601973.jpg",
+			"publishers": [
+				"Australian Design Group"
+			],
+			"designers": [
+				"Harry Rowland",
+				"Greg Pinder"
+			],
+			"categories": [
+				"World War II",
+				"Wargame"
+			],
+			"mechanics": [
+				"Hexagon Grid",
+				"Area Movement",
+				"Dice Rolling"
+			],
 			"note": "Ranked #7,858 of 30,909 rated games — top 25%",
 			"fact": "The heaviest game with real community traction, at 4.88/5"
 		}

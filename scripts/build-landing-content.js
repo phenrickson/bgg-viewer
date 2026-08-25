@@ -184,7 +184,8 @@ async function buildFeatured(featuredModules) {
 
 	const [detailRows, rankRows] = await Promise.all([
 		q(`SELECT game_id, name, year_published, ROUND(geek_rating,2) AS geek,
-		          ROUND(average_weight,2) AS weight, users_rated, image, thumbnail
+		          ROUND(average_weight,2) AS weight, users_rated, image, thumbnail,
+		          categories, mechanics, designers, publishers
 		   FROM ${F} WHERE game_id IN (${poolIds.join(',')})`),
 
 		// Rank/percentile for the WHOLE pool in one query, via a window function over every
@@ -219,7 +220,14 @@ async function buildFeatured(featuredModules) {
 				geek: num(d.geek),
 				weight: num(d.weight),
 				usersRated: Number(d.users_rated),
-				image: d.thumbnail ?? d.image
+				image: d.thumbnail ?? d.image,
+				// Capped per type, not one shared total — a game with a dozen mechanics
+				// shouldn't crowd out its (usually singular) publisher. Order is
+				// identity-first (who made it) then attributes (what it is).
+				publishers: (d.publishers ?? []).slice(0, 1),
+				designers: (d.designers ?? []).slice(0, 2),
+				categories: (d.categories ?? []).slice(0, 3),
+				mechanics: (d.mechanics ?? []).slice(0, 3)
 			};
 			return {
 				...game,

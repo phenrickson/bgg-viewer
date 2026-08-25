@@ -213,6 +213,18 @@ export interface Featured {
 	 *  of a year, most-rated ever, …) — `null` for a plain top-rated fill, which has nothing
 	 *  beyond the baseline `note`. */
 	fact: string | null;
+	/**
+	 * Facet badges — the same categories/mechanics/designers/publishers this app exists to make
+	 * queryable elsewhere, capped per type at build time (1 publisher, 2 designers, 3
+	 * categories, 3 mechanics — identity first, then attributes) rather than one shared total,
+	 * so a game with a dozen mechanics can't crowd out its own (usually singular) publisher.
+	 * Each renders as a link into Explore filtered by that value, same as the game detail
+	 * page's own `.chip`s.
+	 */
+	publishers: string[];
+	designers: string[];
+	categories: string[];
+	mechanics: string[];
 }
 
 export interface LandingContent {
