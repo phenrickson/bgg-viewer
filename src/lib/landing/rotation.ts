@@ -15,34 +15,62 @@ export function dayIndex(now: number = Date.now()): number {
 }
 
 /**
- * A pseudo-random position in [0, n), deterministic from `day` alone — a sine-hash rather
- * than `Math.random` (same technique Scatter.svelte's jitter uses for its own reproducible
- * "randomness"), so it needs no seeded-RNG library and no state carried across reloads: the
- * same day always hashes to the same start.
+ * A 32-bit integer hash of `n`, well-mixed enough that consecutive inputs land nowhere near
+ * each other (mulberry32's mixing step). Seeds the day's shuffle, so consecutive days get
+ * unrelated orderings rather than orderings derived from adjacent raw day numbers.
  */
-function seededStart(day: number, n: number): number {
-	const s = Math.sin(day * 12.9898 + 78.233) * 43758.5453;
-	return Math.floor((s - Math.floor(s)) * n);
+function hash(n: number): number {
+	let h = (n + 0x6d2b79f5) | 0;
+	h = Math.imul(h ^ (h >>> 15), h | 1);
+	h ^= h + Math.imul(h ^ (h >>> 7), h | 61);
+	return (h ^ (h >>> 14)) >>> 0;
+}
+
+/** A [0,1) PRNG seeded by `seed`, deterministic and self-contained (mulberry32). */
+function rng(seed: number): () => number {
+	let a = seed >>> 0;
+	return () => {
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), a | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/**
+ * The day's own ordering of `list` — a Fisher-Yates shuffle seeded by the day alone.
+ *
+ * Hashing only the *starting position* into a list left in source order (what this used to do)
+ * fixed which item a day began on but not what followed it: the two slots on one page are one
+ * step apart, so they always drew neighbouring entries, and the prev/next buttons walked the
+ * vizzes in `scripts/vizzes/` filename order — visibly "01, 02, 03" rather than a rotation.
+ * Shuffling the list itself decouples position N from position N+1, so adjacent slots and a
+ * browsing stroll both get an order that is different every day.
+ */
+function dayOrder<T>(list: readonly T[], day: number): readonly T[] {
+	const out = list.slice();
+	const rand = rng(hash(day));
+	for (let i = out.length - 1; i > 0; i--) {
+		const j = Math.floor(rand() * (i + 1));
+		[out[i], out[j]] = [out[j], out[i]];
+	}
+	return out;
 }
 
 /**
  * Pick from `list` by day, with `offset` stepping the user forward/back through the set.
  *
- * The day's OWN starting position in the list is hashed, not the day number used directly
- * as the index — using `day` itself made the walk through the list perfectly sequential
- * (day N always the item after day N-1's), so with vizzes ordered by their source filename's
- * numeric prefix, the rotation always advanced through them in that same fixed order, one
- * step a day, forever. Hashing the start decouples "which day" from "which position" while
- * keeping every other property: still stable across reloads within a day (same `day` in,
- * same start out), and `offset` still walks the list in a normal, browsable order via the
- * prev/next buttons once a day's start is picked.
+ * The list is shuffled into a per-day order first (see `dayOrder`), then indexed by `offset`
+ * from its head. Every property the callers rely on holds: stable across reloads within a day
+ * (same `day` in, same shuffle out), and `offset` still walks a normal, browsable sequence via
+ * the prev/next buttons — it is just no longer the source file order.
  *
  * Modulo is written the long way because JS `%` keeps the sign of the dividend, so a
- * negative offset (strolling backwards from a start near 0) would index out of bounds.
+ * negative offset (strolling backwards from the head) would index out of bounds.
  */
 export function pick<T>(list: readonly T[], day: number, offset = 0): T | null {
 	if (list.length === 0) return null;
-	const start = seededStart(day, list.length);
-	const i = (((start + offset) % list.length) + list.length) % list.length;
-	return list[i];
+	const order = dayOrder(list, day);
+	const i = ((offset % order.length) + order.length) % order.length;
+	return order[i];
 }
