@@ -1,5 +1,5 @@
 {
-	"builtAt": "2026-08-25T14:13:28.951Z",
+	"builtAt": "2026-08-25T14:28:18.737Z",
 	"stats": {
 		"games": 30911,
 		"newestYear": 2027,
@@ -4354,7 +4354,7 @@
 		{
 			"kind": "scatter",
 			"title": "Geek rating against average",
-			"note": "PLACEHOLDER — the geek rating is Bayesian, so thinly-rated games are pulled toward the mean. That is the bend.",
+			"note": "The geek rating is Bayesian, so games with few ratings are pulled towards the mean (5.5).",
 			"xLabel": "Average rating",
 			"yLabel": "Geek rating",
 			"points": [
@@ -17306,24 +17306,34 @@
 			],
 			"annotations": [
 				{
+					"x": 15,
+					"y": 1.2574,
+					"label": "Codenames"
+				},
+				{
+					"x": 45,
+					"y": 1.8878,
+					"label": "Carcassonne"
+				},
+				{
+					"x": 70,
+					"y": 2.4753,
+					"label": "Wingspan"
+				},
+				{
 					"x": 120,
 					"y": 2.2868,
 					"label": "CATAN"
 				},
 				{
-					"x": 180,
-					"y": 3.6122,
-					"label": "Twilight Struggle"
+					"x": 240,
+					"y": 3.5851,
+					"label": "Arkham Horror"
 				},
 				{
 					"x": 480,
 					"y": 4.3346,
 					"label": "Twilight Imperium: Fourth Edition"
-				},
-				{
-					"x": 1000,
-					"y": 2.8991,
-					"label": "The 7th Continent"
 				}
 			],
 			"xLog": true
