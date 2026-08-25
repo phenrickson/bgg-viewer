@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.14](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.13...bgg-viewer-v0.0.14) (2026-08-25)
+
+
+### Features
+
+* **explore:** add supports-N and best/recommended-at-N player-count charts ([b46bc28](https://github.com/phenrickson/bgg-viewer/commit/b46bc28d3146ff399ccd5c6dfdbf3a99377f1338))
+* **explore:** complexity chart, aligned chart frame, segment-aware best-at ([5d0acd6](https://github.com/phenrickson/bgg-viewer/commit/5d0acd63fdb4615691c1c622321f3c7a5ea2481d))
+* **landing:** featured-game facts and badges, Explore player-count charts ([e84c0c7](https://github.com/phenrickson/bgg-viewer/commit/e84c0c7a2feadd5fe58bada7f609fd5a1abcd933))
+* **landing:** replace featured-game description with facet badges ([06baa8d](https://github.com/phenrickson/bgg-viewer/commit/06baa8d20d0aa02262ac5f91372a37fff611a745))
+* **landing:** replace featured-game placeholder with computed facts ([d495ec6](https://github.com/phenrickson/bgg-viewer/commit/d495ec6b9c7021ab7c0ada47fbcb92080b1a91e1))
+* **vizzes:** widen the top-N vizzes to 15 rows ([149a60b](https://github.com/phenrickson/bgg-viewer/commit/149a60bf81f8a58c0f6414d94fdf040971715827))
+
+
+### Bug Fixes
+
+* **explore:** align player-count chart axes and anchor the stacked chart's scale ([a59fe12](https://github.com/phenrickson/bgg-viewer/commit/a59fe12e7b1dd0f7c70637e97960503bdfd455c8))
+* **landing:** featured-game layout and truly random daily rotation ([fdce220](https://github.com/phenrickson/bgg-viewer/commit/fdce2206ebc88467fba105b3c9ede745fc35fa91))
+* **vizzes:** bucket scatter labels in the axis's own space, not raw x ([4a5649d](https://github.com/phenrickson/bgg-viewer/commit/4a5649d6dbf5428bd60bb35b75ab3b565824fc51))
+
 ## [0.0.13](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.12...bgg-viewer-v0.0.13) (2026-08-22)
 
 
