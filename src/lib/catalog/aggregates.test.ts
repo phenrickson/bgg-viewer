@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { COMPLEXITY_BANDS } from './scope';
 import {
 	summarySql,
 	ratingHistogramSql,
@@ -9,10 +10,12 @@ import {
 	scatterSelectionSql,
 	popularitySelectionSql,
 	facetSearchSql,
+	complexityBandsSql,
 	RATING_BIN,
 	SCATTER_LIMIT,
 	YEAR_FLOOR,
-	YEAR_DISPLAY_FLOOR
+	YEAR_DISPLAY_FLOOR,
+	measures
 } from './aggregates';
 
 const W = 'users_rated >= 25 AND year_published >= 2020';
@@ -126,3 +129,27 @@ describe('aggregate SQL builders', () => {
 		expect(sql.indexOf('GROUP BY')).toBeGreaterThan(sql.indexOf('UNNEST'));
 	});
 });
+
+describe('complexityBandsSql', () => {
+	it('reads the same cut points the weightBands WHERE clause uses', () => {
+		const sql = complexityBandsSql(W);
+		// Half-open, matching toWhere: a game at exactly 2.5 is Medium, never Medium-Light.
+		expect(sql).toContain('average_weight < 2');
+		expect(sql).toContain('average_weight >= 2 AND average_weight < 2.5');
+		expect(sql).toContain('average_weight >= 3.5');
+		expect(sql).toContain(W);
+	});
+
+	it('emits one arm per named band, numbered to match scope.weightBands', () => {
+		const sql = complexityBandsSql(W);
+		for (const [i, b] of COMPLEXITY_BANDS.entries()) {
+			expect(sql).toContain(`THEN ${i + 1}`);
+			expect(sql).toContain(b.label);
+		}
+	});
+
+	it('reads the model estimate in the upcoming universe', () => {
+		expect(complexityBandsSql(W, measures('upcoming'))).toContain('predicted_complexity');
+	});
+});
+

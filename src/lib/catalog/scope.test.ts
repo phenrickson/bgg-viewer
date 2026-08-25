@@ -97,6 +97,7 @@ describe('toWhere', () => {
 			geekMin: 7,
 			players: 4,
 			bestAt: 2,
+			recommendedAt: null,
 			categories: ['Economic'],
 			mechanics: ['Deck Building'],
 			designers: ['Uwe Rosenberg', 'Vital Lacerda'],
@@ -289,22 +290,26 @@ describe('the player-count row', () => {
 		it('sets the mode’s field and clears the other', () => {
 			expect(setPlayerCount({ ...DEFAULT_SCOPE, bestAt: 4 }, 'players', 2)).toEqual({
 				players: 2,
-				bestAt: null
+				bestAt: null,
+				recommendedAt: null
 			});
 			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2 }, 'bestAt', 4)).toEqual({
 				players: null,
-				bestAt: 4
+				bestAt: 4,
+				recommendedAt: null
 			});
 		});
 
 		it('clears the count when the lit number is re-picked', () => {
 			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2 }, 'players', 2)).toEqual({
 				players: null,
-				bestAt: null
+				bestAt: null,
+				recommendedAt: null
 			});
 			expect(setPlayerCount({ ...DEFAULT_SCOPE, bestAt: 4 }, 'bestAt', 4)).toEqual({
 				players: null,
-				bestAt: null
+				bestAt: null,
+				recommendedAt: null
 			});
 		});
 
@@ -312,14 +317,26 @@ describe('the player-count row', () => {
 			// The count clears, but bestAt must stay cleared rather than coming back.
 			expect(setPlayerCount({ ...DEFAULT_SCOPE, players: 2, bestAt: 4 }, 'players', 2)).toEqual({
 				players: null,
-				bestAt: null
+				bestAt: null,
+				recommendedAt: null
 			});
 		});
 
 		it('carries a null through, so switching mode with nothing set stays empty', () => {
 			expect(setPlayerCount(DEFAULT_SCOPE, 'bestAt', null)).toEqual({
 				players: null,
-				bestAt: null
+				bestAt: null,
+				recommendedAt: null
+			});
+		});
+
+		it('sets recommendedAt and clears the other two', () => {
+			expect(
+				setPlayerCount({ ...DEFAULT_SCOPE, players: 2, bestAt: 4 }, 'recommendedAt', 5)
+			).toEqual({
+				players: null,
+				bestAt: null,
+				recommendedAt: 5
 			});
 		});
 
@@ -450,6 +467,7 @@ describe('URL round-trip', () => {
 			geekMax: 8,
 			players: 3,
 			bestAt: 2,
+			recommendedAt: 5,
 			categories: ['Economic', 'City Building'],
 			mechanics: ['Trading'],
 			designers: ['Uwe Rosenberg', 'Vital Lacerda'],

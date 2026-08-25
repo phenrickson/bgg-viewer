@@ -7,7 +7,8 @@
  * `players` and `bestAt` are different questions and both are answerable here: `players`
  * asks whether the box supports N (min/max), while `bestAt` asks whether the community
  * voted N *best* — `best_player_counts` is in the artifact, so the flagship filter needs
- * no live module.
+ * no live module. `recommendedAt` is the third: recommended at N but not best, matching the
+ * amber segment of the Best-at chart.
  */
 export interface ComplexityBand {
 	label: string;
@@ -94,6 +95,16 @@ export interface Scope {
 	players: number | null;
 	/** Community "best at N players" — the flagship filter BGG can't do. */
 	bestAt: number | null;
+	/**
+	 * Community "recommended at N *but not best*" — the amber segment of the Best-at chart.
+	 *
+	 * Deliberately the recommended-ONLY set, not all-recommended: the chart stacks two disjoint
+	 * series (`recommendedOnlyDistributionSql` subtracts best), so clicking a segment has to
+	 * select the games that segment actually draws. A plain `list_contains(recommended, n)`
+	 * would also return every best-at-N game — picking the amber bar would hand back the blue
+	 * bar's games too, and the count wouldn't match the bar you clicked.
+	 */
+	recommendedAt: number | null;
 	categories: string[];
 	mechanics: string[];
 	/** High-cardinality entity filters, chosen via type-ahead. OR within each entity. */
@@ -166,6 +177,7 @@ export const DEFAULT_SCOPE: Scope = {
 	geekMax: null,
 	players: null,
 	bestAt: null,
+	recommendedAt: null,
 	categories: [],
 	mechanics: [],
 	designers: [],
@@ -184,7 +196,7 @@ const finite = (v: unknown): number | null => {
 };
 
 /** Which question the rail's player-count row is asking. */
-export type PlayerCountMode = 'players' | 'bestAt';
+export type PlayerCountMode = 'players' | 'bestAt' | 'recommendedAt';
 
 /**
  * The player-count row writes one field and clears the other.
@@ -202,11 +214,14 @@ export function setPlayerCount(
 	scope: Scope,
 	mode: PlayerCountMode,
 	n: number | null
-): Pick<Scope, 'players' | 'bestAt'> {
+): Pick<Scope, 'players' | 'bestAt' | 'recommendedAt'> {
 	const cleared = n != null && scope[mode] === n ? null : n;
-	return mode === 'players'
-		? { players: cleared, bestAt: null }
-		: { players: null, bestAt: cleared };
+	// One question at a time: whichever mode is picked owns the value, the other two clear.
+	return {
+		players: mode === 'players' ? cleared : null,
+		bestAt: mode === 'bestAt' ? cleared : null,
+		recommendedAt: mode === 'recommendedAt' ? cleared : null
+	};
 }
 
 /**
@@ -216,7 +231,9 @@ export function setPlayerCount(
  * would default to Plays-with while a best-at filter was silently active.
  */
 export function playerCountModeFor(scope: Scope): PlayerCountMode {
-	return scope.bestAt != null ? 'bestAt' : 'players';
+	if (scope.bestAt != null) return 'bestAt';
+	if (scope.recommendedAt != null) return 'recommendedAt';
+	return 'players';
 }
 
 /**
@@ -309,6 +326,12 @@ export function toWhere(scope: Scope): string {
 	if (scope.players != null)
 		parts.push(`min_players <= ${scope.players} AND max_players >= ${scope.players}`);
 	if (scope.bestAt != null) parts.push(`list_contains(best_player_counts, ${scope.bestAt})`);
+	// Same predicate `recommendedOnlyDistributionSql` bins on, so the filter returns exactly
+	// the games the amber segment counted — recommended at N, minus those already best at N.
+	if (scope.recommendedAt != null)
+		parts.push(
+			`list_contains(recommended_player_counts, ${scope.recommendedAt}) AND NOT list_contains(best_player_counts, ${scope.recommendedAt})`
+		);
 	for (const c of scope.categories) parts.push(`list_contains(categories, '${esc(c)}')`);
 	for (const m of scope.mechanics) parts.push(`list_contains(mechanics, '${esc(m)}')`);
 	// High-cardinality entity filters: OR within an entity ("by A or B"), AND across.
@@ -447,6 +470,13 @@ export function activeFilters(scope: Scope): FilterChip[] {
 			label: `${scope.bestAt}`,
 			patch: { bestAt: null }
 		});
+	if (scope.recommendedAt != null)
+		chips.push({
+			id: 'recommendedAt',
+			kind: 'recommended at',
+			label: `${scope.recommendedAt}`,
+			patch: { recommendedAt: null }
+		});
 	// A chip despite having a non-zero default in the upcoming universe: a filter that
 	// silently removes ~3,000 games has to be visible and removable.
 	if (scope.universe === 'upcoming' && scope.hurdleMin != null && scope.hurdleMin > 0)
@@ -493,6 +523,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.geekMax != null) p.set('gmax', String(scope.geekMax));
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
+	if (scope.recommendedAt != null) p.set('rec', String(scope.recommendedAt));
 	if (scope.categories.length) p.set('cats', scope.categories.join(','));
 	if (scope.mechanics.length) p.set('mechs', scope.mechanics.join(','));
 	// Entity names can contain commas, so use repeated params, not a joined list.
@@ -550,6 +581,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		geekMax: finite(params.get('gmax')),
 		players: finite(params.get('p')),
 		bestAt: finite(params.get('best')),
+		recommendedAt: finite(params.get('rec')),
 		categories: list('cats'),
 		mechanics: list('mechs'),
 		designers: params.getAll('des'),
