@@ -14,5 +14,5 @@ export default {
 	   GROUP BY d
 	   HAVING COUNT(*) >= 5
 	   ORDER BY n DESC
-	   LIMIT 12`
+	   LIMIT 15`
 };

@@ -19,14 +19,14 @@ export default {
 	query: `WITH ranked AS (
 	     SELECT m AS label, ROUND(AVG(geek_rating), 2) AS n
 	     FROM ${F}, UNNEST(mechanics) AS m
-	     WHERE ${WORKING} AND geek_rating > 0 AND m != 'Tags'
+	     WHERE ${WORKING} AND geek_rating > 0
 	     GROUP BY m
 	     HAVING COUNT(*) >= 500
 	   )
 	   SELECT label, n FROM (
-	     (SELECT label, n, 1 AS grp FROM ranked ORDER BY n DESC LIMIT 6)
+	     (SELECT label, n, 1 AS grp FROM ranked ORDER BY n DESC LIMIT 7)
 	     UNION ALL
-	     (SELECT label, n, 2 AS grp FROM ranked ORDER BY n ASC LIMIT 6)
+	     (SELECT label, n, 2 AS grp FROM ranked ORDER BY n ASC LIMIT 7)
 	   )
 	   ORDER BY grp, n DESC`
 };

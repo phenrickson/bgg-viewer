@@ -7,5 +7,5 @@ export default {
 	note: 'The most popular game mechanics on BoardGameGeek',
 	xLabel: 'Games',
 	yLabel: 'Mechanic',
-	query: topOf('mechanics', 12)
+	query: topOf('mechanics', 15)
 };
