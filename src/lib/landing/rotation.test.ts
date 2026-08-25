@@ -25,13 +25,34 @@ describe('pick', () => {
 		expect(pick(L3, day, -3)).toBe(start);
 	});
 
-	it('steps through consecutive elements in order as offset increases', () => {
+	it('walks a stable, complete cycle as offset increases', () => {
+		// Offsets step through the day's own shuffled order — no longer the source order of
+		// `list` — so the contract is that one lap visits every item exactly once, in an order
+		// that stays put for that day.
 		const day = 40;
-		const seq = [0, 1, 2, 3].map((o) => pick(L3, day, o));
-		// Each step should be the next item in L3, cyclically, from wherever day 40 starts.
-		for (let k = 1; k < seq.length; k++) {
-			const prevIdx = L3.indexOf(seq[k - 1] as (typeof L3)[number]);
-			expect(seq[k]).toBe(L3[(prevIdx + 1) % L3.length]);
+		const lap = [0, 1, 2].map((o) => pick(L3, day, o));
+		expect(new Set(lap).size).toBe(L3.length);
+		expect(lap).toEqual([0, 1, 2].map((o) => pick(L3, day, o)));
+	});
+
+	it('does not step through the list in its source order', () => {
+		// The bug this replaced: the day picked a starting position but the list underneath was
+		// still in source (filename-prefix) order, so offset 0,1,2… always walked 01,02,03…
+		// and the page's two slots (one step apart) always drew neighbouring entries.
+		const list = Array.from({ length: 12 }, (_, i) => i);
+		let sourceOrder = 0;
+		for (let d = 0; d < 200; d++) {
+			const a = pick(list, d, 0) as number;
+			const b = pick(list, d, 1) as number;
+			if (b === (a + 1) % list.length) sourceOrder++;
+		}
+		expect(sourceOrder / 200).toBeLessThan(0.3);
+	});
+
+	it('gives the two slots on one page unrelated items, not neighbours', () => {
+		const list = Array.from({ length: 12 }, (_, i) => i);
+		for (let d = 0; d < 50; d++) {
+			expect(pick(list, d, 0)).not.toBe(pick(list, d, 1));
 		}
 	});
 

@@ -21,13 +21,17 @@
  * This file only discovers them, runs their queries in parallel, and assembles the JSON; the
  * shared BigQuery client and the scatter/columns/bars builders live in `vizzes/lib.js`.
  *
- * Usage: node scripts/build-landing-content.js
+ * FEATURED GAMES follow the same one-per-file pattern, in `scripts/featured/*.featured.js` —
+ * see that folder's `lib.js` doc comment. Every featured game carries a computed rank fact
+ * ("Ranked #N of M rated games — top X%", the game detail page's own language); a game pulled
+ * in BY a category also carries that category's fun fact. Nothing here is hand-written copy.
  *
- * All `note` strings are PLACEHOLDER — Phil writes the final copy.
+ * Usage: node scripts/build-landing-content.js
  */
 import { writeFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { F, WORKING, PROJECT, q, pair, scatter, columns, bars, line, stack, range, ridge } from './vizzes/lib.js';
+import { loadFeaturedModules, rankFact } from './featured/lib.js';
 
 const num = (v) => (v == null ? null : Number(v));
 
@@ -137,18 +141,112 @@ async function runViz(mod) {
 	return bars(mod.title, mod.note, mod.xLabel, mod.yLabel, rows, mod.style);
 }
 
+/**
+ * The featured pool's target size. ~19 of these are claimed by the category modules
+ * (16-17 `top-of-year` picks + 3 single-game categories as of writing); the rest fill from
+ * the plain top-by-geek-rating query below, same as the whole pool used to be.
+ */
+const TARGET_POOL_SIZE = 30;
+
+/**
+ * Build the featured pool: run every category's query, dedup the picks by game_id (first
+ * category in file order wins — see `featured/lib.js`), fill remaining slots with top-rated
+ * games excluding anything already picked, then fetch full details + rank/percentile ONCE for
+ * the whole final pool (not per-game, not per-category).
+ */
+async function buildFeatured(featuredModules) {
+	const categoryResults = await Promise.all(
+		featuredModules.map(async (mod) => ({ mod, rows: await q(mod.query) }))
+	);
+
+	/** game_id -> the category module that claimed it, or `null` for a plain top-rated fill. */
+	const picks = new Map();
+	for (const { mod, rows } of categoryResults) {
+		for (const row of rows) {
+			const id = Number(row.game_id);
+			if (!picks.has(id)) picks.set(id, mod);
+		}
+	}
+
+	// The `top-rated` fill is NOT a discovered category: it needs every other category's picks
+	// first (to exclude them) and a dynamic LIMIT, parameters no category module takes.
+	const remaining = TARGET_POOL_SIZE - picks.size;
+	if (remaining > 0) {
+		const excludeClause = picks.size ? `AND game_id NOT IN (${[...picks.keys()].join(',')})` : '';
+		const fillRows = await q(`SELECT game_id FROM ${F}
+			WHERE users_rated >= 8000 AND geek_rating > 0 AND COALESCE(image, thumbnail) IS NOT NULL
+			${excludeClause}
+			ORDER BY geek_rating DESC LIMIT ${remaining}`);
+		for (const row of fillRows) picks.set(Number(row.game_id), null);
+	}
+
+	const poolIds = [...picks.keys()];
+
+	const [detailRows, rankRows] = await Promise.all([
+		q(`SELECT game_id, name, year_published, ROUND(geek_rating,2) AS geek,
+		          ROUND(average_weight,2) AS weight, users_rated, image, thumbnail,
+		          categories, mechanics, designers, publishers
+		   FROM ${F} WHERE game_id IN (${poolIds.join(',')})`),
+
+		// Rank/percentile for the WHOLE pool in one query, via a window function over every
+		// rated game — not one correlated-subquery lookup per featured game. `geek_pct` is the
+		// RANK-based analogue of the game detail page's exact `pct()` (percent of rated games
+		// strictly below this one); close enough for "top X%" display, not worth a second query
+		// shape to make tie-exact.
+		q(`
+			WITH ranked AS (
+				SELECT game_id,
+					RANK() OVER (ORDER BY geek_rating DESC) AS geek_pos,
+					COUNT(*) OVER () AS geek_n
+				FROM ${F} WHERE geek_rating > 0
+			)
+			SELECT game_id, geek_pos, geek_n,
+				100.0 * (geek_n - geek_pos) / NULLIF(geek_n - 1, 0) AS geek_pct
+			FROM ranked WHERE game_id IN (${poolIds.join(',')})`)
+	]);
+
+	const detailById = new Map(detailRows.map((r) => [Number(r.game_id), r]));
+	const rankById = new Map(rankRows.map((r) => [Number(r.game_id), r]));
+
+	return poolIds
+		.map((id) => {
+			const d = detailById.get(id);
+			const r = rankById.get(id);
+			const mod = picks.get(id);
+			const game = {
+				id,
+				name: d.name,
+				year: num(d.year_published),
+				geek: num(d.geek),
+				weight: num(d.weight),
+				usersRated: Number(d.users_rated),
+				image: d.thumbnail ?? d.image,
+				// Capped per type, not one shared total — a game with a dozen mechanics
+				// shouldn't crowd out its (usually singular) publisher. Order is
+				// identity-first (who made it) then attributes (what it is).
+				publishers: (d.publishers ?? []).slice(0, 1),
+				designers: (d.designers ?? []).slice(0, 2),
+				categories: (d.categories ?? []).slice(0, 3),
+				mechanics: (d.mechanics ?? []).slice(0, 3)
+			};
+			return {
+				...game,
+				note: rankFact(Number(r.geek_pos), Number(r.geek_n), r.geek_pct == null ? null : Number(r.geek_pct)),
+				fact: mod ? mod.fact(game) : null
+			};
+		})
+		.sort((a, b) => (b.geek ?? 0) - (a.geek ?? 0));
+}
+
 console.log(`querying ${PROJECT}…`);
 
 const vizModules = await loadVizModules();
+const featuredModules = await loadFeaturedModules();
 
-const [vizzes, featuredRows, statsRows] = await Promise.all([
+const [vizzes, featured, statsRows] = await Promise.all([
 	Promise.all(vizModules.map(runViz)),
 
-	q(`SELECT game_id, name, year_published, ROUND(geek_rating,2) AS geek,
-	          ROUND(average_weight,2) AS weight, users_rated, image, thumbnail
-	   FROM ${F}
-	   WHERE users_rated >= 8000 AND COALESCE(image, thumbnail) IS NOT NULL
-	   ORDER BY geek_rating DESC LIMIT 24`),
+	buildFeatured(featuredModules),
 
 	// Two scalars over games and one over designers. They CANNOT share a query: unnesting
 	// designers multiplies each game by its credit count, so a joined COUNT(*) reports
@@ -170,16 +268,7 @@ const content = {
 		designers: Number(stats.designers)
 	},
 	vizzes,
-	featured: featuredRows.map((g) => ({
-		id: Number(g.game_id),
-		name: g.name,
-		year: num(g.year_published),
-		geek: num(g.geek),
-		weight: num(g.weight),
-		usersRated: Number(g.users_rated),
-		image: g.thumbnail ?? g.image,
-		note: 'PLACEHOLDER — Phil writes the featured blurb.'
-	}))
+	featured
 };
 
 const out = 'src/lib/landing/content.json';

@@ -135,6 +135,33 @@ export const bestAtDistributionSql = (where: string): string =>
 	 WHERE v BETWEEN 1 AND 8
 	 GROUP BY v ORDER BY v`;
 
+/**
+ * How many games SUPPORT each player count 1–8 — the box's stated range
+ * (min/max players), independent of any community vote. Mirrors `toWhere`'s own
+ * `players` predicate (`scope.ts`), so "supports N" means the same thing here as it
+ * does when `scope.players` filters the table.
+ */
+export const playerCountSupportSql = (where: string): string =>
+	`SELECT v AS count, COUNT(*)::INT AS n
+	 FROM catalog, UNNEST([1,2,3,4,5,6,7,8]) AS t(v)
+	 WHERE ${where} AND min_players <= v AND max_players >= v
+	 GROUP BY v ORDER BY v`;
+
+/**
+ * "Recommended, not best" — the stacked best/recommended chart's top segment.
+ * `best_player_counts` and `recommended_player_counts` are independent thresholds in
+ * the warehouse (best_percentage >= 40 vs. positive_percentage >= 70), not nested, so
+ * a count can appear in both. Stacking raw counts from each list would double-count
+ * those games; this guard attributes an overlapping count to `best` alone, so this
+ * segment plus `bestAtDistributionSql` sum to a disjoint "voted positively at N."
+ */
+export const recommendedOnlyDistributionSql = (where: string): string =>
+	`SELECT v AS count, COUNT(*)::INT AS n
+	 FROM (SELECT UNNEST(recommended_player_counts) AS v, best_player_counts
+	       FROM catalog WHERE ${where})
+	 WHERE v BETWEEN 1 AND 8 AND NOT list_contains(best_player_counts, v)
+	 GROUP BY v ORDER BY v`;
+
 /** Count of games per publication year since `floor` (nulls/ancient years dropped). */
 export const gamesPerYearSql = (where: string, floor = YEAR_FLOOR): string =>
 	`SELECT year_published AS year, COUNT(*)::INT AS n

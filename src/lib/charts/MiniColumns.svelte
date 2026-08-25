@@ -21,7 +21,11 @@
     scaleMode = 'count',
     label = (v: number) => String(v),
     title = (v: number, n: number) => `${v}: ${n.toLocaleString()}`,
-    onpick
+    onpick,
+    /** Fires on hover/focus enter (the bucket's value) and leave (`null`) — optional, for a
+     *  caller that wants to show its own on-brand readout instead of relying on the native
+     *  `title=""` tooltip this component still carries. */
+    onhover
   }: {
     bins?: ColBin[];
     backdrop?: ColBin[];
@@ -33,6 +37,7 @@
     label?: (v: number) => string;
     title?: (v: number, n: number) => string;
     onpick: (v: number | null) => void;
+    onhover?: (v: number | null) => void;
   } = $props();
 
   /**
@@ -61,6 +66,10 @@
       title={title(v, n)}
       disabled={n === 0 && selected !== v}
       onclick={() => onpick(selected === v ? null : v)}
+      onmouseenter={() => onhover?.(v)}
+      onmouseleave={() => onhover?.(null)}
+      onfocus={() => onhover?.(v)}
+      onblur={() => onhover?.(null)}
     >
       <span class="plot">
         <i class="back" style:height="{pct(at(backdrop, v), backTotal)}%"></i>

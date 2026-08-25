@@ -7,5 +7,5 @@ export default {
 	note: 'The most popular categories on BoardGameGeek',
 	xLabel: 'Games',
 	yLabel: 'Category',
-	query: topOf('categories', 12)
+	query: topOf('categories', 15)
 };

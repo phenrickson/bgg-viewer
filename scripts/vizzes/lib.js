@@ -90,18 +90,26 @@ export const pinned = (cols, names) => `
  * six games in one corner and leaves the rest of the plot anonymous, which teaches nothing
  * about the axis. Bucketing by x and taking the best-known game in each means the labels
  * describe the whole span.
+ *
+ * `xLog` must match the axis the viz actually renders on, because the buckets have to be cut
+ * in the space the reader sees. Bucketing a log axis linearly collapses the plot: playtime
+ * spans 1-4320 minutes, so six LINEAR buckets put everything under 721 minutes — about 99% of
+ * the games, and 70% of them sit under 65 — into bucket 0, leaving the other five to fight
+ * over a sparse tail. The result was four labels instead of six, all of them bunched in the
+ * thin end of the axis where the data isn't.
  */
-export const label = (rows, n = 6) => {
+export const label = (rows, n = 6, xLog = false) => {
 	const usable = rows.filter((r) => r.name && r.x != null && r.y != null);
 	if (!usable.length) return [];
-	const xs = usable.map((r) => Number(r.x));
+	const tx = xLog ? (v) => Math.log10(Math.max(1, v)) : (v) => v;
+	const xs = usable.map((r) => tx(Number(r.x)));
 	const lo = Math.min(...xs);
 	const hi = Math.max(...xs);
 	if (hi === lo) return [];
 
 	const buckets = new Map();
 	for (const r of usable) {
-		const b = Math.min(n - 1, Math.floor(((Number(r.x) - lo) / (hi - lo)) * n));
+		const b = Math.min(n - 1, Math.floor(((tx(Number(r.x)) - lo) / (hi - lo)) * n));
 		const cur = buckets.get(b);
 		if (!cur || Number(r.pop) > Number(cur.pop)) buckets.set(b, r);
 	}
@@ -156,7 +164,7 @@ export const scatter = (title, note, xLabel, yLabel, [rows, named, forcedRows], 
 	const autoSlots = Math.max(0, LABEL_COUNT - forced.length);
 	const auto = groupKey
 		? labelByGroup(named, groupKey, perGroup ?? 2)
-		: label(named, autoSlots);
+		: label(named, autoSlots, rest.xLog ?? false);
 	// A forced game could also legitimately win its own bucket under `label()` — dedupe rather
 	// than show it twice.
 	const annotations = [...forced, ...auto.filter((a) => !forcedNames.has(a.label))].sort(

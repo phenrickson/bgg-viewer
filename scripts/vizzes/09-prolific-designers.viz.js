@@ -7,5 +7,5 @@ export default {
 	note: 'Designers with the most credited games on BoardGameGeek.',
 	xLabel: 'Games',
 	yLabel: 'Designer',
-	query: topOf('designers', 12, ['(Uncredited)'])
+	query: topOf('designers', 15, ['(Uncredited)'])
 };
