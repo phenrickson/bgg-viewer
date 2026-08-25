@@ -11,7 +11,7 @@
  * bins, different source; see `columnsFor` in `scope.ts`. The parameter defaults to the
  * rated columns so existing callers are unaffected.
  */
-import { columnsFor, type Scope } from './scope';
+import { COMPLEXITY_BANDS, columnsFor, type ComplexityBand, type Scope } from './scope';
 
 export type MeasureColumns = ReturnType<typeof columnsFor>;
 const RATED: MeasureColumns = columnsFor('top10k');
@@ -99,6 +99,49 @@ export const ratingHistogramSql = (where: string, m: MeasureColumns = RATED): st
 	`SELECT (floor(${m.rating} / ${RATING_BIN}) * ${RATING_BIN}) AS bucket, COUNT(*)::INT AS n
 	 FROM catalog WHERE ${where} AND ${m.rating} > 0
 	 GROUP BY bucket ORDER BY bucket`;
+
+/** One named complexity band and how many in-scope games fall in it. */
+export interface BandBin {
+	/** 1-indexed into `COMPLEXITY_BANDS` — the same value `scope.weightBands` holds. */
+	band: number;
+	label: string;
+	n: number;
+}
+
+/**
+ * Games per named complexity band — the five words the rail's Complexity filter already
+ * speaks (`COMPLEXITY_BANDS`), counted rather than bucketed to a numeric bin.
+ *
+ * Built by CASE-ing over the SAME half-open bounds `toWhere` uses to turn `scope.weightBands`
+ * into a WHERE clause (`>= min AND < max`, outer bands open-ended). That sharing is the point:
+ * a bar here and the checkbox for the same band must select the same games, and the only way
+ * to guarantee that is for both to read `COMPLEXITY_BANDS` instead of restating its cut points.
+ *
+ * Bands with no games in scope still come back, at n = 0 — the caller draws the full five-bar
+ * domain, and a band vanishing from the axis under a filter would read as a broken chart.
+ */
+export const complexityBandsSql = (where: string, m: MeasureColumns = RATED): string => {
+	const arm = (b: ComplexityBand, i: number) => {
+		const cond =
+			b.min == null
+				? `${m.weight} < ${b.max}`
+				: b.max == null
+					? `${m.weight} >= ${b.min}`
+					: `${m.weight} >= ${b.min} AND ${m.weight} < ${b.max}`;
+		return `WHEN ${cond} THEN ${i + 1}`;
+	};
+	const cases = COMPLEXITY_BANDS.map(arm).join(' ');
+	const labels = COMPLEXITY_BANDS.map(
+		(b, i) => `WHEN ${i + 1} THEN '${b.label.replace(/'/g, "''")}'`
+	).join(' ');
+	return `WITH b AS (
+		 SELECT CASE ${cases} END AS band
+		 FROM catalog WHERE ${where} AND ${m.weight} > 0
+	 )
+	 SELECT band, CASE band ${labels} END AS label, COUNT(*)::INT AS n
+	 FROM b WHERE band IS NOT NULL
+	 GROUP BY band ORDER BY band`;
+};
 
 /** Width of the complexity-distribution buckets, in weight points (1–5 scale). */
 export const WEIGHT_BIN = 0.25;

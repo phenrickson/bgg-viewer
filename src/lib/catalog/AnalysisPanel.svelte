@@ -43,14 +43,17 @@
     bestAtDistributionSql,
     playerCountSupportSql,
     recommendedOnlyDistributionSql,
+    complexityBandsSql,
     measures,
+    type BandBin,
     type Facet,
     type PlayerCountBin
   } from '$lib/catalog/aggregates';
-  import type { Scope } from '$lib/catalog/scope';
+  import { COMPLEXITY_BANDS, type Scope } from '$lib/catalog/scope';
   import Scatter from '$lib/charts/Scatter.svelte';
   import MiniColumns from '$lib/charts/MiniColumns.svelte';
   import StackedColumns from '$lib/charts/StackedColumns.svelte';
+  import ChartFigure from '$lib/charts/ChartFigure.svelte';
 
   let {
     where,
@@ -67,6 +70,14 @@
   /** Player counts games 1–8, matching ShapeStrip's BEST_AT_DOMAIN — see the design doc for
    *  why both new charts share this cap. */
   const PLAYER_COUNT_DOMAIN = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  /** The five named bands, as their 1-indexed `scope.weightBands` values — the chart's x
+   *  domain, so an empty band still holds its slot instead of the axis resizing under a filter. */
+  const BAND_DOMAIN = COMPLEXITY_BANDS.map((_, i) => i + 1);
+  const bandLabel = (i: number) => COMPLEXITY_BANDS[i - 1]?.label ?? String(i);
+
+  let bandBins = $state<BandBin[]>([]);
+  let bandBackdrop = $state<BandBin[]>([]);
 
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
@@ -94,6 +105,16 @@
    *  universe instead of just the filtered set (see the file doc comment above). */
   let showBackdrop = $state(true);
 
+  /**
+   * Whether the distribution charts (complexity, both player-count charts) draw the whole
+   * catalog behind the scope. Kept SEPARATE from `showBackdrop` above, and OFF by default:
+   * these are read as "what does my current set look like", and against the whole catalog's
+   * silhouette a narrow scope collapses to a sliver of the plot — the shape you filtered down
+   * to find is exactly what gets lost. Self-scaled by default; the comparison is one click
+   * away when it's the question being asked.
+   */
+  let showPlayerBackdrop = $state(false);
+
   const TOP_N = 10;
 
   let token = 0;
@@ -105,6 +126,8 @@
     Promise.all([
       query<Pt>(scatterSelectionSql(bw, w, undefined, m)),
       query<Pt>(popularitySelectionSql(bw, w, undefined, m)),
+      query<BandBin>(complexityBandsSql(w, m)),
+      query<BandBin>(complexityBandsSql(bw, m)),
       query<PlayerCountBin>(playerCountSupportSql(w)),
       query<PlayerCountBin>(playerCountSupportSql(bw)),
       query<PlayerCountBin>(bestAtDistributionSql(w)),
@@ -118,10 +141,30 @@
       query<Facet>(facetSearchSql(w, 'designers', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'artists', '', TOP_N))
     ])
-      .then(([a, b, supports, supportsBack, best, recOnly, bestBack, recOnlyBack, cat, c, d, e, f, g]) => {
+      .then(
+        ([
+          a,
+          b,
+          bands,
+          bandsBack,
+          supports,
+          supportsBack,
+          best,
+          recOnly,
+          bestBack,
+          recOnlyBack,
+          cat,
+          c,
+          d,
+          e,
+          f,
+          g
+        ]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
+        bandBins = bands;
+        bandBackdrop = bandsBack;
         supportsBins = supports;
         supportsBackdrop = supportsBack;
         bestBins = best;
@@ -135,7 +178,8 @@
         designers = f;
         artists = g;
         loading = false;
-      })
+        }
+      )
       .catch((e) => {
         if (mine !== token) return;
         loading = false;
@@ -150,15 +194,53 @@
     scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
   }
 
+  /**
+   * Bands OR together rather than replacing each other — the same additive semantics as the
+   * rail's Complexity checkboxes, which bind to this very field. Deliberately NOT the
+   * exclusive one-at-a-time behaviour of the player-count picks below: those answer a single
+   * question ("at how many players"), while "Light or Heavy, nothing in between" is a real
+   * selection weightBands exists to express (see scope.ts).
+   */
+  function toggleBand(i: number | null) {
+    if (i == null) {
+      scope.weightBands = [];
+      return;
+    }
+    const cur = scope.weightBands;
+    scope.weightBands = cur.includes(i) ? cur.filter((b) => b !== i) : [...cur, i].sort();
+  }
+
+  const bandTitle = (i: number, n: number) =>
+    `${bandLabel(i)} — ${n.toLocaleString()} games in scope`;
+
+  function onHoverBand(i: number | null) {
+    if (i == null) {
+      hoverBand = null;
+      return;
+    }
+    hoverBand = bandTitle(i, bandBins.find((b) => b.band === i)?.n ?? 0);
+  }
+
   /** Mirrors ShapeStrip's onpick exclusivity (ShapeStrip.svelte:305-311): one player-count
    *  question active at a time, so the two questions can never disagree about which count is
    *  filtered. */
   function pickSupports(v: number | null) {
     scope.players = v;
-    if (v != null) scope.bestAt = null;
+    if (v != null) {
+      scope.bestAt = null;
+      scope.recommendedAt = null;
+    }
   }
-  function pickBestAt(v: number | null) {
-    scope.bestAt = v;
+  /**
+   * The Best-at chart stacks two disjoint series, so which one was clicked decides which
+   * filter is set: the blue segment selects "best at N", the amber "recommended at N but not
+   * best" — the same set `recommendedOnlyDistributionSql` counted for that segment. The three
+   * player-count questions stay mutually exclusive, as in `setPlayerCount`.
+   */
+  function pickBestAt(v: number | null, series: 1 | 2 = 1) {
+    const rec = series === 2;
+    scope.bestAt = rec ? null : v;
+    scope.recommendedAt = rec ? v : null;
     if (v != null) scope.players = null;
   }
 
@@ -175,8 +257,11 @@
   /** Reserved-height readout text for each chart's header row — see the `.readout` CSS: fixed
    *  height whether or not something is hovered, so hovering one chart doesn't grow its card
    *  and knock the two charts' axes out of alignment with each other. */
+  /* One readout per chart, each on its own fixed-height line inside that chart's frame — the
+     line is always rendered, so a hover can never resize a figure and shift the row. */
   let hoverSupports = $state<string | null>(null);
   let hoverBest = $state<string | null>(null);
+  let hoverBand = $state<string | null>(null);
 
   function onHoverSupports(v: number | null) {
     if (v == null) {
@@ -280,11 +365,41 @@
   />
 {/snippet}
 
+<!-- PARKED — the Selected/All backdrop toggle. The charts are self-scaled for now (they read
+     as "what does my current set look like", and the catalog silhouette shrank a narrow scope
+     to a sliver). The backdrop DATA is still queried and `showPlayerBackdrop` still exists, so
+     re-enabling is: uncomment this, render it in a header, and pass the backdrop props again.
+{#snippet playerBackdropToggle()}
+  <div class="seg" role="group" aria-label="Backdrop">
+    <button
+      type="button"
+      class:on={!showPlayerBackdrop}
+      aria-pressed={!showPlayerBackdrop}
+      title="Scale to the games in scope only."
+      onclick={() => (showPlayerBackdrop = false)}>Selected</button
+    >
+    <button
+      type="button"
+      class:on={showPlayerBackdrop}
+      aria-pressed={showPlayerBackdrop}
+      title="Compare against every game in the catalog."
+      onclick={() => (showPlayerBackdrop = true)}>All</button
+    >
+  </div>
+{/snippet}
+-->
+
 <div class="wrap">
   {#if loading}
     <p class="state">Loading…</p>
   {:else}
   <div class="body">
+    <!-- PARKED — not deleted. The two scatter clouds below are being relocated; they read as a
+         solid slab of ink at this scope's point density and cost the two widest slots on the
+         page, but they still work and are wanted elsewhere. Everything they need is still live
+         in this file: the `weightChart`/`popularityChart` snippets, the fullscreen <dialog>,
+         `showBackdrop`, `expand`/`closeExpanded`, and the `.zoom`/`.chartdialog` CSS. Deleting
+         the block below re-enables nothing — uncommenting it does.
     <div class="figure">
       <div class="fhead">
         <h3>Complexity vs. rating</h3>
@@ -336,15 +451,30 @@
       </div>
       {@render popularityChart(300)}
     </div>
+    -->
 
-    <div class="figure">
-      <div class="fhead">
-        <h3>Supports N players</h3>
-      </div>
-      <div class="readout">{hoverSupports ?? ' '}</div>
+    <ChartFigure title="Games by complexity">
+      {#snippet readout()}{hoverBand ?? ' '}{/snippet}
+      <MiniColumns
+        bins={bandBins.map((b) => ({ v: b.band, n: b.n }))}
+        backdrop={[]}
+        domain={BAND_DOMAIN}
+        selected={null}
+        multi={scope.weightBands}
+        height={104}
+        color="var(--chart-1)"
+        label={bandLabel}
+        title={bandTitle}
+        onpick={toggleBand}
+        onhover={onHoverBand}
+      />
+    </ChartFigure>
+
+    <ChartFigure title="Supports N players">
+      {#snippet readout()}{hoverSupports ?? ' '}{/snippet}
       <MiniColumns
         bins={supportsBins.map((b) => ({ v: b.count, n: b.n }))}
-        backdrop={supportsBackdrop.map((b) => ({ v: b.count, n: b.n }))}
+        backdrop={[]}
         domain={PLAYER_COUNT_DOMAIN}
         selected={scope.players}
         height={104}
@@ -353,30 +483,26 @@
         onpick={pickSupports}
         onhover={onHoverSupports}
       />
-    </div>
+    </ChartFigure>
 
-    <div class="figure">
-      <div class="fhead">
-        <h3>Best / recommended at N players</h3>
-        <div class="legend">
-          <span class="swatch" style:--sw="var(--chart-1)"></span>best
-          <span class="swatch" style:--sw="var(--chart-2)"></span>recommended
-        </div>
-      </div>
-      <div class="readout">{hoverBest ?? ' '}</div>
+    <ChartFigure title="Best at N players">
+      {#snippet legend()}
+        <span class="swatch" style:--sw="var(--chart-1)"></span>best
+        <span class="swatch" style:--sw="var(--chart-2)"></span>recommended
+      {/snippet}
+      {#snippet readout()}{hoverBest ?? ' '}{/snippet}
       <StackedColumns
         bins={bestBins.map((b) => ({ v: b.count, n: b.n }))}
         bins2={recommendedOnlyBins.map((b) => ({ v: b.count, n: b.n }))}
-        backdropBins={bestBackdrop.map((b) => ({ v: b.count, n: b.n }))}
-        backdropBins2={recommendedOnlyBackdrop.map((b) => ({ v: b.count, n: b.n }))}
         domain={PLAYER_COUNT_DOMAIN}
-        selected={scope.bestAt}
+        selected={scope.bestAt ?? scope.recommendedAt}
+        selectedSeries={scope.recommendedAt != null ? 2 : 1}
         height={104}
         title={bestTitle}
         onpick={pickBestAt}
         onhover={onHoverBest}
       />
-    </div>
+    </ChartFigure>
 
     {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
       <div class="figure">
@@ -500,6 +626,9 @@
   .fhead h3 {
     margin: 0;
   }
+  /* `.zoom`, `.fhead` and `.legend` below are used only by the PARKED scatter figures above
+     (the live charts now use ChartFigure's own frame), so svelte-check reports them as unused
+     selectors. Kept deliberately: they come back the moment that block is uncommented. */
   .zoom {
     flex: none;
     background: none;
