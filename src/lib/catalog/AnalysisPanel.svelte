@@ -40,11 +40,17 @@
     scatterSelectionSql,
     popularitySelectionSql,
     facetSearchSql,
+    bestAtDistributionSql,
+    playerCountSupportSql,
+    recommendedOnlyDistributionSql,
     measures,
-    type Facet
+    type Facet,
+    type PlayerCountBin
   } from '$lib/catalog/aggregates';
   import type { Scope } from '$lib/catalog/scope';
   import Scatter from '$lib/charts/Scatter.svelte';
+  import MiniColumns from '$lib/charts/MiniColumns.svelte';
+  import StackedColumns from '$lib/charts/StackedColumns.svelte';
 
   let {
     where,
@@ -58,8 +64,20 @@
   type Pt = { x: number; y: number; game_id: number; selected: boolean };
   type FacetCol = 'categories' | 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
+  /** Player counts games 1–8, matching ShapeStrip's BEST_AT_DOMAIN — see the design doc for
+   *  why both new charts share this cap. */
+  const PLAYER_COUNT_DOMAIN = [1, 2, 3, 4, 5, 6, 7, 8];
+
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
+  let supportsBins = $state<PlayerCountBin[]>([]);
+  let supportsBackdrop = $state<PlayerCountBin[]>([]);
+  let bestBins = $state<PlayerCountBin[]>([]);
+  let recommendedOnlyBins = $state<PlayerCountBin[]>([]);
+  /** Unfiltered counterparts of bestBins/recommendedOnlyBins — not drawn, only scale StackedColumns
+   *  so its bars shrink under a filter instead of re-normalising to fill the chart every time. */
+  let bestBackdrop = $state<PlayerCountBin[]>([]);
+  let recommendedOnlyBackdrop = $state<PlayerCountBin[]>([]);
   let categories = $state<Facet[]>([]);
   let mechanics = $state<Facet[]>([]);
   let families = $state<Facet[]>([]);
@@ -87,6 +105,12 @@
     Promise.all([
       query<Pt>(scatterSelectionSql(bw, w, undefined, m)),
       query<Pt>(popularitySelectionSql(bw, w, undefined, m)),
+      query<PlayerCountBin>(playerCountSupportSql(w)),
+      query<PlayerCountBin>(playerCountSupportSql(bw)),
+      query<PlayerCountBin>(bestAtDistributionSql(w)),
+      query<PlayerCountBin>(recommendedOnlyDistributionSql(w)),
+      query<PlayerCountBin>(bestAtDistributionSql(bw)),
+      query<PlayerCountBin>(recommendedOnlyDistributionSql(bw)),
       query<Facet>(facetSearchSql(w, 'categories', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'mechanics', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'families', '', TOP_N)),
@@ -94,10 +118,16 @@
       query<Facet>(facetSearchSql(w, 'designers', '', TOP_N)),
       query<Facet>(facetSearchSql(w, 'artists', '', TOP_N))
     ])
-      .then(([a, b, cat, c, d, e, f, g]) => {
+      .then(([a, b, supports, supportsBack, best, recOnly, bestBack, recOnlyBack, cat, c, d, e, f, g]) => {
         if (mine !== token) return;
         weightRating = a;
         ratingPopularity = b;
+        supportsBins = supports;
+        supportsBackdrop = supportsBack;
+        bestBins = best;
+        recommendedOnlyBins = recOnly;
+        bestBackdrop = bestBack;
+        recommendedOnlyBackdrop = recOnlyBack;
         categories = cat;
         mechanics = c;
         families = d;
@@ -118,6 +148,52 @@
   function toggleFacet(col: FacetCol, value: string) {
     const current = scope[col];
     scope[col] = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+  }
+
+  /** Mirrors ShapeStrip's onpick exclusivity (ShapeStrip.svelte:305-311): one player-count
+   *  question active at a time, so the two questions can never disagree about which count is
+   *  filtered. */
+  function pickSupports(v: number | null) {
+    scope.players = v;
+    if (v != null) scope.bestAt = null;
+  }
+  function pickBestAt(v: number | null) {
+    scope.bestAt = v;
+    if (v != null) scope.players = null;
+  }
+
+  /**
+   * One formatting function per chart, shared between the chart's own `title=` (native
+   * tooltip, kept as a baseline/accessible fallback) and the readout line below each header —
+   * so the two can't drift apart into saying different things for the same hover.
+   */
+  const supportsTitle = (v: number, n: number) =>
+    `supports ${v} players — ${n.toLocaleString()} games in scope`;
+  const bestTitle = (v: number, n1: number, n2: number) =>
+    `${v} players — best: ${n1.toLocaleString()}, recommended: ${n2.toLocaleString()}`;
+
+  /** Reserved-height readout text for each chart's header row — see the `.readout` CSS: fixed
+   *  height whether or not something is hovered, so hovering one chart doesn't grow its card
+   *  and knock the two charts' axes out of alignment with each other. */
+  let hoverSupports = $state<string | null>(null);
+  let hoverBest = $state<string | null>(null);
+
+  function onHoverSupports(v: number | null) {
+    if (v == null) {
+      hoverSupports = null;
+      return;
+    }
+    const n = supportsBins.find((b) => b.count === v)?.n ?? 0;
+    hoverSupports = supportsTitle(v, n);
+  }
+  function onHoverBest(v: number | null) {
+    if (v == null) {
+      hoverBest = null;
+      return;
+    }
+    const n1 = bestBins.find((b) => b.count === v)?.n ?? 0;
+    const n2 = recommendedOnlyBins.find((b) => b.count === v)?.n ?? 0;
+    hoverBest = bestTitle(v, n1, n2);
   }
 
   /**
@@ -261,6 +337,47 @@
       {@render popularityChart(300)}
     </div>
 
+    <div class="figure">
+      <div class="fhead">
+        <h3>Supports N players</h3>
+      </div>
+      <div class="readout">{hoverSupports ?? ' '}</div>
+      <MiniColumns
+        bins={supportsBins.map((b) => ({ v: b.count, n: b.n }))}
+        backdrop={supportsBackdrop.map((b) => ({ v: b.count, n: b.n }))}
+        domain={PLAYER_COUNT_DOMAIN}
+        selected={scope.players}
+        height={104}
+        color="var(--chart-1)"
+        title={supportsTitle}
+        onpick={pickSupports}
+        onhover={onHoverSupports}
+      />
+    </div>
+
+    <div class="figure">
+      <div class="fhead">
+        <h3>Best / recommended at N players</h3>
+        <div class="legend">
+          <span class="swatch" style:--sw="var(--chart-1)"></span>best
+          <span class="swatch" style:--sw="var(--chart-2)"></span>recommended
+        </div>
+      </div>
+      <div class="readout">{hoverBest ?? ' '}</div>
+      <StackedColumns
+        bins={bestBins.map((b) => ({ v: b.count, n: b.n }))}
+        bins2={recommendedOnlyBins.map((b) => ({ v: b.count, n: b.n }))}
+        backdropBins={bestBackdrop.map((b) => ({ v: b.count, n: b.n }))}
+        backdropBins2={recommendedOnlyBackdrop.map((b) => ({ v: b.count, n: b.n }))}
+        domain={PLAYER_COUNT_DOMAIN}
+        selected={scope.bestAt}
+        height={104}
+        title={bestTitle}
+        onpick={pickBestAt}
+        onhover={onHoverBest}
+      />
+    </div>
+
     {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
       <div class="figure">
         <h3>Top {title}</h3>
@@ -337,10 +454,48 @@
     font-size: 0.85rem;
     font-weight: 650;
   }
+  /* Only the stacked chart needs a colour key — the single-colour charts don't. */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+  }
+  /* Reserved space for the hover readout, present (blank) whether or not something is
+     hovered — a height that only appears while hovering would grow that one card and throw
+     off the shared axis alignment with its neighbour (see the .fhead min-height rule, same
+     problem). Sits in normal flow, so — unlike a floating tooltip — it can't be clipped by
+     the panel's own overflow-y: auto. */
+  .readout {
+    min-height: 1rem;
+    margin-bottom: 0.2rem;
+    font-size: 0.7rem;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    background: var(--sw);
+  }
+  .swatch:not(:first-child) {
+    margin-left: 0.5rem;
+  }
   .fhead {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.5rem;
+    /* Explicit, not content-derived: a bare h3 and an h3 + colour-swatch legend naturally
+       compute to different line heights, which put charts sharing a row at different vertical
+       offsets — their axes didn't align even though the cards themselves were the same height.
+       A fixed min-height makes every .fhead the same height regardless of what it holds. */
+    min-height: 1.6rem;
   }
   .fhead h3 {
     margin: 0;
