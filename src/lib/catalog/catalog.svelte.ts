@@ -26,6 +26,13 @@ let error = $state<string | null>(null);
  */
 let thumbnailsReady = $state(false);
 
+/**
+ * Admin-only collection filter (Phase 1). `null` = inactive; a table of `owned_collection`
+ * only ever exists in DuckDB while this is set. Never touches `Scope`/`toWhere` — this is
+ * orthogonal client state, applied by wrapping a `where` string via `appendCollectionFilter`.
+ */
+let collectionUsername = $state<string | null>(null);
+
 /** Reactive, read-only view of load state for the UI. */
 export const catalog = {
 	get status() {
@@ -39,6 +46,9 @@ export const catalog = {
 	},
 	get thumbnailsReady() {
 		return thumbnailsReady;
+	},
+	get collectionUsername() {
+		return collectionUsername;
 	}
 };
 
@@ -126,6 +136,35 @@ async function loadThumbnails(): Promise<void> {
 /** Idempotent — first call loads the catalog; later calls await the same load. */
 export function initCatalog(): Promise<void> {
 	return (initPromise ??= doInit());
+}
+
+/**
+ * Admin-only (Phase 1): scope the catalog to one BGG username's owned games. Replaces
+ * `owned_collection` wholesale rather than diffing — the id list is small (a personal
+ * collection, not the working set) and this only ever runs on an explicit admin action, never
+ * per filter change.
+ */
+export async function applyCollectionFilter(username: string, gameIds: number[]): Promise<void> {
+	if (!conn) throw new Error('catalog is not ready');
+	await conn.query('DROP TABLE IF EXISTS owned_collection');
+	await conn.query('CREATE TABLE owned_collection (game_id INTEGER)');
+	if (gameIds.length > 0) {
+		const values = gameIds.map((id) => `(${Math.trunc(id)})`).join(', ');
+		await conn.query(`INSERT INTO owned_collection VALUES ${values}`);
+	}
+	collectionUsername = username;
+}
+
+export async function clearCollectionFilter(): Promise<void> {
+	if (conn) await conn.query('DROP TABLE IF EXISTS owned_collection');
+	collectionUsername = null;
+}
+
+/** Wrap a `where` body with the active collection filter, if any — see `applyCollectionFilter`. */
+export function appendCollectionFilter(where: string): string {
+	return collectionUsername != null
+		? `${where} AND game_id IN (SELECT game_id FROM owned_collection)`
+		: where;
 }
 
 /** Resolve a game's name from its id (map built once at load) — for the plot tooltip. */

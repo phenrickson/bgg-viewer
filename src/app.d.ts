@@ -14,6 +14,7 @@ declare global {
 		}
 		interface PageData {
 			user?: SessionUser | null;
+			isAdmin?: boolean;
 			breadcrumbs?: { label: string; href?: string }[];
 			subtitle?: string;
 		}
