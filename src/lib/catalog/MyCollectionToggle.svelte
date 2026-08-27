@@ -91,6 +91,6 @@
 		line-height: 1.35;
 	}
 	.note.error {
-		color: var(--destructive, var(--primary));
+		color: var(--color-negative);
 	}
 </style>

@@ -144,6 +144,27 @@ three repos' verify commands pass.
     both light and dark.
 13. **PR + merge.** Push `feat/my-collection-toggle`, open PR, **Phil merges**.
 
+### Part F — bgg-viewer: settings page (added during implementation, not in the original plan)
+
+Surfaced by testing: as originally scoped, **no already-registered account — including Phil's
+own — had any way to ever set `bgg_username`**, since registration was the only place it could
+be written. Closing that gap was reconsidered as in-scope rather than deferred; see the spec's
+"Reconsidered during implementation" note.
+
+14. **Settings route.** `src/routes/(app)/settings/+page.server.ts` + `+page.svelte` — one field
+    (`settingsSchema`, sharing its validation with `registerSchema` via an extracted
+    `bggUsernameField`), a new `updateBggUsername()` in `users.ts`, re-signs the session cookie
+    on save (so the change takes effect immediately, no re-login) via the same `signSession` call
+    registration already uses, and calls `triggerSync()` — only when the value actually changed
+    to a non-null username, not on every save. A "Settings" link added to the header nav
+    (`src/routes/+layout.svelte`), next to "Log out".
+    **Verify:** mechanical check done this session via `curl` against the dev-auth session
+    (`user_id: 'dev-user'`, which matches no real row, so the `UPDATE` is a harmless no-op) —
+    page renders, form submits, session re-signs, success message returns. **Not done:** linking
+    a real account's real `bgg_username` through this route — left for Phil, since it writes to
+    his actual account row, not a throwaway one.
+15. **PR + merge.**
+
 ## Risks / unknowns / rollback
 
 - **The IAM-lockdown ordering (Part B) is the one genuinely risky step** — reversing steps 5/6,
@@ -167,8 +188,8 @@ three repos' verify commands pass.
 
 ## Out of scope
 
-Per the spec: any settings page beyond the registration-time field, re-verifying/re-syncing on
-a schedule, the multi-collection intersection filter, and collection-predictions integration
-(training personalized models) — `fetch_and_persist` deliberately stops short of
-`CollectionPipeline`'s training step, and this plan does not add a path to trigger training from
-bgg-viewer.
+Per the spec: a *general* settings/account page (Part F is narrowly one field, not a profile
+editor), re-verifying/re-syncing on a schedule, the multi-collection intersection filter, and
+collection-predictions integration (training personalized models) — `fetch_and_persist`
+deliberately stops short of `CollectionPipeline`'s training step, and this plan does not add a
+path to trigger training from bgg-viewer.

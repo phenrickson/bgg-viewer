@@ -139,7 +139,7 @@
 		font-size: 0.7rem;
 	}
 	.x:hover {
-		color: var(--destructive, var(--primary));
+		color: var(--color-negative);
 	}
 	.note {
 		margin: 0;
@@ -147,6 +147,6 @@
 		line-height: 1.35;
 	}
 	.note.error {
-		color: var(--destructive, var(--primary));
+		color: var(--color-negative);
 	}
 </style>

@@ -215,8 +215,18 @@ differing only in whose username is supplied and how it's obtained.
   N-collection intersection is a different, deliberately-unbuilt idea from a diff view).
 - The multi-collection intersection/overlap filter and any collection-similarity metric — noted
   under Phase 1 as a natural extension, not scheduled work.
-- Building a general settings/account page — Phase 2 only needs `bgg_username` capturable at
-  registration; a fuller settings surface is a separate decision.
+
+## Reconsidered during implementation: a settings page was needed after all
+
+Originally deferred ("Phase 2 only needs `bgg_username` capturable at registration"). That
+deferral missed something obvious in hindsight: it left **every already-registered account**,
+including Phil's own, with no path to ever use this feature — registration is the only place
+`bgg_username` could be set, so an existing account was permanently locked out short of a manual
+BigQuery edit. A general/full settings page is still out of scope; what got built instead is
+narrow — one route (`/settings`, under `(app)`), one field, reusing `triggerSync` and the same
+session-resigning `signSession` call registration already does so the change takes effect
+immediately, no re-login required. See Part F of
+docs/superpowers/plans/2026-08-27-collection-filter-phase2.md.
 
 ## Verification
 

@@ -78,3 +78,12 @@ export async function updateLastLogin(user_id: string): Promise<void> {
 		params: { user_id }
 	});
 }
+
+/** Link/change/clear (pass null) the account's BGG identity — see the settings route. */
+export async function updateBggUsername(user_id: string, bggUsername: string | null): Promise<void> {
+	await bq().query({
+		query: `UPDATE ${TABLE} SET bgg_username = @bgg_username WHERE user_id = @user_id`,
+		params: { user_id, bgg_username: bggUsername },
+		types: { bgg_username: 'STRING' }
+	});
+}
