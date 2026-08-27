@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { signSession, readSession, DEFAULT_TTL_MS, type SessionUser } from './session';
 
 const SECRET = 'test-secret-please-change';
-const USER: SessionUser = { user_id: 'u-1', email: 'a@b.com', display_name: 'Ada' };
+const USER: SessionUser = {
+	user_id: 'u-1',
+	email: 'a@b.com',
+	display_name: 'Ada',
+	bgg_username: null
+};
 
 describe('session token', () => {
 	it('round-trips a user', () => {

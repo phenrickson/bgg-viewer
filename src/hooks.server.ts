@@ -17,7 +17,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// `dev` so it can never reach production, and opt-in via DEV_AUTH_EMAIL so the
 	// real login/register flow stays testable (just unset the var).
 	if (!user && dev && env.DEV_AUTH_EMAIL) {
-		user = { user_id: 'dev-user', email: env.DEV_AUTH_EMAIL, display_name: 'Dev User' };
+		user = {
+			user_id: 'dev-user',
+			email: env.DEV_AUTH_EMAIL,
+			display_name: 'Dev User',
+			bgg_username: env.DEV_BGG_USERNAME || null
+		};
 	}
 
 	event.locals.user = user;

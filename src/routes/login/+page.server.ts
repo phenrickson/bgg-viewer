@@ -34,7 +34,12 @@ export const actions: Actions = {
 		cookies.set(
 			SESSION_COOKIE,
 			signSession(
-				{ user_id: user.user_id, email: user.email, display_name: user.display_name },
+				{
+					user_id: user.user_id,
+					email: user.email,
+					display_name: user.display_name,
+					bgg_username: user.bgg_username
+				},
 				secret
 			),
 			sessionCookieOptions(!dev)
