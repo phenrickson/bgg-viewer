@@ -13,19 +13,37 @@
    */
   import { activeFilters, type Scope } from './scope';
 
+  /** A chip sourced from outside `Scope` (e.g. the admin collection filter) — same look and
+      "click to remove" behavior as a scope chip, but cleared via a callback instead of a patch,
+      since it isn't part of `Scope`/`toWhere`'s URL-shareable state. */
+  export interface ExternalChip {
+    id: string;
+    kind: string;
+    label: string;
+    onclear: () => void;
+  }
+
   let {
     scope = $bindable(),
+    extra = [],
     onclear
-  }: { scope: Scope; onclear: () => void } = $props();
+  }: { scope: Scope; extra?: ExternalChip[]; onclear: () => void } = $props();
 
   const chips = $derived(activeFilters(scope));
 </script>
 
-{#if chips.length}
+{#if chips.length || extra.length}
   <div class="chips">
     <span class="lead">Filters</span>
     {#each chips as c (c.id)}
       <button class="chip" onclick={() => Object.assign(scope, c.patch)} title="Remove this filter">
+        <span class="kind">{c.kind}</span>
+        <span class="val">{c.label}</span>
+        <span class="x" aria-hidden="true">×</span>
+      </button>
+    {/each}
+    {#each extra as c (c.id)}
+      <button class="chip" onclick={c.onclear} title="Remove this filter">
         <span class="kind">{c.kind}</span>
         <span class="val">{c.label}</span>
         <span class="x" aria-hidden="true">×</span>

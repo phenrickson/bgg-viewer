@@ -13,7 +13,13 @@
    */
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
-  import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
+  import {
+    initCatalog,
+    query,
+    catalog,
+    appendCollectionFilter,
+    clearCollectionFilter
+  } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
     toWhere,
@@ -27,7 +33,11 @@
   import ShapeStrip from '$lib/catalog/views/ShapeStrip.svelte';
   import GameList from '$lib/catalog/views/GameList.svelte';
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
+  import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
   import { Container } from '$lib/components/ui/layout';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let ready = $state(false);
@@ -61,9 +71,11 @@
     scope = scopeFromParams(new URLSearchParams(location.search));
   });
 
-  const where = $derived(ready ? toWhere(scope) : null);
-  /** The universe with filters stripped — the strip's comparison population. */
-  const baseWhere = $derived(ready ? universeWhere(scope) : null);
+  const where = $derived(ready ? appendCollectionFilter(toWhere(scope)) : null);
+  /** The universe with filters stripped — the strip's comparison population. Also scoped to the
+      admin collection filter, so the shape strip compares within the collection, not the whole
+      catalog, once a collection is applied. */
+  const baseWhere = $derived(ready ? appendCollectionFilter(universeWhere(scope)) : null);
 
   // The one owner of the in-scope total, so the header and the list can't disagree.
   let total = $state<number | null>(null);
@@ -145,7 +157,10 @@
 {:else if where != null && baseWhere != null}
   <Container size="wide" fill>
     <div class="workspace">
-      <Rail bind:scope {where} />
+      <div class="sidebar">
+        <Rail bind:scope {where} />
+        {#if data.isAdmin}<AdminCollectionPicker />{/if}
+      </div>
 
       <div class="canvas">
         <div class="chead">
@@ -160,7 +175,23 @@
               {/if}
             </span>
           </p>
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+          <FilterChips
+            bind:scope
+            extra={catalog.collectionUsername
+              ? [
+                  {
+                    id: 'collection',
+                    kind: 'Collection',
+                    label: catalog.collectionUsername,
+                    onclear: clearCollectionFilter
+                  }
+                ]
+              : []}
+            onclear={() => {
+              scope = { ...DEFAULT_SCOPE, universe: scope.universe };
+              clearCollectionFilter();
+            }}
+          />
 
           <span class="viewtoggle" role="group" aria-label="View">
             <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
@@ -232,6 +263,17 @@
     gap: var(--space-lg);
     height: 100%;
     min-height: 0;
+  }
+  /* Holds the rail plus the admin-only collection picker below it. The rail keeps its own
+     scroll region (`:global(.rail)`'s overflow-y); the picker stays fixed at the bottom rather
+     than scrolling with a long facet list. */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .sidebar :global(.rail) {
+    flex: 1 1 auto;
   }
   .canvas {
     display: flex;
