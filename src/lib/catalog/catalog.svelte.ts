@@ -160,6 +160,20 @@ export async function clearCollectionFilter(): Promise<void> {
 	collectionUsername = null;
 }
 
+/**
+ * Fetch `/api/collection?username=` and apply it — the one path both the admin picker
+ * (any username) and the "My collection" toggle (the account's own username) call, so the
+ * fetch-then-apply logic lives in exactly one place. Server-side auth (admin vs. self) still
+ * decides what a given caller is allowed to fetch; this just does the client-side half.
+ */
+export async function fetchAndApplyCollection(username: string): Promise<{ updatedAt: string | null }> {
+	const res = await fetch(`/api/collection?username=${encodeURIComponent(username)}`);
+	if (!res.ok) throw new Error(`request failed (${res.status})`);
+	const data = (await res.json()) as { game_ids: number[]; updated_at: string | null };
+	await applyCollectionFilter(username, data.game_ids);
+	return { updatedAt: data.updated_at };
+}
+
 /** Wrap a `where` body with the active collection filter, if any — see `applyCollectionFilter`. */
 export function appendCollectionFilter(where: string): string {
 	return collectionUsername != null
