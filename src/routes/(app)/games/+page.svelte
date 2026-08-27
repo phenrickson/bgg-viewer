@@ -17,7 +17,8 @@
     initCatalog,
     query,
     catalog,
-    appendCollectionFilter
+    appendCollectionFilter,
+    clearCollectionFilter
   } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
@@ -174,7 +175,23 @@
               {/if}
             </span>
           </p>
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+          <FilterChips
+            bind:scope
+            extra={catalog.collectionUsername
+              ? [
+                  {
+                    id: 'collection',
+                    kind: 'Collection',
+                    label: catalog.collectionUsername,
+                    onclear: clearCollectionFilter
+                  }
+                ]
+              : []}
+            onclear={() => {
+              scope = { ...DEFAULT_SCOPE, universe: scope.universe };
+              clearCollectionFilter();
+            }}
+          />
 
           <span class="viewtoggle" role="group" aria-label="View">
             <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
