@@ -13,6 +13,7 @@
    */
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import {
     initCatalog,
     query,
@@ -39,8 +40,26 @@
 
   let { data }: { data: PageData } = $props();
 
-  let scope = $state<Scope>({ ...DEFAULT_SCOPE });
+  /**
+   * Seed the scope from the URL *synchronously*, at component creation — not from a later
+   * `afterNavigate`. Coming back from a game (browser back, or "Back to results") the
+   * catalog is already warm, so `ready` flips almost immediately and the scope→URL mirror
+   * effect below could run before `afterNavigate` had a chance to parse the querystring —
+   * writing an empty scope back as `/games` and wiping the filters. Seeding here means the
+   * mirror's first write re-emits the same querystring it was seeded from, so there's
+   * nothing to clobber. (`ssr = false` for this route, so `browser` is always true; the
+   * fallback is only for type-safety.)
+   */
+  let scope = $state<Scope>(
+    browser ? scopeFromParams(new URLSearchParams(location.search)) : { ...DEFAULT_SCOPE }
+  );
   let ready = $state(false);
+  /**
+   * Belt-and-suspenders for the mirror effect: never write the URL until the scope has been
+   * read from it at least once. True from the start on the client (seeded above); only
+   * meaningful if SSR is ever re-enabled for this route.
+   */
+  let hydrated = $state(browser);
 
   /**
    * List/Visualize — a swap, not a panel appended below the table: Visualize occupies the
@@ -69,6 +88,7 @@
    */
   afterNavigate(() => {
     scope = scopeFromParams(new URLSearchParams(location.search));
+    hydrated = true;
   });
 
   const where = $derived(ready ? appendCollectionFilter(toWhere(scope)) : null);
@@ -134,7 +154,7 @@
   // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
   // handoff to the detail page: `Back to results` there reads this querystring back.
   $effect(() => {
-    if (!ready) return;
+    if (!ready || !hydrated) return;
     const qs = scopeToParams(scope).toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
     try {
