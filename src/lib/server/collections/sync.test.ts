@@ -34,15 +34,27 @@ describe('triggerSync', () => {
 			updated_at: new Date().toISOString()
 		});
 
-		await triggerSync('phenrickson');
+		await expect(triggerSync('phenrickson')).resolves.toBe(false);
 
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('forces the sync call even when the collection is fresh, if force is set', async () => {
+		fetchOwnedCollection.mockResolvedValue({
+			game_ids: [1, 2, 3],
+			updated_at: new Date().toISOString()
+		});
+
+		await expect(triggerSync('phenrickson', { force: true })).resolves.toBe(true);
+
+		expect(fetchOwnedCollection).not.toHaveBeenCalled();
+		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 
 	it('syncs when the collection is missing', async () => {
 		fetchOwnedCollection.mockResolvedValue({ game_ids: [], updated_at: null });
 
-		await triggerSync('newuser');
+		await expect(triggerSync('newuser')).resolves.toBe(true);
 
 		expect(fetchMock).toHaveBeenCalledWith(
 			'https://collections.example/sync/newuser',
@@ -57,7 +69,7 @@ describe('triggerSync', () => {
 		const staleDate = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
 		fetchOwnedCollection.mockResolvedValue({ game_ids: [1], updated_at: staleDate });
 
-		await triggerSync('phenrickson');
+		await expect(triggerSync('phenrickson')).resolves.toBe(true);
 
 		expect(fetchMock).toHaveBeenCalledOnce();
 	});
@@ -66,14 +78,14 @@ describe('triggerSync', () => {
 		fetchOwnedCollection.mockResolvedValue({ game_ids: [], updated_at: null });
 		fetchMock.mockResolvedValueOnce(new Response(null, { status: 502 }));
 
-		await expect(triggerSync('ghost')).resolves.toBeUndefined();
+		await expect(triggerSync('ghost')).resolves.toBe(false);
 		expect(consoleError).toHaveBeenCalled();
 	});
 
 	it('never throws — logs and swallows a thrown error', async () => {
 		fetchOwnedCollection.mockRejectedValue(new Error('BigQuery unavailable'));
 
-		await expect(triggerSync('phenrickson')).resolves.toBeUndefined();
+		await expect(triggerSync('phenrickson')).resolves.toBe(false);
 		expect(consoleError).toHaveBeenCalled();
 	});
 });

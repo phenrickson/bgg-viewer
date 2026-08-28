@@ -11,14 +11,21 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { settingsSchema } from '$lib/schemas';
 import { updateBggUsername } from '$lib/server/auth/users';
+import { fetchOwnedCollection } from '$lib/server/collections/read';
 import { triggerSync } from '$lib/server/collections/sync';
 import { signSession } from '$lib/server/auth/session';
 import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/auth/cookie';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const bggUsername = locals.user?.bgg_username ?? null;
+	const collection = bggUsername ? await fetchOwnedCollection(bggUsername) : null;
 	return {
-		form: await superValidate({ bgg_username: locals.user?.bgg_username ?? undefined }, zod(settingsSchema))
+		form: await superValidate({ bgg_username: bggUsername ?? undefined }, zod(settingsSchema)),
+		email: locals.user?.email ?? null,
+		collection: collection
+			? { gameCount: collection.game_ids.length, updatedAt: collection.updated_at }
+			: null
 	};
 };
 
@@ -47,5 +54,15 @@ export const actions: Actions = {
 		if (changed && bggUsername) void triggerSync(bggUsername);
 
 		return message(form, bggUsername ? 'BGG account linked.' : 'BGG account unlinked.');
+	},
+
+	// A separate, non-superForm action: "Refresh now" isn't a field to validate, just a request
+	// to re-fetch. Awaited (unlike the fire-and-forget trigger above) since a user who explicitly
+	// clicked this is asking whether it worked, not just kicking it off in the background.
+	refresh: async ({ locals }) => {
+		if (!locals.user?.bgg_username) return fail(400, { message: 'No BGG account linked.' });
+		const ok = await triggerSync(locals.user.bgg_username, { force: true });
+		if (!ok) return fail(502, { message: 'Refresh failed — try again in a moment.' });
+		return { success: true };
 	}
 };

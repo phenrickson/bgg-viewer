@@ -25,14 +25,24 @@ function requireAudience(): string | null {
 	return audience.replace(/\/+$/, '');
 }
 
-/** Fetch a fresh collection for `username` if what's already synced is missing or stale. */
-export async function triggerSync(username: string): Promise<void> {
+/**
+ * Fetch a fresh collection for `username`. By default, skips the call if what's already
+ * synced is neither missing nor stale — pass `force: true` for an explicit user-initiated
+ * refresh (the settings page's "Refresh now"), which should always hit the service.
+ *
+ * Returns whether a sync was actually attempted and succeeded — `false` covers both "skipped,
+ * already fresh" and "attempted, failed", since callers that only fire-and-forget (registration,
+ * settings-save) ignore the return value entirely and everything here still never throws.
+ */
+export async function triggerSync(username: string, opts: { force?: boolean } = {}): Promise<boolean> {
 	const audience = requireAudience();
-	if (!audience) return;
+	if (!audience) return false;
 
 	try {
-		const existing = await fetchOwnedCollection(username);
-		if (existing.game_ids.length > 0 && !isStale(existing.updated_at)) return;
+		if (!opts.force) {
+			const existing = await fetchOwnedCollection(username);
+			if (existing.game_ids.length > 0 && !isStale(existing.updated_at)) return false;
+		}
 
 		const token = await getGatedServiceIdToken(audience, env.COLLECTION_SYNC_ID_TOKEN);
 		const res = await fetch(`${audience}/sync/${encodeURIComponent(username)}`, {
@@ -41,8 +51,11 @@ export async function triggerSync(username: string): Promise<void> {
 		});
 		if (!res.ok) {
 			console.error(`Collection sync failed for '${username}' (${res.status})`);
+			return false;
 		}
+		return true;
 	} catch (e) {
 		console.error(`Collection sync trigger threw for ${username}`, e);
+		return false;
 	}
 }
