@@ -23,6 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		form: await superValidate({ bgg_username: bggUsername ?? undefined }, zod(settingsSchema)),
 		email: locals.user?.email ?? null,
+		bggUsername,
 		collection: collection
 			? { gameCount: collection.game_ids.length, updatedAt: collection.updated_at }
 			: null
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies, locals }) => {
+	save: async ({ request, cookies, locals }) => {
 		const form = await superValidate(request, zod(settingsSchema));
 		if (!form.valid) return fail(400, { form });
 		if (!locals.user) return fail(401, { form });
@@ -57,12 +58,14 @@ export const actions: Actions = {
 	},
 
 	// A separate, non-superForm action: "Refresh now" isn't a field to validate, just a request
-	// to re-fetch. Awaited (unlike the fire-and-forget trigger above) since a user who explicitly
-	// clicked this is asking whether it worked, not just kicking it off in the background.
+	// to re-fetch. Fire-and-forget like the trigger above, deliberately NOT awaited — the
+	// downstream call can take up to a minute (BGG's export queues on its end), and there's no
+	// reason to hold the HTTP request open for that. The client polls `/api/collection`
+	// afterward to notice when it lands; a failure here surfaces as "still shows the old
+	// timestamp" rather than an inline error, same tradeoff the passive triggers already make.
 	refresh: async ({ locals }) => {
 		if (!locals.user?.bgg_username) return fail(400, { message: 'No BGG account linked.' });
-		const ok = await triggerSync(locals.user.bgg_username, { force: true });
-		if (!ok) return fail(502, { message: 'Refresh failed — try again in a moment.' });
-		return { success: true };
+		void triggerSync(locals.user.bgg_username, { force: true });
+		return { started: true };
 	}
 };

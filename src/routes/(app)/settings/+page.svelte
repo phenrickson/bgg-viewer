@@ -1,9 +1,8 @@
 <script lang="ts">
+  import { onDestroy, untrack } from 'svelte';
   import { superForm } from 'sveltekit-superforms';
-  import { untrack } from 'svelte';
   import { zod4 as zod } from 'sveltekit-superforms/adapters';
   import { enhance } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
   import { settingsSchema } from '$lib/schemas';
 
   let { data } = $props();
@@ -11,10 +10,61 @@
   const sf = superForm(untrack(() => data.form), { validators: zod(settingsSchema) });
   const { form, errors, enhance: superEnhance, submitting, message } = sf;
 
+  // A local, updatable snapshot of sync status — refreshed by polling below rather than a full
+  // page reload, since the whole point of not awaiting the refresh server-side is to avoid
+  // blocking on it client-side too. Still needs to track `data.collection` when THAT changes
+  // for its own reason (e.g. Save re-links to a different username and reloads), hence the
+  // effect rather than a one-shot `$state(data.collection)`.
+  let collection = $state<typeof data.collection>(null);
+  $effect(() => {
+    collection = data.collection;
+  });
+
   // Kept out of superForm's own `form`/message state — mixing this action's result into that
   // would hand superForm a response shaped nothing like a SuperValidated form.
   let refreshing = $state(false);
   let refreshMessage = $state<string | null>(null);
+
+  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  const POLL_INTERVAL_MS = 5_000;
+  const POLL_TIMEOUT_MS = 90_000;
+
+  function stopPolling() {
+    clearInterval(pollTimer);
+    pollTimer = undefined;
+  }
+  onDestroy(stopPolling);
+
+  // The server action fires the sync and returns immediately (see +page.server.ts) — it can
+  // take up to a minute downstream, so this polls for the `updated_at` to actually move rather
+  // than pretending a single request/response round trip proves anything.
+  function pollForSync(baselineUpdatedAt: string | null) {
+    const username = data.bggUsername;
+    if (!username) return;
+    const start = Date.now();
+    stopPolling();
+    pollTimer = setInterval(async () => {
+      if (Date.now() - start > POLL_TIMEOUT_MS) {
+        stopPolling();
+        refreshing = false;
+        refreshMessage = 'Still syncing — check back in a bit.';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/collection?username=${encodeURIComponent(username)}`);
+        if (!res.ok) return; // transient — keep polling
+        const body = (await res.json()) as { game_ids: number[]; updated_at: string | null };
+        if (body.updated_at && body.updated_at !== baselineUpdatedAt) {
+          stopPolling();
+          refreshing = false;
+          refreshMessage = 'Refreshed.';
+          collection = { gameCount: body.game_ids.length, updatedAt: body.updated_at };
+        }
+      } catch {
+        // transient — keep polling
+      }
+    }, POLL_INTERVAL_MS);
+  }
 </script>
 
 <svelte:head><title>Settings · bgg-viewer</title></svelte:head>
@@ -30,7 +80,7 @@
 
     <section class="row">
       <span class="lbl">BGG account</span>
-      <form method="POST" use:superEnhance>
+      <form method="POST" action="?/save" use:superEnhance>
         <div class="inline">
           <input
             type="text"
@@ -52,30 +102,30 @@
       </form>
     </section>
 
-    {#if data.collection}
+    {#if collection}
       <section class="row">
         <span class="lbl">Collection sync</span>
         <p class="val">
-          {data.collection.gameCount.toLocaleString()} games{#if data.collection.updatedAt}
-            &nbsp;· last synced {new Date(data.collection.updatedAt).toLocaleString()}{/if}
+          {collection.gameCount.toLocaleString()} games{#if collection.updatedAt}
+            &nbsp;· last synced {new Date(collection.updatedAt).toLocaleString()}{/if}
         </p>
         <!-- Copy note: placeholder — Phil writes final copy. -->
         <p class="note">
-          Pulls your collection fresh from BGG — not a cached read — which can take up to a
-          minute since BGG queues the export on its end.
+          Fetches fresh from BGG — can take up to a minute. Re-toggle "My Collection" in
+          Explore afterward to see it.
         </p>
         <form
           method="POST"
           action="?/refresh"
           use:enhance={() => {
             refreshing = true;
-            refreshMessage = null;
+            refreshMessage = 'Refresh started — this can take up to a minute.';
+            const baseline = collection?.updatedAt ?? null;
             return async ({ result }) => {
-              refreshing = false;
               if (result.type === 'success') {
-                refreshMessage = 'Refreshed.';
-                await invalidateAll();
+                pollForSync(baseline);
               } else {
+                refreshing = false;
                 refreshMessage =
                   (result.type === 'failure' && (result.data?.message as string)) ||
                   'Refresh failed — try again in a moment.';
@@ -84,7 +134,7 @@
           }}
         >
           <button class="btn" type="submit" disabled={refreshing}>
-            {refreshing ? 'Refreshing… (up to a minute)' : 'Refresh from BGG'}
+            {refreshing ? 'Refreshing…' : 'Refresh from BGG'}
           </button>
         </form>
         {#if refreshMessage}<p class="note">{refreshMessage}</p>{/if}
