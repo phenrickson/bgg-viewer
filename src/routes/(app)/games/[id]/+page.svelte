@@ -387,15 +387,21 @@
         <div class="cover ph">{g.name?.[0] ?? '?'}</div>
       {/if}
       <div class="id">
+        <!-- Designer / artist / publisher names are links into a filtered Explore — the same
+             "one click from what this is to what else is like it" the category/mechanic chips
+             below already offer. Param keys match `scopeToParams` in scope.ts. -->
+        {#snippet credits(names: string[], param: 'des' | 'art' | 'pub', sep: string, max: number = names.length)}
+          {#each names.slice(0, max) as n, i (n)}{i > 0 ? sep : ''}<a
+              href="/games?{param}={encodeURIComponent(n)}">{n}</a
+            >{/each}{#if names.length > max}{sep}+{names.length - max}{/if}
+        {/snippet}
         <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
-        {#if g.designers.length}<p class="byline">by {g.designers.join(', ')}</p>{/if}
+        {#if g.designers.length}<p class="byline">by {@render credits(g.designers, 'des', ', ')}</p>{/if}
         {#if g.artists.length}
-          <p class="pubs">art by {g.artists.slice(0, 3).join(', ')}{g.artists.length > 3
-              ? ` +${g.artists.length - 3}`
-              : ''}</p>
+          <p class="pubs">art by {@render credits(g.artists, 'art', ', ', 3)}</p>
         {/if}
         {#if g.publishers.length}
-          <p class="pubs">{g.publishers.slice(0, 3).join(' · ')}{g.publishers.length > 3 ? ` · +${g.publishers.length - 3}` : ''}</p>
+          <p class="pubs">{@render credits(g.publishers, 'pub', ' · ', 3)}</p>
         {/if}
         <div class="facts tnum">
           <div><span>Players</span><b>{range(g.minPlayers, g.maxPlayers)}</b></div>
@@ -840,6 +846,18 @@
     color: var(--muted-foreground);
     font-size: 0.78rem;
     margin: 0.1rem 0 0;
+  }
+  /* Inline text links, not pills — the hero byline is prose, and a row of pills here would
+     shout over the title. */
+  .byline a,
+  .pubs a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .byline a:hover,
+  .pubs a:hover {
+    color: var(--primary);
+    text-decoration: underline;
   }
   .facts {
     display: flex;
