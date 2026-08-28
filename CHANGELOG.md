@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.16](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.15...bgg-viewer-v0.0.16) (2026-08-28)
+
+
+### Features
+
+* **explore:** back-nav filters, Visualize alignment, shape-strip collapse ([#53](https://github.com/phenrickson/bgg-viewer/issues/53)) ([f19e335](https://github.com/phenrickson/bgg-viewer/commit/f19e3356357ed1d13cb9d4f56127a8d9817aa835))
+
 ## [0.0.15](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.14...bgg-viewer-v0.0.15) (2026-08-28)
 
 
