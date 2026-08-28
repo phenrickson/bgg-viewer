@@ -113,7 +113,7 @@ jobs:
             --cpu=1 \
             --max-instances=10 \
             --port=8080 \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},WAREHOUSE_API_URL=${{ vars.WAREHOUSE_API_URL }},VERSION=${VERSION}" \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},WAREHOUSE_API_URL=${{ vars.WAREHOUSE_API_URL }},COLLECTION_SYNC_SERVICE_URL=${{ vars.COLLECTION_SYNC_SERVICE_URL }},VERSION=${VERSION}" \
             --set-secrets="SESSION_SECRET=bgg-viewer-session-secret:latest,REGISTRATION_CODE=bgg-viewer-registration-code:latest"
 
       - name: Show service URL
