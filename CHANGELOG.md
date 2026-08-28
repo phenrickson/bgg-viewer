@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.15](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.14...bgg-viewer-v0.0.15) (2026-08-28)
+
+
+### Features
+
+* **auth:** self-serve BGG account linking + non-blocking sync trigger ([42e30d9](https://github.com/phenrickson/bgg-viewer/commit/42e30d985f462905c75ecf887b348072bf9b0516))
+* **auth:** self-serve BGG account linking + non-blocking sync trigger ([f763a82](https://github.com/phenrickson/bgg-viewer/commit/f763a82bd85335c26fcd6c4524341b7afa5257e1))
+* **auth:** settings page to link/change/clear BGG username ([0e2ca1d](https://github.com/phenrickson/bgg-viewer/commit/0e2ca1dc0bae982881afcfd3282aff8c9f665779))
+* **catalog:** "My collection" toggle for linked self-serve users ([761e408](https://github.com/phenrickson/bgg-viewer/commit/761e4084ffbbd0bd02e32200166fe1e9fe1f05ea))
+* **catalog:** admin-only collection filter (Phase 1) ([93def77](https://github.com/phenrickson/bgg-viewer/commit/93def774e9e4564a6e9c2e25f491c8918014cff2))
+* **catalog:** admin-only collection filter (Phase 1) ([963fb68](https://github.com/phenrickson/bgg-viewer/commit/963fb68f04949d0fb8ea27382d4f8dea12e2d6c7))
+* **catalog:** show collection filter as a removable chip; write up Phase 2 ([4ffe94a](https://github.com/phenrickson/bgg-viewer/commit/4ffe94a57d7d6771629d9baaaa5d6d89f5380c86))
+
+
+### Bug Fixes
+
+* **ci:** wire COLLECTION_SYNC_SERVICE_URL into the deploy step ([5e578f6](https://github.com/phenrickson/bgg-viewer/commit/5e578f61fcaf06861ab840fd00f43dfbbf87d848))
+* **ci:** wire COLLECTION_SYNC_SERVICE_URL into the deploy step ([67eade6](https://github.com/phenrickson/bgg-viewer/commit/67eade6cbfa821402971a3fa277e8e8d1db80f1a))
+
 ## [0.0.14](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.13...bgg-viewer-v0.0.14) (2026-08-25)
 
 
