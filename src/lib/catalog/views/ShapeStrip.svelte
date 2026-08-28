@@ -14,11 +14,11 @@
    * `Taller` swaps in a reading height for the same five charts — one control, nothing hidden.
    *
    * `Count | Share` picks what bar height *means*, and the choice is exposed rather than
-   * guessed at because neither answer is universally right (see `charts/scale.ts`). Count is
-   * the default: heights are games, so your set sits inside the catalog's curve and filtering
-   * on the axis you are looking at lands the coloured bars exactly on the grey ones. Its cost
-   * is that a small scope flattens to the 1px floor — measured at 40 games in the top 10,000 —
-   * which is when Share, renormalising each series, is the one that can still be read.
+   * guessed at because neither answer is universally right (see `charts/scale.ts`). Share is
+   * the default: it renormalises each series to its own total, so the scope's shape stays
+   * readable no matter how small the slice — a filtered-down set doesn't flatten to the 1px
+   * floor the way Count does. Count (heights are games, the set sitting inside the catalog's
+   * curve) is one click away when the absolute size of the slice is the question.
    */
   import { browser } from '$app/environment';
   import { query } from '$lib/catalog/catalog.svelte';
@@ -97,7 +97,7 @@
   let backdrop = $state<Shape>(EMPTY);
   let summary = $state<Summary | null>(null);
   let tall = $state(false);
-  let scaleMode = $state<ScaleMode>('count');
+  let scaleMode = $state<ScaleMode>('share');
 
   /**
    * Collapsed = the five headline numbers only, charts hidden. `.strip` is `flex: none`, so
