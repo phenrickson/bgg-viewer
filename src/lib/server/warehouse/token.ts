@@ -54,13 +54,24 @@ export async function mintIdToken(audience: string): Promise<string> {
 	return client.idTokenProvider.fetchIdToken(audience);
 }
 
-/** Returns a Bearer ID token for the warehouse audience (`WAREHOUSE_API_URL`). */
-export async function getWarehouseIdToken(): Promise<string> {
-	const audience = requireAudience();
-	const override = env.WAREHOUSE_ID_TOKEN;
-	if (override) return override;
+/**
+ * Returns a Bearer ID token for `audience`, honoring an override value and dev's gcloud
+ * fallback — the same dance `getWarehouseIdToken` does, generalized for any gated Cloud Run
+ * service this app calls (e.g. the collection-sync service in
+ * `src/lib/server/collections/sync.ts`).
+ */
+export async function getGatedServiceIdToken(
+	audience: string,
+	overrideValue?: string
+): Promise<string> {
+	if (overrideValue) return overrideValue;
 	if (dev) return gcloudIdToken();
 	return mintIdToken(audience);
+}
+
+/** Returns a Bearer ID token for the warehouse audience (`WAREHOUSE_API_URL`). */
+export async function getWarehouseIdToken(): Promise<string> {
+	return getGatedServiceIdToken(requireAudience(), env.WAREHOUSE_ID_TOKEN);
 }
 
 /** Test seam: drop cached credentials so a fresh audience/mock is picked up. */

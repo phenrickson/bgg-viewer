@@ -155,6 +155,7 @@
       <nav class="actions">
         {#if data.user}
           <span class="who">{data.user.display_name || data.user.email}</span>
+          <a class="link muted" href="/settings">Settings</a>
           <form method="POST" action="/logout">
             <button class="link muted" type="submit">Log out</button>
           </form>

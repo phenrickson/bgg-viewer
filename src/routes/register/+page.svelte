@@ -46,6 +46,18 @@
       </label>
 
       <label class="field">
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <span>BGG username <em>(optional)</em></span>
+        <input
+          type="text"
+          name="bgg_username"
+          autocomplete="off"
+          bind:value={$form.bgg_username}
+        />
+        {#if $errors.bgg_username}<span class="err">{$errors.bgg_username}</span>{/if}
+      </label>
+
+      <label class="field">
         <span>Password</span>
         <input
           type="password"

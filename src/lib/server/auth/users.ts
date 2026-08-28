@@ -12,6 +12,7 @@ export interface DbUser {
 	email: string;
 	password_hash: string;
 	display_name: string | null;
+	bgg_username: string | null;
 	is_active: boolean;
 }
 
@@ -26,7 +27,7 @@ const TABLE = `\`${PROJECT}.${DATASET}.users\``;
 
 export async function getUserByEmail(email: string): Promise<DbUser | null> {
 	const [rows] = await bq().query({
-		query: `SELECT user_id, email, password_hash, display_name, is_active
+		query: `SELECT user_id, email, password_hash, display_name, bgg_username, is_active
 		        FROM ${TABLE} WHERE LOWER(email) = LOWER(@email) LIMIT 1`,
 		params: { email }
 	});
@@ -37,6 +38,7 @@ export async function getUserByEmail(email: string): Promise<DbUser | null> {
 		email: r.email,
 		password_hash: r.password_hash,
 		display_name: r.display_name ?? null,
+		bgg_username: r.bgg_username ?? null,
 		is_active: !!r.is_active
 	};
 }
@@ -45,24 +47,27 @@ export async function createUser(input: {
 	email: string;
 	passwordHash: string;
 	displayName: string | null;
+	bggUsername: string | null;
 }): Promise<DbUser> {
 	const user_id = randomUUID();
 	await bq().query({
-		query: `INSERT INTO ${TABLE} (user_id, email, password_hash, display_name, created_at, is_active)
-		        VALUES (@user_id, @email, @password_hash, @display_name, CURRENT_TIMESTAMP(), TRUE)`,
+		query: `INSERT INTO ${TABLE} (user_id, email, password_hash, display_name, bgg_username, created_at, is_active)
+		        VALUES (@user_id, @email, @password_hash, @display_name, @bgg_username, CURRENT_TIMESTAMP(), TRUE)`,
 		params: {
 			user_id,
 			email: input.email,
 			password_hash: input.passwordHash,
-			display_name: input.displayName
+			display_name: input.displayName,
+			bgg_username: input.bggUsername
 		},
-		types: { display_name: 'STRING' } // null needs an explicit type hint
+		types: { display_name: 'STRING', bgg_username: 'STRING' } // null needs an explicit type hint
 	});
 	return {
 		user_id,
 		email: input.email,
 		password_hash: input.passwordHash,
 		display_name: input.displayName,
+		bgg_username: input.bggUsername,
 		is_active: true
 	};
 }
@@ -71,5 +76,14 @@ export async function updateLastLogin(user_id: string): Promise<void> {
 	await bq().query({
 		query: `UPDATE ${TABLE} SET last_login = CURRENT_TIMESTAMP() WHERE user_id = @user_id`,
 		params: { user_id }
+	});
+}
+
+/** Link/change/clear (pass null) the account's BGG identity — see the settings route. */
+export async function updateBggUsername(user_id: string, bggUsername: string | null): Promise<void> {
+	await bq().query({
+		query: `UPDATE ${TABLE} SET bgg_username = @bgg_username WHERE user_id = @user_id`,
+		params: { user_id, bgg_username: bggUsername },
+		types: { bgg_username: 'STRING' }
 	});
 }

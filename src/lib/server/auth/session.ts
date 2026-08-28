@@ -12,6 +12,8 @@ export interface SessionUser {
 	user_id: string;
 	email: string;
 	display_name: string | null;
+	/** Linked BGG account identity, self-declared — null until an account links one. */
+	bgg_username: string | null;
 }
 
 interface Payload extends SessionUser {
@@ -35,6 +37,7 @@ export function signSession(
 		user_id: user.user_id,
 		email: user.email,
 		display_name: user.display_name,
+		bgg_username: user.bgg_username,
 		exp: now + (opts.ttlMs ?? DEFAULT_TTL_MS)
 	};
 	const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -64,5 +67,11 @@ export function readSession(
 	}
 	if (typeof payload.exp !== 'number' || payload.exp < (opts.now ?? Date.now())) return null;
 
-	return { user_id: payload.user_id, email: payload.email, display_name: payload.display_name };
+	return {
+		user_id: payload.user_id,
+		email: payload.email,
+		display_name: payload.display_name,
+		// Sessions signed before this field existed decode without it — coerce so the type holds.
+		bgg_username: payload.bgg_username ?? null
+	};
 }

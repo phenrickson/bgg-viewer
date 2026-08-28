@@ -5,6 +5,7 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { registerSchema } from '$lib/schemas';
 import { getUserByEmail, createUser } from '$lib/server/auth/users';
+import { triggerSync } from '$lib/server/collections/sync';
 import { hashPassword } from '$lib/server/auth/password';
 import { signSession } from '$lib/server/auth/session';
 import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/auth/cookie';
@@ -32,20 +33,32 @@ export const actions: Actions = {
 		const secret = env.SESSION_SECRET;
 		if (!secret) return setError(form, '', 'Server is misconfigured (no session secret).');
 
+		const bggUsername = form.data.bgg_username?.trim() || null;
+
 		const user = await createUser({
 			email: form.data.email,
 			passwordHash: hashPassword(form.data.password),
-			displayName: form.data.display_name?.trim() || null
+			displayName: form.data.display_name?.trim() || null,
+			bggUsername
 		});
 
 		cookies.set(
 			SESSION_COOKIE,
 			signSession(
-				{ user_id: user.user_id, email: user.email, display_name: user.display_name },
+				{
+					user_id: user.user_id,
+					email: user.email,
+					display_name: user.display_name,
+					bgg_username: user.bgg_username
+				},
 				secret
 			),
 			sessionCookieOptions(!dev)
 		);
+
+		// Not awaited: a slow or failed BGG fetch must never hold up registration. Errors are
+		// logged inside triggerSync, never thrown.
+		if (bggUsername) void triggerSync(bggUsername);
 
 		throw redirect(303, '/');
 	}

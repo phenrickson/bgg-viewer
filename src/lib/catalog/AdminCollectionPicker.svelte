@@ -5,7 +5,7 @@
 	 * stale-looking result means the underlying sync is stale, not this control (see
 	 * `updated_at` hint below). Rendered only when the caller has already checked `isAdmin`.
 	 */
-	import { catalog, applyCollectionFilter, clearCollectionFilter } from './catalog.svelte';
+	import { catalog, fetchAndApplyCollection, clearCollectionFilter } from './catalog.svelte';
 
 	let username = $state('');
 	let status = $state<'idle' | 'loading' | 'error'>('idle');
@@ -18,11 +18,8 @@
 		status = 'loading';
 		errorMessage = '';
 		try {
-			const res = await fetch(`/api/collection?username=${encodeURIComponent(name)}`);
-			if (!res.ok) throw new Error(`request failed (${res.status})`);
-			const data = (await res.json()) as { game_ids: number[]; updated_at: string | null };
-			await applyCollectionFilter(name, data.game_ids);
-			updatedAt = data.updated_at;
+			const result = await fetchAndApplyCollection(name);
+			updatedAt = result.updatedAt;
 			status = 'idle';
 		} catch (e) {
 			status = 'error';
@@ -142,7 +139,7 @@
 		font-size: 0.7rem;
 	}
 	.x:hover {
-		color: var(--destructive, var(--primary));
+		color: var(--color-negative);
 	}
 	.note {
 		margin: 0;
@@ -150,6 +147,6 @@
 		line-height: 1.35;
 	}
 	.note.error {
-		color: var(--destructive, var(--primary));
+		color: var(--color-negative);
 	}
 </style>

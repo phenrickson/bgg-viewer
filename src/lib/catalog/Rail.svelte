@@ -28,6 +28,7 @@
     type PlayerCountMode,
     type Scope
   } from './scope';
+  import { catalog, fetchAndApplyCollection, clearCollectionFilter } from './catalog.svelte';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
   import ComplexityBands from './ComplexityBands.svelte';
@@ -36,8 +37,41 @@
   let {
     scope = $bindable(),
     /** WHERE for the current scope — facet counts are scoped to the set you've built. */
-    where
-  }: { scope: Scope; where: string } = $props();
+    where,
+    /** The signed-in account's own BGG username, if linked — enables the "My collection only"
+        checkbox below. `null`/absent for admins with no linked account and anonymous users. */
+    bggUsername = null
+  }: { scope: Scope; where: string; bggUsername?: string | null } = $props();
+
+  /**
+   * Self-serve collection filter, grouped visually with Universe rather than living at the
+   * bottom of the rail — it answers the same "what population am I looking at" question, but
+   * stays additive (AND) rather than becoming a 4th mutually-exclusive Universe value: a
+   * collection should still be able to narrow Top 10k/All rated/Upcoming, not replace them.
+   * Reuses the same `owned_collection` table/`applyCollectionFilter` the admin picker uses.
+   */
+  let collectionStatus = $state<'idle' | 'loading' | 'error'>('idle');
+  let collectionError = $state('');
+  let collectionUpdatedAt = $state<string | null>(null);
+  const collectionActive = $derived(bggUsername != null && catalog.collectionUsername === bggUsername);
+
+  async function toggleCollection() {
+    if (!bggUsername) return;
+    if (collectionActive) {
+      await clearCollectionFilter();
+      return;
+    }
+    collectionStatus = 'loading';
+    collectionError = '';
+    try {
+      const result = await fetchAndApplyCollection(bggUsername);
+      collectionUpdatedAt = result.updatedAt;
+      collectionStatus = 'idle';
+    } catch (e) {
+      collectionStatus = 'error';
+      collectionError = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   /**
    * In the upcoming universe every numeric filter reads a *predicted* column (see
@@ -84,7 +118,7 @@
   const facetOpen = $state({
     complexity: true,
     year: false,
-    categories: true,
+    categories: false,
     mechanics: false,
     families: false
   });
@@ -176,6 +210,26 @@
             ? 'Everything with 30+ ratings — about 35,000.'
             : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
       </p>
+      {#if bggUsername}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={collectionActive}
+          class="collection-switch"
+          disabled={collectionStatus === 'loading'}
+          onclick={toggleCollection}
+        >
+          <span class="track" class:on={collectionActive}><span class="knob"></span></span>
+          <span class="switch-label">{collectionStatus === 'loading' ? 'Loading…' : 'My Collection'}</span>
+        </button>
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <p class="note">
+          {collectionActive && collectionUpdatedAt
+            ? `Synced ${new Date(collectionUpdatedAt).toLocaleDateString()}.`
+            : 'Filter to just the games in your BGG collection.'}
+        </p>
+        {#if collectionStatus === 'error'}<p class="note err">{collectionError}</p>{/if}
+      {/if}
     </div>
 
     <!-- Only the upcoming universe has a hurdle left to clear; in the rated slices every
@@ -425,6 +479,76 @@
   .seg button:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
+  }
+
+  /* A switch, not a `.seg` button or a checkbox — Universe's segmented buttons read as
+     mutually-exclusive choices, which this deliberately isn't (it ANDs onto whatever Universe
+     is active). A switch's on/off affordance says "toggle," not "pick one of these." */
+  .collection-switch {
+    margin-top: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: flex-start;
+    border: none;
+    background: none;
+    padding: 0.1rem 0;
+    cursor: pointer;
+    font: inherit;
+  }
+  .collection-switch:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .collection-switch .track {
+    flex: none;
+    width: 1.9rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    background: var(--border);
+    position: relative;
+    transition: background 0.15s ease;
+  }
+  .collection-switch .track.on {
+    background: var(--primary);
+  }
+  .collection-switch .knob {
+    position: absolute;
+    top: 0.12rem;
+    left: 0.12rem;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background: var(--background);
+    transition: transform 0.15s ease;
+  }
+  .collection-switch .track.on .knob {
+    transform: translateX(0.85rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .collection-switch .track,
+    .collection-switch .knob {
+      transition: none;
+    }
+  }
+  .collection-switch .switch-label {
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+  }
+  .collection-switch:hover:not(:disabled) .switch-label {
+    color: var(--foreground);
+  }
+  .collection-switch[aria-checked='true'] .switch-label {
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .collection-switch:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .note.err {
+    color: var(--color-negative);
   }
 
   /* The two hand-rolled <details> groups match FacetList's chrome. */

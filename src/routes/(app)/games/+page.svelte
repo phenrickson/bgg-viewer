@@ -158,7 +158,7 @@
   <Container size="wide" fill>
     <div class="workspace">
       <div class="sidebar">
-        <Rail bind:scope {where} />
+        <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
         {#if data.isAdmin}<AdminCollectionPicker />{/if}
       </div>
 
