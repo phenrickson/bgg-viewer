@@ -41,7 +41,6 @@
     popularitySelectionSql,
     facetSearchSql,
     bestAtDistributionSql,
-    playerCountSupportSql,
     recommendedOnlyDistributionSql,
     complexityBandsSql,
     measures,
@@ -67,8 +66,8 @@
   type Pt = { x: number; y: number; game_id: number; selected: boolean };
   type FacetCol = 'categories' | 'mechanics' | 'families' | 'publishers' | 'designers' | 'artists';
 
-  /** Player counts games 1–8, matching ShapeStrip's BEST_AT_DOMAIN — see the design doc for
-   *  why both new charts share this cap. */
+  /** Player counts 1–8, matching ShapeStrip's BEST_AT_DOMAIN — the x domain for the
+   *  Best-at chart, so an empty count still holds its slot. */
   const PLAYER_COUNT_DOMAIN = [1, 2, 3, 4, 5, 6, 7, 8];
 
   /** The five named bands, as their 1-indexed `scope.weightBands` values — the chart's x
@@ -81,8 +80,6 @@
 
   let weightRating = $state<Pt[]>([]);
   let ratingPopularity = $state<Pt[]>([]);
-  let supportsBins = $state<PlayerCountBin[]>([]);
-  let supportsBackdrop = $state<PlayerCountBin[]>([]);
   let bestBins = $state<PlayerCountBin[]>([]);
   let recommendedOnlyBins = $state<PlayerCountBin[]>([]);
   /** Unfiltered counterparts of bestBins/recommendedOnlyBins — not drawn, only scale StackedColumns
@@ -128,8 +125,6 @@
       query<Pt>(popularitySelectionSql(bw, w, undefined, m)),
       query<BandBin>(complexityBandsSql(w, m)),
       query<BandBin>(complexityBandsSql(bw, m)),
-      query<PlayerCountBin>(playerCountSupportSql(w)),
-      query<PlayerCountBin>(playerCountSupportSql(bw)),
       query<PlayerCountBin>(bestAtDistributionSql(w)),
       query<PlayerCountBin>(recommendedOnlyDistributionSql(w)),
       query<PlayerCountBin>(bestAtDistributionSql(bw)),
@@ -147,8 +142,6 @@
           b,
           bands,
           bandsBack,
-          supports,
-          supportsBack,
           best,
           recOnly,
           bestBack,
@@ -165,8 +158,6 @@
         ratingPopularity = b;
         bandBins = bands;
         bandBackdrop = bandsBack;
-        supportsBins = supports;
-        supportsBackdrop = supportsBack;
         bestBins = best;
         recommendedOnlyBins = recOnly;
         bestBackdrop = bestBack;
@@ -221,16 +212,6 @@
     hoverBand = bandTitle(i, bandBins.find((b) => b.band === i)?.n ?? 0);
   }
 
-  /** Mirrors ShapeStrip's onpick exclusivity (ShapeStrip.svelte:305-311): one player-count
-   *  question active at a time, so the two questions can never disagree about which count is
-   *  filtered. */
-  function pickSupports(v: number | null) {
-    scope.players = v;
-    if (v != null) {
-      scope.bestAt = null;
-      scope.recommendedAt = null;
-    }
-  }
   /**
    * The Best-at chart stacks two disjoint series, so which one was clicked decides which
    * filter is set: the blue segment selects "best at N", the amber "recommended at N but not
@@ -249,8 +230,6 @@
    * tooltip, kept as a baseline/accessible fallback) and the readout line below each header —
    * so the two can't drift apart into saying different things for the same hover.
    */
-  const supportsTitle = (v: number, n: number) =>
-    `supports ${v} players — ${n.toLocaleString()} games in scope`;
   const bestTitle = (v: number, n1: number, n2: number) =>
     `${v} players — best: ${n1.toLocaleString()}, recommended: ${n2.toLocaleString()}`;
 
@@ -259,18 +238,9 @@
    *  and knock the two charts' axes out of alignment with each other. */
   /* One readout per chart, each on its own fixed-height line inside that chart's frame — the
      line is always rendered, so a hover can never resize a figure and shift the row. */
-  let hoverSupports = $state<string | null>(null);
   let hoverBest = $state<string | null>(null);
   let hoverBand = $state<string | null>(null);
 
-  function onHoverSupports(v: number | null) {
-    if (v == null) {
-      hoverSupports = null;
-      return;
-    }
-    const n = supportsBins.find((b) => b.count === v)?.n ?? 0;
-    hoverSupports = supportsTitle(v, n);
-  }
   function onHoverBest(v: number | null) {
     if (v == null) {
       hoverBest = null;
@@ -468,21 +438,6 @@
         title={bandTitle}
         onpick={toggleBand}
         onhover={onHoverBand}
-      />
-    </ChartFigure>
-
-    <ChartFigure title="Supports N players">
-      {#snippet readout()}{hoverSupports ?? ' '}{/snippet}
-      <MiniColumns
-        bins={supportsBins.map((b) => ({ v: b.count, n: b.n }))}
-        backdrop={[]}
-        domain={PLAYER_COUNT_DOMAIN}
-        selected={scope.players}
-        height={104}
-        color="var(--chart-1)"
-        title={supportsTitle}
-        onpick={pickSupports}
-        onhover={onHoverSupports}
       />
     </ChartFigure>
 

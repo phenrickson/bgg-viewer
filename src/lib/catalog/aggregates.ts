@@ -179,18 +179,6 @@ export const bestAtDistributionSql = (where: string): string =>
 	 GROUP BY v ORDER BY v`;
 
 /**
- * How many games SUPPORT each player count 1–8 — the box's stated range
- * (min/max players), independent of any community vote. Mirrors `toWhere`'s own
- * `players` predicate (`scope.ts`), so "supports N" means the same thing here as it
- * does when `scope.players` filters the table.
- */
-export const playerCountSupportSql = (where: string): string =>
-	`SELECT v AS count, COUNT(*)::INT AS n
-	 FROM catalog, UNNEST([1,2,3,4,5,6,7,8]) AS t(v)
-	 WHERE ${where} AND min_players <= v AND max_players >= v
-	 GROUP BY v ORDER BY v`;
-
-/**
  * "Recommended, not best" — the stacked best/recommended chart's top segment.
  * `best_player_counts` and `recommended_player_counts` are independent thresholds in
  * the warehouse (best_percentage >= 40 vs. positive_percentage >= 70), not nested, so
