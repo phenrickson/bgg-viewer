@@ -34,7 +34,6 @@
   import GameList from '$lib/catalog/views/GameList.svelte';
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
-  import MyCollectionToggle from '$lib/catalog/MyCollectionToggle.svelte';
   import { Container } from '$lib/components/ui/layout';
   import type { PageData } from './$types';
 
@@ -159,9 +158,8 @@
   <Container size="wide" fill>
     <div class="workspace">
       <div class="sidebar">
-        <Rail bind:scope {where} />
+        <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
         {#if data.isAdmin}<AdminCollectionPicker />{/if}
-        {#if data.user?.bgg_username}<MyCollectionToggle bggUsername={data.user.bgg_username} />{/if}
       </div>
 
       <div class="canvas">
