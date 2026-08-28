@@ -453,6 +453,7 @@
     </div>
     -->
 
+    <div class="distributions">
     <ChartFigure title="Games by complexity">
       {#snippet readout()}{hoverBand ?? ' '}{/snippet}
       <MiniColumns
@@ -503,10 +504,10 @@
         onhover={onHoverBest}
       />
     </ChartFigure>
+    </div>
 
     {#snippet facetChart(title: string, col: FacetCol, rows: Facet[])}
-      <div class="figure">
-        <h3>Top {title}</h3>
+      <ChartFigure title="Top {title}">
         {#if rows.length}
           {@const maxN = rows[0]?.n ?? 1}
           <ul class="fac">
@@ -522,15 +523,17 @@
             {/each}
           </ul>
         {/if}
-      </div>
+      </ChartFigure>
     {/snippet}
 
-    {@render facetChart('categories', 'categories', categories)}
-    {@render facetChart('mechanics', 'mechanics', mechanics)}
-    {@render facetChart('families', 'families', families)}
-    {@render facetChart('publishers', 'publishers', publishers)}
-    {@render facetChart('designers', 'designers', designers)}
-    {@render facetChart('artists', 'artists', artists)}
+    <div class="facets">
+      {@render facetChart('categories', 'categories', categories)}
+      {@render facetChart('mechanics', 'mechanics', mechanics)}
+      {@render facetChart('families', 'families', families)}
+      {@render facetChart('publishers', 'publishers', publishers)}
+      {@render facetChart('designers', 'designers', designers)}
+      {@render facetChart('artists', 'artists', artists)}
+    </div>
   </div>
   {/if}
 </div>
@@ -567,18 +570,32 @@
     color: var(--muted-foreground);
   }
 
-  /* Side by side on anything wide enough; stacked on a narrow canvas. */
   .body {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: var(--space-lg);
-    align-content: start;
     padding: var(--space-md);
   }
-  .figure h3 {
-    margin: 0 0 0.2rem;
-    font-size: 0.85rem;
-    font-weight: 650;
+  /* Two grids, not one. Every distribution chart is the same fixed height and every facet
+     list is ~one height, but a single auto-fit grid mixing the two put a short chart and a
+     tall list in the same row — the chart left floating in whitespace. Split by kind and
+     every row is flush; it also reads in order (the set's shape, then what's in it). */
+  .distributions,
+  .facets {
+    display: grid;
+    gap: var(--space-lg);
+    align-content: start;
+  }
+  .distributions {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  }
+  .facets {
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  }
+  /* Keeps a short facet list (few distinct values in a narrow scope) from collapsing to a
+     stub and knocking its row out of alignment. */
+  .facets .fac {
+    min-height: 12.5rem;
   }
   /* Only the stacked chart needs a colour key — the single-colour charts don't. */
   .legend {

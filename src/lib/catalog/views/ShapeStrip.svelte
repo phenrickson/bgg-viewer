@@ -20,6 +20,7 @@
    * is that a small scope flattens to the 1px floor — measured at 40 games in the top 10,000 —
    * which is when Share, renormalising each series, is the one that can still be read.
    */
+  import { browser } from '$app/environment';
   import { query } from '$lib/catalog/catalog.svelte';
   import {
     summarySql,
@@ -98,6 +99,33 @@
   let tall = $state(false);
   let scaleMode = $state<ScaleMode>('count');
 
+  /**
+   * Collapsed = the five headline numbers only, charts hidden. `.strip` is `flex: none`, so
+   * stacked to one column on a narrow canvas its five charts eat most of the screen and leave
+   * nothing for the table. Persisted for the session; defaults to collapsed on a narrow canvas
+   * (the same 860px break where `.cells` drops to one column).
+   */
+  const COLLAPSE_KEY = 'explore:shape-collapsed';
+  function initCollapsed(): boolean {
+    if (!browser) return false;
+    try {
+      const saved = sessionStorage.getItem(COLLAPSE_KEY);
+      if (saved != null) return saved === '1';
+      return window.matchMedia('(max-width: 860px)').matches;
+    } catch {
+      return false;
+    }
+  }
+  let collapsed = $state(initCollapsed());
+  function toggleCollapsed() {
+    collapsed = !collapsed;
+    try {
+      sessionStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    } catch {
+      // storage disabled — the toggle still works, it just isn't remembered
+    }
+  }
+
   // The backdrop only depends on the universe dial, so it survives every other filter change.
   let baseToken = 0;
   $effect(() => {
@@ -155,27 +183,41 @@
   const yearEnds = $derived(ends(backdrop.year.length ? backdrop.year : shape.year, 1, int));
 </script>
 
-<section class="strip" class:tall>
+<section class="strip" class:tall class:collapsed>
   <div class="shead">
-    <span class="ttl">Shape of this set <span class="hint">— drag a chart to filter</span></span>
+    <span class="ttl"
+      >Shape of this set
+      {#if !collapsed}<span class="hint">— drag a chart to filter</span>{/if}</span
+    >
     <div class="ctrls">
-      <!-- Height means one thing at a time, and which one is a real choice — see scale.ts. -->
-      <div class="seg" role="group" aria-label="Bar height">
-        <button
-          class:on={scaleMode === 'count'}
-          aria-pressed={scaleMode === 'count'}
-          title="Bar height is the number of games, on one scale for both series — your set sits inside the catalog's curve."
-          onclick={() => (scaleMode = 'count')}>Count</button
-        >
-        <button
-          class:on={scaleMode === 'share'}
-          aria-pressed={scaleMode === 'share'}
-          title="Bar height is each bin's share of its own set — use it when your set is too small to see against the catalog."
-          onclick={() => (scaleMode = 'share')}>Share</button
-        >
-      </div>
-      <button class="taller" onclick={() => (tall = !tall)} aria-pressed={tall}>
-        {tall ? 'Shorter' : 'Taller'}
+      {#if !collapsed}
+        <!-- Height means one thing at a time, and which one is a real choice — see scale.ts. -->
+        <div class="seg" role="group" aria-label="Bar height">
+          <button
+            class:on={scaleMode === 'count'}
+            aria-pressed={scaleMode === 'count'}
+            title="Bar height is the number of games, on one scale for both series — your set sits inside the catalog's curve."
+            onclick={() => (scaleMode = 'count')}>Count</button
+          >
+          <button
+            class:on={scaleMode === 'share'}
+            aria-pressed={scaleMode === 'share'}
+            title="Bar height is each bin's share of its own set — use it when your set is too small to see against the catalog."
+            onclick={() => (scaleMode = 'share')}>Share</button
+          >
+        </div>
+        <button class="taller" onclick={() => (tall = !tall)} aria-pressed={tall}>
+          {tall ? 'Shorter' : 'Taller'}
+        </button>
+      {/if}
+      <!-- Copy: placeholder — Phil writes final strings. -->
+      <button
+        class="taller"
+        onclick={toggleCollapsed}
+        aria-pressed={collapsed}
+        aria-label={collapsed ? 'Show shape charts' : 'Hide shape charts'}
+      >
+        {collapsed ? 'Charts ▾' : 'Hide ▴'}
       </button>
     </div>
   </div>
@@ -186,6 +228,7 @@
         <b class="tnum">{two(summary?.median_rating)}</b>
         <span class="lab">median rating</span>
       </div>
+      {#if !collapsed}
       <MiniHistogram
         bins={shape.rating}
         backdrop={backdrop.rating}
@@ -205,6 +248,7 @@
       {#if ratingEnds}
         <div class="axis"><span>{ratingEnds[0]}</span><span>{ratingEnds[1]}</span></div>
       {/if}
+      {/if}
     </div>
 
     <div class="cell">
@@ -212,6 +256,7 @@
         <b class="tnum">{two(summary?.median_weight)}</b>
         <span class="lab">median complexity <span class="dim">{weightWord(summary?.median_weight)}</span></span>
       </div>
+      {#if !collapsed}
       <MiniHistogram
         bins={shape.weight}
         backdrop={backdrop.weight}
@@ -231,6 +276,7 @@
       {#if weightEnds}
         <div class="axis"><span>{weightEnds[0]}</span><span>{weightEnds[1]}</span></div>
       {/if}
+      {/if}
     </div>
 
     <div class="cell">
@@ -238,6 +284,7 @@
         <b class="tnum">{summary?.median_year ? int(summary.median_year) : '—'}</b>
         <span class="lab">median year <span class="dim">{YEAR_DISPLAY_FLOOR}+ shown</span></span>
       </div>
+      {#if !collapsed}
       <MiniHistogram
         bins={shape.year}
         backdrop={backdrop.year}
@@ -258,6 +305,7 @@
       {#if yearEnds}
         <div class="axis"><span>{yearEnds[0]}</span><span>{yearEnds[1]}</span></div>
       {/if}
+      {/if}
     </div>
 
     <!-- How widely known, as opposed to how highly rated: the axis that separates a hit from
@@ -267,6 +315,7 @@
         <b class="tnum">{summary?.median_users_rated ? compactCount(summary.median_users_rated) : '—'}</b>
         <span class="lab">median # ratings <span class="dim">log scale</span></span>
       </div>
+      {#if !collapsed}
       <MiniHistogram
         bins={shape.votes}
         backdrop={backdrop.votes}
@@ -286,6 +335,7 @@
       {#if votesEnds}
         <div class="axis"><span>{votesEnds[0]}</span><span>{votesEnds[1]}</span></div>
       {/if}
+      {/if}
     </div>
 
     <div class="cell">
@@ -293,6 +343,7 @@
         <b class="tnum">{modalBestAt ?? '—'}</b>
         <span class="lab">most often best at <span class="dim">click to filter</span></span>
       </div>
+      {#if !collapsed}
       <MiniColumns
         bins={shape.bestAt.map((b) => ({ v: b.count, n: b.n }))}
         backdrop={backdrop.bestAt.map((b) => ({ v: b.count, n: b.n }))}
@@ -310,6 +361,7 @@
           if (v != null) scope.players = null;
         }}
       />
+      {/if}
     </div>
   </div>
 </section>
