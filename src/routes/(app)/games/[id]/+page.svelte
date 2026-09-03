@@ -118,8 +118,10 @@
   const CLAMP_AT = 620;
   let showAll = $state(false);
 
-  // Categories + Mechanics show by default in the taxonomy card; Series & Families (mostly
-  // metadata) is behind this toggle.
+  // Taxonomy card: Categories in full, Mechanics capped at MECHANICS_SHOWN with a "+N more",
+  // Series & Families (mostly metadata) behind its own toggle.
+  const MECHANICS_SHOWN = 8;
+  let showAllMechanics = $state(false);
   let showAllTags = $state(false);
 
   /**
@@ -523,7 +525,17 @@
           {/if}
           {#if g.mechanics.length}
             <p class="sub">Mechanics</p>
-            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+            <div class="chips">
+              {#each (showAllMechanics ? g.mechanics : g.mechanics.slice(0, MECHANICS_SHOWN)) as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}
+              {#if g.mechanics.length > MECHANICS_SHOWN}
+                <button
+                  type="button"
+                  class="chip more"
+                  onclick={() => (showAllMechanics = !showAllMechanics)}
+                  >{showAllMechanics ? 'Show fewer' : `+${g.mechanics.length - MECHANICS_SHOWN} more`}</button
+                >
+              {/if}
+            </div>
           {/if}
           {#if g.families.length}
             {#if showAllTags}
@@ -1268,6 +1280,14 @@
   .chip.cat {
     border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
     color: var(--primary);
+  }
+  /* "+N more" / "Show fewer" — a chip-shaped button, dashed to read as an action not a tag. */
+  .chip.more {
+    border-style: dashed;
+    background: transparent;
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
   }
 
   /* Heading + list switcher on one row; the switcher wraps under on a narrow card. The
