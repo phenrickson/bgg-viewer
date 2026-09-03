@@ -14,7 +14,7 @@
 	 */
 	import { onMount, tick } from 'svelte';
 	import { tableFromIPC } from 'apache-arrow';
-	import { fetchThumbnailMap } from '$lib/catalog/thumbnails';
+	import { fetchNeighborMeta, type NeighborMeta } from '$lib/catalog/thumbnails';
 	import ResultRow from './ResultRow.svelte';
 	import ComparePanel from './ComparePanel.svelte';
 	import EmbeddingProfile from './EmbeddingProfile.svelte';
@@ -80,8 +80,8 @@
 		indexById: Map<number, number>;
 	}
 	let ds = $state<Dataset | null>(null);
-	/** game_id → thumbnail, for the compare panel only. Fire-and-forget; initials otherwise. */
-	let thumbById = $state<Map<number, string>>(new Map());
+	/** game_id → { thumbnail, geek }, for the compare panel only. Fire-and-forget. */
+	let thumbById = $state<Map<number, NeighborMeta>>(new Map());
 
 	/**
 	 * The only families the game embedding actually uses — `DEFAULT_EMBEDDING_FAMILY_PATTERNS`
@@ -252,9 +252,9 @@
 				panelEdited = true;
 			}
 
-			fetchThumbnailMap()
+			fetchNeighborMeta()
 				.then((m) => (thumbById = m))
-				.catch((err) => console.error('thumbnail lookup failed (non-fatal)', err));
+				.catch((err: unknown) => console.error('thumbnail lookup failed (non-fatal)', err));
 		} catch (e) {
 			errMsg = e instanceof Error ? e.message : String(e);
 			status = 'error';
@@ -1009,8 +1009,8 @@
 				a={cmp.a}
 				b={cmp.b}
 				sim={cmp.sim}
-				thumbA={thumbById.get(cmp.a.id) ?? null}
-				thumbB={thumbById.get(cmp.b.id) ?? null}
+				thumbA={thumbById.get(cmp.a.id)?.thumbnail ?? null}
+				thumbB={thumbById.get(cmp.b.id)?.thumbnail ?? null}
 				onclose={() => (compareId = null)}
 				onsetsource={() => pick(cmp.b.id)}
 			/>

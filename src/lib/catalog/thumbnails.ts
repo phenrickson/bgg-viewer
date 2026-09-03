@@ -1,14 +1,22 @@
 /**
  * A lean, DuckDB-free reader for the thumbnails artifact — for pages that want a handful of
- * `game_id → thumbnail` lookups (the game detail page's "Similar games" list) without paying
- * for the full catalog + DuckDB-WASM engine just to answer that. `apache-arrow` parses the
- * same Arrow IPC bytes `/api/thumbnails` already serves; no `conn.insertArrowFromIPCStream`,
- * no `catalog`/`thumbnails` tables, no WASM engine — just a plain JS Map.
+ * per-game lookups (the game detail page's "Similar games" list) without paying for the
+ * full catalog + DuckDB-WASM engine just to answer that. `apache-arrow` parses the same
+ * Arrow IPC bytes `/api/thumbnails` already serves; no `conn.insertArrowFromIPCStream`, no
+ * `catalog`/`thumbnails` tables, no WASM engine — just a plain JS Map.
+ *
+ * The artifact carries `thumbnail` and `geek_rating` per game: box art plus the number the
+ * neighbour row's rating badge shows.
  */
 import { tableFromIPC } from 'apache-arrow';
 
-/** Fetch and parse `/api/thumbnails` into a `game_id → thumbnail` map. */
-export async function fetchThumbnailMap(): Promise<Map<number, string>> {
+export interface NeighborMeta {
+	thumbnail: string | null;
+	geek: number | null;
+}
+
+/** Fetch and parse `/api/thumbnails` into a `game_id → { thumbnail, geek }` map. */
+export async function fetchNeighborMeta(): Promise<Map<number, NeighborMeta>> {
 	const res = await fetch('/api/thumbnails');
 	if (!res.ok) throw new Error(`thumbnails fetch failed (${res.status})`);
 	const buf = new Uint8Array(await res.arrayBuffer());
@@ -16,10 +24,16 @@ export async function fetchThumbnailMap(): Promise<Map<number, string>> {
 
 	const ids = table.getChild('game_id');
 	const thumbs = table.getChild('thumbnail');
-	const map = new Map<number, string>();
+	const geeks = table.getChild('geek_rating');
+	const map = new Map<number, NeighborMeta>();
 	for (let i = 0; i < table.numRows; i++) {
+		const id = Number(ids?.get(i));
 		const thumb = thumbs?.get(i);
-		if (thumb) map.set(Number(ids?.get(i)), thumb as string);
+		const geek = geeks?.get(i);
+		map.set(id, {
+			thumbnail: thumb ? (thumb as string) : null,
+			geek: geek != null && Number.isFinite(Number(geek)) ? Number(geek) : null
+		});
 	}
 	return map;
 }
