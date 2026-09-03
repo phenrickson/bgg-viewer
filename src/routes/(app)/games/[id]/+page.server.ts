@@ -1,6 +1,18 @@
 import { error } from '@sveltejs/kit';
-import { warehouseClient, GameNotFoundError, type GameDocument } from '$lib/server/warehouse';
+import {
+	warehouseClient,
+	GameNotFoundError,
+	type GameDocument,
+	type SimilarWireRow
+} from '$lib/server/warehouse';
 import { isOffline } from '$lib/server/offline';
+import {
+	SIMILAR_PROFILES,
+	DEFAULT_SIMILAR_PROFILE,
+	resolveSimilarProfile,
+	type SimilarProfile,
+	type SimilarGame
+} from '$lib/game/similar-profiles';
 import type { PageServerLoad } from './$types';
 
 /** The subset of `features` this page reads — the raw bag is otherwise untyped. */
@@ -33,12 +45,14 @@ interface Features {
 	last_updated: string | null;
 }
 
-interface SimilarRow {
-	game_id: number;
-	name: string;
-	year_published: number | null;
-	distance: number;
-}
+const mapSimilar = (rows: SimilarWireRow[]): SimilarGame[] =>
+	rows.map((s) => ({
+		id: s.game_id,
+		name: s.name,
+		year: s.year_published,
+		// 1 = exact match, 0 = no relation — the measure's own bounds.
+		similarity: 1 - s.distance
+	}));
 
 /**
  * The five model outputs, plus who produced each. `bgg_predictions` is year-filtered, so a
@@ -120,6 +134,16 @@ function toViewModel(doc: GameDocument) {
 		null
 	);
 
+	// Every profile's neighbour list, so the card's switcher is a client-side toggle with
+	// no refetch. Pre-#109 the warehouse sends only `doc.similar`; fall back to that so the
+	// page still works (the switcher then offers "Similar" alone).
+	const wire: Record<string, SimilarWireRow[]> = doc.similar_profiles ?? {
+		[DEFAULT_SIMILAR_PROFILE]: doc.similar
+	};
+	const similarByProfile = Object.fromEntries(
+		SIMILAR_PROFILES.map((p) => [p, mapSimilar(wire[p] ?? [])])
+	) as Record<SimilarProfile, SimilarGame[]>;
+
 	return {
 		id: doc.game_id,
 		name: f.name,
@@ -145,28 +169,32 @@ function toViewModel(doc: GameDocument) {
 		lastUpdated: f.last_updated ?? null,
 		playerCounts: pcts,
 		bestAt: bestAt && bestAt.best > 0 ? bestAt.count : null,
-		similar: (doc.similar as unknown as SimilarRow[]).map((s) => ({
-			id: s.game_id,
-			name: s.name,
-			year: s.year_published,
-			similarity: 1 - s.distance
-		})),
+		similar: similarByProfile[DEFAULT_SIMILAR_PROFILE],
+		similarByProfile,
 		predictions: toPredictions(doc.predictions)
 	};
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, url }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) throw error(404, 'Not a valid game id.');
 
 	// Offline: there is no warehouse to ask, so hand the browser the id and let it answer
 	// from the catalog it already has in DuckDB. Returning `game: null` rather than throwing
-	// is what gives the client a chance to render at all.
-	if (isOffline()) return { game: null, id, offline: true as const };
+	// is what gives the client a chance to render at all. No switcher offline, so the
+	// profile is nominal.
+	if (isOffline())
+		return { game: null, id, offline: true as const, profile: DEFAULT_SIMILAR_PROFILE };
 
 	try {
 		const game = toViewModel(await warehouseClient().getGame(id));
-		return { game, id, offline: false as const };
+		// Which profiles actually have a list for this game — `sicko`/`recommender` are
+		// empty for a low-rating game. Reading `url.searchParams` here makes SvelteKit
+		// re-run `load` on a full navigation; the client switcher uses shallow
+		// `replaceState`, which deliberately does not.
+		const available = SIMILAR_PROFILES.filter((p) => game.similarByProfile[p].length > 0);
+		const profile = resolveSimilarProfile(url.searchParams.get('profile'), available);
+		return { game, id, offline: false as const, profile };
 	} catch (e) {
 		if (e instanceof GameNotFoundError) throw error(404, `Game ${id} not found.`);
 		throw e;
