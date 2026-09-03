@@ -17,7 +17,12 @@ const doc = {
 	features: { player_counts: [] },
 	predictions: null,
 	embedding: null,
-	similar: [],
+	similar: [{ game_id: 21, name: 'Carcassonne', year_published: 2000, distance: 0.1 }],
+	similar_profiles: {
+		similar: [{ game_id: 21, name: 'Carcassonne', year_published: 2000, distance: 0.1 }],
+		recommender: [{ game_id: 822, name: 'Carcassonne', year_published: 2000, distance: 0.14 }],
+		sicko: []
+	},
 	provenance: null
 };
 
@@ -34,6 +39,20 @@ describe('createWarehouseClient.getGame', () => {
 
 		expect(calls[0].url).toBe('https://warehouse.example/games/13');
 		expect(result).toEqual(doc);
+	});
+
+	it('carries the similar_profiles block through untouched', async () => {
+		const { fetchImpl } = stubFetch(doc);
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		const result = await client.getGame(13);
+
+		expect(Object.keys(result.similar_profiles ?? {})).toEqual(['similar', 'recommender', 'sicko']);
+		expect(result.similar_profiles?.sicko).toEqual([]);
 	});
 
 	it('attaches the ID token as a Bearer Authorization header', async () => {

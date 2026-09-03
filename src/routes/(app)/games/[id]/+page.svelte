@@ -12,13 +12,19 @@
    * you had to rebuild the set — which broke the "and do it again for other games" half of
    * the loop far more than anything on this page.
    */
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { replaceState } from '$app/navigation';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import { gameFromCatalogRow, type CatalogGameRow } from '$lib/catalog/game-from-catalog';
   import { fetchThumbnailMap } from '$lib/catalog/thumbnails';
   import { decodeEntities } from '$lib/utils/html-entities';
   import { Container } from '$lib/components/ui/layout';
   import PredictionPanel from '$lib/game/PredictionPanel.svelte';
+  import {
+    SIMILAR_PROFILES,
+    SIMILAR_PROFILE_LABELS,
+    type SimilarProfile
+  } from '$lib/game/similar-profiles';
 
   let { data } = $props();
 
@@ -39,6 +45,28 @@
   });
 
   const g = $derived(data.game ?? fromCatalog);
+
+  /**
+   * The "Similar games" card can show any of three precomputed neighbour lists. All three
+   * ride in `data.game.similarByProfile`, so switching is a local toggle — no refetch. The
+   * choice mirrors into `?profile=` (shallow `replaceState`, so `load` doesn't re-run) to
+   * keep the link shareable; a full navigation re-runs `load` and re-seeds from `data.profile`.
+   */
+  // `untrack` for the seed so svelte-check doesn't flag the prop read (and so SSR still
+  // paints the right list); the effect re-syncs on every real navigation.
+  let profile = $state<SimilarProfile>(untrack(() => data.profile));
+  $effect(() => {
+    profile = data.profile;
+  });
+
+  const similarList = $derived(g?.similarByProfile?.[profile] ?? g?.similar ?? []);
+
+  function pickProfile(p: SimilarProfile) {
+    profile = p;
+    // Shallow — mirrors the choice into the URL for sharing without re-running `load`.
+    // Same call shape as Discover's scope sync.
+    replaceState(`?profile=${p}`, {});
+  }
 
   /**
    * `game_id → thumbnail`, for the "Similar games" list only. This page doesn't otherwise
@@ -624,10 +652,28 @@
 
     <div class="stack">
       <section class="card">
-        <p class="sub">Similar games <span class="sub-note">· by similarity</span></p>
-        {#if g.similar.length}
+        <div class="sim-head">
+          <p class="sub">Similar games <span class="sub-note">· by similarity</span></p>
+          <!-- All three lists ship with the page; switching is a local toggle, not a fetch.
+               A profile with no list for this game (sicko/recommender on a low-rating game)
+               is a disabled tab. Hidden offline — there are no lists to switch between. -->
+          {#if !data.offline}
+            <div class="seg" role="group" aria-label="Similar-games list">
+              {#each SIMILAR_PROFILES as p (p)}
+                <button
+                  type="button"
+                  class:on={p === profile}
+                  aria-pressed={p === profile}
+                  disabled={(g.similarByProfile?.[p]?.length ?? 0) === 0}
+                  onclick={() => pickProfile(p)}>{SIMILAR_PROFILE_LABELS[p]}</button
+                >
+              {/each}
+            </div>
+          {/if}
+        </div>
+        {#if similarList.length}
           <div class="sim">
-            {#each g.similar as s (s.id)}
+            {#each similarList as s (s.id)}
               <a href="/games/{s.id}">
                 {#if thumbById.get(s.id)}
                   <img class="mono" src={thumbById.get(s.id)} alt="" loading="lazy" />
@@ -1222,6 +1268,50 @@
   .chip.cat {
     border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
     color: var(--primary);
+  }
+
+  /* Heading + list switcher on one row; the switcher wraps under on a narrow card. The
+     .sub's own bottom margin is the gap to the list below. */
+  .sim-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.4rem;
+  }
+  .sim-head .sub {
+    margin-bottom: 0.6rem;
+  }
+  /* Mirrors ShapeStrip's `.seg` so the app has one segmented-control look. */
+  .seg {
+    display: flex;
+    gap: 0.15rem;
+    background: var(--muted);
+    border-radius: 7px;
+    padding: 0.1rem;
+  }
+  .seg button {
+    border: none;
+    background: none;
+    border-radius: 5px;
+    color: var(--muted-foreground);
+    font: inherit;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.45rem;
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .seg button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
   }
 
   .sim {

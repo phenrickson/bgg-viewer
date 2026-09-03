@@ -11,6 +11,8 @@
  * DuckDB and no network.
  */
 
+import { emptySimilarByProfile, type SimilarGame } from '$lib/game/similar-profiles';
+
 /** One catalog row, as DuckDB returns it. List columns arrive as arrays. */
 export interface CatalogGameRow {
 	game_id: number;
@@ -137,7 +139,8 @@ export function gameFromCatalogRow(row: CatalogGameRow) {
 		minAge: null,
 		weightVotes: null,
 		lastUpdated: null,
-		similar: [],
+		similar: [] as SimilarGame[],
+		similarByProfile: emptySimilarByProfile(),
 		designers: toStrings(row.designers),
 		artists: toStrings(row.artists),
 		publishers: toStrings(row.publishers),

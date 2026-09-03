@@ -17,12 +17,26 @@ export interface GameFeatures {
 	[key: string]: unknown;
 }
 
+/** One neighbour in a `similar` / `similar_profiles.*` list. `distance` is cosine
+ *  distance (0 = identical); the view model turns it into `similarity = 1 - distance`. */
+export interface SimilarWireRow {
+	game_id: number;
+	name: string;
+	year_published: number | null;
+	distance: number;
+}
+
 export interface GameDocument {
 	game_id: number;
 	features: GameFeatures;
 	predictions: Record<string, unknown> | null;
 	embedding: Record<string, unknown> | null;
-	similar: unknown[];
+	/** The neighbour list for the `?profile=`-selected profile (default `similar`). */
+	similar: SimilarWireRow[];
+	/** Every profile's neighbour list, keyed by profile name; a profile with no list
+	 *  for this game is `[]`. Absent on a warehouse deployed before bgg-data-warehouse
+	 *  #109 — callers fall back to `{ similar }`. */
+	similar_profiles?: Record<string, SimilarWireRow[]>;
 	provenance: Record<string, unknown> | null;
 }
 
