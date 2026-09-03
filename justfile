@@ -12,6 +12,7 @@
 #   just status     # is it up?
 #   just vizzes     # regenerate landing content, print the /dev/vizzes review URL
 #   just dev-vizzes # regenerate + start the dev server, one command/one terminal
+#   just dev-similar # start the dev server, print the /dev/similar bench URL
 #   just verify     # types + tests + build (run before every PR)
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
@@ -92,6 +93,28 @@ vizzes:
 # terminal — one command instead of juggling two. Foreground, same as `dev`: Ctrl-C to stop.
 # Regenerate landing content, then start the dev server.
 dev-vizzes: vizzes
+    -pnpm exec vite dev --port 5173
+
+# --- Similarity tuning bench (dev only) -------------------------------------
+
+# The /dev/similar bench is dev-gated and computes neighbour lists in the browser. It loads
+# a dataset from BigQuery on first request (cached 24h in .cache/similar-explorer.arrow.gz);
+# nothing to regenerate up front, so this just points you at it.
+# Print the /dev/similar tuning-bench URL.
+similar:
+    @echo "-> http://localhost:5173/dev/similar"
+
+# The 24h cache is keyed on time, not content, so a change to the dataset query
+# (src/lib/server/similar-explorer/) isn't picked up until the file is gone. Portable via node.
+# Drop the cached similarity dataset so the next /dev/similar load rebuilds it (~40s).
+similar-rebuild:
+    node -e "require('fs').rmSync('.cache/similar-explorer.arrow.gz',{force:true})"
+    @echo "cleared - next /dev/similar load rebuilds the dataset from BigQuery"
+
+# `similar` runs first (prints the URL), then the server starts in the same terminal.
+# Foreground, same as `dev`: Ctrl-C to stop.
+# Start the dev server, pointed at the /dev/similar bench.
+dev-similar: similar
     -pnpm exec vite dev --port 5173
 
 # Type-check (svelte-check).
