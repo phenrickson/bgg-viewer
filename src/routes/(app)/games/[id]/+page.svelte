@@ -118,13 +118,9 @@
   const CLAMP_AT = 620;
   let showAll = $state(false);
 
-  // The taxonomy band clamps for tag-heavy games (Dune: Imperium carries ~30). Count-based
-  // rather than measured — a handful of extra rows is cheaper than a layout observer.
+  // Categories + Mechanics show by default in the taxonomy card; Series & Families (mostly
+  // metadata) is behind this toggle.
   let showAllTags = $state(false);
-  const tagCount = $derived(
-    (g?.categories.length ?? 0) + (g?.mechanics.length ?? 0) + (g?.families.length ?? 0)
-  );
-  const taxoOverflow = $derived(tagCount > 16);
 
   /**
    * Hover breakdown on the player-count bars — built, then switched off: the interaction isn't
@@ -514,41 +510,33 @@
     </div>
   </section>
 
-  {#if g.categories.length || g.mechanics.length || g.families.length}
-    <!-- Pulled up from the foot of the page: "what kind of game is this" belongs by the
-         hero, not below the fold. Three columns on wide, stacked on narrow; the band clamps
-         behind a toggle for tag-heavy games (Dune: Imperium carries ~30). -->
-    <section class="card taxo">
-      <div class="taxo-grid" class:clamped={taxoOverflow && !showAllTags}>
-        {#if g.categories.length}
-          <div class="taxo-col">
-            <p class="sub">Categories</p>
-            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
-          </div>
-        {/if}
-        {#if g.mechanics.length}
-          <div class="taxo-col">
-            <p class="sub">Mechanics</p>
-            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
-          </div>
-        {/if}
-        {#if g.families.length}
-          <div class="taxo-col">
-            <p class="sub">Series &amp; families</p>
-            <div class="chips">{#each g.families as f (f)}<a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>{/each}</div>
-          </div>
-        {/if}
-      </div>
-      {#if taxoOverflow}
-        <button class="link" onclick={() => (showAllTags = !showAllTags)}>
-          {showAllTags ? 'Show fewer' : 'Show all tags'}
-        </button>
-      {/if}
-    </section>
-  {/if}
-
   <div class="cols">
     <div class="stack">
+      {#if g.categories.length || g.mechanics.length || g.families.length}
+        <!-- Top of the left column, above About: "what kind of game is this" read first.
+             Categories + Mechanics show by default; Series & Families (mostly metadata —
+             "Digital Implementations: Steam", "Components: Meeples") is behind a toggle. -->
+        <section class="card">
+          {#if g.categories.length}
+            <p class="sub">Categories</p>
+            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
+          {/if}
+          {#if g.mechanics.length}
+            <p class="sub">Mechanics</p>
+            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+          {/if}
+          {#if g.families.length}
+            {#if showAllTags}
+              <p class="sub">Series &amp; families</p>
+              <div class="chips">{#each g.families as f (f)}<a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>{/each}</div>
+            {/if}
+            <button class="link" onclick={() => (showAllTags = !showAllTags)}>
+              {showAllTags ? 'Hide series & families' : `Series & families (${g.families.length})`}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
       {#if description}
         <section class="card">
           <p class="sub">About</p>
@@ -1009,36 +997,9 @@
     min-width: 0;
   }
 
-  /* Taxonomy band — full content-width, directly under the hero. Three columns of chips on
-     wide, stacked on narrow; clamps behind "Show all tags" for tag-heavy games. */
-  .taxo {
-    margin-top: var(--space-lg);
-  }
-  .taxo-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-lg);
-  }
-  .taxo-col .sub {
-    margin-bottom: 0.5rem;
-  }
-  .taxo-grid.clamped {
-    max-height: 8rem;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
-    mask-image: linear-gradient(to bottom, #000 62%, transparent);
-  }
-  .taxo .link {
+  /* The "Series & families (N)" toggle sits below the default chips as its own row. */
+  .chips + .link {
     margin-top: 0.7rem;
-  }
-  @media (max-width: 860px) {
-    .taxo-grid {
-      grid-template-columns: 1fr;
-      gap: var(--space-md);
-    }
-    .taxo-grid.clamped {
-      max-height: 15rem;
-    }
   }
 
   .sub {
@@ -1048,6 +1009,9 @@
     color: var(--muted-foreground);
     margin: 0 0 0.6rem;
     font-weight: 600;
+  }
+  .sub + .chips + .sub {
+    margin-top: var(--space-md);
   }
   .sub-note {
     text-transform: none;

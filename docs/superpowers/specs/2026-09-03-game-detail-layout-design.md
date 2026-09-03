@@ -29,18 +29,17 @@ the new badge.
 `PredictionPanel` always renders in the right column under Similar games (today it jumps
 to the left stack for upcoming games). Remove the `{#if upcoming}` left-column copy.
 
-### 2. Taxonomy band — pulled up, full width, above the two columns
+### 2. Taxonomy card — top of the left column, above About
 
-A full-width section directly under the hero, before `.cols`: **Categories | Mechanics |
-Series & Families**, three columns on wide, stacking on narrow. Existing `.chips` / `.chip`
-rendering and the Explore links are unchanged — `frontend-patterns` / `style-rules` govern
-the look.
+**Not** a full-width band (tried it — imbalanced against the 2-column body below). A
+normal `.card` at the **top of the left column**, above About: **Categories** then
+**Mechanics** by default. **Series & Families** is hidden behind a toggle
+("Series & families (N)" ⇄ "Hide series & families") — it's ~70% metadata for a game
+like Dune: Imperium ("Digital Implementations: Steam", "Components: Meeples") and doesn't
+belong in the default at-a-glance read.
 
-Overflow (Dune: Imperium has ~4 / ~15 / ~13): the band **clamps to ~3 rows** with a
-"Show all tags" toggle. Light games never hit the clamp.
-
-Series & Families keeps its current treatment — no filtering of the noisy entries
-("Digital Implementations: …"); follow the existing chip rules.
+Existing `.chips` / `.chip` rendering and Explore links unchanged. No filtering of the
+Series & Families entries — just collapsed by default.
 
 ### 3. Player counts — always visible, pending state when upcoming
 
