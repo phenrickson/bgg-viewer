@@ -39,7 +39,19 @@ method, no loading state.
 
 ## Steps
 
-### Part A — bgg-data-warehouse (PR: `feat/similar-doc-all-profiles`)
+### Part A — bgg-data-warehouse — DONE, PR [#109](https://github.com/phenrickson/bgg-data-warehouse/pull/109)
+
+Shipped: `get_game` returns `similar_profiles` (all three lists, `[]` for a profile with
+no row); top-level `similar` kept for back-compat; `game_neighbors` re-clustered
+`game_id, profile` (with a `DROP TABLE IF EXISTS` — `CREATE OR REPLACE` can't re-cluster
+in place) so the all-profiles read is no dearer than the old single-profile one. Compile
+check green; 34 reader/router tests pass. Merge auto-deploys the API; **trigger Run
+Dataform after merge** so the re-cluster lands. Original Part A detail kept below for
+reference.
+
+<details><summary>Part A as planned</summary>
+
+#### bgg-data-warehouse (PR: `feat/similar-doc-all-profiles`)
 
 #### A1. Reader returns all profiles
 
@@ -83,6 +95,8 @@ Record it in the PR description.
 
 **→ Merge, deploy, confirm live before starting Part B's PR review.** (Part B can be
 *written* against the fallback in B4 in parallel.)
+
+</details>
 
 ### Part B — bgg-viewer (PR: `feat/similar-profile-switcher`)
 
@@ -198,6 +212,12 @@ localStorage last-used profile; removing `?profile=` from `GET /games/{id}`.
 
 ## Open questions
 
-None blocking. Warehouse PR decides the exact `similar_profiles` key placement (nested
-map vs flattened) — the viewer's B3 reads `doc.similar_profiles[name]` either way as long
-as it's a `{ profile: rows[] }` object.
+None. `similar_profiles` shape is settled in #109: `{ similar: rows[], recommender:
+rows[], sicko: rows[] }`, every key present, `[]` when empty. B3 reads
+`doc.similar_profiles[name]`.
+
+## Status
+
+- Part A: PR [#109](https://github.com/phenrickson/bgg-data-warehouse/pull/109) open,
+  compile check green — **awaiting Phil's review + merge** (then trigger Run Dataform).
+- Part B: not started; local branch `feat/similar-profile-switcher` holds the spec + plan.

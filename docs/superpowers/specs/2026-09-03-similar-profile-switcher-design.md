@@ -84,9 +84,9 @@ Rationale: SSR-correct first paint, shareable/bookmarkable, back/forward for fre
 
 ### 2. The warehouse returns all three lists; the switcher is client-side state
 
-**Warehouse PR (lands first):** `readers/games.py` `get_game` attaches every profile's
-neighbour list to the document, not just one. Shape (warehouse PR's exact call, but the
-viewer expects): keep `similar` as the default list for back-compat, add
+**Warehouse PR (lands first — bgg-data-warehouse #109):** `readers/games.py` `get_game`
+attaches every profile's neighbour list to the document. Confirmed shape — `similar`
+stays (mirrors the `?profile=`-selected list, back-compat), plus:
 
 ```jsonc
 "similar_profiles": {
@@ -96,9 +96,12 @@ viewer expects): keep `similar` as the default list for back-compat, add
 }
 ```
 
-One `SELECT profile, similar FROM game_neighbors WHERE game_id = @id` (≤ 3 rows) replaces
-the current single-profile lookup — same partition, negligible extra bytes/latency. The
-document grows by ~2 KB (two short arrays).
+Every key always present. One `SELECT profile, similar FROM game_neighbors WHERE
+game_id = @id` (≤ 3 rows) replaces the single-profile lookup. Measured (`game_id = 13`):
+the naive swap took the neighbour read 58 MB → 127 MB billed because `game_neighbors`
+was clustered `profile, game_id`; #109 re-clusters it `game_id, profile` (a filter on
+`game_id` alone then prunes to ~one block) so the all-profiles read is no dearer than
+the old single-profile one. Document grows by ~2 KB.
 
 **Viewer:** `toViewModel` maps all three into
 `g.similarByProfile: Record<SimilarProfile, SimilarGame[]>`. The card renders
@@ -203,11 +206,12 @@ the tuning bench / `src/lib/data/games.remote.ts`.
 ## Risks / unknowns
 
 - **Document size.** Three lists instead of one — ~2 KB on a document that already
-  carries the description and embedding. Confirm the real delta once the warehouse PR is
-  up; if a list is ever much longer than ~10 rows revisit.
-- **Warehouse query selectivity.** Dropping `profile` from the `game_neighbors` lookup
-  reads up to 3× the micro-partitions (clustered `profile, game_id`). Table is small;
-  expected negligible. Check bytes-scanned in the warehouse PR.
+  carries the description and embedding. If a list is ever much longer than ~10 rows
+  (top_k), revisit.
+- **Warehouse query selectivity.** Handled in #109 by re-clustering `game_neighbors`
+  `game_id, profile` (see Decision 2). The re-cluster lands on the next Run Dataform,
+  not at API-deploy time — a short window where the all-profiles read costs 127 MB
+  instead of ~one block. Cheap, self-heals; trigger Run Dataform after merging #109.
 - **Transitional deploy skew.** If bgg-viewer PR 2 ships before the warehouse PR is
   deployed, `doc.similar_profiles` is absent — `toViewModel` falls back to a single-entry
   `{ similar: doc.similar }` map, the switcher shows only "Similar" active with the other
