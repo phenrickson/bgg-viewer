@@ -218,6 +218,11 @@ rows[], sicko: rows[] }`, every key present, `[]` when empty. B3 reads
 
 ## Status
 
-- Part A: PR [#109](https://github.com/phenrickson/bgg-data-warehouse/pull/109) open,
-  compile check green — **awaiting Phil's review + merge** (then trigger Run Dataform).
-- Part B: not started; local branch `feat/similar-profile-switcher` holds the spec + plan.
+- **Part A** — PR [#109](https://github.com/phenrickson/bgg-data-warehouse/pull/109) open,
+  compile check green. Awaiting Phil's review + merge (then trigger Run Dataform).
+- **Part B** — built on local branch `feat/similar-profile-switcher` (commit `2c31727`),
+  not pushed / no PR. B1–B5 done: `similar-profiles.ts` + tests, wire type, `toViewModel`
+  → `similarByProfile` (with the pre-#109 `{ similar }` fallback), `load` resolves
+  `?profile=`, segmented control with disabled tabs + shallow `replaceState`.
+  `just check` / `just test` / `just build` all green. B6 (manual light/dark) skipped per
+  Phil. Works today against the fallback; the other two tabs light up once #109 deploys.
