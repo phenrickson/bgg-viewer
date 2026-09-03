@@ -25,6 +25,7 @@
     SIMILAR_PROFILE_LABELS,
     type SimilarProfile
   } from '$lib/game/similar-profiles';
+  import { similarityPct, similarityColor, ratingColor, complexityColor } from '$lib/game/similarity';
 
   let { data } = $props();
 
@@ -87,22 +88,8 @@
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
 
-  /** 1 = exact match, 0 = no relation — the measure's own bounds, clamped defensively
-   *  against the rare negative cosine-distance edge case rather than trusted blindly. */
-  const similarityPct = (s: number) => Math.max(0, Math.min(100, s * 100));
-
-  /**
-   * Same diverging formula as Scatter.svelte's `div()` — rose below the pivot, blue above,
-   * pale where they meet — reused rather than re-derived so the app has one diverging scale,
-   * not two slightly different ones. Pivot at 0.5: below it a game is "more unlike than
-   * like", which is the meaningful midpoint for a 0–1 similarity measure.
-   */
-  function similarityColor(s: number): string {
-    const u = similarityPct(s) / 100;
-    const d = Math.abs(u - 0.5) * 2;
-    const hue = u < 0.5 ? 25 : 250;
-    return `oklch(${0.85 - 0.3 * d} ${0.03 + 0.14 * d} ${hue})`;
-  }
+  // similarityPct / similarityColor / ratingColor / complexityColor come from
+  // $lib/game/similarity — the same scales the /dev/similar bench uses.
 
   /**
    * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
@@ -130,6 +117,14 @@
   /** Long enough that clamping it actually hides something worth a button. */
   const CLAMP_AT = 620;
   let showAll = $state(false);
+
+  // The taxonomy band clamps for tag-heavy games (Dune: Imperium carries ~30). Count-based
+  // rather than measured — a handful of extra rows is cheaper than a layout observer.
+  let showAllTags = $state(false);
+  const tagCount = $derived(
+    (g?.categories.length ?? 0) + (g?.mechanics.length ?? 0) + (g?.families.length ?? 0)
+  );
+  const taxoOverflow = $derived(tagCount > 16);
 
   /**
    * Hover breakdown on the player-count bars — built, then switched off: the interaction isn't
@@ -423,7 +418,7 @@
               href="/games?{param}={encodeURIComponent(n)}">{n}</a
             >{/each}{#if names.length > max}{sep}+{names.length - max}{/if}
         {/snippet}
-        <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
+        <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}{#if upcoming}<span class="badge-upcoming">Upcoming</span>{/if}</h1>
         {#if g.designers.length}<p class="byline">by {@render credits(g.designers, 'des', ', ')}</p>{/if}
         {#if g.artists.length}
           <p class="pubs">art by {@render credits(g.artists, 'art', ', ', 3)}</p>
@@ -453,9 +448,14 @@
       so it is the weaker of the two figures here — where "est. 6.93" against a live 6.24 is
       the whole story.
     -->
+    <!--
+      Order: geek → average → complexity → ratings count. The three scored figures lead
+      (each coloured by its own quality/weight scale, `similarity.ts`); the raw count of
+      ratings, which is neutral, comes last.
+    -->
     <div class="stats">
       <div class="stat">
-        <div class="v tnum">{num(pos(g.geek))}</div>
+        <div class="v tnum" style:color={ratingColor(pos(g.geek))}>{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
         {#if upcoming && p?.geek != null}
           <div class="of est">est. <span class="tnum">{num(p.geek)}</span></div>
@@ -466,12 +466,24 @@
         {/if}
       </div>
       <div class="stat">
-        <div class="v tnum">{num(pos(g.average))}</div>
+        <div class="v tnum" style:color={ratingColor(pos(g.average))}>{num(pos(g.average))}</div>
         <div class="l">Average</div>
         {#if upcoming && p?.rating != null}
           <div class="of est">est. <span class="tnum">{num(p.rating)}</span></div>
         {:else if topPct(standing?.avg_pct)}
           <div class="of">{topPct(standing?.avg_pct)}</div>
+        {/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum" style:color={complexityColor(pos(g.weight))}>{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
+        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
+        {#if upcoming && p?.complexity != null}
+          <div class="of est">est. <span class="tnum">{num(p.complexity, 1)}</span></div>
+        {:else}
+          <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after
+               the separator and stranded "votes" on its own. -->
+          {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
+          {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
         {/if}
       </div>
       <div class="stat">
@@ -481,18 +493,6 @@
           <div class="of est">est. <span class="tnum">{int(p.usersRated)}</span></div>
         {:else if topPct(standing?.rated_pct)}
           <div class="of">{topPct(standing?.rated_pct)}</div>
-        {/if}
-      </div>
-      <div class="stat">
-        <div class="v tnum">{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
-        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
-        {#if upcoming && p?.complexity != null}
-          <div class="of est">est. <span class="tnum">{num(p.complexity, 1)}</span></div>
-        {:else}
-          <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after
-               the separator and stranded "votes" on its own. -->
-          {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
-          {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
         {/if}
       </div>
       {#if standing && isRanked}
@@ -514,21 +514,59 @@
     </div>
   </section>
 
+  {#if g.categories.length || g.mechanics.length || g.families.length}
+    <!-- Pulled up from the foot of the page: "what kind of game is this" belongs by the
+         hero, not below the fold. Three columns on wide, stacked on narrow; the band clamps
+         behind a toggle for tag-heavy games (Dune: Imperium carries ~30). -->
+    <section class="card taxo">
+      <div class="taxo-grid" class:clamped={taxoOverflow && !showAllTags}>
+        {#if g.categories.length}
+          <div class="taxo-col">
+            <p class="sub">Categories</p>
+            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
+          </div>
+        {/if}
+        {#if g.mechanics.length}
+          <div class="taxo-col">
+            <p class="sub">Mechanics</p>
+            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
+          </div>
+        {/if}
+        {#if g.families.length}
+          <div class="taxo-col">
+            <p class="sub">Series &amp; families</p>
+            <div class="chips">{#each g.families as f (f)}<a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>{/each}</div>
+          </div>
+        {/if}
+      </div>
+      {#if taxoOverflow}
+        <button class="link" onclick={() => (showAllTags = !showAllTags)}>
+          {showAllTags ? 'Show fewer' : 'Show all tags'}
+        </button>
+      {/if}
+    </section>
+  {/if}
+
   <div class="cols">
     <div class="stack">
-      <!--
-        `order: 2` puts About above this. Player counts are the differentiator and were first
-        for that reason, but "what IS this game" has to come before "how does it play at
-        three" — you cannot evaluate the second answer without the first. Ordered in CSS
-        rather than moved in markup so the two blocks keep their `{#if}` guards intact.
+      {#if description}
+        <section class="card">
+          <p class="sub">About</p>
+          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
+          {#if description.length > CLAMP_AT}
+            <button class="link" onclick={() => (showAll = !showAll)}>
+              {showAll ? 'Show less' : 'Read more'}
+            </button>
+          {/if}
+        </section>
+      {/if}
 
-        For a game published this year or later it falls to the FOOT of the stack, below the
-        facet wall. These counts are community votes, and nobody has voted: `best_player_counts`
-        is populated for 68 of the 4,842 upcoming games. What renders is either nothing or a
-        chart built on a handful of ballots, and either way it is the least load-bearing thing
-        on the page — where for a settled game it is the most.
+      <!--
+        Player counts hold a fixed position for every game now (they used to drop to the foot
+        of the stack for upcoming games). No votes yet on an upcoming game is a "pending"
+        state, not an absence.
       -->
-      <section class="card" style:order={upcoming ? 4 : 2}>
+      <section class="card">
         <p class="sub">
           Player counts
           <span class="sub-note"
@@ -597,57 +635,13 @@
               {/if}
             </dl>
           {/if}
+        {:else if upcoming}
+          <!-- PLACEHOLDER copy — Phil writes the final strings. -->
+          <div class="empty">No community votes yet — check back after release.</div>
         {:else}
           <div class="empty">No player-count votes for this game.</div>
         {/if}
       </section>
-
-      {#if description}
-        <section class="card" style:order="1">
-          <p class="sub">About</p>
-          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
-          {#if description.length > CLAMP_AT}
-            <button class="link" onclick={() => (showAll = !showAll)}>
-              {showAll ? 'Show less' : 'Read more'}
-            </button>
-          {/if}
-        </section>
-      {/if}
-
-      {#if g.categories.length || g.mechanics.length || g.families.length}
-        <!-- Last in the stack: the full facet wall is reference, read after you know what the
-             game is and how it plays. Explicit, because a card with no `order` defaults to 0
-             and would sort above the two that set one. -->
-        <section class="card" style:order="3">
-          {#if g.categories.length}
-            <p class="sub">Categories</p>
-            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
-          {/if}
-          {#if g.mechanics.length}
-            <p class="sub">Mechanics</p>
-            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
-          {/if}
-          <!-- Families were in the warehouse payload and on this page nowhere at all, even
-               though Explore already filters on them — so a series was a dead end here. -->
-          {#if g.families.length}
-            <p class="sub">Series &amp; families</p>
-            <div class="chips">
-              {#each g.families as f (f)}
-                <a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>
-              {/each}
-            </div>
-          {/if}
-        </section>
-      {/if}
-      <!--
-        For a game published this year or later the model takes the wide slot the player-count
-        chart holds otherwise, and that chart drops to the foot: its counts are community
-        votes, and nobody has voted yet. A settled game gets the reverse and renders its panel
-        in the RIGHT column instead — see below.
-      -->
-      {#if upcoming}
-        <PredictionPanel game={g} order={2} />
-      {/if}
     </div>
 
     <div class="stack">
@@ -702,14 +696,12 @@
 
 
       <!--
-        Settled games keep the model HERE, at the foot of the right column: once the actuals
-        are in, what the model guessed is a footnote about the model rather than news about the
-        game. Similar games sits above it in both cases — useful whatever state a game is in,
-        so it is the one card that never moves.
+        The model card lives here under Similar games for every game (it used to jump to the
+        left column for upcoming ones). For a settled game it's a footnote about the model;
+        for an upcoming one it's the forecast — same slot, the badge and the panel's own
+        wording carry the difference.
       -->
-      {#if !upcoming}
-        <PredictionPanel game={g} order={2} />
-      {/if}
+      <PredictionPanel game={g} order={2} />
     </div>
   </div>
 
@@ -883,6 +875,21 @@
     color: var(--muted-foreground);
     font-weight: 500;
   }
+  /* Informational, not an alert — a quiet primary-tinted pill after the year. */
+  .badge-upcoming {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 13%, transparent);
+    border: 1px solid color-mix(in oklch, var(--primary) 32%, transparent);
+  }
   .byline {
     color: var(--muted-foreground);
     font-size: 0.88rem;
@@ -1002,6 +1009,38 @@
     min-width: 0;
   }
 
+  /* Taxonomy band — full content-width, directly under the hero. Three columns of chips on
+     wide, stacked on narrow; clamps behind "Show all tags" for tag-heavy games. */
+  .taxo {
+    margin-top: var(--space-lg);
+  }
+  .taxo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-lg);
+  }
+  .taxo-col .sub {
+    margin-bottom: 0.5rem;
+  }
+  .taxo-grid.clamped {
+    max-height: 8rem;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+    mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  }
+  .taxo .link {
+    margin-top: 0.7rem;
+  }
+  @media (max-width: 860px) {
+    .taxo-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-md);
+    }
+    .taxo-grid.clamped {
+      max-height: 15rem;
+    }
+  }
+
   .sub {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -1009,9 +1048,6 @@
     color: var(--muted-foreground);
     margin: 0 0 0.6rem;
     font-weight: 600;
-  }
-  .sub + .chips + .sub {
-    margin-top: var(--space-md);
   }
   .sub-note {
     text-transform: none;

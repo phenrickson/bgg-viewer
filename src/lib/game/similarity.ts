@@ -40,3 +40,20 @@ export function ratingColor(geek: number | null | undefined): string {
 	const t = Math.max(0, Math.min(1, (geek - 5.5) / 3));
 	return `oklch(${0.8 - 0.18 * t} ${0.04 + 0.13 * t} 150)`;
 }
+
+/**
+ * Complexity (1..5) → a blue(light)→orange→red(heavy) ramp. Two fixed hues that switch at
+ * the midpoint, never sweeping through green/yellow — lightness and chroma carry the value
+ * within each half. Same construction as `ComplexityMeter`, which imports this. Null / 0 is
+ * "not weighted yet" — neutral grey.
+ */
+export function complexityColor(weight: number | null | undefined): string {
+	if (weight == null || weight <= 0) return 'var(--muted-foreground)';
+	const u = Math.max(0, Math.min(1, (weight - 1) / 4));
+	if (u < 0.5) {
+		const t = u / 0.5;
+		return `oklch(${0.78 - 0.18 * t} ${0.05 + 0.11 * t} 245)`;
+	}
+	const t = (u - 0.5) / 0.5;
+	return `oklch(${0.72 - 0.18 * t} ${0.14 + 0.05 * t} ${55 - 33 * t})`;
+}
