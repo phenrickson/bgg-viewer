@@ -25,7 +25,7 @@
     SIMILAR_PROFILE_LABELS,
     type SimilarProfile
   } from '$lib/game/similar-profiles';
-  import { similarityPct, similarityColor, ratingColor, complexityColor } from '$lib/game/similarity';
+  import { similarityPct, similarityColor, complexityColor } from '$lib/game/similarity';
 
   let { data } = $props();
 
@@ -447,13 +447,13 @@
       the whole story.
     -->
     <!--
-      Order: geek → average → complexity → ratings count. The three scored figures lead
-      (each coloured by its own quality/weight scale, `similarity.ts`); the raw count of
-      ratings, which is neutral, comes last.
+      Order: geek → average → complexity → ratings count. Geek and Average take the same
+      fixed `--chart-1` as Explore's RatingBar (rating isn't a good/bad ramp); Complexity
+      keeps the blue→orange→red weight ramp (ComplexityMeter's). Ratings count is neutral.
     -->
     <div class="stats">
       <div class="stat">
-        <div class="v tnum" style:color={ratingColor(pos(g.geek))}>{num(pos(g.geek))}</div>
+        <div class="v tnum" style:color="var(--chart-1)">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
         {#if upcoming && p?.geek != null}
           <div class="of est">est. <span class="tnum">{num(p.geek)}</span></div>
@@ -464,7 +464,7 @@
         {/if}
       </div>
       <div class="stat">
-        <div class="v tnum" style:color={ratingColor(pos(g.average))}>{num(pos(g.average))}</div>
+        <div class="v tnum" style:color="var(--chart-1)">{num(pos(g.average))}</div>
         <div class="l">Average</div>
         {#if upcoming && p?.rating != null}
           <div class="of est">est. <span class="tnum">{num(p.rating)}</span></div>
