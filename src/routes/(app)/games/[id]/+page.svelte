@@ -541,7 +541,7 @@
           {#if g.mechanics.length}
             <p class="sub">Mechanics</p>
             <div class="chips">
-              {#each (showAllMechanics ? g.mechanics : g.mechanics.slice(0, MECHANICS_SHOWN)) as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}
+              {#each (showAllMechanics ? g.mechanics : g.mechanics.slice(0, MECHANICS_SHOWN)) as m (m)}<a class="chip mech" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}
               {#if g.mechanics.length > MECHANICS_SHOWN}
                 <button
                   type="button"
@@ -1297,6 +1297,14 @@
   .chip.cat {
     border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
     color: var(--primary);
+  }
+  /* Mechanics were plain `.chip` — same muted grey as everything else, so they read as the
+     least important thing on a card whose whole point is "what kind of game is this."
+     `--chart-1` (blue) gives them real weight while staying visually distinct from
+     Categories' orange — two kinds of tag, not one undifferentiated wall. */
+  .chip.mech {
+    border-color: color-mix(in oklch, var(--chart-1) 40%, var(--border));
+    color: var(--chart-1);
   }
   /* "+N more" / "Show fewer" — a chip-shaped button, dashed to read as an action not a tag. */
   .chip.more {
