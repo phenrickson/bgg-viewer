@@ -1354,13 +1354,13 @@
   .sim {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.4rem;
   }
   .sim a {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.4rem 0.5rem;
+    gap: 0.65rem;
+    padding: 0.45rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     text-decoration: none;
@@ -1374,8 +1374,8 @@
   /* Shared footprint for the real thumbnail and the initials placeholder, so a row never
      shifts size once the (fire-and-forget, non-blocking) thumbnail lookup resolves. */
   .sim .mono {
-    width: 1.8rem;
-    height: 1.8rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 6px;
     background: var(--muted);
     flex: none;
@@ -1385,7 +1385,7 @@
     display: grid;
     place-items: center;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--muted-foreground);
   }
   .sim .nmw {
@@ -1397,21 +1397,21 @@
   }
   .sim .nm {
     font-weight: 600;
-    font-size: 0.88rem;
+    font-size: 0.9rem;
   }
   .sim a:hover .nm {
     color: var(--primary);
   }
   .sim .yr {
     color: var(--muted-foreground);
-    font-size: 0.76rem;
+    font-size: 0.78rem;
   }
   /* Color itself is computed per-row in script (see similarityColor) — Scatter.svelte's own
      diverging formula, reused rather than approximated with a linear color-mix. */
   .sim .score {
     margin-left: auto;
     flex: none;
-    font-size: 0.82rem;
+    font-size: 0.86rem;
     font-weight: 650;
   }
 
