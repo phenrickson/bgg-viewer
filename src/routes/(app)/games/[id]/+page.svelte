@@ -25,6 +25,7 @@
     SIMILAR_PROFILE_LABELS,
     type SimilarProfile
   } from '$lib/game/similar-profiles';
+  import { similarityPct, similarityColor, complexityColor } from '$lib/game/similarity';
 
   let { data } = $props();
 
@@ -87,22 +88,8 @@
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
 
-  /** 1 = exact match, 0 = no relation — the measure's own bounds, clamped defensively
-   *  against the rare negative cosine-distance edge case rather than trusted blindly. */
-  const similarityPct = (s: number) => Math.max(0, Math.min(100, s * 100));
-
-  /**
-   * Same diverging formula as Scatter.svelte's `div()` — rose below the pivot, blue above,
-   * pale where they meet — reused rather than re-derived so the app has one diverging scale,
-   * not two slightly different ones. Pivot at 0.5: below it a game is "more unlike than
-   * like", which is the meaningful midpoint for a 0–1 similarity measure.
-   */
-  function similarityColor(s: number): string {
-    const u = similarityPct(s) / 100;
-    const d = Math.abs(u - 0.5) * 2;
-    const hue = u < 0.5 ? 25 : 250;
-    return `oklch(${0.85 - 0.3 * d} ${0.03 + 0.14 * d} ${hue})`;
-  }
+  // similarityPct / similarityColor / ratingColor / complexityColor come from
+  // $lib/game/similarity — the same scales the /dev/similar bench uses.
 
   /**
    * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
@@ -128,8 +115,19 @@
   }
   const description = $derived(decodeEntities(g?.description ?? null));
   /** Long enough that clamping it actually hides something worth a button. */
-  const CLAMP_AT = 620;
+  // Tighter than before (was 620): the left column's height should track the right
+  // column's (Similar games + the model card, both roughly fixed), so a long description
+  // shouldn't be the thing that makes this column balloon past it.
+  const CLAMP_AT = 420;
   let showAll = $state(false);
+
+  // Taxonomy card: Categories and Mechanics both capped with a "+N more", Series & Families
+  // (mostly metadata) behind its own toggle — same reasoning as CLAMP_AT above.
+  const CATEGORIES_SHOWN = 6;
+  const MECHANICS_SHOWN = 8;
+  let showAllCategories = $state(false);
+  let showAllMechanics = $state(false);
+  let showAllTags = $state(false);
 
   /**
    * Hover breakdown on the player-count bars — built, then switched off: the interaction isn't
@@ -423,7 +421,7 @@
               href="/games?{param}={encodeURIComponent(n)}">{n}</a
             >{/each}{#if names.length > max}{sep}+{names.length - max}{/if}
         {/snippet}
-        <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}</h1>
+        <h1 class="title">{g.name} {#if g.year}<span class="yr">{g.year}</span>{/if}{#if upcoming}<span class="badge-upcoming">Upcoming</span>{/if}</h1>
         {#if g.designers.length}<p class="byline">by {@render credits(g.designers, 'des', ', ')}</p>{/if}
         {#if g.artists.length}
           <p class="pubs">art by {@render credits(g.artists, 'art', ', ', 3)}</p>
@@ -453,9 +451,14 @@
       so it is the weaker of the two figures here — where "est. 6.93" against a live 6.24 is
       the whole story.
     -->
+    <!--
+      Order: geek → average → complexity → ratings count. Geek and Average take the same
+      fixed `--chart-1` as Explore's RatingBar (rating isn't a good/bad ramp); Complexity
+      keeps the blue→orange→red weight ramp (ComplexityMeter's). Ratings count is neutral.
+    -->
     <div class="stats">
       <div class="stat">
-        <div class="v tnum">{num(pos(g.geek))}</div>
+        <div class="v tnum" style:color="var(--chart-1)">{num(pos(g.geek))}</div>
         <div class="l">Geek rating</div>
         {#if upcoming && p?.geek != null}
           <div class="of est">est. <span class="tnum">{num(p.geek)}</span></div>
@@ -466,12 +469,24 @@
         {/if}
       </div>
       <div class="stat">
-        <div class="v tnum">{num(pos(g.average))}</div>
+        <div class="v tnum" style:color="var(--chart-1)">{num(pos(g.average))}</div>
         <div class="l">Average</div>
         {#if upcoming && p?.rating != null}
           <div class="of est">est. <span class="tnum">{num(p.rating)}</span></div>
         {:else if topPct(standing?.avg_pct)}
           <div class="of">{topPct(standing?.avg_pct)}</div>
+        {/if}
+      </div>
+      <div class="stat">
+        <div class="v tnum" style:color={complexityColor(pos(g.weight))}>{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
+        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
+        {#if upcoming && p?.complexity != null}
+          <div class="of est">est. <span class="tnum">{num(p.complexity, 1)}</span></div>
+        {:else}
+          <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after
+               the separator and stranded "votes" on its own. -->
+          {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
+          {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
         {/if}
       </div>
       <div class="stat">
@@ -481,18 +496,6 @@
           <div class="of est">est. <span class="tnum">{int(p.usersRated)}</span></div>
         {:else if topPct(standing?.rated_pct)}
           <div class="of">{topPct(standing?.rated_pct)}</div>
-        {/if}
-      </div>
-      <div class="stat">
-        <div class="v tnum">{num(pos(g.weight), 1)}{#if pos(g.weight)}<small>/5</small>{/if}</div>
-        <div class="l">{weightLabel(pos(g.weight)) || 'Complexity'}</div>
-        {#if upcoming && p?.complexity != null}
-          <div class="of est">est. <span class="tnum">{num(p.complexity, 1)}</span></div>
-        {:else}
-          <!-- Two lines, not one wrapping phrase: "heavier than 84% · 276 votes" broke after
-               the separator and stranded "votes" on its own. -->
-          {#if heavierThan}<div class="of">{heavierThan}</div>{/if}
-          {#if g.weightVotes}<div class="of">{int(g.weightVotes)} votes</div>{/if}
         {/if}
       </div>
       {#if standing && isRanked}
@@ -516,19 +519,69 @@
 
   <div class="cols">
     <div class="stack">
-      <!--
-        `order: 2` puts About above this. Player counts are the differentiator and were first
-        for that reason, but "what IS this game" has to come before "how does it play at
-        three" — you cannot evaluate the second answer without the first. Ordered in CSS
-        rather than moved in markup so the two blocks keep their `{#if}` guards intact.
+      {#if g.categories.length || g.mechanics.length || g.families.length}
+        <!-- Top of the left column, above About: "what kind of game is this" read first.
+             Categories + Mechanics show by default; Series & Families (mostly metadata —
+             "Digital Implementations: Steam", "Components: Meeples") is behind a toggle. -->
+        <section class="card">
+          {#if g.categories.length}
+            <p class="sub">Categories</p>
+            <div class="chips">
+              {#each (showAllCategories ? g.categories : g.categories.slice(0, CATEGORIES_SHOWN)) as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}
+              {#if g.categories.length > CATEGORIES_SHOWN}
+                <button
+                  type="button"
+                  class="chip more"
+                  onclick={() => (showAllCategories = !showAllCategories)}
+                  >{showAllCategories ? 'Show fewer' : `+${g.categories.length - CATEGORIES_SHOWN} more`}</button
+                >
+              {/if}
+            </div>
+          {/if}
+          {#if g.mechanics.length}
+            <p class="sub">Mechanics</p>
+            <div class="chips">
+              {#each (showAllMechanics ? g.mechanics : g.mechanics.slice(0, MECHANICS_SHOWN)) as m (m)}<a class="chip mech" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}
+              {#if g.mechanics.length > MECHANICS_SHOWN}
+                <button
+                  type="button"
+                  class="chip more"
+                  onclick={() => (showAllMechanics = !showAllMechanics)}
+                  >{showAllMechanics ? 'Show fewer' : `+${g.mechanics.length - MECHANICS_SHOWN} more`}</button
+                >
+              {/if}
+            </div>
+          {/if}
+          {#if g.families.length}
+            {#if showAllTags}
+              <p class="sub">Series &amp; families</p>
+              <div class="chips">{#each g.families as f (f)}<a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>{/each}</div>
+            {/if}
+            <button class="link" onclick={() => (showAllTags = !showAllTags)}>
+              {showAllTags ? 'Hide series & families' : `Series & families (${g.families.length})`}
+            </button>
+          {/if}
+        </section>
+      {/if}
 
-        For a game published this year or later it falls to the FOOT of the stack, below the
-        facet wall. These counts are community votes, and nobody has voted: `best_player_counts`
-        is populated for 68 of the 4,842 upcoming games. What renders is either nothing or a
-        chart built on a handful of ballots, and either way it is the least load-bearing thing
-        on the page — where for a settled game it is the most.
+      {#if description}
+        <section class="card">
+          <p class="sub">About</p>
+          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
+          {#if description.length > CLAMP_AT}
+            <button class="link" onclick={() => (showAll = !showAll)}>
+              {showAll ? 'Show less' : 'Read more'}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
+      <!--
+        Player counts hold a fixed position for every game now (they used to drop to the foot
+        of the stack for upcoming games). No votes yet on an upcoming game is a "pending"
+        state, not an absence.
       -->
-      <section class="card" style:order={upcoming ? 4 : 2}>
+      <section class="card">
         <p class="sub">
           Player counts
           <span class="sub-note"
@@ -597,57 +650,13 @@
               {/if}
             </dl>
           {/if}
+        {:else if upcoming}
+          <!-- PLACEHOLDER copy — Phil writes the final strings. -->
+          <div class="empty">No community votes yet — check back after release.</div>
         {:else}
           <div class="empty">No player-count votes for this game.</div>
         {/if}
       </section>
-
-      {#if description}
-        <section class="card" style:order="1">
-          <p class="sub">About</p>
-          <p class="desc" class:clamped={!showAll && description.length > CLAMP_AT}>{description}</p>
-          {#if description.length > CLAMP_AT}
-            <button class="link" onclick={() => (showAll = !showAll)}>
-              {showAll ? 'Show less' : 'Read more'}
-            </button>
-          {/if}
-        </section>
-      {/if}
-
-      {#if g.categories.length || g.mechanics.length || g.families.length}
-        <!-- Last in the stack: the full facet wall is reference, read after you know what the
-             game is and how it plays. Explicit, because a card with no `order` defaults to 0
-             and would sort above the two that set one. -->
-        <section class="card" style:order="3">
-          {#if g.categories.length}
-            <p class="sub">Categories</p>
-            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
-          {/if}
-          {#if g.mechanics.length}
-            <p class="sub">Mechanics</p>
-            <div class="chips">{#each g.mechanics as m (m)}<a class="chip" href="/games?mechs={encodeURIComponent(m)}">{m}</a>{/each}</div>
-          {/if}
-          <!-- Families were in the warehouse payload and on this page nowhere at all, even
-               though Explore already filters on them — so a series was a dead end here. -->
-          {#if g.families.length}
-            <p class="sub">Series &amp; families</p>
-            <div class="chips">
-              {#each g.families as f (f)}
-                <a class="chip" href="/games?fam={encodeURIComponent(f)}">{f}</a>
-              {/each}
-            </div>
-          {/if}
-        </section>
-      {/if}
-      <!--
-        For a game published this year or later the model takes the wide slot the player-count
-        chart holds otherwise, and that chart drops to the foot: its counts are community
-        votes, and nobody has voted yet. A settled game gets the reverse and renders its panel
-        in the RIGHT column instead — see below.
-      -->
-      {#if upcoming}
-        <PredictionPanel game={g} order={2} />
-      {/if}
     </div>
 
     <div class="stack">
@@ -702,14 +711,12 @@
 
 
       <!--
-        Settled games keep the model HERE, at the foot of the right column: once the actuals
-        are in, what the model guessed is a footnote about the model rather than news about the
-        game. Similar games sits above it in both cases — useful whatever state a game is in,
-        so it is the one card that never moves.
+        The model card lives here under Similar games for every game (it used to jump to the
+        left column for upcoming ones). For a settled game it's a footnote about the model;
+        for an upcoming one it's the forecast — same slot, the badge and the panel's own
+        wording carry the difference.
       -->
-      {#if !upcoming}
-        <PredictionPanel game={g} order={2} />
-      {/if}
+      <PredictionPanel game={g} order={2} />
     </div>
   </div>
 
@@ -883,6 +890,21 @@
     color: var(--muted-foreground);
     font-weight: 500;
   }
+  /* Informational, not an alert — a quiet primary-tinted pill after the year. */
+  .badge-upcoming {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 13%, transparent);
+    border: 1px solid color-mix(in oklch, var(--primary) 32%, transparent);
+  }
   .byline {
     color: var(--muted-foreground);
     font-size: 0.88rem;
@@ -985,7 +1007,9 @@
 
   .cols {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    /* Closer to even than before — the right column carries the model scorecard, which
+       needs room for its estimate-vs-actual rows to read. */
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
     gap: var(--space-lg);
     margin-top: var(--space-lg);
     align-items: start;
@@ -1000,6 +1024,11 @@
     flex-direction: column;
     gap: var(--space-lg);
     min-width: 0;
+  }
+
+  /* The "Series & families (N)" toggle sits below the default chips as its own row. */
+  .chips + .link {
+    margin-top: 0.7rem;
   }
 
   .sub {
@@ -1019,14 +1048,14 @@
     font-weight: 400;
   }
 
-  /* Most games have four or five rows and never scroll. A few support up to "30+", which is
-     31 bars — enough to push the description, the tags and the whole right column off the
-     screen. Cap it at roughly a dozen rows and let the rest scroll in place. */
+  /* Most games have four or five rows; a few support up to "30+" (31 bars). Capped tighter
+     than the old 22rem (which rarely kicked in) so the card tracks the right column's
+     roughly-fixed height instead of growing with the count — the rest scrolls in place. */
   .pcs {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-    max-height: 22rem;
+    max-height: 13rem;
     overflow-y: auto;
     /* Room for the scrollbar so it never sits on top of the percentages. */
     padding-right: 0.15rem;
@@ -1269,6 +1298,22 @@
     border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
     color: var(--primary);
   }
+  /* Mechanics were plain `.chip` — same muted grey as everything else, so they read as the
+     least important thing on a card whose whole point is "what kind of game is this."
+     `--chart-1` (blue) gives them real weight while staying visually distinct from
+     Categories' orange — two kinds of tag, not one undifferentiated wall. */
+  .chip.mech {
+    border-color: color-mix(in oklch, var(--chart-1) 40%, var(--border));
+    color: var(--chart-1);
+  }
+  /* "+N more" / "Show fewer" — a chip-shaped button, dashed to read as an action not a tag. */
+  .chip.more {
+    border-style: dashed;
+    background: transparent;
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
 
   /* Heading + list switcher on one row; the switcher wraps under on a narrow card. The
      .sub's own bottom margin is the gap to the list below. */
@@ -1317,13 +1362,13 @@
   .sim {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.4rem;
   }
   .sim a {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.4rem 0.5rem;
+    gap: 0.65rem;
+    padding: 0.45rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     text-decoration: none;
@@ -1337,8 +1382,8 @@
   /* Shared footprint for the real thumbnail and the initials placeholder, so a row never
      shifts size once the (fire-and-forget, non-blocking) thumbnail lookup resolves. */
   .sim .mono {
-    width: 1.8rem;
-    height: 1.8rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 6px;
     background: var(--muted);
     flex: none;
@@ -1348,7 +1393,7 @@
     display: grid;
     place-items: center;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--muted-foreground);
   }
   .sim .nmw {
@@ -1360,21 +1405,21 @@
   }
   .sim .nm {
     font-weight: 600;
-    font-size: 0.88rem;
+    font-size: 0.9rem;
   }
   .sim a:hover .nm {
     color: var(--primary);
   }
   .sim .yr {
     color: var(--muted-foreground);
-    font-size: 0.76rem;
+    font-size: 0.78rem;
   }
   /* Color itself is computed per-row in script (see similarityColor) — Scatter.svelte's own
      diverging formula, reused rather than approximated with a linear color-mix. */
   .sim .score {
     margin-left: auto;
     flex: none;
-    font-size: 0.82rem;
+    font-size: 0.86rem;
     font-weight: 650;
   }
 
