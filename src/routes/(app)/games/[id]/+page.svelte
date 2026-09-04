@@ -115,12 +115,17 @@
   }
   const description = $derived(decodeEntities(g?.description ?? null));
   /** Long enough that clamping it actually hides something worth a button. */
-  const CLAMP_AT = 620;
+  // Tighter than before (was 620): the left column's height should track the right
+  // column's (Similar games + the model card, both roughly fixed), so a long description
+  // shouldn't be the thing that makes this column balloon past it.
+  const CLAMP_AT = 420;
   let showAll = $state(false);
 
-  // Taxonomy card: Categories in full, Mechanics capped at MECHANICS_SHOWN with a "+N more",
-  // Series & Families (mostly metadata) behind its own toggle.
+  // Taxonomy card: Categories and Mechanics both capped with a "+N more", Series & Families
+  // (mostly metadata) behind its own toggle — same reasoning as CLAMP_AT above.
+  const CATEGORIES_SHOWN = 6;
   const MECHANICS_SHOWN = 8;
+  let showAllCategories = $state(false);
   let showAllMechanics = $state(false);
   let showAllTags = $state(false);
 
@@ -521,7 +526,17 @@
         <section class="card">
           {#if g.categories.length}
             <p class="sub">Categories</p>
-            <div class="chips">{#each g.categories as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}</div>
+            <div class="chips">
+              {#each (showAllCategories ? g.categories : g.categories.slice(0, CATEGORIES_SHOWN)) as c (c)}<a class="chip cat" href="/games?cats={encodeURIComponent(c)}">{c}</a>{/each}
+              {#if g.categories.length > CATEGORIES_SHOWN}
+                <button
+                  type="button"
+                  class="chip more"
+                  onclick={() => (showAllCategories = !showAllCategories)}
+                  >{showAllCategories ? 'Show fewer' : `+${g.categories.length - CATEGORIES_SHOWN} more`}</button
+                >
+              {/if}
+            </div>
           {/if}
           {#if g.mechanics.length}
             <p class="sub">Mechanics</p>
@@ -1039,14 +1054,14 @@
     font-weight: 400;
   }
 
-  /* Most games have four or five rows and never scroll. A few support up to "30+", which is
-     31 bars — enough to push the description, the tags and the whole right column off the
-     screen. Cap it at roughly a dozen rows and let the rest scroll in place. */
+  /* Most games have four or five rows; a few support up to "30+" (31 bars). Capped tighter
+     than the old 22rem (which rarely kicked in) so the card tracks the right column's
+     roughly-fixed height instead of growing with the count — the rest scrolls in place. */
   .pcs {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-    max-height: 22rem;
+    max-height: 13rem;
     overflow-y: auto;
     /* Room for the scrollbar so it never sits on top of the percentages. */
     padding-right: 0.15rem;
