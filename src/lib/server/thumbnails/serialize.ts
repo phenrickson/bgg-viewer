@@ -3,20 +3,15 @@
  * path the catalog artifact uses, but two columns instead of twenty-four, so this is a
  * bespoke serializer rather than a reuse of `catalog/serialize.ts`'s facet-column machinery.
  */
-import { Table, vectorFromArray, tableToIPC, Utf8, Int32, Float64 } from 'apache-arrow';
+import { Table, vectorFromArray, tableToIPC, Utf8, Int32 } from 'apache-arrow';
 
-export type ThumbnailRow = {
-	game_id: unknown;
-	thumbnail: string | null;
-	geek_rating?: unknown;
-};
+export type ThumbnailRow = { game_id: unknown; thumbnail: string | null };
 
 /** BigQuery returns INT64 as a `{ value: string }` wrapper (or a number); normalize. */
 function num(v: unknown): number | null {
 	if (v == null) return null;
 	if (typeof v === 'object' && 'value' in v) return Number((v as { value: unknown }).value);
-	const n = Number(v);
-	return Number.isFinite(n) ? n : null;
+	return Number(v);
 }
 
 export function rowsToArrowIPC(rows: ThumbnailRow[]): Uint8Array {
@@ -25,8 +20,7 @@ export function rowsToArrowIPC(rows: ThumbnailRow[]): Uint8Array {
 		thumbnail: vectorFromArray(
 			rows.map((r) => (r.thumbnail == null ? null : String(r.thumbnail))),
 			new Utf8()
-		),
-		geek_rating: vectorFromArray(rows.map((r) => num(r.geek_rating)), new Float64())
+		)
 	});
 	return tableToIPC(table, 'stream');
 }

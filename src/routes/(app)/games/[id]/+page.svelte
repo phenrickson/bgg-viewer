@@ -16,7 +16,7 @@
   import { replaceState } from '$app/navigation';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import { gameFromCatalogRow, type CatalogGameRow } from '$lib/catalog/game-from-catalog';
-  import { fetchNeighborMeta, type NeighborMeta } from '$lib/catalog/thumbnails';
+  import { fetchThumbnailMap } from '$lib/catalog/thumbnails';
   import { decodeEntities } from '$lib/utils/html-entities';
   import { Container } from '$lib/components/ui/layout';
   import PredictionPanel from '$lib/game/PredictionPanel.svelte';
@@ -70,18 +70,18 @@
   }
 
   /**
-   * `game_id → { thumbnail, geek }`, for the "Similar games" rows. This page doesn't
-   * otherwise load the catalog or DuckDB in online mode — `data.game` already carries
-   * everything else server-side — so pulling the whole ~5MB catalog + WASM engine just to
-   * dress a handful of rows would be a bad trade. `fetchNeighborMeta` reads the same small
-   * artifact Explore/Discover use for box art, parsed directly with apache-arrow.
-   * Fire-and-forget: a failed or slow fetch just leaves the initial + no rating badge.
+   * `game_id → thumbnail`, for the "Similar games" list only. This page doesn't otherwise
+   * load the catalog or DuckDB in online mode — `data.game` already carries everything else
+   * server-side — so pulling in the whole ~5MB catalog + WASM engine just to look up a
+   * handful of thumbnails would be a bad trade. `fetchThumbnailMap` reads the same small
+   * artifact Explore/Discover use, parsed directly with apache-arrow, no DuckDB involved.
+   * Fire-and-forget: a failed or slow fetch just leaves the initials placeholder in place.
    */
-  let neighborMeta = $state<Map<number, NeighborMeta>>(new Map());
+  let thumbById = $state<Map<number, string>>(new Map());
   onMount(() => {
-    fetchNeighborMeta()
-      .then((m) => (neighborMeta = m))
-      .catch((e) => console.error('similar-games meta lookup failed (non-fatal)', e));
+    fetchThumbnailMap()
+      .then((m) => (thumbById = m))
+      .catch((e) => console.error('similar-games thumbnail lookup failed (non-fatal)', e));
   });
 
   const num = (n: number | null, digits = 2) =>
@@ -683,25 +683,19 @@
         {#if similarList.length}
           <div class="sim">
             {#each similarList as s (s.id)}
-              {@const meta = neighborMeta.get(s.id)}
               <a href="/games/{s.id}">
-                {#if meta?.thumbnail}
-                  <img class="mono" src={meta.thumbnail} alt="" loading="lazy" />
+                {#if thumbById.get(s.id)}
+                  <img class="mono" src={thumbById.get(s.id)} alt="" loading="lazy" />
                 {:else}
                   <span class="mono ph">{s.name?.[0] ?? '?'}</span>
                 {/if}
                 <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-                <!-- Two badges, like the /dev/similar bench: how alike (diverging colour over
-                     the measure's own 0..1 bounds) and how well-rated (the neighbour's geek
-                     rating, same --chart-1 as the hero stat; absent until the meta arrives). -->
-                <span class="badges tnum">
-                  <span class="score" style:color={similarityColor(s.similarity)}
-                    >{Math.round(similarityPct(s.similarity))}%</span
-                  >
-                  {#if meta?.geek}
-                    <span class="rating" style:color="var(--chart-1)">{meta.geek.toFixed(1)}</span>
-                  {/if}
-                </span>
+                <!-- 1 and 0 are real anchors here — an exact match and no relation at all —
+                     so the color divergence runs over the measure's own natural bounds, not
+                     a per-list min/max. Percent reads faster than a bare decimal. -->
+                <span class="score tnum" style:color={similarityColor(s.similarity)}
+                  >{Math.round(similarityPct(s.similarity))}%</span
+                >
               </a>
             {/each}
           </div>
@@ -1412,23 +1406,13 @@
     color: var(--muted-foreground);
     font-size: 0.76rem;
   }
-  /* similarity % over geek rating, stacked right-aligned. Colours are per-row inline:
-     similarityColor (Scatter's diverging formula) for the %, --chart-1 for the rating. */
-  .sim .badges {
+  /* Color itself is computed per-row in script (see similarityColor) — Scatter.svelte's own
+     diverging formula, reused rather than approximated with a linear color-mix. */
+  .sim .score {
     margin-left: auto;
     flex: none;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    line-height: 1.2;
-  }
-  .sim .score {
     font-size: 0.82rem;
     font-weight: 650;
-  }
-  .sim .rating {
-    font-size: 0.72rem;
-    font-weight: 600;
   }
 
 

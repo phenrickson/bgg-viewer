@@ -5,13 +5,12 @@ import { WORKING_SET_WHERE } from '../catalog/columns';
 describe('thumbnailsQuerySql', () => {
 	const sql = thumbnailsQuerySql('proj.analytics.games_features');
 
-	it('selects game_id, thumbnail and geek_rating — nothing wider', () => {
+	it('selects only game_id and thumbnail — nothing wider', () => {
 		expect(sql).toContain('f.game_id');
 		expect(sql).toContain('f.thumbnail');
-		expect(sql).toContain('f.geek_rating');
 		expect(sql).not.toContain('SELECT *');
+		expect(sql).not.toContain('geek_rating');
 		expect(sql).not.toContain('description');
-		expect(sql).not.toContain('average_weight');
 	});
 
 	it('shares the catalog query\'s working-set filter, not a copy of the string', () => {
