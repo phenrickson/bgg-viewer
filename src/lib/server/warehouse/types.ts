@@ -18,12 +18,16 @@ export interface GameFeatures {
 }
 
 /** One neighbour in a `similar` / `similar_profiles.*` list. `distance` is cosine
- *  distance (0 = identical); the view model turns it into `similarity = 1 - distance`. */
+ *  distance (0 = identical); the view model turns it into `similarity = 1 - distance`.
+ *  `average_rating` / `geek_rating` are absent on a warehouse deployed before
+ *  bgg-data-warehouse #112. */
 export interface SimilarWireRow {
 	game_id: number;
 	name: string;
 	year_published: number | null;
 	distance: number;
+	average_rating?: number | null;
+	geek_rating?: number | null;
 }
 
 export interface GameDocument {

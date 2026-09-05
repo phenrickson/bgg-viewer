@@ -51,7 +51,9 @@ const mapSimilar = (rows: SimilarWireRow[]): SimilarGame[] =>
 		name: s.name,
 		year: s.year_published,
 		// 1 = exact match, 0 = no relation — the measure's own bounds.
-		similarity: 1 - s.distance
+		similarity: 1 - s.distance,
+		average: s.average_rating ?? null,
+		geek: s.geek_rating ?? null
 	}));
 
 /**
@@ -135,11 +137,9 @@ function toViewModel(doc: GameDocument) {
 	);
 
 	// Every profile's neighbour list, so the card's switcher is a client-side toggle with
-	// no refetch. Pre-#109 the warehouse sends only `doc.similar`; fall back to that so the
-	// page still works (the switcher then offers "Similar" alone).
-	const wire: Record<string, SimilarWireRow[]> = doc.similar_profiles ?? {
-		[DEFAULT_SIMILAR_PROFILE]: doc.similar
-	};
+	// no refetch. Pre-#109 the warehouse sends only `doc.similar` (the `similar` profile);
+	// fall back to that so the page still works (the switcher then offers "Most Similar" alone).
+	const wire: Record<string, SimilarWireRow[]> = doc.similar_profiles ?? { similar: doc.similar };
 	const similarByProfile = Object.fromEntries(
 		SIMILAR_PROFILES.map((p) => [p, mapSimilar(wire[p] ?? [])])
 	) as Record<SimilarProfile, SimilarGame[]>;
@@ -169,7 +169,7 @@ function toViewModel(doc: GameDocument) {
 		lastUpdated: f.last_updated ?? null,
 		playerCounts: pcts,
 		bestAt: bestAt && bestAt.best > 0 ? bestAt.count : null,
-		similar: similarByProfile[DEFAULT_SIMILAR_PROFILE],
+		similar: similarByProfile.similar,
 		similarByProfile,
 		predictions: toPredictions(doc.predictions)
 	};

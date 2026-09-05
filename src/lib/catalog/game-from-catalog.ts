@@ -140,7 +140,7 @@ export function gameFromCatalogRow(row: CatalogGameRow) {
 		weightVotes: null,
 		lastUpdated: null,
 		similar: [] as SimilarGame[],
-		similarByProfile: emptySimilarByProfile(),
+		similarByProfile: emptySimilarByProfile(), // no neighbour lists offline
 		designers: toStrings(row.designers),
 		artists: toStrings(row.artists),
 		publishers: toStrings(row.publishers),
