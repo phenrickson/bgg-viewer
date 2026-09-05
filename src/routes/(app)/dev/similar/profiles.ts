@@ -11,6 +11,18 @@
  * and stubs the three deploy-only fields with their defaults, flagged for review.
  * `exclude shared title words` has no SQL equivalent and is dropped (noted in the
  * header when any experiment had it on).
+ *
+ * `max_rating_pct` (a ceiling on rating percentile — the inverse of `min_rating_pct`)
+ * is carried through as a bench-tunable field, but `game_neighbors.sqlx` has no ceiling
+ * clause yet — only the existing floor. Flagged in the header when an experiment sets one,
+ * as a reminder to add the matching WHERE clause before deploying.
+ *
+ * `min_avg_rating` / `max_avg_rating` are a second, independent filter pair by the RAW
+ * `average_rating` VALUE (BGG's 0–10 scale, not a percentile) — NOT a substitute for
+ * `min_rating_pct`/`max_rating_pct` (those stay geek-rating percentile), both can be set at
+ * once. `game_neighbors.sqlx` has no `average_rating` filter today; flagged in the header
+ * when an experiment sets either, as a reminder to add the matching WHERE clause before
+ * deploying.
  */
 import type { Experiment, Params } from './experiments';
 
@@ -21,6 +33,9 @@ export interface DeployProfile {
 	max_per_family: number | null;
 	min_similarity: number;
 	min_rating_pct: number;
+	max_rating_pct: number;
+	min_avg_rating: number;
+	max_avg_rating: number;
 	min_users_rated: number;
 	top_k: number;
 	// deploy-only — not set in the bench
@@ -47,6 +62,10 @@ export function toProfile(name: string, p: Params): DeployProfile {
 		max_per_family: p.maxPerFamily,
 		min_similarity: p.minSim / 100,
 		min_rating_pct: p.minRatingPct / 100,
+		max_rating_pct: p.maxRatingPct / 100,
+		// raw 0–10 rating values — no percent-to-fraction conversion, unlike the geek pair above
+		min_avg_rating: p.minAvgRating,
+		max_avg_rating: p.maxAvgRating,
 		min_users_rated: p.minUsers,
 		top_k: p.topK,
 		source_min_users_rated: 0,
@@ -62,6 +81,9 @@ const BENCH_KEYS = [
 	'max_per_family',
 	'min_similarity',
 	'min_rating_pct',
+	'max_rating_pct',
+	'min_avg_rating',
+	'max_avg_rating',
 	'min_users_rated',
 	'top_k'
 ] as const;
@@ -86,11 +108,22 @@ export function buildProfilesModule(experiments: Experiment[], now: Date = new D
 	const hadExcludeTitle = experiments.some(
 		(e) => (e.params as Params & { excludeTitle?: boolean }).excludeTitle
 	);
+	const hadMaxRatingPct = experiments.some((e) => e.params.maxRatingPct < 100);
+	const hadAvgFilter = experiments.some(
+		(e) => e.params.minAvgRating > 0 || e.params.maxAvgRating < 10
+	);
 	const stamp = now.toISOString().slice(0, 10);
 	const body = experiments.map((e) => renderProfile(toProfile(e.name, e.params))).join(',\n');
-	const note = hadExcludeTitle
-		? '\n// NOTE: "exclude shared title words" was on for an experiment; it has no SQL\n//       equivalent and was dropped.'
-		: '';
+	const note =
+		(hadExcludeTitle
+			? '\n// NOTE: "exclude shared title words" was on for an experiment; it has no SQL\n//       equivalent and was dropped.'
+			: '') +
+		(hadMaxRatingPct
+			? '\n// NOTE: "max_rating_pct" (a ceiling) was set on an experiment; game_neighbors.sqlx\n//       only has the min_rating_pct floor today — add the ceiling clause before deploying.'
+			: '') +
+		(hadAvgFilter
+			? '\n// NOTE: "min_avg_rating" / "max_avg_rating" was set on an experiment; game_neighbors.sqlx\n//       has no average_rating filter today — add the matching WHERE clause before deploying.'
+			: '');
 
 	return `// similarity_profiles.js — generated from the bgg-viewer similarity tuning bench, ${stamp}
 // Consumed by bgg-data-warehouse definitions/game_neighbors.sqlx via includes/.

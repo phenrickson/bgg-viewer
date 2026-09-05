@@ -9,6 +9,7 @@ function makeData(
 		line?: number; // product-line family id; 0/undefined = none
 		users?: number;
 		geekPct?: number;
+		avg?: number; // raw average rating, 0-10; 0/undefined defaults to a plausible rated value
 		tokens?: string[];
 	}[]
 ): RankData {
@@ -29,6 +30,7 @@ function makeData(
 		ids: Int32Array.from(games.map((_, i) => i + 100)),
 		users: Int32Array.from(games.map((g) => g.users ?? 1000)),
 		geekPct: Float32Array.from(games.map((g) => g.geekPct ?? 0.5)),
+		avg: Float32Array.from(games.map((g) => g.avg ?? 7)),
 		nameTokens: games.map((g) => new Set(g.tokens ?? []))
 	};
 }
@@ -38,6 +40,9 @@ const opts = (over: Partial<RankOpts> = {}): RankOpts => ({
 	band: null,
 	excludeTitle: false,
 	minRatingPct: 0,
+	maxRatingPct: 100,
+	minAvgRating: 0,
+	maxAvgRating: 10,
 	minSim: 0,
 	weight: 1,
 	topK: 10,
@@ -111,5 +116,56 @@ describe('rankNeighbors', () => {
 			{ emb: [0.5, 0.5], cx: 2, users: 5000 } // survives
 		]);
 		expect(idxs(rankNeighbors(d, 0, opts({ minUsers: 100, band: 0.75 })))).toEqual([3]);
+	});
+
+	it('maxRatingPct excludes candidates at or above the ceiling, but never the unrated', () => {
+		const d = makeData([
+			{ emb: [1, 0] }, // source
+			{ emb: [0.99, 0.14], geekPct: 0.95 }, // well above the ceiling — dropped
+			{ emb: [0.95, 0.31], geekPct: 0.5 }, // below the ceiling — kept
+			{ emb: [0.9, 0.44], geekPct: -1 } // unrated — always kept, never a "top" game
+		]);
+		expect(idxs(rankNeighbors(d, 0, opts({ maxRatingPct: 75 })))).toEqual([2, 3]);
+	});
+
+	it('maxRatingPct 100 is off — nothing is excluded on rating alone', () => {
+		const d = makeData([
+			{ emb: [1, 0] }, // source
+			{ emb: [0.99, 0.14], geekPct: 1 }
+		]);
+		expect(idxs(rankNeighbors(d, 0, opts({ maxRatingPct: 100 })))).toEqual([1]);
+	});
+
+	it('minAvgRating/maxAvgRating filter on the raw average rating value, independent of the geek pair', () => {
+		const d = makeData([
+			{ emb: [1, 0] }, // source
+			// well-known but average-only-liked: high geek, mediocre raw average
+			{ emb: [0.99, 0.14], geekPct: 0.9, avg: 6.0 },
+			// obscure but beloved: low geek, excellent raw average
+			{ emb: [0.95, 0.31], geekPct: 0.2, avg: 8.5 }
+		]);
+		// average floor of 7.5 keeps only the beloved-but-obscure one, regardless of geek rating
+		expect(idxs(rankNeighbors(d, 0, opts({ minAvgRating: 7.5 })))).toEqual([2]);
+		// average ceiling of 7.5 keeps only the well-known-but-average one
+		expect(idxs(rankNeighbors(d, 0, opts({ maxAvgRating: 7.5 })))).toEqual([1]);
+	});
+
+	it('unrated (avg <= 0) is never excluded by the floor and never excluded by the ceiling', () => {
+		const d = makeData([
+			{ emb: [1, 0] }, // source
+			{ emb: [0.99, 0.14], avg: 0 }
+		]);
+		expect(idxs(rankNeighbors(d, 0, opts({ maxAvgRating: 5 })))).toEqual([1]);
+		expect(idxs(rankNeighbors(d, 0, opts({ minAvgRating: 5 })))).toEqual([]);
+	});
+
+	it('both pairs can be on at once — a candidate must clear both to survive', () => {
+		const d = makeData([
+			{ emb: [1, 0] }, // source
+			{ emb: [0.99, 0.14], geekPct: 0.9, avg: 8 }, // clears both floors
+			{ emb: [0.95, 0.31], geekPct: 0.9, avg: 5 }, // clears geek, fails average
+			{ emb: [0.9, 0.44], geekPct: 0.1, avg: 8 } // fails geek, clears average
+		]);
+		expect(idxs(rankNeighbors(d, 0, opts({ minRatingPct: 50, minAvgRating: 7 })))).toEqual([1]);
 	});
 });

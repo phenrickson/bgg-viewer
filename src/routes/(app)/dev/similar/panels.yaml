@@ -1,0 +1,89 @@
+# Named evaluation panels for the similar-games tuning bench.
+#
+# Hand-edit this file to add/remove games or whole panels — it's checked into git, so it
+# survives a cleared browser profile (unlike the bench's other localStorage state). Each
+# key is a panel name; each value is a flat list of BGG game_ids.
+
+# Hand-picked working set spanning worker-placement/area-control heavies, gateway/party
+# games, and a few oddballs — distinct from the stratified sample in panel.ts. Recovered
+# 2026-09-04 from a "game-list-comparison" export after the localStorage copy was lost.
+core:
+  - 68448 # 7 Wonders
+  - 127518 # A Distant Plain
+  - 5404 # Amun-Re
+  - 344105 # Anunnaki: Dawn of the Gods
+  - 159508 # AquaSphere
+  - 140934 # Arboretum
+  - 105551 # Archipelago
+  - 359871 # Arcs
+  - 39351 # Automobile
+  - 251247 # Barrage
+  - 224517 # Brass: Birmingham
+  - 822 # Carcassonne
+  - 13 # CATAN
+  - 2386 # Chinese Checkers
+  - 815 # Chrononauts
+  - 124361 # Concordia
+  - 139976 # Cthulhu Wars
+  - 54998 # Cyclades
+  - 194594 # Dice Forge
+  - 483 # Diplomacy
+  - 283355 # Dune
+  - 316554 # Dune: Imperium
+  - 93 # El Grande
+  - 432527 # Ethnos: 2nd Edition
+  - 175914 # Food Chain Magnate
+  - 284189 # Foundations of Rome
+  - 181279 # Fury of Dracula (Third/Fourth Edition)
+  - 220308 # Gaia Project
+  - 143693 # Glass Road
+  - 174430 # Gloomhaven
+  - 370444 # Hard to Get
+  - 366013 # Heat: Pedal to the Metal
+  - 254888 # High Rise
+  - 154203 # Imperial Settlers
+  - 155821 # Inis
+  - 161882 # Irish Gauge
+  - 325494 # ISS Vanguard
+  - 3699 # Killer Bunnies and the Quest for the Magic Carrot
+  - 209778 # Magic Maze
+  - 283948 # Marco Polo II: In the Service of the Khan
+  - 298047 # Marvel United
+  - 2955 # Mexica
+  - 181304 # Mysterium
+  - 291572 # Oath
+  - 163166 # One Night Ultimate Werewolf: Daybreak
+  - 160477 # Onitama
+  - 30549 # Pandemic
+  - 209282 # Picassimo
+  - 155873 # Power Grid Deluxe: Europe/North America
+  - 244521 # Quacks
+  - 28143 # Race for the Galaxy
+  - 181 # Risk
+  - 237182 # Root
+  - 2381 # Scattergories
+  - 372 # Schotten Totten
+  - 255984 # Sleeping Gods
+  - 375459 # Speakeasy
+  - 162886 # Spirit Island
+  - 148228 # Splendor
+  - 164153 # Star Wars: Imperial Assault
+  - 187645 # Star Wars: Rebellion
+  - 123570 # Strike
+  - 58281 # Summoner Wars
+  - 432 # Take 5
+  - 440540 # Take Time
+  - 120677 # Terra Mystica
+  - 167791 # Terraforming Mars
+  - 324856 # The Crew: Mission Deep Sea
+  - 411567 # The Gang
+  - 349067 # The Lord of the Rings: The Card Game – Revised Core Set
+  - 9209 # Ticket to Ride
+  - 155708 # Tiny Epic Defenders
+  - 148319 # Tragedy Looper
+  - 353288 # Trekking Through History
+  - 233078 # Twilight Imperium: Fourth Edition
+  - 5894 # Twister
+  - 420033 # Vantage
+  - 266192 # Wingspan
+  - 82222 # Xia: Legends of a Drift System

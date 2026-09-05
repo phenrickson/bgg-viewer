@@ -22,7 +22,8 @@ export interface RankData {
 	productLine: Int32Array; // the game's one product-line family id; 0 = none
 	ids: Int32Array;
 	users: Int32Array;
-	geekPct: Float32Array; // percentile among rated games, 0..1; -1 = unrated
+	geekPct: Float32Array; // percentile among rated games, by geek (bayes-average) rating; -1 = unrated
+	avg: Float32Array; // raw average rating (not bayes-adjusted), on BGG's 0–10 scale; 0 = unrated
 	nameTokens: Set<string>[];
 }
 
@@ -30,9 +31,13 @@ export interface RankOpts {
 	minUsers: number;
 	band: number | null; // complexity band half-width; null = off
 	excludeTitle: boolean;
-	minRatingPct: number;
+	minRatingPct: number; // floor, by geek (bayes-average) rating percentile
+	maxRatingPct: number; // ceiling, by geek rating percentile; 100 = off
+	/** independent second filter pair, by raw average rating VALUE (0–10, not a percentile) */
+	minAvgRating: number; // 0 = off
+	maxAvgRating: number; // 10 = off
 	minSim: number; // hard cosine floor, as a percent
-	weight: number; // 1 = pure similarity; below 1 blends in (1-weight)·ratingPct
+	weight: number; // 1 = pure similarity; below 1 blends in (1-weight)·geek_rating_percentile
 	topK: number;
 	/** at most N neighbours from any one product line; null = no cap, 0 = drop every lined game */
 	maxPerFamily: number | null;
@@ -42,7 +47,7 @@ type Scored = { idx: number; sim: number; score: number };
 
 export function rankNeighbors(d: RankData, from: number, o: RankOpts): { idx: number; sim: number }[] {
 	if (from < 0 || from >= d.n) return [];
-	const { n, dim, emb, cx, productLine, geekPct, nameTokens } = d;
+	const { n, dim, emb, cx, productLine, geekPct, avg, nameTokens } = d;
 
 	const base = from * dim;
 	const sCx = cx[from];
@@ -61,6 +66,20 @@ export function rankNeighbors(d: RankData, from: number, o: RankOpts): { idx: nu
 		if (o.minRatingPct > 0) {
 			const p = geekPct[j];
 			if (p < 0 || p * 100 < o.minRatingPct) continue;
+		}
+		if (o.maxRatingPct < 100) {
+			const p = geekPct[j];
+			// unrated (p < 0) is always "outside" the ceiling — never excluded by it
+			if (p >= 0 && p * 100 >= o.maxRatingPct) continue;
+		}
+		if (o.minAvgRating > 0) {
+			const v = avg[j];
+			if (v <= 0 || v < o.minAvgRating) continue;
+		}
+		if (o.maxAvgRating < 10) {
+			const v = avg[j];
+			// unrated (v <= 0) is always "outside" the ceiling — never excluded by it
+			if (v > 0 && v >= o.maxAvgRating) continue;
 		}
 
 		let sim = 0;

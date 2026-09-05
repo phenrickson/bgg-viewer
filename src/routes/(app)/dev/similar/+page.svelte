@@ -19,7 +19,7 @@
 	import ComparePanel from './ComparePanel.svelte';
 	import EmbeddingProfile from './EmbeddingProfile.svelte';
 	import CompareRuns from './CompareRuns.svelte';
-	import { PANEL as PANEL_DEFAULT } from './panel';
+	import { PANEL as PANEL_DEFAULT, NAMED_PANELS } from './panel';
 	import { rankNeighbors, type RankOpts } from './neighbors';
 	import { buildProfilesModule } from './profiles';
 	import { buildComparisonHtml, comparisonId } from './comparison-export';
@@ -66,6 +66,7 @@
 		names: string[];
 		years: Int32Array;
 		geek: Float32Array;
+		avg: Float32Array; // raw average rating (not bayes-adjusted); 0 = unrated
 		users: Int32Array;
 		weight: Float32Array;
 		minPlayers: Int32Array;
@@ -77,6 +78,7 @@
 		// derived:
 		nameTokens: Set<string>[];
 		geekPct: Float32Array; // percentile among rated games, 0..1; -1 = no geek rating
+		ratedCount: number; // games with a geek rating — denominator for the "≈ top N" readout
 		indexById: Map<number, number>;
 	}
 	let ds = $state<Dataset | null>(null);
@@ -131,6 +133,7 @@
 			const cName = catT.getChild('name');
 			const cYear = catT.getChild('year_published');
 			const cGeek = catT.getChild('geek_rating');
+			const cAvg = catT.getChild('average_rating');
 			const cUsers = catT.getChild('users_rated');
 			const cWeight = catT.getChild('average_weight');
 			const cMinP = catT.getChild('min_players');
@@ -173,6 +176,7 @@
 			const names: string[] = new Array(n);
 			const years = new Int32Array(n);
 			const geek = new Float32Array(n);
+			const avg = new Float32Array(n);
 			const users = new Int32Array(n);
 			const weight = new Float32Array(n);
 			const minPlayers = new Int32Array(n);
@@ -215,6 +219,7 @@
 				names[i] = String(cName?.get(c) ?? '');
 				years[i] = asNum(cYear, c);
 				geek[i] = asNum(cGeek, c);
+				avg[i] = asNum(cAvg, c);
 				users[i] = asNum(cUsers, c);
 				weight[i] = asNum(cWeight, c);
 				minPlayers[i] = asNum(cMinP, c);
@@ -236,8 +241,8 @@
 
 			ds = {
 				n, dim, ids, emb, cx, minPlaytime, maxPlaytime, fam, famLabels, rel, productLine,
-				names, years, geek, users, weight, minPlayers, maxPlayers, mechanics, categories,
-				designers, catFamilies, nameTokens, geekPct, indexById
+				names, years, geek, avg, users, weight, minPlayers, maxPlayers, mechanics, categories,
+				designers, catFamilies, nameTokens, geekPct, ratedCount: rated.length, indexById
 			};
 
 			const urlG = Number(new URLSearchParams(location.search).get('g'));
@@ -303,6 +308,11 @@
 	let famCap = $state(2);
 	let excludeTitle = $state(false);
 	let minRatingPct = $state(0);
+	let maxRatingPct = $state(100); // ceiling on geek rating percentile; 100 = off
+	/** independent second filter pair, by raw average rating VALUE (0-10) — not a substitute
+	 * for the geek pair above */
+	let minAvgRating = $state(0);
+	let maxAvgRating = $state(10);
 	let minSim = $state(0); // hard cosine-similarity floor, as a percent
 	let minUsers = $state(100);
 	/** similarity ← → rating. 1 = rank by pure cosine; below 1 adds (1-w)·rating_percentile. */
@@ -316,6 +326,9 @@
 			band: 0.75,
 			excludeTitle: false,
 			minRatingPct: 0,
+			maxRatingPct: 100,
+			minAvgRating: 0,
+			maxAvgRating: 10,
 			minSim: 0,
 			weight: 1,
 			topK: k,
@@ -330,6 +343,9 @@
 		band,
 		minSim,
 		minRatingPct,
+		maxRatingPct,
+		minAvgRating,
+		maxAvgRating,
 		minUsers,
 		weight,
 		topK,
@@ -341,6 +357,9 @@
 		band: p.bandOn ? p.band : null,
 		excludeTitle: p.excludeTitle,
 		minRatingPct: p.minRatingPct,
+		maxRatingPct: p.maxRatingPct,
+		minAvgRating: p.minAvgRating,
+		maxAvgRating: p.maxAvgRating,
 		minSim: p.minSim,
 		weight: p.weight,
 		topK: p.topK,
@@ -468,7 +487,37 @@
 	});
 
 	const overlap = $derived(tunedRows.filter((r) => r.inOther).length);
-	const pctLabel = $derived(minRatingPct === 0 ? 'off' : `≥ ${minRatingPct}th pct`);
+
+	/** A rating-percentile threshold as "≈ top N games", using the current rated-game count. */
+	function topNFor(pctPercent: number): string {
+		if (!ds || ds.ratedCount <= 0) return '';
+		const n = Math.max(1, Math.round((1 - pctPercent / 100) * ds.ratedCount));
+		return ` (≈ top ${n.toLocaleString()})`;
+	}
+	const pctLabel = $derived(
+		minRatingPct === 0 ? 'off' : `≥ ${minRatingPct}th pct${topNFor(minRatingPct)}`
+	);
+	const maxPctLabel = $derived(
+		maxRatingPct >= 100 ? 'off' : `< ${maxRatingPct}th pct${topNFor(maxRatingPct)}`
+	);
+
+	/** How many rated games in the dataset satisfy a raw average-rating comparison. */
+	function countAvgWhere(pred: (v: number) => boolean): string {
+		if (!ds) return '';
+		let n = 0;
+		for (let i = 0; i < ds.n; i++) if (pred(ds.avg[i])) n++;
+		return ` (${n.toLocaleString()} games)`;
+	}
+	const avgLabel = $derived(
+		minAvgRating === 0
+			? 'off'
+			: `≥ ${minAvgRating.toFixed(1)}${countAvgWhere((v) => v >= minAvgRating)}`
+	);
+	const avgMaxLabel = $derived(
+		maxAvgRating >= 10
+			? 'off'
+			: `< ${maxAvgRating.toFixed(1)}${countAvgWhere((v) => v > 0 && v < maxAvgRating)}`
+	);
 
 	// --- embedding profile chart (Tune view) -----------------------------------------
 	/** Per-component mean / sd over the whole (normalised) embedding set. Computed once. */
@@ -506,6 +555,9 @@
 			band: null,
 			excludeTitle: false,
 			minRatingPct: 0,
+			maxRatingPct: 100,
+			minAvgRating: 0,
+			maxAvgRating: 10,
 			minSim: 0,
 			weight: 1,
 			topK: 6,
@@ -528,10 +580,13 @@
 	let view = $state<'tune' | 'evaluate' | 'outliers'>('tune');
 	let experiments = $state<Experiment[]>([]);
 	/** the source games every experiment runs over — editable, persisted. */
-	let panel = $state<number[]>([...PANEL_DEFAULT]);
+	let panel = $state<number[]>([...(NAMED_PANELS.core ?? PANEL_DEFAULT)]);
 	let panelEdited = $state(false);
 	let panelQuery = $state('');
 	let panelPickerOpen = $state(false);
+	/** named panels from panels.yaml — hand-edit that file to add, remove, or rename one. */
+	let libOpen = $state(false);
+	const panelLibrary = Object.entries(NAMED_PANELS).map(([name, ids]) => ({ name, ids }));
 	let slotA = $state<Experiment | null>(null);
 	let slotB = $state<Experiment | null>(null);
 	let slotC = $state<Experiment | null>(null);
@@ -714,6 +769,9 @@
 		band = p.band;
 		minSim = p.minSim;
 		minRatingPct = p.minRatingPct;
+		maxRatingPct = p.maxRatingPct;
+		minAvgRating = p.minAvgRating;
+		maxAvgRating = p.maxAvgRating;
 		minUsers = p.minUsers;
 		weight = p.weight;
 		topK = p.topK;
@@ -894,7 +952,7 @@
 		panelPickerOpen = false;
 	}
 	const removeFromPanel = (id: number) => setPanel(panel.filter((x) => x !== id));
-	const resetPanel = () => setPanel([...PANEL_DEFAULT], false);
+	const resetPanel = () => setPanel([...(NAMED_PANELS.core ?? PANEL_DEFAULT)], false);
 
 	// --- panel generators ---
 	let genOpen = $state(false);
@@ -1071,6 +1129,24 @@
 				</div>
 
 				<div class="fld">
+					<div class="fh"><span>Max rating percentile</span></div>
+					<input type="range" min="5" max="100" step="5" bind:value={maxRatingPct} />
+					<span class="val">{maxPctLabel}</span>
+				</div>
+
+				<div class="fld">
+					<div class="fh"><span>Min average rating</span></div>
+					<input type="range" min="0" max="10" step="0.1" bind:value={minAvgRating} />
+					<span class="val">{avgLabel}</span>
+				</div>
+
+				<div class="fld">
+					<div class="fh"><span>Max average rating</span></div>
+					<input type="range" min="0.1" max="10" step="0.1" bind:value={maxAvgRating} />
+					<span class="val">{avgMaxLabel}</span>
+				</div>
+
+				<div class="fld">
 					<div class="fh"><span>Candidate floor (ratings)</span></div>
 					<select bind:value={minUsers}>
 						<option value={30}>30+</option>
@@ -1213,8 +1289,27 @@
 						<button class="linkbtn" onclick={() => (genOpen = !genOpen)}>
 							{genOpen ? 'hide' : 'generate'}
 						</button>
+						<button class="linkbtn" onclick={() => (libOpen = !libOpen)}>
+							{libOpen ? 'hide' : 'saved panels'} ({panelLibrary.length})
+						</button>
 						{#if panelEdited}<button class="linkbtn" onclick={resetPanel}>reset to default</button>{/if}
 					</p>
+
+					{#if libOpen}
+						<div class="gen">
+							{#each panelLibrary as lib (lib.name)}
+								<div class="genrow">
+									<button class="genbtn" onclick={() => setPanel(lib.ids, true)}>
+										{lib.name} ({lib.ids.length})
+									</button>
+								</div>
+							{:else}
+								<p class="note">
+									No named panels — add one to <code>panels.yaml</code>.
+								</p>
+							{/each}
+						</div>
+					{/if}
 
 					{#if genOpen}
 						<div class="gen">
@@ -1232,7 +1327,7 @@
 							</div>
 							<div class="genrow">
 								<span class="genl">Presets</span>
-								<button class="genbtn" onclick={() => setPanel([...PANEL_DEFAULT], false)}>Default</button>
+								<button class="genbtn" onclick={() => setPanel([...PANEL_DEFAULT])}>Stratified sample</button>
 								<button class="genbtn" onclick={() => setPanel(presets.blockbusters(gameStats))}>Blockbusters</button>
 								<button class="genbtn" onclick={() => setPanel(presets.wellRatedObscure(gameStats))}>Well-rated &amp; obscure</button>
 								<button class="genbtn" onclick={() => setPanel(presets.recent(gameStats))}>Recent (2020+)</button>
@@ -1317,7 +1412,12 @@
 								{e.params.maxPerFamily != null ? `≤${e.params.maxPerFamily}/line ` : ''}{e.params
 									.minSim
 									? `sim≥${e.params.minSim} `
-									: ''}{e.params.minRatingPct ? `pct≥${e.params.minRatingPct}` : ''}
+									: ''}{e.params.minRatingPct ? `pct≥${e.params.minRatingPct} ` : ''}{e.params
+									.maxRatingPct < 100
+									? `pct<${e.params.maxRatingPct} `
+									: ''}{e.params.minAvgRating
+									? `avg≥${e.params.minAvgRating} `
+									: ''}{e.params.maxAvgRating < 10 ? `avg<${e.params.maxAvgRating}` : ''}
 							</span>
 							<div class="pick">
 								<button class:on={slotA?.name === e.name} onclick={() => setSlot('a', e)}>A</button>
