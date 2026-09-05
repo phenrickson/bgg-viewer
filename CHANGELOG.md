@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.17](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.16...bgg-viewer-v0.0.17) (2026-09-05)
+
+
+### Features
+
+* game detail page — one layout for upcoming + settled games ([#57](https://github.com/phenrickson/bgg-viewer/issues/57)) ([09810fe](https://github.com/phenrickson/bgg-viewer/commit/09810fead5ef48580f0b1e82febc53490a7ff784))
+* similar-games profile switcher + /dev/similar tuning bench ([#55](https://github.com/phenrickson/bgg-viewer/issues/55)) ([abf95fc](https://github.com/phenrickson/bgg-viewer/commit/abf95fcf5b6d006a14fb93d616b81ec53ba0a117))
+* Similar-games profile tuning + game-detail card redesign ([#58](https://github.com/phenrickson/bgg-viewer/issues/58)) ([64af689](https://github.com/phenrickson/bgg-viewer/commit/64af689249cdb298d238fe58b80e275bf7ebe78e))
+
 ## [0.0.16](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.15...bgg-viewer-v0.0.16) (2026-08-28)
 
 
