@@ -8,6 +8,9 @@ const params = (over: Partial<Params> = {}): Params => ({
 	band: 1,
 	minSim: 0,
 	minRatingPct: 0,
+	maxRatingPct: 100,
+	minAvgRating: 0,
+	maxAvgRating: 10,
 	minUsers: 100,
 	weight: 0.8,
 	topK: 10,
@@ -62,6 +65,19 @@ describe('toProfile', () => {
 		expect(p.dims).toBe(64);
 		expect(p.distance).toBe('COSINE');
 	});
+
+	it('maps maxRatingPct to a fraction, 100 (off) becoming 1', () => {
+		expect(toProfile('x', params()).max_rating_pct).toBe(1);
+		expect(toProfile('x', params({ maxRatingPct: 75 })).max_rating_pct).toBe(0.75);
+	});
+
+	it('carries minAvgRating/maxAvgRating through as raw values, independent of the geek pair', () => {
+		const p = toProfile('x', params({ minAvgRating: 6.5, maxAvgRating: 8.5 }));
+		expect(p.min_avg_rating).toBe(6.5);
+		expect(p.max_avg_rating).toBe(8.5);
+		expect(p.min_rating_pct).toBe(0);
+		expect(p.max_rating_pct).toBe(1);
+	});
 });
 
 describe('buildProfilesModule', () => {
@@ -93,6 +109,7 @@ describe('buildProfilesModule', () => {
 			max_per_family: 1,
 			min_similarity: 0.5,
 			min_rating_pct: 0.5,
+			max_rating_pct: 1,
 			min_users_rated: 100,
 			source_min_users_rated: 0,
 			dims: 64,
@@ -109,5 +126,19 @@ describe('buildProfilesModule', () => {
 		const withTitle = buildProfilesModule([exp('x', { excludeTitle: true })]);
 		expect(withTitle).toContain('exclude shared title words');
 		expect(evalModule(withTitle).profiles).toHaveLength(1);
+	});
+
+	it('flags a max_rating_pct ceiling as needing sqlx support', () => {
+		const withCeiling = buildProfilesModule([exp('x', { maxRatingPct: 80 })]);
+		expect(withCeiling).toContain('max_rating_pct" (a ceiling)');
+		expect(evalModule(withCeiling).profiles[0].max_rating_pct).toBe(0.8);
+		expect(buildProfilesModule([exp('x')])).not.toContain('max_rating_pct" (a ceiling)');
+	});
+
+	it('flags an average-rating filter as needing sqlx support', () => {
+		const withAvg = buildProfilesModule([exp('x', { minAvgRating: 6.5 })]);
+		expect(withAvg).toContain('min_avg_rating" / "max_avg_rating" was set');
+		expect(evalModule(withAvg).profiles[0].min_avg_rating).toBe(6.5);
+		expect(buildProfilesModule([exp('x')])).not.toContain('min_avg_rating" / "max_avg_rating" was set');
 	});
 });

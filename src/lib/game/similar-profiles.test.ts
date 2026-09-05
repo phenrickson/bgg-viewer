@@ -25,19 +25,21 @@ describe('resolveSimilarProfile', () => {
 		expect(resolveSimilarProfile('recommender', all)).toBe('recommender');
 	});
 
-	it('falls back to the default for an unknown or missing param', () => {
+	it('falls back to the default for an unknown or missing param when it is available', () => {
 		expect(resolveSimilarProfile('bogus', all)).toBe(DEFAULT_SIMILAR_PROFILE);
 		expect(resolveSimilarProfile(null, all)).toBe(DEFAULT_SIMILAR_PROFILE);
 		expect(resolveSimilarProfile(undefined, all)).toBe(DEFAULT_SIMILAR_PROFILE);
 	});
 
-	it('falls back when the requested profile is empty for this game', () => {
-		// low-rating game: only `similar` has a list
-		expect(resolveSimilarProfile('sicko', ['similar'])).toBe(DEFAULT_SIMILAR_PROFILE);
+	it('drops to `similar` when the default has no list for this game', () => {
+		// low-rating game: `recommender` and `sicko` came back empty
+		expect(resolveSimilarProfile(null, ['similar'])).toBe('similar');
+		expect(resolveSimilarProfile('sicko', ['similar', 'sicko'])).toBe('sicko');
+		expect(resolveSimilarProfile('recommender', ['similar', 'sicko'])).toBe('similar');
 	});
 
-	it('still falls back to the default even when the default itself is unavailable', () => {
-		// degenerate (offline / no lists) — resolver never throws, caller handles empty
+	it('returns the nominal default when nothing is available — caller handles empty', () => {
+		// degenerate (offline / no lists) — resolver never throws
 		expect(resolveSimilarProfile('sicko', [])).toBe(DEFAULT_SIMILAR_PROFILE);
 	});
 });

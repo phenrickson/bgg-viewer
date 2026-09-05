@@ -23,9 +23,10 @@
   import {
     SIMILAR_PROFILES,
     SIMILAR_PROFILE_LABELS,
+    SIMILAR_PROFILE_BLURBS,
     type SimilarProfile
   } from '$lib/game/similar-profiles';
-  import { similarityPct, similarityColor, complexityColor } from '$lib/game/similarity';
+  import { similarityPct, similarityColor, complexityColor, ratingColor } from '$lib/game/similarity';
 
   let { data } = $props();
 
@@ -662,10 +663,10 @@
     <div class="stack">
       <section class="card">
         <div class="sim-head">
-          <p class="sub">Similar games <span class="sub-note">· by similarity</span></p>
+          <p class="sub">Similar games</p>
           <!-- All three lists ship with the page; switching is a local toggle, not a fetch.
-               A profile with no list for this game (sicko/recommender on a low-rating game)
-               is a disabled tab. Hidden offline — there are no lists to switch between. -->
+               A profile with no list for this game (Dark Horses / Recommended on a low-rating
+               game) is a disabled tab. Hidden offline — there are no lists to switch between. -->
           {#if !data.offline}
             <div class="seg" role="group" aria-label="Similar-games list">
               {#each SIMILAR_PROFILES as p (p)}
@@ -680,6 +681,9 @@
             </div>
           {/if}
         </div>
+        {#if !data.offline}
+          <p class="sim-desc">{SIMILAR_PROFILE_BLURBS[profile]}</p>
+        {/if}
         {#if similarList.length}
           <div class="sim">
             {#each similarList as s (s.id)}
@@ -690,12 +694,18 @@
                   <span class="mono ph">{s.name?.[0] ?? '?'}</span>
                 {/if}
                 <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-                <!-- 1 and 0 are real anchors here — an exact match and no relation at all —
-                     so the color divergence runs over the measure's own natural bounds, not
-                     a per-list min/max. Percent reads faster than a bare decimal. -->
-                <span class="score tnum" style:color={similarityColor(s.similarity)}
-                  >{Math.round(similarityPct(s.similarity))}%</span
-                >
+                <!-- Same two badges as the tuning bench's ResultRow. Colour is computed per
+                     row in script: similarityColor's diverging formula over the measure's own
+                     0..1 bounds; ratingColor's green quality ramp. The rating badge shows the
+                     raw average rating (higher spread than the geek rating). -->
+                <span class="badges">
+                  <span class="badge" style:color={similarityColor(s.similarity)}>
+                    <span class="bl">sim</span>{Math.round(similarityPct(s.similarity))}%
+                  </span>
+                  <span class="badge" style:color={ratingColor(s.average)}>
+                    <span class="bl">rating</span>{s.average && s.average > 0 ? s.average.toFixed(1) : '—'}
+                  </span>
+                </span>
               </a>
             {/each}
           </div>
@@ -1325,7 +1335,15 @@
     gap: 0.4rem;
   }
   .sim-head .sub {
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.4rem;
+  }
+  /* One-line description of the active list; sits between the switcher and the list.
+     Kept quiet — it's a caption, not a heading. */
+  .sim-desc {
+    margin: 0 0 0.5rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    color: var(--muted-foreground);
   }
   /* Mirrors ShapeStrip's `.seg` so the app has one segmented-control look. */
   .seg {
@@ -1414,13 +1432,32 @@
     color: var(--muted-foreground);
     font-size: 0.78rem;
   }
-  /* Color itself is computed per-row in script (see similarityColor) — Scatter.svelte's own
-     diverging formula, reused rather than approximated with a linear color-mix. */
-  .sim .score {
+  /* The two badges, mirroring the tuning bench's ResultRow. Each badge tints its own
+     border + fill off the `currentColor` set per row in script. */
+  .sim .badges {
     margin-left: auto;
     flex: none;
-    font-size: 0.86rem;
+    display: flex;
+    gap: 0.3rem;
+  }
+  .sim .badge {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.22rem;
+    font-size: 0.8rem;
     font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklch, currentColor 30%, transparent);
+    background: color-mix(in oklch, currentColor 12%, transparent);
+  }
+  .sim .bl {
+    font-size: 0.58rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
   }
 
 

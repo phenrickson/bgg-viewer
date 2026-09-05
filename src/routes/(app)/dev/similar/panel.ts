@@ -7,6 +7,17 @@
  * hard cases. Add IDs over time as configs break in interesting ways — keep it stable
  * otherwise.
  */
+import { parse } from 'yaml';
+import panelsYaml from './panels.yaml?raw';
+
+/**
+ * Named panels for the bench's "saved panels" picker — a hand-curated working set
+ * distinct from the stratified `PANEL` sample below. Edit `panels.yaml` directly to add,
+ * remove, or rename one; it's checked into git, so it survives a cleared browser profile
+ * (unlike everything else the bench keeps in localStorage).
+ */
+export const NAMED_PANELS: Record<string, number[]> = parse(panelsYaml);
+
 /** Always-in games — clone-heavy, niche, party, blockbuster — kept across regenerations. */
 export const HARD_CASES: number[] = [
 	13, // Catan
