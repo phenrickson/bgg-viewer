@@ -51,7 +51,7 @@ export const SIMILAR_PROFILE_LABELS: Record<SimilarProfile, string> = {
 /** One-line description shown under the switcher, swapping with the active tab. */
 export const SIMILAR_PROFILE_BLURBS: Record<SimilarProfile, string> = {
 	similar: 'The games most similar to this one.',
-	recommender: 'Highly rated, well-known games similar to this one.',
+	recommender: 'Well known games similar to this one.',
 	sicko: "Lesser-known games you probably haven't heard of, similar to this one."
 };
 
