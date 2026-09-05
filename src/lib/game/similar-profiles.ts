@@ -52,7 +52,7 @@ export const SIMILAR_PROFILE_LABELS: Record<SimilarProfile, string> = {
 export const SIMILAR_PROFILE_BLURBS: Record<SimilarProfile, string> = {
 	similar: 'The games most similar to this one.',
 	recommender: 'Well known games similar to this one.',
-	sicko: "Lesser-known games you probably haven't heard of, similar to this one."
+	sicko: 'Lesser known (or new releases) similar to this one.'
 };
 
 export function isSimilarProfile(x: unknown): x is SimilarProfile {
