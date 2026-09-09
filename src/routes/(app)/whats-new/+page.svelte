@@ -297,12 +297,14 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
-  /* 44px minimum on touch (--tap-min). These controls are sized for a mouse; a thumb
-     needs more. Desktop density is left alone. */
+  /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
+     gave tall boxes with tiny text floating in them — a desktop control in a bigger box.
+     A touch control should look touch-sized. Desktop density is left alone. */
   @media (max-width: 40rem) {
     .seg a,
     .seg button {
-      min-height: var(--tap-min);
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
       display: inline-flex;
       align-items: center;
     }

@@ -48,6 +48,16 @@ doctor:
 dev:
     -pnpm exec vite dev --port 5173
 
+# Same server, bound to your LAN so a phone on the same wifi can reach it. Vite prints an
+# extra "Network:" URL — open that one on the phone.
+#
+# Worth the extra recipe because some things only misbehave on the real device: iOS Safari
+# zooms the page when a focused input computes under 16px and never zooms back out, and no
+# desktop emulator reproduces it. DevTools device mode covers layout; it does not cover this.
+# Run the dev server reachable from a phone on the same network.
+dev-mobile:
+    -pnpm exec vite dev --port 5173 --host
+
 # Offline: serves the catalog from .cache/catalog.arrow.gz and renders game pages from it, so
 # no request reaches BigQuery or the warehouse. Run `just dev` once with network access first
 # to populate the cache. Inline `VAR=x cmd` is bash-only, hence the per-platform variants.
