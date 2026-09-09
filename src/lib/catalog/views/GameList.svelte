@@ -22,6 +22,7 @@
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import GameCard from '$lib/catalog/GameCard.svelte';
+  import SortBar from '$lib/catalog/SortBar.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
   let {
@@ -250,25 +251,20 @@
            say, one line below — the sort control became a visible select instead of a click on
            a column header, so this sentence stopped adding information and started repeating
            it. Desktop still shows it; there the pager is the only other place sort appears. -->
-      <span class="dim sortby">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>
+      <!-- On cards this says nothing the sort control one line below doesn't already say —
+           the headers stopped being the sort control, so this sentence stopped adding
+           information and started repeating it. The table still shows it; there the pager is
+           the only other place sort appears. -->
+      {#if !cards}<span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>{/if}
     {/if}
   </span>
-  <!-- Narrow only. The column headers double as the sort control, and the card layout below
-       drops them — so sorting needs somewhere else to live or it becomes unreachable. A native
-       select is the right size for a thumb and comes with its own platform picker. -->
-  <span class="sortbar">
-    <label class="vh" for="sortby">Sort by</label>
-    <select id="sortby" bind:value={sortKey}>
-      {#each COLS as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
-    </select>
-    <button
-      type="button"
-      class="dir"
-      onclick={() => (desc = !desc)}
-      aria-label={desc ? 'Sort ascending' : 'Sort descending'}
-      title={desc ? 'High to low' : 'Low to high'}>{desc ? '▼' : '▲'}</button
-    >
-  </span>
+  {#if cards}
+    <SortBar
+      options={COLS.map((c) => ({ value: c.key, label: c.label }))}
+      bind:value={sortKey}
+      bind:desc
+    />
+  {/if}
 
   {#if pages > 1}
     <span class="pager">
@@ -722,23 +718,49 @@
     font-size: 0.88rem;
   }
 
-  /* Screen-reader-only, for the sort select's label. */
-  .vh {
-    position: absolute; width: 1px; height: 1px;
-    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  /* Only one of the two blocks below still touches `.row`, which is the point. When the card
+     was a breakpoint on this same element, both did, at equal specificity, and a phone matched
+     both — so the card grid kept its `grid-template-areas` and inherited the table's column
+     widths from whichever block happened to come last. That class of bug isn't reachable now
+     that the card is its own component. */
+
+  /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
+  @container (max-width: 62rem) {
+    .row {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(6.2rem, max-content);
+    }
+    .row.pred {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(4.6rem, max-content);
+    }
+    .c-rating,
+    .c-rated {
+      display: none;
+    }
   }
-  /* Desktop sorts by clicking a column header; this only exists where the headers don't. */
-  .sortbar { display: none; }
-  .sortbar select {
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--background); color: var(--foreground);
-    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.5rem;
-  }
-  .sortbar .dir {
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--background); color: var(--muted-foreground);
-    font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
-  }
+  /*
+   * Phone: the list stops being a table.
+   *
+   * Seven columns need ~585px and a phone gives ~335px, so the table scrolled sideways inside
+   * a page that scrolls down inside a rail that also scrolled — you never knew what a swipe
+   * would do, and a row you have to scroll horizontally to read isn't a row. The card that
+   * replaces it is `GameCard.svelte` and the sort control that comes with it is
+   * `SortBar.svelte`, both chosen by the `cards` prop. Nothing about that switch is expressed
+   * in CSS any more, which is why there is no block here to read.
+   */
 
   /* Only one of the two blocks below still touches `.row`, which is the point. When the card
      was a breakpoint on this same element, both did, at equal specificity, and a phone matched

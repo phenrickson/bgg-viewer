@@ -5,6 +5,7 @@
   import type { PageData } from './$types';
   import Trend from './Trend.svelte';
   import GameCard from '$lib/catalog/GameCard.svelte';
+  import SortBar from '$lib/catalog/SortBar.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -98,18 +99,23 @@
   $effect(() => {
     data.days;
     tierFilter;
+    // Also the sort: `sortBy()` reset the page itself, but the sort control binds these two
+    // directly, so the reset has to be stated where the change actually happens. Landing on
+    // page 7 of a freshly reordered list shows you the middle of an answer you didn't ask for.
+    sortKey;
+    desc;
     page = 0;
   });
 
   const arrow = (key: SortKey) => (key === sortKey ? (desc ? '▼' : '▲') : '');
 
-  /** The labels the sort control shows, and the order it offers them in. */
-  const SORT_LABELS: Record<SortKey, string> = {
-    added: 'Added',
-    hurdle: 'P(hurdle)',
-    name: 'Game',
-    year: 'Year'
-  };
+  /** What the sort control offers, and in what order. */
+  const SORT_OPTIONS = [
+    { value: 'added', label: 'Added' },
+    { value: 'hurdle', label: 'P(hurdle)' },
+    { value: 'name', label: 'Game' },
+    { value: 'year', label: 'Year' }
+  ];
 
   /**
    * Cards below 40rem, the same threshold and the same reason as Explore and Discover: five
@@ -175,26 +181,8 @@
             0 games
           {/if}
         </span>
-        <!-- The column headers ARE the sort control, and the cards have no headers — so on
-             narrow it has to live somewhere else or sorting becomes unreachable. A native
-             select is the right size for a thumb and brings its own platform picker. Same
-             shape as Explore's list, which lost its headers the same way. -->
         {#if narrow}
-          <span class="sortbar">
-            <label class="vh" for="wn-sort">Sort by</label>
-            <select id="wn-sort" bind:value={sortKey} onchange={() => (page = 0)}>
-              {#each Object.entries(SORT_LABELS) as [key, label] (key)}
-                <option value={key}>{label}</option>
-              {/each}
-            </select>
-            <button
-              type="button"
-              class="dir"
-              onclick={() => (desc = !desc)}
-              aria-label={desc ? 'Sort ascending' : 'Sort descending'}
-              title={desc ? 'High to low' : 'Low to high'}>{desc ? '▼' : '▲'}</button
-            >
-          </span>
+          <SortBar options={SORT_OPTIONS} bind:value={() => sortKey, (v) => (sortKey = v as SortKey)} bind:desc />
         {/if}
         {#if pageCount > 1}
           <span class="pager">
@@ -449,23 +437,6 @@
   /* Cards are already bounded by the panel's width; there is nothing to scroll sideways, and
      leaving the axis scrollable makes a horizontal swipe wobble the list for no reason. */
   .tablewrap.cards { overflow-x: visible; }
-
-  /* Screen-reader-only, for the sort select's label. */
-  .vh {
-    position: absolute; width: 1px; height: 1px;
-    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-  }
-  .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
-  .sortbar select {
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--background); color: var(--foreground);
-    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.5rem;
-  }
-  .sortbar .dir {
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--background); color: var(--muted-foreground);
-    font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
-  }
 
   /* A card's stat values. GameCard styles the labels; what sits under them is the caller's. */
   .sv { font-size: 0.85rem; font-weight: 600; color: var(--foreground); }
