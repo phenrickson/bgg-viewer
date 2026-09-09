@@ -16,6 +16,9 @@ pattern in the app — then migrate the rest onto it. Mobile-correct by construc
 - `gh pr view --json state,mergedAt` before every push, not just once.
 - No copy changes; flagged placeholders only if unavoidable.
 - **Every PR verified in light AND dark, at 375px AND desktop.**
+- **Every PR states the routes it affects**, so the local pass is a checklist rather than a
+  memory test. This matters from PR 5 on: extracting a house component fans out across routes
+  that aren't the one being worked on — `Chip` spans 5, `Note` spans 6.
 - **Every extraction deletes its copies in the same PR.** A component that ships beside the
   duplication it replaces has made things worse, not better.
 
@@ -141,13 +144,23 @@ Also decided here: migrate everything, or adopt-on-contact (spec open question 3
 
 ---
 
-### PR 5 — The rest of L4 *(post-gate)*
+### PR 5 — The rest of L4 *(post-gate)* — **one component per PR**
 
-**Branch:** `feat/house-components`
+Each extracted from the copies that exist, tap- and touch-correct **once**, every copy deleted
+in the same PR. Split one-per-PR because each fans out across routes that aren't the one being
+worked on, and the review is a per-route walk:
 
-`Seg` (6 copies) · `Chip` (7) · `Pager` (3) · `EmptyState` (5) · `SectionLabel` (4) · `Door` (2).
-Each extracted from the copies that exist, tap- and touch-correct **once**, and every copy
-deleted in the same PR. `Seg` retires #6 in one place rather than six.
+| PR | Component | Copies | Routes to check |
+|---|---|---|---|
+| 5a | `Seg` | 6 | Explore, game detail, whats-new — retires #6 in one place, not six |
+| 5b | `Chip` | 7 | Explore, Discover, landing, game detail, dev/similar |
+| 5c | `EmptyState` | 5 | Explore, game detail, whats-new, dev/similar |
+| 5d | `Pager` | 3 | Explore, whats-new |
+| 5e | `SectionLabel` (`.lbl`/`.note`) | 4–8 | Explore, landing, about, settings, dev/similar |
+| 5f | `Door` | 2 | landing, Discover |
+
+Take them in that order — `Seg` first because it carries a defect (#6), `Door` last because it
+is two files and cosmetic.
 
 ---
 

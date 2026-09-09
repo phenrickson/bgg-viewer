@@ -248,8 +248,14 @@ clean upstream fix.
 - **Version compatibility** — Svelte 5.56 / Tailwind 4.3 / Kit 2.63. Confirm before relying on
   `@latest`; **stop and report** rather than pinning something that half-works.
 - **Tailwind preflight** — already bitten once: `margin: 0` on `dialog` broke `AnalysisPanel`.
-- **No visual-regression safety net.** `just test` covers logic only; every check in the plan is
-  "look at it in both themes." Workable for a reviewed sequence; it does not scale to a sweep.
+- **Fan-out on the L4 extractions.** Local review is the right check for this project —
+  automated visual regression would be a net negative here, since the catalog loads async into
+  DuckDB-WASM, thumbnails arrive late and repaint rows, and charts animate, so screenshot diffs
+  would flake more than they'd catch. The real risk is narrower: extracting a house component
+  touches routes the reviewer isn't thinking about. `Chip` spans 5 routes (Explore, Discover,
+  landing, game detail, dev/similar), `Note` spans 6. **Mitigation: every PR lists its affected
+  routes**, so the local pass is a checklist rather than a memory test — and L4 is split one
+  component per PR rather than six at once.
 - **Explore is the most important page.** Mitigated by branch + local review + Phil merges.
 - **Scope.** This is a system, not a patch. The gate exists so it can be stopped.
 
