@@ -13,7 +13,7 @@
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
-  let { where, universe = 'top10k' }: { where: string; universe?: Scope['universe'] } = $props();
+  let { where, universe = 'rated' }: { where: string; universe?: Scope['universe'] } = $props();
 
   const upcoming = $derived(universe === 'upcoming');
 

@@ -24,7 +24,6 @@
   import {
     playerCountModeFor,
     setPlayerCount,
-    withUniverse,
     type PlayerCountMode,
     type Scope
   } from './scope';
@@ -80,15 +79,6 @@
    */
   const upcoming = $derived(scope.universe === 'upcoming');
   const pred = $derived(upcoming ? 'predicted ' : '');
-
-  /**
-   * Switching universe carries the hurdle floor with it: leaving upcoming and coming back
-   * would otherwise land on `null` rather than the default, silently widening the set by
-   * ~3,000 placeholder entries.
-   */
-  function setUniverse(u: Scope['universe']) {
-    scope = withUniverse(scope, u);
-  }
 
   /**
    * The hurdle floor as steps, not a slider. A probability filter doesn't reward fine
@@ -184,37 +174,38 @@
     </label>
 
     <div class="grp top">
-      <span class="lbl">Universe</span>
-      <div class="seg two">
+      <!--
+        Universe used to be three segmented buttons here: Top 10,000 / All rated / Upcoming.
+        Two of those were the same catalog at different popularity floors and one was a
+        different kind of data entirely, so the control asked two unrelated questions at once
+        and made answering them the first thing anybody did. Upcoming is now a navigation
+        destination (the Games menu already offers it), and top-10,000 is the filter it always
+        was — a toggle, below, that ANDs onto the rated catalog and carries a clearable chip.
+      -->
+      {#if !upcoming}
         <button
-          class:on={scope.universe === 'top10k'}
-          aria-pressed={scope.universe === 'top10k'}
-          onclick={() => setUniverse('top10k')}>Top 10,000</button
+          type="button"
+          role="switch"
+          aria-checked={scope.rankedOnly}
+          class="toggle"
+          onclick={() => (scope.rankedOnly = !scope.rankedOnly)}
         >
-        <button
-          class:on={scope.universe === 'rated'}
-          aria-pressed={scope.universe === 'rated'}
-          onclick={() => setUniverse('rated')}>All rated</button
-        >
-        <button
-          class:on={upcoming}
-          aria-pressed={upcoming}
-          onclick={() => setUniverse('upcoming')}>Upcoming</button
-        >
-      </div>
-      <p class="note">
-        {scope.universe === 'top10k'
-          ? 'BGG’s ranked top 10,000, by geek rating.'
-          : scope.universe === 'rated'
-            ? 'Everything with 30+ ratings — about 35,000.'
-            : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
-      </p>
+          <span class="track" class:on={scope.rankedOnly}><span class="knob"></span></span>
+          <span class="switch-label">Ranked top 10,000</span>
+        </button>
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <p class="note">
+          {scope.rankedOnly
+            ? 'BGG’s ranked top 10,000, by geek rating.'
+            : 'Everything with 30+ ratings — about 35,000.'}
+        </p>
+      {/if}
       {#if bggUsername}
         <button
           type="button"
           role="switch"
           aria-checked={collectionActive}
-          class="collection-switch"
+          class="toggle"
           disabled={collectionStatus === 'loading'}
           onclick={toggleCollection}
         >
@@ -496,7 +487,7 @@
   /* A switch, not a `.seg` button or a checkbox — Universe's segmented buttons read as
      mutually-exclusive choices, which this deliberately isn't (it ANDs onto whatever Universe
      is active). A switch's on/off affordance says "toggle," not "pick one of these." */
-  .collection-switch {
+  .toggle {
     margin-top: 0.3rem;
     display: flex;
     align-items: center;
@@ -508,11 +499,11 @@
     cursor: pointer;
     font: inherit;
   }
-  .collection-switch:disabled {
+  .toggle:disabled {
     opacity: 0.6;
     cursor: default;
   }
-  .collection-switch .track {
+  .toggle .track {
     flex: none;
     width: 1.9rem;
     height: 1.05rem;
@@ -521,10 +512,10 @@
     position: relative;
     transition: background 0.15s ease;
   }
-  .collection-switch .track.on {
+  .toggle .track.on {
     background: var(--primary);
   }
-  .collection-switch .knob {
+  .toggle .knob {
     position: absolute;
     top: 0.12rem;
     left: 0.12rem;
@@ -534,27 +525,27 @@
     background: var(--background);
     transition: transform 0.15s ease;
   }
-  .collection-switch .track.on .knob {
+  .toggle .track.on .knob {
     transform: translateX(0.85rem);
   }
   @media (prefers-reduced-motion: reduce) {
-    .collection-switch .track,
-    .collection-switch .knob {
+    .toggle .track,
+    .toggle .knob {
       transition: none;
     }
   }
-  .collection-switch .switch-label {
+  .toggle .switch-label {
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
-  .collection-switch:hover:not(:disabled) .switch-label {
+  .toggle:hover:not(:disabled) .switch-label {
     color: var(--foreground);
   }
-  .collection-switch[aria-checked='true'] .switch-label {
+  .toggle[aria-checked='true'] .switch-label {
     color: var(--primary);
     font-weight: 600;
   }
-  .collection-switch:focus-visible {
+  .toggle:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
     border-radius: 4px;

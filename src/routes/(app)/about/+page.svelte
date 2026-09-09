@@ -148,6 +148,19 @@
         </div>
       </section>
     {/if}
+
+    <!--
+      Attribution's permanent home. The app footer carries the BGG badge everywhere, but its
+      disclaimer sentence is the first thing dropped on a phone (see `+layout.svelte`), where
+      the shell's chrome competes with the games for a screen that has none to spare. A
+      sentence that only exists in a footer only exists where the footer fits — so it lives
+      here, on the page that answers "where is this data from" anyway, and the footer's copy
+      became the short reminder rather than the record.
+    -->
+    <section class="sec attribution">
+      <h2>Data &amp; attribution</h2>
+      <p>Data sourced from BoardGameGeek. Not affiliated with or endorsed by BoardGameGeek.</p>
+    </section>
   </Container>
 </div>
 
@@ -185,6 +198,11 @@
     max-width: 42rem;
   }
   .prose { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .attribution p {
+    margin: 0; font-size: 0.92rem; line-height: 1.55; color: var(--muted-foreground);
+    max-width: 42rem;
+  }
 
   .msg { color: var(--muted-foreground); font-size: 0.9rem; }
   .retry {

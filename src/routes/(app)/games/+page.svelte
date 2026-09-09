@@ -28,7 +28,6 @@
     scopeToParams,
     scopeFromParams,
     activeFilters,
-    withUniverse,
     type Scope
   } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
@@ -190,13 +189,7 @@
       .catch((e) => console.error('cutoff query failed', e));
   });
 
-  const universeLabel = $derived(
-    scope.universe === 'top10k'
-      ? 'the top 10,000'
-      : scope.universe === 'rated'
-        ? 'all rated games'
-        : 'upcoming games'
-  );
+  const universeLabel = $derived(scope.universe === 'rated' ? 'all rated games' : 'upcoming games');
   const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
 
   // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
@@ -225,34 +218,21 @@
 {:else if where != null && baseWhere != null}
   <Container size="wide" fill>
     {#if narrow}
-      <!-- The one control worth reaching for without opening anything. Uses Rail's own
-           `withUniverse` so switching here can never drift from what the desktop rail does. -->
+      <!--
+        Filters, alone, and nothing else on this row.
+        It used to lead with three Universe buttons — the mobile answer to "Universe is the
+        first thing you touch, so don't bury it behind a button". That premise was wrong:
+        Universe was conflating a data mode (upcoming, where every number is a prediction)
+        with a popularity filter (top 10,000, a subset of rated), and neither belongs at the
+        top of a phone screen ahead of the games. Upcoming is a nav destination now; ranked
+        top-10,000 is a toggle inside the sheet like every other filter. What's left is one
+        trigger with a live count of what's applied, and a row of games starting higher up.
+      -->
       <div class="flex items-center gap-2 pb-3">
-        <span class="flex flex-1 gap-1" role="group" aria-label="Universe">
-          <Button
-            variant={scope.universe === 'top10k' ? 'default' : 'outline'}
-            size="sm"
-            class="flex-1"
-            onclick={() => (scope = withUniverse(scope, 'top10k'))}>Top 10,000</Button
-          >
-          <Button
-            variant={scope.universe === 'rated' ? 'default' : 'outline'}
-            size="sm"
-            class="flex-1"
-            onclick={() => (scope = withUniverse(scope, 'rated'))}>All rated</Button
-          >
-          <Button
-            variant={scope.universe === 'upcoming' ? 'default' : 'outline'}
-            size="sm"
-            class="flex-1"
-            onclick={() => (scope = withUniverse(scope, 'upcoming'))}>Upcoming</Button
-          >
-        </span>
-
         <Sheet.Root bind:open={filtersOpen}>
           <Sheet.Trigger>
             {#snippet child({ props })}
-              <Button {...props} variant="outline" size="sm" class="relative shrink-0">
+              <Button {...props} variant="outline" size="sm" class="relative w-full">
                 Filters
                 {#if activeCount}
                   <span

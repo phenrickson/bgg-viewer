@@ -410,14 +410,22 @@
     color: var(--muted-foreground);
     opacity: 0.7;
   }
-  /* Same no-wrap overflow as the header, same corrected threshold. */
+  /*
+   * The footer is pinned shell chrome — `.content` scrolls, this doesn't — so on a phone it
+   * spends the scarcest thing on the screen (vertical space) on the least urgent thing on it.
+   * At 56rem the disclaimer wrapped to its own line and the footer cost two rows of a viewport
+   * that shows about eight games.
+   *
+   * So the sentence goes and the badge stays. They aren't the same obligation: the badge is a
+   * live credit linking back to BoardGameGeek, and it survives everywhere. The sentence is a
+   * statement of record, and a statement of record belongs on the page that makes the record —
+   * it now has a permanent section on About rather than only existing where a footer fits.
+   */
   @media (max-width: 56rem) {
     .appfoot :global(.appfoot-inner) {
-      flex-wrap: wrap;
-      row-gap: 0.2rem;
-      padding: var(--space-sm) var(--space-md);
+      padding: 0.3rem var(--space-md);
     }
-    .bgg-badge img { height: 22px; }
-    .disclaimer { font-size: 0.68rem; }
+    .bgg-badge img { height: 20px; }
+    .disclaimer { display: none; }
   }
 </style>

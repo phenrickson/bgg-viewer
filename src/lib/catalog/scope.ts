@@ -123,7 +123,24 @@ export interface Scope {
 	 * differs. That is what lets one `Scope`, one rail and one table serve both rooms
 	 * instead of two of each drifting apart.
 	 */
-	universe: 'top10k' | 'rated' | 'upcoming';
+	universe: 'rated' | 'upcoming';
+
+	/**
+	 * Restrict to BGG's ranked top 10,000 by geek rating.
+	 *
+	 * This used to be a third `universe`, sitting beside `rated` and `upcoming` as though the
+	 * three were the same kind of choice. They are not. `upcoming` changes what every number
+	 * on screen *means* — each one becomes a model estimate read from a different column
+	 * (`columnsFor`), one filter appears and another disappears. Top-10,000 changes nothing
+	 * about meaning; it is a popularity floor over the same rated catalog, and strictly a
+	 * subset of it. Presenting a filter as a mode made the user's first decision a three-way
+	 * choice across two unrelated axes, and left a filter that removes ~21,000 games
+	 * unclearable, because a universe can't be cleared to nothing. As a flag it gets a chip
+	 * like every other constraint.
+	 *
+	 * Meaningless in `upcoming` (nothing there has a geek rating yet), and ignored there.
+	 */
+	rankedOnly: boolean;
 	/**
 	 * Floor on `predicted_hurdle_prob` — the chance a game ever gathers enough ratings to
 	 * earn a geek rating. Only meaningful in the `upcoming` universe (elsewhere the games
@@ -185,6 +202,7 @@ export const DEFAULT_SCOPE: Scope = {
 	publishers: [],
 	families: [],
 	universe: 'rated',
+	rankedOnly: false,
 	hurdleMin: null
 };
 
@@ -285,9 +303,11 @@ export function toWhere(scope: Scope): string {
 		parts.push(
 			`year_published >= ${new Date().getFullYear()} AND predicted_geek_rating IS NOT NULL`
 		);
-	else if (scope.universe === 'rated') parts.push('users_rated >= 30');
-	else
-		// Top 10k by geek rating — an independent subquery over the whole catalog.
+	else parts.push('users_rated >= 30');
+	// Top 10k by geek rating — an independent subquery over the whole catalog. A filter over
+	// the rated universe, not a universe of its own; skipped in `upcoming`, where no game has
+	// a geek rating to be ranked by.
+	if (scope.rankedOnly && scope.universe !== 'upcoming')
 		parts.push(
 			'game_id IN (SELECT game_id FROM catalog WHERE geek_rating > 0 ORDER BY geek_rating DESC LIMIT 10000)'
 		);
@@ -355,6 +375,8 @@ export function toWhere(scope: Scope): string {
  * the axis never shifts under the brush as you drag.
  */
 export function universeWhere(scope: Scope): string {
+	// `rankedOnly` deliberately not carried across: it is a filter, so the backdrop it is
+	// measured against is the universe without it — the same treatment every other filter gets.
 	return toWhere({ ...DEFAULT_SCOPE, universe: scope.universe });
 }
 
@@ -477,6 +499,15 @@ export function activeFilters(scope: Scope): FilterChip[] {
 			label: `${scope.recommendedAt}`,
 			patch: { recommendedAt: null }
 		});
+	// The reason top-10,000 stopped being a universe: as a mode it removed ~21,000 games with
+	// nothing on screen offering to put them back. As a filter it says so and can be cleared.
+	if (scope.rankedOnly && scope.universe !== 'upcoming')
+		chips.push({
+			id: 'rankedOnly',
+			kind: 'ranked',
+			label: 'top 10,000',
+			patch: { rankedOnly: false }
+		});
 	// A chip despite having a non-zero default in the upcoming universe: a filter that
 	// silently removes ~3,000 games has to be visible and removable.
 	if (scope.universe === 'upcoming' && scope.hurdleMin != null && scope.hurdleMin > 0)
@@ -532,6 +563,7 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	for (const pub of scope.publishers) p.append('pub', pub);
 	for (const f of scope.families) p.append('fam', f);
 	if (scope.universe !== 'rated') p.set('u', scope.universe);
+	if (scope.rankedOnly) p.set('ranked', '1');
 	// `0` is meaningful (an explicitly cleared floor) and must round-trip, so this compares
 	// against the universe's default rather than testing truthiness.
 	if (scope.hurdleMin !== defaultHurdleFor(scope.universe))
@@ -601,7 +633,11 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		artists: params.getAll('art'),
 		publishers: params.getAll('pub'),
 		families: params.getAll('fam'),
-		universe: u === 'top10k' || u === 'upcoming' ? u : 'rated',
-		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'top10k') : finite(h)
+		universe: u === 'upcoming' ? 'upcoming' : 'rated',
+		// `?u=top10k` is the old spelling, from when it was a universe. Links to it exist —
+		// shared URLs, bookmarks, the app's own history — so it keeps working, translated into
+		// the flag it always was: the rated catalog with the ranked filter on.
+		rankedOnly: params.get('ranked') === '1' || u === 'top10k',
+		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'rated') : finite(h)
 	};
 }
