@@ -183,28 +183,53 @@ unmigrated, so the branch can be abandoned without partial-state risk.
 Branch-and-PR as always, one concern per PR, **never on `main`**, and **Phil merges**.
 Build/deploy stays Actions-only — nothing runs locally beyond `just check` and `just dev`.
 
-Sequencing is upstream-first, so the corrected kit is what gets copied down:
+**Sequencing — pilot-first, not upstream-first.** *(revised 2026-09-09)*
 
-1. `front-end-design` — audit and correct kit/skill.
-2. bgg-viewer — tokens.
-3. bgg-viewer — install + `components.json`.
-4. bgg-viewer — pilot page migration.
-5. bgg-viewer — reconcile the skill; resolve the `app.d.ts` and `query/keys.ts` fossils.
+This spec originally proposed correcting `front-end-design` first, so the fixed kit would be
+what gets copied down. That reasoning does not hold here: bgg-viewer is **not** being re-seeded
+from the kit, it is being fixed in place, so nothing downstream is waiting on the upstream fix.
+Worse, writing an upstream guardrail before running the install here means guessing at what
+actually breaks. Run it in bgg-viewer, learn, then push a **verified** correction upstream.
+
+This also gets the pilot in front of Phil sooner, which is what the decision gate needs.
+
+1. bgg-viewer — tokens (the eleven missing variables, both themes).
+2. bgg-viewer — deps + `shadcn-svelte init`/`add`, `components.json`.
+3. bgg-viewer — **pilot migration of `/whats-new`** → **review gate**.
+4. *Everything below is planned only after the gate:* the migration scope Phil chooses,
+   reconciling the skill, resolving the `app.d.ts` and `query/keys.ts` fossils, and the
+   `front-end-design` correction informed by what steps 1–3 actually hit.
 
 Verification per step: `just check` (svelte-check + types), `just dev` on localhost:5173 in
 **both light and dark**, and a width sweep for horizontal overflow.
 
+## Resolved questions
+
+**Q2 — How far does adoption go? → Pilot, review locally, then decide.** *(Phil, 2026-09-09)*
+
+The migration sweep is explicitly **not** committed to up front. One page is migrated, reviewed
+running locally, and the scope of everything after is decided from what that review shows. This
+makes the pilot a **decision gate**, not merely the first step of a predetermined sweep — the
+legitimate outcomes include "carry on page by page", "sweep it all", and "this isn't worth it,
+stop here."
+
+Consequence for the plan: work is sequenced so the pilot is runnable and reviewable as early as
+possible, and nothing after the gate is planned in detail until the gate is passed.
+
+**Q1 — Pilot page? → `/whats-new`.**
+
+It exercises a server load, a sortable paginated table, a chart, and a segmented toolbar, and it
+already imports `Container`/`Stack` — so it covers most of the baseline component set. `/about`
+is nearly pure prose and would prove almost nothing. `/whats-new` is not load-bearing for the
+product thesis, so a regression there is cheap.
+
 ## Open questions
 
-1. **Pilot page** — `/whats-new` or `/about`? `/whats-new` exercises more (table, chart,
-   toolbar, pagination); `/about` is nearly pure prose and proves less.
-2. **How far does adoption go** — the migration sweep after the pilot is deliberately
-   unscoped here. Full migration of all 156 files, or adopt-on-contact as pages are touched?
-   This is the question that most changes the plan and is **not settled**.
-3. **`front-end-design` correction** — is the kit actually wrong, or was it simply not run?
+1. **`front-end-design` correction** — is the kit actually wrong, or was it simply not run?
    The audit suggests the latter, in which case the upstream fix may be a guardrail (a
    `just verify` that fails when the skill's imports don't resolve) rather than new content.
-4. **The `--vote-*` and `--color-positive`/`--color-negative` tokens** — fold into shadcn's
+   **Note:** this reverses the "upstream-first" sequencing above — see the Delivery section.
+2. **The `--vote-*` and `--color-positive`/`--color-negative` tokens** — fold into shadcn's
    semantic set, or keep as an independent app-specific layer?
 
 ## Next
