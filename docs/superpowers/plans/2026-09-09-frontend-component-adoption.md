@@ -27,11 +27,31 @@ Five PRs. PR 3 is the review gate — it is the first point where mobile visibly
 
 | PR | What | Fixes (Appendix A) |
 |---|---|---|
-| 1 | Tokens — shadcn's eleven, plus input floor, tap targets, breakpoints | #5, groundwork for #6, #9 |
+| 1 | Tokens — shadcn's eleven, plus input floor, tap targets, breakpoints | groundwork for #5, #6, #9 |
 | 2 | Install presentation components. No TanStack. | — (inert) |
 | 3 | **Explore shell on `Split` + filter drawer via `Sheet`** ← **gate** | #3 |
 | 4 | Dense-row narrow strategy, shared by `GameList`/`GameRow` | #2, #4 |
 | 5 | Residue — app bar, tooltips, `dvh` | #1, #7, #8 |
+
+**PR 1 fixes nothing on its own** — an earlier draft of this table claimed #5 and it was wrong.
+It defines tokens; every one of them is *applied* in a later PR. Specifically:
+
+- **#5 (iOS input zoom)** cannot be fixed globally. The four offending inputs style themselves
+  in Svelte `<style>` blocks, which compile to `input.s-xxx { font-size: 0.85rem }` — a
+  class-plus-element selector that outranks any bare `input { … }` rule `app.css` could add.
+  The floor has to be applied per component, which happens in PRs 2/3/5 as they are touched.
+- **#9 (breakpoint sprawl)** is not fixed by a token either, because **a custom property cannot
+  appear in a `@media`/`@container` prelude** — `@media (max-width: var(--bp-md))` is invalid
+  and the whole block is dropped. That is a property of the CSS Variables spec, not a browser
+  gap. The alternatives are `@custom-media` (unshipped in every browser; needs a PostCSS step
+  this repo does not have) or Tailwind's `--breakpoint-*` namespace (real, but only drives
+  utility variants in markup, not hand-written `@media` in scoped styles). So PR 1 states the
+  canonical set as a documented convention, and #9 is actually fixed by **deleting queries** —
+  `Split` and `AutoGrid` need none — which is PR 3's job, not PR 1's.
+
+Recount for the record: the app has **12 layout media queries at 8 distinct widths**
+(40rem, 560, 640, 720, 860, 900, 1100, 1280px), 9 of them outside `/dev`. An earlier draft said
+five. Note `40rem` and `640px` are the same width written two ways.
 
 ---
 
@@ -93,11 +113,31 @@ This is where mobile first visibly works, and it delivers what the code already 
 `games/+page.svelte:380`: *"A proper narrow layout wants the filters behind a drawer with the
 results first."*
 
-1. **Shell** — replace `grid-template-columns: 16rem minmax(0, 1fr)` with `Split`
-   (`ratio="aside-narrow"`). Preserve the two independently scrolling columns and the fill-height
-   behaviour from `Container size="wide" fill`. **Preserve `.canvas`'s `container-type:
-   inline-size`** — `GameList`'s `@container (max-width: 62rem)` column-shedding resolves
-   against it, and PR 4 builds on that.
+**Prerequisite — `Split` cannot do this job as written.** Two defects, found in review, in a
+primitive that has **never been used by any page** and so has never been exercised:
+
+1. **The basis is percentage-only.** `SPLIT_BASIS` offers `half: 50%`, `aside-narrow: 34%`,
+   `aside-wide: 40%`, applied as `flex: 0 0 var(--aside-basis)`. Explore's rail is a fixed
+   `16rem`. Inside `Container size="wide"` (112rem cap), `aside-narrow` resolves to **38rem —
+   2.4× the current rail** on a wide screen. That is not equivalence, it is a visible redesign.
+   `Split` needs a fixed-length basis option (e.g. `basis="16rem"`) before Explore can use it.
+2. **`at="sm"` is a dead prop.** `SplitAt = 'sm' | 'md'`, but the stylesheet only defines
+   `.at-md` inside `@container (min-width: 35rem)`. There is no `.at-sm` rule at all, so
+   `at="sm"` silently leaves the region permanently stacked. Nobody has hit it because nobody
+   has used `Split`.
+
+Additionally, 35rem is almost certainly the wrong collapse point for Explore: a 16rem rail
+beside a dense games table needs roughly 56rem before both are usable, not 35rem.
+
+So PR 3 starts by **fixing the primitive** — fixed-basis support, a real `at="sm"` rule, and a
+collapse threshold Explore can actually use. Do that as the first commit of this PR, not as a
+silent workaround inside the page, or the next page to reach for `Split` hits the same wall.
+
+1. **Shell** — replace `grid-template-columns: 16rem minmax(0, 1fr)` with the fixed-basis
+   `Split`. Preserve the two independently scrolling columns and the fill-height behaviour from
+   `Container size="wide" fill`. **Preserve `.canvas`'s `container-type: inline-size`** —
+   `GameList`'s `@container (max-width: 62rem)` column-shedding resolves against it, and PR 4
+   builds on that.
 2. **Drawer** — below the narrow breakpoint, the rail moves into a `Sheet` behind a "Filters"
    trigger, with results first. Above it, the rail stays exactly where it is. `Rail` itself is
    not rewritten — it is placed in a different container.
