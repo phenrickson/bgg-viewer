@@ -94,6 +94,8 @@
   .box { position: relative; }
   input { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--background); color: var(--foreground); padding: 0.3rem 0.45rem; font: inherit; font-size: 0.82rem; }
   input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  /* 16px floor: under it, iOS Safari zooms on focus and never zooms back out. */
+  @media (max-width: 40rem) { input { font-size: var(--input-font-min); } }
   .menu { position: absolute; z-index: 10; top: calc(100% + 2px); left: 0; right: 0; margin: 0; padding: 0.2rem; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 20px oklch(0 0 0 / 0.12); max-height: 15rem; overflow: auto; }
   .menu button { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; background: none; border: none; border-radius: 5px; padding: 0.3rem 0.4rem; font: inherit; font-size: 0.82rem; color: var(--foreground); cursor: pointer; }
   .menu button:hover { background: var(--muted); }

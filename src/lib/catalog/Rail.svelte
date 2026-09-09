@@ -414,6 +414,12 @@
     font: inherit;
     font-size: 0.85rem;
   }
+  /* iOS Safari zooms the page when a focused input computes under 16px, and does not zoom
+     back out on blur — you are left panning a magnified page. The rail's density is a desktop
+     affordance, so the floor only applies where the problem exists. */
+  @media (max-width: 40rem) {
+    .find input { font-size: var(--input-font-min); }
+  }
 
   .grp {
     display: flex;
@@ -480,6 +486,12 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* 44px minimum on touch (--tap-min). These controls are sized for a mouse; a thumb
+     needs more. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .seg button { min-height: var(--tap-min); }
+  }
+
 
   /* A switch, not a `.seg` button or a checkbox — Universe's segmented buttons read as
      mutually-exclusive choices, which this deliberately isn't (it ANDs onto whatever Universe

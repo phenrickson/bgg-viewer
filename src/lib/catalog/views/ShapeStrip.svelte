@@ -425,6 +425,13 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* 44px minimum on touch (--tap-min). These controls are sized for a mouse; a thumb
+     needs more. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .seg button { min-height: var(--tap-min); min-width: var(--tap-min); }
+    .taller { min-height: var(--tap-min); }
+  }
+
   .taller {
     border: 1px solid var(--border);
     border-radius: 6px;

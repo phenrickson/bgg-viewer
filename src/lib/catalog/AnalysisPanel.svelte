@@ -666,8 +666,8 @@
     border-radius: var(--radius);
     background: var(--card);
     color: var(--foreground);
-    width: min(92vw, 64rem);
-    max-height: 88vh;
+    width: min(92dvw, 64rem);
+    max-height: 88dvh;
     opacity: 0;
     transform: scale(0.96) translateY(6px);
     transition:
@@ -682,11 +682,13 @@
   }
   /* True Fullscreen API state (not just the modal's own centered-box sizing) — edge to edge,
      no card border or rounding once it's the whole screen. */
+  /* dvh/dvw, not vh/vw: on mobile `vh` is the LARGE viewport, so a 100vh panel runs under
+     the browser's own URL bar and the bottom of the chart is unreachable. */
   .chartdialog:fullscreen {
-    width: 100vw;
-    max-width: 100vw;
-    height: 100vh;
-    max-height: 100vh;
+    width: 100dvw;
+    max-width: 100dvw;
+    height: 100dvh;
+    max-height: 100dvh;
     margin: 0;
     border: none;
     border-radius: 0;

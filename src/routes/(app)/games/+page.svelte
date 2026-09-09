@@ -365,6 +365,12 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* 44px minimum on touch (--tap-min). These controls are sized for a mouse; a thumb
+     needs more. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .viewtoggle button { min-height: var(--tap-min); }
+  }
+
 
   .prov {
     margin: 0;

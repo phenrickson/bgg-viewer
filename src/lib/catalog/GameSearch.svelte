@@ -81,6 +81,8 @@
 
   .compact .box { border-radius: 8px; padding: 0.32rem 0.6rem; }
   .compact .box input { font-size: 0.85rem; }
+  /* 16px floor: under it, iOS Safari zooms on focus and never zooms back out. */
+  @media (max-width: 40rem) { .compact .box input { font-size: var(--input-font-min); } }
 
   .menu { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 0.25rem; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 24px oklch(0 0 0 / 0.14); max-height: 20rem; overflow: auto; }
   .menu button { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; background: none; border: none; border-radius: 6px; padding: 0.45rem 0.5rem; font: inherit; color: var(--foreground); cursor: pointer; }

@@ -180,6 +180,8 @@
     padding: var(--space-sm) var(--space-md); font: inherit; font-size: 0.9rem;
   }
   .inline input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  /* 16px floor: under it, iOS Safari zooms on focus and never zooms back out. */
+  @media (max-width: 40rem) { .inline input { font-size: var(--input-font-min); } }
   .inline input[aria-invalid='true'] { border-color: var(--color-negative); }
 
   /* Same bordered-button language as the admin collection picker's "Apply" — this page

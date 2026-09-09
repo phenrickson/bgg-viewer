@@ -299,6 +299,19 @@
   .appbar { flex: none; }
 
   /* Fixed-height sliver, not part of the scrolling content — same reasoning as the appbar. */
+  /* The bar was a single no-wrap flex row: brand + nav + the full user email + Settings +
+     Log out + the theme toggle. That needs ~585px and a phone gives it ~295px, so it simply
+     ran off the right edge. Wrapping is the honest fix — everything stays reachable, it just
+     takes two lines. The email goes: it is the one item here that isn't actionable, and
+     "Settings" already leads to where you'd change it. */
+  @media (max-width: 40rem) {
+    .appbar { padding: var(--space-sm) var(--space-md); }
+    .appbar :global(.appbar-inner) { flex-wrap: wrap; row-gap: var(--space-sm); }
+    .mainnav { margin-left: 0; }
+    .who { display: none; }
+    .actions { gap: var(--space-md); }
+  }
+
   .appfoot { flex: none; border-top: 1px solid var(--border); background: var(--card); }
   .appfoot :global(.appfoot-inner) {
     display: flex; align-items: center; gap: var(--space-md);
@@ -315,5 +328,15 @@
     font-variant-numeric: tabular-nums;
     color: var(--muted-foreground);
     opacity: 0.7;
+  }
+  /* Same no-wrap overflow as the header: badge + a full sentence + version on one row. */
+  @media (max-width: 40rem) {
+    .appfoot :global(.appfoot-inner) {
+      flex-wrap: wrap;
+      row-gap: 0.2rem;
+      padding: var(--space-sm) var(--space-md);
+    }
+    .bgg-badge img { height: 22px; }
+    .disclaimer { font-size: 0.68rem; }
   }
 </style>
