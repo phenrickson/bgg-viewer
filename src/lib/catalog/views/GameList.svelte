@@ -303,7 +303,6 @@
               decimals={2}
               color="var(--chart-1)"
               barHeight="3px"
-              width="var(--gauge-w, 3.5rem)"
             />
           </span>
 
@@ -314,7 +313,7 @@
                one invented for this room would mean a reader had to learn complexity twice. -->
           <span class="c-weight">
             <span class="stat-lbl">Cplx</span>
-            <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" width="var(--gauge-w, 3.5rem)" />
+            <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
           </span>
 
           <!-- The same bar as predicted geek, in a narrower slot. The column inherited
@@ -333,14 +332,14 @@
         {:else}
           <span class="c-geek">
             <span class="stat-lbl">Geek</span>
-            <RatingBar value={r.geek_rating} width="var(--gauge-w, 3.5rem)" />
+            <RatingBar value={r.geek_rating} />
           </span>
 
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
             <span class="stat-lbl">Cplx</span>
-            <ComplexityMeter weight={r.average_weight} barHeight="3px" width="var(--gauge-w, 3.5rem)" />
+            <ComplexityMeter weight={r.average_weight} barHeight="3px" />
           </span>
 
           <span class="c-best">
@@ -641,6 +640,10 @@
   }
   /* Desktop sorts by clicking a column header; this only exists where the headers don't. */
   .sortbar { display: none; }
+  /* The table's own column headers say "Geek", "Complexity", "Best at" once, above every row.
+     These per-cell labels exist only for the card layout, which drops that header row — in the
+     table they'd repeat the header a hundred times. Hidden here, revealed in the card block. */
+  .stat-lbl { display: none; }
   .sortbar select {
     border: 1px solid var(--border); border-radius: 6px;
     background: var(--background); color: var(--foreground);
@@ -652,6 +655,41 @@
     font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
   }
 
+  /* Ordering here is load-bearing. Both of the blocks below are `@container` queries, and on a
+     phone BOTH match — 335px is under 62rem as well as under 40rem. They each declare
+     `.row { grid-template-columns }` at equal specificity, so the later one wins outright. The
+     62rem block therefore has to come first: it is the milder adjustment (drop two numbers, keep
+     the table), and the 40rem card layout is the one that must survive. Reversed, the card grid
+     kept its `grid-template-areas` but inherited the table's seven column widths, so `geek`
+     landed on a 1.85rem thumbnail track and `weight` on the name column's `1fr`. */
+
+  /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
+  @container (max-width: 62rem) {
+    .row {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(6.2rem, max-content);
+    }
+    .row.pred {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(4.6rem, max-content);
+    }
+    .c-rating,
+    .c-rated {
+      display: none;
+    }
+  }
   /*
    * Phone: a row stops being a row.
    *
@@ -689,20 +727,14 @@
     .c-weight { grid-area: weight; align-items: start; }
     .c-best,
     .c-hurdle { grid-area: best; align-items: start; }
-    /* Gauge's own default (`3.5rem`) is sized for a table column with six other columns
-       competing for the same row — small on purpose. A card grid area is roughly a third of
-       ~335px with nothing else in it, so the same fixed width left most of the column empty.
-       `--gauge-w` is what RatingBar/ComplexityMeter/Gauge actually read (each call site passes
-       `width="var(--gauge-w, 3.5rem)"`), so redefining it here stretches the bar to fill the
-       space it's actually been given, instead of overriding a hardcoded prop value directly. */
-    .c-geek,
-    .c-weight { --gauge-w: 100%; }
-    /* Gauge centers its own number+bar internally, which reads fine at 3.5rem sitting near
-       the label anyway; stretched to 100% the centering would drift the number to the middle
-       of a now-wide box while `.stat-lbl` stays put at the left edge above it. Left-aligning
-       keeps label, number and bar on one edge. */
+    /* Gauge sizes itself intrinsically (3.5rem) so a wide table column doesn't stretch a bar
+       out of proportion to the two-digit number above it. A card is the opposite case: the
+       column IS the measure's own slot, and a bar that fills it is the point. */
     .c-geek :global(.gauge),
-    .c-weight :global(.gauge) { align-items: flex-start; }
+    .c-weight :global(.gauge) {
+      width: 100%;
+      align-items: flex-start;
+    }
     /* The meta line is the first thing to go when width is scarce — the name is not. */
     .c-name .nm { font-size: 0.95rem; white-space: normal; }
     .c-name .mt { font-size: 0.78rem; }
@@ -737,31 +769,4 @@
     :global(.c-best .compact) { display: block; }
   }
 
-  /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
-  @container (max-width: 62rem) {
-    .row {
-      grid-template-columns:
-        minmax(2.4rem, max-content)
-        1.85rem
-        minmax(8rem, 1fr)
-        minmax(3.4rem, max-content)
-        minmax(4rem, max-content)
-        minmax(4.6rem, max-content)
-        minmax(6.2rem, max-content);
-    }
-    .row.pred {
-      grid-template-columns:
-        minmax(2.4rem, max-content)
-        1.85rem
-        minmax(8rem, 1fr)
-        minmax(3.4rem, max-content)
-        minmax(4rem, max-content)
-        minmax(4.6rem, max-content)
-        minmax(4.6rem, max-content);
-    }
-    .c-rating,
-    .c-rated {
-      display: none;
-    }
-  }
 </style>
