@@ -503,8 +503,17 @@
     display: flex; flex-direction: column;
   }
   .sheet::backdrop { background: oklch(0 0 0 / 0.5); }
+  /* Sticky, not just `flex: none`. The sheet's own content — Universe, player count,
+     complexity, six collapsible facet groups, the shape strip — runs well past one screen,
+     and Done was the only way out. Static, it scrolled away with everything else: you'd
+     reach the bottom of the filters and find no path back to the games underneath, only
+     more sheet. Sticking it to the top means Done (and the running count) stays reachable
+     at any scroll position. */
   .sheethead {
     flex: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: flex; align-items: center; gap: var(--space-md);
     padding: var(--space-md);
     border-bottom: 1px solid var(--border);
