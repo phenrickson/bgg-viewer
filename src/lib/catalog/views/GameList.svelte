@@ -321,7 +321,8 @@
           {#snippet stats()}
             {#if upcoming}
               <span class="stat">
-                    <Gauge
+                <span class="stat-lbl">Geek</span>
+                <Gauge
                   value={r.predicted_geek_rating}
                   domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
                   decimals={2}
@@ -330,26 +331,31 @@
                 />
               </span>
               <span class="stat">
-                    <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
+                <span class="stat-lbl">Cplx</span>
+                <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
               </span>
               <span class="stat c-hurdle">
-                    <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
+                <span class="stat-lbl">Hurdle</span>
+                <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
                 <span class="fill" aria-hidden="true"
                   ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
                 >
               </span>
             {:else}
               <span class="stat">
-                    <RatingBar value={r.geek_rating} />
+                <span class="stat-lbl">Geek</span>
+                <RatingBar value={r.geek_rating} />
               </span>
               <span class="stat">
-                    <ComplexityMeter weight={r.average_weight} barHeight="3px" />
+                <span class="stat-lbl">Cplx</span>
+                <ComplexityMeter weight={r.average_weight} barHeight="3px" />
               </span>
               <!-- PlayerPips' compact form, not its pip grid. The grid earns its keep scanned
                    down a table column; alone on a card, six mostly-muted numerals with one
                    picked out read as noise rather than as an answer. -->
               <span class="stat">
-                    <PlayerPips
+                <span class="stat-lbl">Best at</span>
+                <PlayerPips
                   best={r.best_player_counts}
                   recommended={r.recommended_player_counts}
                   compact
