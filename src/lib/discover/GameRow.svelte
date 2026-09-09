@@ -85,13 +85,18 @@
 
   <!-- Two columns, not one cluster: each label owns a fixed slot, so "BEST" sits at the same
        x on every row whether or not the game has a "RECOMMENDED" beside it. -->
-  <span class="fact">
+  <span class="fact f-best">
     {#if bestAt}
       <span class="lbl">Best</span>
       <b class="hl">{bestAt}</b>
     {/if}
   </span>
-  <span class="fact">
+  <!-- Named, not `:nth-of-type(2)`. That selector counts siblings of the same ELEMENT type,
+       and these two spans are the fourth and fifth spans in the row, so the rule below that
+       meant to drop this column at narrow widths matched nothing at any width — it kept
+       rendering, and once the card layout gave the grid named areas it had no slot to land in
+       and auto-placed itself onto a third row of its own. -->
+  <span class="fact f-also">
     {#if recAt}
       <span class="lbl">Also good</span>
       <b>{recAt}</b>
@@ -258,7 +263,7 @@
   }
   @container (max-width: 34rem) {
     .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 4.5rem; }
-    .fact:nth-of-type(2) { display: none; }
+    .f-also { display: none; }
   }
 
   /*
@@ -293,7 +298,7 @@
     .rk { display: none; }
     .thumb { grid-area: thumb; align-self: start; }
     .main { grid-area: main; }
-    .fact:nth-of-type(1) { grid-area: best; }
+    .f-best { grid-area: best; }
     .cplx { display: none; }
     .rate { grid-area: rate; justify-self: stretch; text-align: left; }
     /* The name gets the whole width now, so it can wrap rather than ellipsis at word two. */
