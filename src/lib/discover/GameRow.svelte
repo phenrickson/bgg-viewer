@@ -15,9 +15,15 @@
   import { complexityLabel, complexityBandIndex } from './dials';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
   import type { DiscoverGame } from './types';
 
-  let { game, rank }: { game: DiscoverGame; rank: number } = $props();
+  let {
+    game,
+    rank,
+    /** Render as a card rather than a row — see `GameCard.svelte`. Decided by the page. */
+    card = false
+  }: { game: DiscoverGame; rank: number; card?: boolean } = $props();
 
   /**
    * Is THIS row the one being navigated to? The shell shows a global progress bar, but that
@@ -60,6 +66,47 @@
   );
 </script>
 
+{#if card}
+  <!--
+    The same shell Explore's list uses at this width, filled with Discover's own answers.
+    Sharing the shape was the point, not sharing the content: Explore states three gauges on
+    fixed domains, Discover states a word and two numbers, and they stay different because
+    the two pages are answering different questions. What they had in common — art, identity,
+    a row of labelled stats, and how all three behave when the screen is 335px wide — is what
+    was being written twice.
+
+    Complexity keeps the WORD and drops the meter here. The badge in the title line and a
+    gauge in the stat row are two renderings of one number, and a card has no column headings
+    to make that read as reinforcement rather than repetition. That leaves the two facts the
+    stat row states once each.
+  -->
+  <GameCard {href} {opening}>
+    {#snippet art()}
+      {#if game.thumbnail}
+        <img src={game.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+      {:else}
+        <span class="ph" aria-hidden="true">{initials}</span>
+      {/if}
+    {/snippet}
+    {#snippet identity()}
+      <span class="nm">{game.name}</span>
+      <span class="mt">
+        {#if weight}<span class="cx" data-step={weightStep}>{weight}</span>{/if}
+        {#if game.year_published != null}<span class="yr">{game.year_published}</span>{/if}
+      </span>
+    {/snippet}
+    {#snippet stats()}
+      <span class="stat">
+        <span class="stat-lbl">Best with</span>
+        <b class="hl">{bestAt || '—'}</b>
+      </span>
+      <span class="stat">
+        <span class="stat-lbl">Rating</span>
+        <RatingBar value={game.geek_rating} />
+      </span>
+    {/snippet}
+  </GameCard>
+{:else}
 <a class="row" class:opening {href} aria-busy={opening}>
   <!-- Position in the returned set. In a panel that scrolls through thousands, this is the
        only thing telling you whether you are at the top of the list or deep inside it. -->
@@ -113,6 +160,7 @@
     <RatingBar value={game.geek_rating} />
   </span>
 </a>
+{/if}
 
 <style>
   /* Fixed art, flexible title, then three fixed columns. Everything except the title is a
@@ -181,7 +229,10 @@
 
   .main { display: flex; flex-direction: column; gap: 0.28rem; }
   .l1 { display: flex; align-items: baseline; gap: 0.35rem; min-width: 0; }
-  .nm {
+  /* Scoped to `.row`, not bare `.nm`: GameCard styles the same class for the card branch, and
+     an unscoped rule here would reach across and re-impose the row's single ellipsised line on
+     a card whose whole point is that the title finally has room to wrap. */
+  .row .nm {
     font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; color: var(--foreground);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
@@ -266,60 +317,14 @@
     .f-also { display: none; }
   }
 
-  /*
-   * Phone: the row stops being a row.
-   *
-   * Even after shedding twice, the six remaining slots want 2 + 3.5 + 4.5×3 = 19rem of fixed
-   * width plus five gaps before the title gets anything at all. A phone panel is about 18rem
-   * wide in total, so the title was down to a couple of characters and an ellipsis. Two lines
-   * per game instead — who it is on top, what it scores underneath — which is the same shape
-   * Explore's list takes at the same width.
-   *
-   * Complexity keeps the WORD and loses the meter here. The badge in the title line and the
-   * gauge in the stat row are two renderings of one number, and a card has no column headers
-   * to make that read as reinforcement rather than repetition; the word is the one Discover
-   * exists to say. That leaves three signals, each stated once: best-at, complexity, rating.
-   */
-  @container (max-width: 30rem) {
-    .row {
-      grid-template-columns: 3.5rem minmax(0, 1fr) minmax(0, 1fr);
-      grid-template-areas:
-        'thumb main main'
-        'thumb best rate';
-      row-gap: 0.4rem;
-      column-gap: var(--space-sm);
-      padding: 0.6rem var(--space-md);
-      /* The placeholder height the scrollbar is sized from — a card is taller than a row, and
-         a stale figure here makes the scroll thumb jump as cards enter and leave. */
-      contain-intrinsic-size: auto 5.5rem;
-    }
-    /* A position marker earns its slot in a dense list you scan down; on a card it is a
-       number with nothing to be read against. */
-    .rk { display: none; }
-    .thumb { grid-area: thumb; align-self: start; }
-    .main { grid-area: main; }
-    .f-best { grid-area: best; }
-    .cplx { display: none; }
-    .rate { grid-area: rate; justify-self: stretch; text-align: left; }
-    /* The name gets the whole width now, so it can wrap rather than ellipsis at word two. */
-    .nm { white-space: normal; }
+  /* The card layout that used to live here is `GameCard.svelte` now, chosen by the `card`
+     prop. Everything it contained was a rule undoing something the row layout had done —
+     re-area the grid, hide the rank, hide a column, un-hide the labels, re-stretch the gauge —
+     which is the shape a breakpoint takes when it is really a second component in disguise. */
 
-    /*
-     * The headings come back out of the screen-reader-only state they are in above.
-     *
-     * `.collhead` says "Best" / "Rating" once, above the list, which is exactly right for
-     * rows — and it is the first thing the card layout drops, because a card has no columns
-     * for a heading to sit over. Without this the card is a bare orange number beside a bare
-     * blue bar, neither of which announces what it measures.
-     */
-    .lbl {
-      position: static; width: auto; height: auto; overflow: visible; clip: auto;
-      display: block;
-      font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
-      font-weight: 600; color: var(--muted-foreground); margin-bottom: 0.1rem;
-    }
-    /* Gauge sizes itself intrinsically so a wide table column doesn't stretch a bar out of
-       proportion to the number above it. On a card the column IS the measure's own slot. */
-    .rate :global(.gauge) { width: 100%; align-items: flex-start; }
-  }
+  /* The card's second line: the complexity word and the year, side by side. GameCard sizes and
+     tints it; only the arrangement is Discover's own. */
+  .mt { display: flex; align-items: center; gap: 0.4rem; }
+  .cx { align-self: center; }
+
 </style>

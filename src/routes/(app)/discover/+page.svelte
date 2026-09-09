@@ -239,13 +239,13 @@
                spelling out "BEST" / "ALSO GOOD" / "RATING" beside its own numbers. Column
                widths and the narrow-container collapse mirror GameRow.svelte's `.row` grid
                exactly, so the heading always sits over the values it names. -->
-          <div class="collhead" aria-hidden="true">
+          <div class="collhead" class:cards={narrow} aria-hidden="true">
             <span></span><span></span><span></span>
             <span>Best</span><span>Also good</span><span>Complexity</span><span>Rating</span>
           </div>
           <div class="rows">
             {#each rows as g, i (g.game_id)}
-              <GameRow game={g} rank={i + 1} />
+              <GameRow game={g} rank={i + 1} card={narrow} />
             {/each}
           </div>
           {#if hasMore}
@@ -390,12 +390,10 @@
     }
     .collhead span:nth-child(5) { display: none; }
   }
-  /* Below this GameRow becomes a card and has no columns for a heading to sit over, so the
-     heading goes and each card labels its own numbers instead. Last, and matching GameRow's
-     own final step exactly — a heading that outlives the columns it names is worse than none. */
-  @container (max-width: 30rem) {
-    .collhead { display: none; }
-  }
+  /* A card has no columns for a heading to sit over, so the heading goes and each card labels
+     its own numbers instead. Keyed off the same `narrow` the rows are, rather than a container
+     query of its own — a heading that outlives the columns it names is worse than no heading. */
+  .collhead.cards { display: none; }
 
   .msg {
     padding: var(--space-xl) var(--space-lg); text-align: center;

@@ -21,9 +21,26 @@
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
-  let { where, universe = 'rated' }: { where: string; universe?: Scope['universe'] } = $props();
+  let {
+    where,
+    universe = 'rated',
+    /**
+     * Render cards instead of table rows. The page already knows this — it decides on the same
+     * question whether the rail is inline or in a sheet — so it is passed down rather than
+     * measured a second time here.
+     *
+     * A prop rather than the container query this used to be. As a query, one element had to
+     * carry the table's markup and the card's at once with CSS choosing which half was real,
+     * and every rule in the narrow block existed to undo something the wide layout had done:
+     * hide the header, hide four columns, hide the labels the table doesn't want, un-hide the
+     * year copy the table does, swap the pip grid for its text form, re-stretch the gauges.
+     * That is where the two bugs came from. Now each branch renders only what it shows.
+     */
+    cards = false
+  }: { where: string; universe?: Scope['universe']; cards?: boolean } = $props();
 
   /**
    * The upcoming universe reads the model's estimates rather than what happened — the same
@@ -283,6 +300,65 @@
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
+      {#if cards}
+        <GameCard href="/games/{r.game_id}">
+          {#snippet art()}
+            {#if r.thumbnail}
+              <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+            {:else}
+              <span class="ph" aria-hidden="true">{r.name.charAt(0).toUpperCase()}</span>
+            {/if}
+          {/snippet}
+          {#snippet identity()}
+            <span class="nm">{r.name}</span>
+            <!-- Year leads the line rather than floating in a corner of its own. The table
+                 gives it a sortable column; a card has none, so it becomes the first fact in
+                 the same sentence as the player count and the designer. Categories are left
+                 out entirely — they are the tail of that sentence and the ellipsis always
+                 landed inside them, spending a third of the width on a fragment of a word. -->
+            <span class="mt">{r.year_published ?? '—'} · {metaCore(r)}</span>
+          {/snippet}
+          {#snippet stats()}
+            {#if upcoming}
+              <span class="stat">
+                    <Gauge
+                  value={r.predicted_geek_rating}
+                  domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
+                  decimals={2}
+                  color="var(--chart-1)"
+                  barHeight="3px"
+                />
+              </span>
+              <span class="stat">
+                    <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
+              </span>
+              <span class="stat c-hurdle">
+                    <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
+                <span class="fill" aria-hidden="true"
+                  ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
+                >
+              </span>
+            {:else}
+              <span class="stat">
+                    <RatingBar value={r.geek_rating} />
+              </span>
+              <span class="stat">
+                    <ComplexityMeter weight={r.average_weight} barHeight="3px" />
+              </span>
+              <!-- PlayerPips' compact form, not its pip grid. The grid earns its keep scanned
+                   down a table column; alone on a card, six mostly-muted numerals with one
+                   picked out read as noise rather than as an answer. -->
+              <span class="stat">
+                    <PlayerPips
+                  best={r.best_player_counts}
+                  recommended={r.recommended_player_counts}
+                  compact
+                />
+              </span>
+            {/if}
+          {/snippet}
+        </GameCard>
+      {:else}
       <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
 
@@ -295,18 +371,7 @@
 
         <span class="c-name">
           <span class="nm">{r.name}</span>
-          <span class="mt">
-            <!-- Year, twice in the markup and never twice on screen. The table gives it a
-                 sortable column of its own; the card has no columns, and floating it alone in
-                 the top-right corner set it against nothing — vertically centred on a name
-                 that might be one line or three, reading as a stray number rather than as part
-                 of what the game is. Here it is the first fact in the same sentence as the
-                 player count and the designer, which is where it belongs when there is no
-                 column header to explain it. CSS picks which copy shows. -->
-            <span class="mt-year tnum">{r.year_published ?? '—'} · </span><span
-              >{metaCore(r)}</span
-            >{#if metaCats(r)}<span class="mt-cats"> · {metaCats(r)}</span>{/if}
-          </span>
+          <span class="mt">{metaCore(r)}{#if metaCats(r)} · {metaCats(r)}{/if}</span>
         </span>
 
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
@@ -319,7 +384,6 @@
                `RatingBar`'s 5.5–8.8 was set against a catalog that reaches 8.7, and this
                population tops out at 6.93. -->
           <span class="c-geek">
-            <span class="stat-lbl">Geek</span>
             <Gauge
               value={r.predicted_geek_rating}
               domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
@@ -335,7 +399,6 @@
                the same measure on the same 1-5 scale, so it gets the same encoding — a second
                one invented for this room would mean a reader had to learn complexity twice. -->
           <span class="c-weight">
-            <span class="stat-lbl">Cplx</span>
             <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
           </span>
 
@@ -344,7 +407,6 @@
                need; the surplus goes to the game's name, where publisher and categories
                were truncating mid-word. -->
           <span class="c-hurdle">
-            <span class="stat-lbl">Hurdle</span>
             <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
             <span class="fill" aria-hidden="true"
               ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
@@ -354,25 +416,23 @@
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
           <span class="c-geek">
-            <span class="stat-lbl">Geek</span>
             <RatingBar value={r.geek_rating} />
           </span>
 
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
-            <span class="stat-lbl">Cplx</span>
             <ComplexityMeter weight={r.average_weight} barHeight="3px" />
           </span>
 
           <span class="c-best">
-            <span class="stat-lbl">Best at</span>
             <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
           </span>
 
           <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
         {/if}
       </a>
+      {/if}
     {/each}
 
     {#if !rows.length && !loading}
@@ -585,8 +645,6 @@
   a.row:hover .nm {
     color: var(--primary);
   }
-  /* Both inline by default; the card block above swaps which is which. */
-  .mt-year { display: none; }
   .c-name .mt {
     font-size: 0.72rem;
     color: var(--muted-foreground);
@@ -665,10 +723,6 @@
   }
   /* Desktop sorts by clicking a column header; this only exists where the headers don't. */
   .sortbar { display: none; }
-  /* The table's own column headers say "Geek", "Complexity", "Best at" once, above every row.
-     These per-cell labels exist only for the card layout, which drops that header row — in the
-     table they'd repeat the header a hundred times. Hidden here, revealed in the card block. */
-  .stat-lbl { display: none; }
   .sortbar select {
     border: 1px solid var(--border); border-radius: 6px;
     background: var(--background); color: var(--foreground);
@@ -680,13 +734,11 @@
     font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
   }
 
-  /* Ordering here is load-bearing. Both of the blocks below are `@container` queries, and on a
-     phone BOTH match — 335px is under 62rem as well as under 40rem. They each declare
-     `.row { grid-template-columns }` at equal specificity, so the later one wins outright. The
-     62rem block therefore has to come first: it is the milder adjustment (drop two numbers, keep
-     the table), and the 40rem card layout is the one that must survive. Reversed, the card grid
-     kept its `grid-template-areas` but inherited the table's seven column widths, so `geek`
-     landed on a 1.85rem thumbnail track and `weight` on the name column's `1fr`. */
+  /* Only one of the two blocks below still touches `.row`, which is the point. When the card
+     was a breakpoint on this same element, both did, at equal specificity, and a phone matched
+     both — so the card grid kept its `grid-template-areas` and inherited the table's column
+     widths from whichever block happened to come last. That class of bug isn't reachable now
+     that the card is its own component. */
 
   /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
   @container (max-width: 62rem) {
@@ -716,84 +768,21 @@
     }
   }
   /*
-   * Phone: a row stops being a row.
+   * Phone: the list stops being a table.
    *
-   * Seven columns need ~585px and a phone gives ~335px, so the table was scrolling sideways
-   * inside a page that scrolls down inside a rail that also scrolled — you never knew what a
-   * swipe would do, and a row you have to scroll horizontally to read isn't a row. Two lines
-   * per game instead: identity on top, the numbers that matter underneath.
+   * Seven columns need ~585px and a phone gives ~335px, so the table scrolled sideways inside
+   * a page that scrolls down inside a rail that also scrolled — you never knew what a swipe
+   * would do, and a row you have to scroll horizontally to read isn't a row.
    *
-   * `.c-rating` and `.c-rated` are already dropped at 62rem above, so the three stats left to
-   * place are exactly the three the set is usually read by.
+   * The card that replaces it is `GameCard.svelte`, chosen by the `cards` prop rather than by
+   * a rule in here. What's left below is the sort control, which is the one piece of table
+   * chrome that has to survive the change: the column headers WERE the sort control, and the
+   * cards have no headers, so sorting needs somewhere else to live or it becomes unreachable.
    */
   @container (max-width: 40rem) {
     .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
-    /* The headers were the sort control; `.sortbar` above takes that over. */
-    .head { display: none; }
-    /* Said once, by the select below, not twice. */
+    /* Said once, by the select, rather than twice. */
     .sortby { display: none; }
-
-    .row,
-    .row.pred {
-      grid-template-columns: 2.9rem repeat(3, minmax(0, 1fr));
-      grid-template-areas:
-        'thumb name name name'
-        'thumb geek weight best';
-      row-gap: 0.35rem;
-      column-gap: var(--space-sm);
-      padding: 0.6rem var(--space-md);
-      align-items: center;
-    }
-    .rk { display: none; }
-    .c-thumb { grid-area: thumb; width: 2.9rem; height: 2.9rem; align-self: start; }
-    .c-name { grid-area: name; }
-    .c-year { display: none; }
-    .mt-year { display: inline; }
-    .mt-cats { display: none; }
-    .c-geek { grid-area: geek; align-items: start; }
-    .c-weight { grid-area: weight; align-items: start; }
-    .c-best,
-    .c-hurdle { grid-area: best; align-items: start; }
-    /* Gauge sizes itself intrinsically (3.5rem) so a wide table column doesn't stretch a bar
-       out of proportion to the two-digit number above it. A card is the opposite case: the
-       column IS the measure's own slot, and a bar that fills it is the point. */
-    .c-geek :global(.gauge),
-    .c-weight :global(.gauge) {
-      width: 100%;
-      align-items: flex-start;
-    }
-    /* The meta line is the first thing to go when width is scarce — the name is not. */
-    .c-name .nm { font-size: 0.95rem; white-space: normal; }
-    .c-name .mt { font-size: 0.78rem; }
-
-    /*
-     * The table taught these encodings once, in its column headers — "Geek", "Complexity",
-     * "Best at" — and the card layout dropped the header row along with the table. What was
-     * left was a bare blue bar, a bare orange bar, and a row of seven numerals with one
-     * bolded: unlabelled, and by itself not obviously even related to player count. A card
-     * has no header to lean on, so it needs its own word.
-     */
-    .stat-lbl {
-      display: block;
-      font-size: 0.62rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      font-weight: 600;
-      color: var(--muted-foreground);
-      margin-bottom: 0.1rem;
-    }
-
-    /*
-     * "Best at," specifically: PlayerPips' full seven-cell grid — six numerals plus a "+",
-     * most of them muted, one or two picked out — reads as noise at card width. It's built
-     * for a table column that gives it room to be scanned down a whole page of rows; a
-     * single card doesn't have that context, so the same information reads better as the
-     * two or three numbers it actually is. `.compact` is PlayerPips' own alternate
-     * rendering (same underlying best/recommended data, same accessible name) — the card
-     * layout just switches which one shows.
-     */
-    :global(.c-best .pips) { display: none; }
-    :global(.c-best .compact) { display: block; }
   }
 
 </style>

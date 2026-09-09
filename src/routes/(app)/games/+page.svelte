@@ -332,7 +332,7 @@
         {#if view === 'visualize'}
           <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
         {:else}
-          <GameList {where} universe={scope.universe} />
+          <GameList {where} universe={scope.universe} cards={narrow} />
         {/if}
 
         <!-- Provenance, not decoration. Every game in this universe was published after the

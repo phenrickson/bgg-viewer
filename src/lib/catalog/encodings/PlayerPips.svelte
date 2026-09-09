@@ -3,7 +3,17 @@
    * Best/recommended-at player counts, encoded as the numerals themselves: the community's
    * vote is carried by weight and tint, so the control is self-labelling and needs no legend.
    */
-  let { best, recommended }: { best: number[] | null; recommended: number[] | null } = $props();
+  let {
+    best,
+    recommended,
+    /**
+     * Render the numbers as the two or three numerals they are, instead of the seven-cell
+     * grid. A prop, not a CSS swap at the call site: the grid used to render always and a
+     * container query hid it, so every card shipped a hidden pip grid and the two forms had
+     * to be kept in step through `:global()` rules living in a different file.
+     */
+    compact = false
+  }: { best: number[] | null; recommended: number[] | null; compact?: boolean } = $props();
 
   /** How many player counts the strip shows before collapsing to "+". */
   const PIP_MAX = 6;
@@ -26,8 +36,7 @@
    * The pip grid's alternate form — the same best/recommended numbers, as the two or three
    * numerals they actually are rather than seven cells (six numbers plus "+") most of which
    * are muted filler. The grid earns its keep scanned down a table column; alone on a card
-   * it was reading as noise, not signal. `.compact`/`.pips` are siblings so a container
-   * query at the call site can pick one — see `GameList.svelte`'s narrow-card block.
+   * it was reading as noise, not signal. Selected by the `compact` prop above.
    */
   const compactText = $derived.by(() => {
     if (b.length) return b.join(', ');
@@ -39,15 +48,16 @@
 <span class="c-best" {title}>
   <!-- Numerals styled by vote are a visual encoding; screen readers get the prose. -->
   <span class="vh">{title}</span>
-  <span class="pips" aria-hidden="true">
-    {#each Array.from({ length: PIP_MAX }, (_, k) => k + 1) as n (n)}
-      <span class="pip" class:best={b.includes(n)} class:rec={!b.includes(n) && rec.includes(n)}>{n}</span>
-    {/each}
-    <span class="pip more" class:vis={overflow}>+</span>
-  </span>
-  <!-- Hidden by default (`display: none` below) — a plain sibling GameList's narrow rule can
-       reveal instead of the grid, not a second interactive control. -->
-  <span class="compact" aria-hidden="true">{compactText}</span>
+  {#if compact}
+    <span class="compact" aria-hidden="true">{compactText}</span>
+  {:else}
+    <span class="pips" aria-hidden="true">
+      {#each Array.from({ length: PIP_MAX }, (_, k) => k + 1) as n (n)}
+        <span class="pip" class:best={b.includes(n)} class:rec={!b.includes(n) && rec.includes(n)}>{n}</span>
+      {/each}
+      <span class="pip more" class:vis={overflow}>+</span>
+    </span>
+  {/if}
 </span>
 
 <style>
@@ -80,7 +90,6 @@
   .pip.more.vis { visibility: visible; }
 
   .compact {
-    display: none;
     font-size: 0.82rem;
     font-weight: 650;
     color: var(--primary);
