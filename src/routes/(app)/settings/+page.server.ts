@@ -11,7 +11,7 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { settingsSchema } from '$lib/schemas';
 import { updateBggUsername } from '$lib/server/auth/users';
-import { fetchOwnedCollection } from '$lib/server/collections/read';
+import { fetchOwnedCollectionSafe } from '$lib/server/collections/read';
 import { triggerSync } from '$lib/server/collections/sync';
 import { signSession } from '$lib/server/auth/session';
 import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/auth/cookie';
@@ -19,14 +19,20 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const bggUsername = locals.user?.bgg_username ?? null;
-	const collection = bggUsername ? await fetchOwnedCollection(bggUsername) : null;
+	// Deliberately the non-throwing read: sync status is one row on this page, and the two
+	// above it (email, and the form to link/unlink) must stay usable when the warehouse is
+	// unreachable — the unlink control especially, since it's the way out of a bad username.
+	const collection = bggUsername ? await fetchOwnedCollectionSafe(bggUsername) : null;
 	return {
 		form: await superValidate({ bgg_username: bggUsername ?? undefined }, zod(settingsSchema)),
 		email: locals.user?.email ?? null,
 		bggUsername,
 		collection: collection
 			? { gameCount: collection.game_ids.length, updatedAt: collection.updated_at }
-			: null
+			: null,
+		// Distinguishes "the read failed" from "linked, but nothing synced yet" — both leave
+		// `collection` null, and silently rendering nothing would hide a real outage.
+		collectionUnavailable: bggUsername != null && collection == null
 	};
 };
 

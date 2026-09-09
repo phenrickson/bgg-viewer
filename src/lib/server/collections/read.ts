@@ -39,3 +39,27 @@ export async function fetchOwnedCollection(
 	);
 	return { game_ids, updated_at };
 }
+
+/**
+ * Same read, but never throws — returns `null` if the collection can't be read at all.
+ *
+ * For callers that treat sync status as optional decoration rather than as the reason the
+ * page exists. The settings page is the case in point: it also shows your email and the
+ * form for linking/unlinking a BGG account, and neither needs this query, so a failure here
+ * must not take the route down with it (it did — a missing BigQuery grant on the
+ * `collections` dataset 500'd the whole page in production).
+ *
+ * The failure is logged rather than swallowed, so the underlying error still reaches Cloud
+ * Run logs at severity=ERROR exactly as before. Same tradeoff `triggerSync` already makes.
+ */
+export async function fetchOwnedCollectionSafe(
+	username: string,
+	client?: BigQuery
+): Promise<OwnedCollection | null> {
+	try {
+		return client ? await fetchOwnedCollection(username, client) : await fetchOwnedCollection(username);
+	} catch (e) {
+		console.error(`Collection read failed for '${username}'`, e);
+		return null;
+	}
+}
