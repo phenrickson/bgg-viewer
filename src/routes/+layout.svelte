@@ -322,7 +322,6 @@
      are near-synonyms until something says how they differ. */
   .pop span { font-size: 0.76rem; color: var(--muted-foreground); line-height: 1.35; }
   .navsearch { flex: 1; max-width: 24rem; margin: 0 var(--space-md); }
-  @media (max-width: 640px) { .navsearch { display: none; } }
   .actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; }
   .actions form { margin: 0; }
   .who { color: var(--muted-foreground); font-size: 0.875rem; }
@@ -368,10 +367,21 @@
    * left a dead gap beside it. Collapsing into one menu is what the row actually wants.
    *
    * Brand stays left, theme and menu stay right, one line, at any width.
+   *
+   * 56rem (896px), not 40rem: the first pass copied 40rem from the pre-existing `.navsearch`
+   * hide rule without checking what the OLD layout actually needs, which left it overflowing
+   * uncollapsed the whole 640–900px band — nav links + a search box + email + Settings +
+   * Log out + the toggle genuinely need something like 860–900px, not 640px, so anything
+   * below that and above the old threshold still ran off the edge. 56rem is measured against
+   * that real content, not borrowed from an unrelated rule.
    */
-  @media (max-width: 40rem) {
+  @media (max-width: 56rem) {
     .appbar { padding: var(--space-sm) var(--space-md); }
     .mainnav { display: none; }
+    /* The search box loses its room along with the nav — it isn't in the menu panel, it's
+       just gone below this width, same as before. Game search still works from the URL bar
+       or wherever a page links to a game; this only removes the header shortcut. */
+    .navsearch { display: none; }
     .actions .who,
     .actions > .link,
     .actions > form { display: none; }
@@ -400,8 +410,8 @@
     color: var(--muted-foreground);
     opacity: 0.7;
   }
-  /* Same no-wrap overflow as the header: badge + a full sentence + version on one row. */
-  @media (max-width: 40rem) {
+  /* Same no-wrap overflow as the header, same corrected threshold. */
+  @media (max-width: 56rem) {
     .appfoot :global(.appfoot-inner) {
       flex-wrap: wrap;
       row-gap: 0.2rem;
