@@ -544,6 +544,19 @@ export function defaultHurdleFor(universe: Scope['universe']): number | null {
 	return universe === 'upcoming' ? DEFAULT_HURDLE_MIN : null;
 }
 
+/**
+ * Switch universe, carrying the hurdle floor with it — leaving upcoming and coming back would
+ * otherwise land on `null` rather than the default, silently widening the set by ~3,000
+ * placeholder entries. Pulled out of `Rail.svelte` (the only place it used to live) so the
+ * narrow-width toolbar in `games/+page.svelte` can offer the same Universe control without a
+ * second, drifting copy of this logic — one more `.seg` duplicate is exactly what got this
+ * app into its current shape.
+ */
+export function withUniverse(scope: Scope, u: Scope['universe']): Scope {
+	if (scope.universe === u) return scope;
+	return { ...scope, universe: u, hurdleMin: defaultHurdleFor(u) };
+}
+
 /** Parse a scope back from URLSearchParams, falling back to defaults. */
 export function scopeFromParams(params: URLSearchParams): Scope {
 	const list = (key: string) =>

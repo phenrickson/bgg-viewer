@@ -22,9 +22,9 @@
    * with no JS.
    */
   import {
-    defaultHurdleFor,
     playerCountModeFor,
     setPlayerCount,
+    withUniverse,
     type PlayerCountMode,
     type Scope
   } from './scope';
@@ -87,8 +87,7 @@
    * ~3,000 placeholder entries.
    */
   function setUniverse(u: Scope['universe']) {
-    if (scope.universe === u) return;
-    scope = { ...scope, universe: u, hurdleMin: defaultHurdleFor(u) };
+    scope = withUniverse(scope, u);
   }
 
   /**

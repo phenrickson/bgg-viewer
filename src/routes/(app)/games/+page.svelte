@@ -28,6 +28,7 @@
     scopeToParams,
     scopeFromParams,
     activeFilters,
+    withUniverse,
     type Scope
   } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
@@ -37,6 +38,8 @@
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
   import { Container } from '$lib/components/ui/layout';
+  import * as Sheet from '$lib/components/ui/sheet';
+  import { Button } from '$lib/components/ui/button';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -74,18 +77,27 @@
   let view = $state<'list' | 'visualize'>('list');
 
   /**
-   * Below 40rem the workspace stops being a workspace. A 16rem rail and a five-chart strip
-   * ahead of the results means ~1000px of controls before the first game — on the page whose
-   * whole job is showing games. So on narrow the rail and the strip move into a sheet you
-   * open deliberately, and the results become the page.
+   * Below 40rem the workspace stops being a workspace.
    *
-   * The strip goes in with the rail because that is what it *is*: its interaction is "drag a
-   * chart to filter". It reads as a visualization, but it is a filter control, and on a phone
-   * it belongs with the other filter controls rather than as permanent chrome above them.
+   * First attempt put the WHOLE rail — including the shape strip — behind a "Filters" button,
+   * one flat pile of controls with a single exit. Two things were wrong with that, not one:
    *
-   * `matchMedia` rather than CSS because the two have to be the SAME component instance —
-   * rendering `Rail` twice would double every facet query against DuckDB. Same technique
-   * ShapeStrip already uses for its own layout switch.
+   *   1. Universe (Top 10k / All rated / Upcoming) is the single most-reached-for control —
+   *      Rail's own header comment says so, "always open," the thing you touch before anything
+   *      else — and it was buried a tap deep with everything else. It belongs where you can
+   *      always reach it, not inside a drawer.
+   *   2. The shape strip isn't a filter, it's a chart — "drag a chart to filter" was never
+   *      going to work with a thumb, and it doesn't belong beside checkboxes just because it
+   *      technically narrows the set too. It already has a real home: List/Visualize.
+   *
+   * So narrow gets a small persistent toolbar (Universe + a Filters trigger, count visible),
+   * and the sheet holds only what's actually a filter: search, player count, the collapsed
+   * facet groups, complexity. The strip stays exactly where desktop already puts it — behind
+   * Visualize — rather than getting a second, narrower copy of itself.
+   *
+   * `matchMedia` rather than CSS because Rail has to be the SAME component instance whether
+   * it's inline (desktop) or in the sheet (narrow) — rendering it twice would double every
+   * facet query against DuckDB. Same technique ShapeStrip already uses for its own switch.
    */
   let narrow = $state(false);
   $effect(() => {
@@ -96,21 +108,16 @@
     return () => mq.removeEventListener('change', sync);
   });
 
-  /**
-   * A native <dialog>, not a hand-rolled drawer. `showModal()` gives focus trapping,
-   * Escape-to-close and an inert background from the platform — the same reasoning
-   * AnalysisPanel's own dialog records.
-   */
-  let sheet = $state<HTMLDialogElement | null>(null);
-  const openSheet = () => sheet?.showModal();
-  const closeSheet = () => sheet?.close();
+  /** `Sheet.Root`'s own open state — bits-ui owns the focus trap, Escape and the inert
+      background; this file just needs to know whether it's open. */
+  let filtersOpen = $state(false);
 
   /** The count on the trigger — filters must stay legible while they're out of sight. */
   const activeCount = $derived(activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0));
 
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
-    if (!narrow) closeSheet();
+    if (!narrow) filtersOpen = false;
   });
 
   onMount(async () => {
@@ -217,6 +224,78 @@
   </div>
 {:else if where != null && baseWhere != null}
   <Container size="wide" fill>
+    {#if narrow}
+      <!-- The one control worth reaching for without opening anything. Uses Rail's own
+           `withUniverse` so switching here can never drift from what the desktop rail does. -->
+      <div class="flex items-center gap-2 pb-3">
+        <span class="flex flex-1 gap-1" role="group" aria-label="Universe">
+          <Button
+            variant={scope.universe === 'top10k' ? 'default' : 'outline'}
+            size="sm"
+            class="flex-1"
+            onclick={() => (scope = withUniverse(scope, 'top10k'))}>Top 10,000</Button
+          >
+          <Button
+            variant={scope.universe === 'rated' ? 'default' : 'outline'}
+            size="sm"
+            class="flex-1"
+            onclick={() => (scope = withUniverse(scope, 'rated'))}>All rated</Button
+          >
+          <Button
+            variant={scope.universe === 'upcoming' ? 'default' : 'outline'}
+            size="sm"
+            class="flex-1"
+            onclick={() => (scope = withUniverse(scope, 'upcoming'))}>Upcoming</Button
+          >
+        </span>
+
+        <Sheet.Root bind:open={filtersOpen}>
+          <Sheet.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} variant="outline" size="sm" class="relative shrink-0">
+                Filters
+                {#if activeCount}
+                  <span
+                    class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                    >{activeCount}</span
+                  >
+                {/if}
+              </Button>
+            {/snippet}
+          </Sheet.Trigger>
+          <!-- Bottom, not the skill's default `side="right"`: a slide-over reads as a secondary
+               panel beside content (its documented use — record CRUD), where this needs to read
+               as its own screen you've deliberately entered to filter, the way Filters behaves
+               in most mobile apps. Left short of full height on purpose — 92dvh, not 100 — so a
+               sliver of the page stays visible behind it; a totally opaque takeover is what
+               made the first version feel like leaving the app rather than adjusting a query. -->
+          <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
+            <Sheet.Header class="border-b border-border">
+              <Sheet.Title>Filters</Sheet.Title>
+            </Sheet.Header>
+
+            <!-- Fill-height Pattern A from the layout skill: header at natural height, this
+                 region takes what's left and owns its own scroll. No shape strip here — see
+                 the narrow-mode comment above; it isn't a filter, Visualize already covers it. -->
+            <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
+              <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+              {#if data.isAdmin}<AdminCollectionPicker />{/if}
+            </div>
+
+            <!-- The live reward loop a desktop workspace gets for free: the count updates as
+                 you check a box, right on the button that gets you back to seeing it. Replaces
+                 the first version's plain "Done" — a label you had to go find beats nothing,
+                 but a number that moves is what makes filtering feel connected to results. -->
+            <Sheet.Footer class="border-t border-border">
+              <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
+                Show {total?.toLocaleString() ?? '…'} games
+              </Button>
+            </Sheet.Footer>
+          </Sheet.Content>
+        </Sheet.Root>
+      </div>
+    {/if}
+
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
@@ -256,12 +335,6 @@
             }}
           />
 
-          {#if narrow}
-            <button type="button" class="filterbtn" onclick={openSheet}>
-              Filters{#if activeCount}<span class="badge">{activeCount}</span>{/if}
-            </button>
-          {/if}
-
           <span class="viewtoggle" role="group" aria-label="View">
             <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
             <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
@@ -289,23 +362,6 @@
         {/if}
       </div>
     </div>
-
-    {#if narrow}
-      <!-- Everything the narrow layout took out of the page, in one place you open on
-           purpose. Closes on Escape and on the backdrop for free — it is a real <dialog>. -->
-      <dialog class="sheet" bind:this={sheet} onclick={(e) => e.target === sheet && closeSheet()}>
-        <div class="sheethead">
-          <b>Filters</b>
-          <span class="sheetcount">{total?.toLocaleString() ?? '—'} games</span>
-          <button type="button" class="sheetdone" onclick={closeSheet}>Done</button>
-        </div>
-        <div class="sheetbody">
-          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-          {#if data.isAdmin}<AdminCollectionPicker />{/if}
-          <ShapeStrip {where} {baseWhere} bind:scope />
-        </div>
-      </dialog>
-    {/if}
   </Container>
 {/if}
 
@@ -471,69 +527,10 @@
   /* One column, one scroll direction, results first. */
   .workspace.narrow { grid-template-columns: 1fr; }
 
-  /* The trigger. Carries the active-filter count because filters that are out of sight still
-     have to be legible — a set narrowed to 300 games should never look like the whole catalog. */
-  .filterbtn {
-    flex: none;
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    border: 1px solid var(--primary);
-    border-radius: 6px;
-    background: color-mix(in oklch, var(--primary) 10%, transparent);
-    color: var(--primary);
-    font: inherit; font-size: 0.9rem; font-weight: 650;
-    padding: 0.65rem 1.1rem;
-    cursor: pointer;
-  }
-  .filterbtn .badge {
-    display: inline-grid; place-items: center;
-    min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem;
-    border-radius: 999px;
-    background: var(--primary); color: var(--primary-foreground);
-    font-size: 0.75rem; font-weight: 700;
-  }
-
-  /* Full-bleed on a phone: a centred card with margins wastes the width the rail needs, and
-     `dvh` because `vh` is the LARGE viewport on mobile — the bottom would sit under the URL
-     bar with the last facet group unreachable. */
-  .sheet {
-    margin: 0; padding: 0; border: none;
-    width: 100dvw; max-width: 100dvw;
-    height: 100dvh; max-height: 100dvh;
-    background: var(--background); color: var(--foreground);
-    display: flex; flex-direction: column;
-  }
-  .sheet::backdrop { background: oklch(0 0 0 / 0.5); }
-  /* Sticky, not just `flex: none`. The sheet's own content — Universe, player count,
-     complexity, six collapsible facet groups, the shape strip — runs well past one screen,
-     and Done was the only way out. Static, it scrolled away with everything else: you'd
-     reach the bottom of the filters and find no path back to the games underneath, only
-     more sheet. Sticking it to the top means Done (and the running count) stays reachable
-     at any scroll position. */
-  .sheethead {
-    flex: none;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex; align-items: center; gap: var(--space-md);
-    padding: var(--space-md);
-    border-bottom: 1px solid var(--border);
-    background: var(--card);
-  }
-  .sheethead b { font-size: 1.05rem; }
-  .sheetcount { color: var(--muted-foreground); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-  .sheetdone {
-    margin-left: auto;
-    border: 1px solid var(--primary); border-radius: 6px;
-    background: color-mix(in oklch, var(--primary) 12%, transparent);
-    color: var(--primary);
-    font: inherit; font-size: 0.9rem; font-weight: 650;
-    padding: 0.55rem 1.1rem; cursor: pointer;
-  }
-  /* The sheet scrolls, so the rail must not also scroll inside it — one scroll container. */
-  .sheetbody {
-    flex: 1; min-height: 0; overflow-y: auto;
-    padding: var(--space-md);
-    display: flex; flex-direction: column; gap: var(--space-md);
-  }
-  .sheetbody :global(.rail) { overflow-y: visible; }
+  /* Sheet.Content owns the scroll region now, not a hand-rolled `.sheetbody` — but Rail still
+     carries its own `.rail { overflow-y: auto }` for its desktop bounded-scroll use, and
+     nesting one scroll container inside another was exactly the "which way does a swipe go"
+     bug from the first version. Same fix, new host: the sheet's own scroll region wins. */
+  .sheet-scroll { display: flex; flex-direction: column; gap: var(--space-md); }
+  .sheet-scroll :global(.rail) { overflow-y: visible; }
 </style>
