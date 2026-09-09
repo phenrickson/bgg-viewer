@@ -173,11 +173,18 @@ export function columnsFor(universe: Scope['universe']) {
 }
 
 /**
- * The default hurdle floor for the upcoming universe. Most BGG entries never gather enough
- * ratings to earn a geek rating, and without a floor the tail of placeholder records crowds
- * the list. Surfaced as a control and as a chip, so it is visible rather than assumed.
+ * No default hurdle floor, in any universe.
+ *
+ * Upcoming used to open at 0.25 — the reasoning being that most BGG entries never gather
+ * enough ratings to be ranked, so the tail of placeholder records would crowd the list. It was
+ * surfaced as a chip, so it was at least visible. But it still meant arriving at Upcoming and
+ * being shown a set already ~3,000 games smaller than the one the page says it is showing,
+ * before touching anything. A page should open on the honest answer to its own question; the
+ * hurdle control is right there for anyone who wants to narrow it.
  */
-export const DEFAULT_HURDLE_MIN = 0.25;
+export function defaultHurdleFor(_universe: Scope['universe']): number | null {
+	return null;
+}
 
 export const DEFAULT_SCOPE: Scope = {
 	q: '',
@@ -569,11 +576,6 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.hurdleMin !== defaultHurdleFor(scope.universe))
 		p.set('h', String(scope.hurdleMin ?? 0));
 	return p;
-}
-
-/** The hurdle floor a universe starts at. Only `upcoming` has one. */
-export function defaultHurdleFor(universe: Scope['universe']): number | null {
-	return universe === 'upcoming' ? DEFAULT_HURDLE_MIN : null;
 }
 
 /**

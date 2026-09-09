@@ -502,9 +502,9 @@ describe('URL round-trip', () => {
 
 		const top = withUniverseChoice(DEFAULT_SCOPE, 'top10k');
 		expect([top.universe, top.rankedOnly]).toEqual(['rated', true]);
-		// Leaving upcoming and coming back must land on the default floor, not null.
+		// No universe carries a floor of its own any more — upcoming opens on its whole set.
 		const up = withUniverseChoice(top, 'upcoming');
-		expect([up.universe, up.rankedOnly, up.hurdleMin]).toEqual(['upcoming', false, 0.25]);
+		expect([up.universe, up.rankedOnly, up.hurdleMin]).toEqual(['upcoming', false, null]);
 		expect(withUniverseChoice(up, 'rated').hurdleMin).toBe(null);
 	});
 
@@ -522,19 +522,22 @@ describe('URL round-trip', () => {
 		expect(s.rankedOnly).toBe(true);
 	});
 
-	// The hurdle floor defaults to 0.25 in `upcoming` and null everywhere else, so a bare
-	// `?u=upcoming` must parse back WITH the floor — and an explicitly cleared floor (0) has
-	// to survive the round trip rather than being mistaken for "unset, use the default".
+	// No universe has a floor by default, so a bare `?u=upcoming` parses back with none — and
+	// a floor the user actually set has to survive the round trip.
 	it('round-trips the upcoming universe and its hurdle floor', () => {
-		const upcoming: Scope = { ...DEFAULT_SCOPE, universe: 'upcoming', hurdleMin: 0.25 };
+		const upcoming: Scope = { ...DEFAULT_SCOPE, universe: 'upcoming' };
+		expect(upcoming.hurdleMin).toBe(null);
 		expect(scopeToParams(upcoming).has('h')).toBe(false); // the default is not serialized
 		expect(scopeFromParams(scopeToParams(upcoming))).toEqual(upcoming);
 
+		// `0` is a floor someone set to nothing, distinct from "unset" — both mean no filter,
+		// but only one of them should reappear in the URL.
 		const cleared: Scope = { ...upcoming, hurdleMin: 0 };
 		expect(scopeToParams(cleared).get('h')).toBe('0');
 		expect(scopeFromParams(scopeToParams(cleared)).hurdleMin).toBe(0);
 
 		const raised: Scope = { ...upcoming, hurdleMin: 0.8 };
+		expect(scopeToParams(raised).get('h')).toBe('0.8');
 		expect(scopeFromParams(scopeToParams(raised)).hurdleMin).toBe(0.8);
 	});
 });
