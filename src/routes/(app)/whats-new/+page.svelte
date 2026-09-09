@@ -4,6 +4,7 @@
   import type { NewGameRow } from '$lib/server/warehouse';
   import type { PageData } from './$types';
   import Trend from './Trend.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -102,6 +103,32 @@
 
   const arrow = (key: SortKey) => (key === sortKey ? (desc ? '▼' : '▲') : '');
 
+  /** The labels the sort control shows, and the order it offers them in. */
+  const SORT_LABELS: Record<SortKey, string> = {
+    added: 'Added',
+    hurdle: 'P(hurdle)',
+    name: 'Game',
+    year: 'Year'
+  };
+
+  /**
+   * Cards below 40rem, the same threshold and the same reason as Explore and Discover: five
+   * columns with a fixed colgroup want about 35rem before the game's name gets anything, and a
+   * phone has 21. It was scrolling sideways inside a page that scrolls down.
+   *
+   * `matchMedia` rather than a container query — see `GameCard.svelte`. A breakpoint would mean
+   * one element carrying the table's markup and the card's at once, with CSS choosing which
+   * half is real.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
+
   // Paginated client-side, same shape as GameList.svelte's own pager — a table meant
   // to be scanned needs a bounded page, not a page that grows without end as the
   // window widens (365 days can be thousands of rows).
@@ -148,6 +175,27 @@
             0 games
           {/if}
         </span>
+        <!-- The column headers ARE the sort control, and the cards have no headers — so on
+             narrow it has to live somewhere else or sorting becomes unreachable. A native
+             select is the right size for a thumb and brings its own platform picker. Same
+             shape as Explore's list, which lost its headers the same way. -->
+        {#if narrow}
+          <span class="sortbar">
+            <label class="vh" for="wn-sort">Sort by</label>
+            <select id="wn-sort" bind:value={sortKey} onchange={() => (page = 0)}>
+              {#each Object.entries(SORT_LABELS) as [key, label] (key)}
+                <option value={key}>{label}</option>
+              {/each}
+            </select>
+            <button
+              type="button"
+              class="dir"
+              onclick={() => (desc = !desc)}
+              aria-label={desc ? 'Sort ascending' : 'Sort descending'}
+              title={desc ? 'High to low' : 'Low to high'}>{desc ? '▼' : '▲'}</button
+            >
+          </span>
+        {/if}
         {#if pageCount > 1}
           <span class="pager">
             <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
@@ -159,7 +207,45 @@
         {/if}
       </div>
 
-      <div class="tablewrap">
+      <div class="tablewrap" class:cards={narrow}>
+        {#if narrow}
+          {#each pageRows as g (g.game_id)}
+            {@const tier = hurdleTier(g.predicted_hurdle_prob)}
+            <GameCard href="/games/{g.game_id}">
+              {#snippet art()}
+                {#if g.thumbnail}
+                  <img src={g.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+                {:else}
+                  <span class="ph" aria-hidden="true">{g.name.charAt(0).toUpperCase()}</span>
+                {/if}
+              {/snippet}
+              {#snippet identity()}
+                <span class="nm">{g.name}</span>
+                <span class="mt">{g.year_published ?? '—'}</span>
+              {/snippet}
+              {#snippet stats()}
+                <!-- The three columns the table keeps once Year has moved up into the line
+                     above: when it turned up, how likely it is to be rated at all, and what
+                     that adds up to. Status carries no label — the pill says its own name,
+                     and an empty cell under a "STATUS" heading reads as missing data rather
+                     than as "this one is neither". -->
+                <span class="stat">
+                  <span class="stat-lbl">Added</span>
+                  <span class="sv tnum" title={absoluteFmt.format(new Date(g.first_seen))}
+                    >{formatSeen(g.first_seen)}</span
+                  >
+                </span>
+                <span class="stat">
+                  <span class="stat-lbl">P(hurdle)</span>
+                  <span class="sv tnum">{probText(g.predicted_hurdle_prob)}</span>
+                </span>
+                <span class="stat">
+                  {#if tier}<span class="tag {tier}">{BADGE_LABELS[tier]}</span>{/if}
+                </span>
+              {/snippet}
+            </GameCard>
+          {/each}
+        {:else}
         <table>
           <colgroup>
             <col />
@@ -223,6 +309,7 @@
             {/each}
           </tbody>
         </table>
+        {/if}
 
         {#if !filtered.length}
           <p class="empty">
@@ -359,6 +446,29 @@
     overflow-x: auto;
     background: var(--card);
   }
+  /* Cards are already bounded by the panel's width; there is nothing to scroll sideways, and
+     leaving the axis scrollable makes a horizontal swipe wobble the list for no reason. */
+  .tablewrap.cards { overflow-x: visible; }
+
+  /* Screen-reader-only, for the sort select's label. */
+  .vh {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
+  .sortbar select {
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--background); color: var(--foreground);
+    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.5rem;
+  }
+  .sortbar .dir {
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--background); color: var(--muted-foreground);
+    font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+
+  /* A card's stat values. GameCard styles the labels; what sits under them is the caller's. */
+  .sv { font-size: 0.85rem; font-weight: 600; color: var(--foreground); }
   /* Fixed layout + a colgroup means every row is the same height regardless of
      which games land on a given page — nothing about the table should visibly
      resize as you paginate or re-sort. */
