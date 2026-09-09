@@ -100,6 +100,14 @@
         <span class="stat-lbl">Best with</span>
         <b class="hl">{bestAt || '—'}</b>
       </span>
+      <!-- The row sheds this column at 34rem, where it is competing with five other fixed
+           tracks for a width the title also needs. A card isn't competing: three equal columns
+           of a full-width row is more space per stat than the row ever gave it, and player
+           count is the question Discover is mostly being asked. -->
+      <span class="stat">
+        <span class="stat-lbl">Also good</span>
+        <b>{recAt || '—'}</b>
+      </span>
       <span class="stat">
         <span class="stat-lbl">Rating</span>
         <RatingBar value={game.geek_rating} />
