@@ -1,236 +1,181 @@
-# BGG Viewer — Front-End Standardization & Mobile — Plan
+# BGG Viewer — Front-End Design System — Plan
 
 **Date:** 2026-09-09
 **Spec:** [2026-09-09-frontend-component-adoption-design.md](../specs/2026-09-09-frontend-component-adoption-design.md)
-**Status:** Awaiting approval (rewritten 2026-09-09 — TanStack dropped, mobile promoted to the goal)
+**Status:** PR 1 shipped; PR 2 awaiting approval
 
 ## Goal
 
-Standardize the front end on the presentation half of the source kit, and use that to make the
-app work on a phone. **No TanStack** — see spec D1.
-
-**Success:** open `/games` on a 375px screen and it works — filters reachable behind a drawer,
-results readable, no clipped columns, no horizontal page scroll. Both themes. `just check` clean.
+Build the five-layer system in the spec, **vertically on Explore** — the page that contains every
+pattern in the app — then migrate the rest onto it. Mobile-correct by construction, not by fixes.
 
 ## Delivery rules
 
-- Branch per PR, **stacked** in order. **Never on `main`.**
-- **Phil merges every PR.** Never `gh pr merge`.
-- Build/deploy is **Actions-only**. Locally: `just check`, `just test`, `just dev` only.
-- `gh pr view --json state,mergedAt` before every push to a branch, not just once.
-- No copy changes. Placeholder only, flagged, if a string is unavoidable.
-- **Every PR verified in light AND dark**, and at 375px as well as desktop.
+- Branch per PR, **stacked** in order. **Never on `main`. Phil merges.**
+- Actions-only for build/deploy. Locally: `just check`, `just test`, `just dev`.
+- `gh pr view --json state,mergedAt` before every push, not just once.
+- No copy changes; flagged placeholders only if unavoidable.
+- **Every PR verified in light AND dark, at 375px AND desktop.**
+- **Every extraction deletes its copies in the same PR.** A component that ships beside the
+  duplication it replaces has made things worse, not better.
 
-## Shape
+## Sequence
 
-Five PRs. PR 3 is the review gate — it is the first point where mobile visibly works.
-
-| PR | What | Fixes (Appendix A) |
-|---|---|---|
-| 1 | Tokens — shadcn's eleven, plus input floor, tap targets, breakpoints | groundwork for #5, #6, #9 |
-| 2 | Install presentation components. No TanStack. | — (inert) |
-| 3 | **Explore shell on `Split` + filter drawer via `Sheet`** ← **gate** | #3 |
-| 4 | Dense-row narrow strategy, shared by `GameList`/`GameRow` | #2, #4 |
-| 5 | Residue — app bar, tooltips, `dvh` | #1, #7, #8 |
-
-**PR 1 fixes nothing on its own** — an earlier draft of this table claimed #5 and it was wrong.
-It defines tokens; every one of them is *applied* in a later PR. Specifically:
-
-- **#5 (iOS input zoom)** cannot be fixed globally. The four offending inputs style themselves
-  in Svelte `<style>` blocks, which compile to `input.s-xxx { font-size: 0.85rem }` — a
-  class-plus-element selector that outranks any bare `input { … }` rule `app.css` could add.
-  The floor has to be applied per component, which happens in PRs 2/3/5 as they are touched.
-- **#9 (breakpoint sprawl)** is not fixed by a token either, because **a custom property cannot
-  appear in a `@media`/`@container` prelude** — `@media (max-width: var(--bp-md))` is invalid
-  and the whole block is dropped. That is a property of the CSS Variables spec, not a browser
-  gap. The alternatives are `@custom-media` (unshipped in every browser; needs a PostCSS step
-  this repo does not have) or Tailwind's `--breakpoint-*` namespace (real, but only drives
-  utility variants in markup, not hand-written `@media` in scoped styles). So PR 1 states the
-  canonical set as a documented convention, and #9 is actually fixed by **deleting queries** —
-  `Split` and `AutoGrid` need none — which is PR 3's job, not PR 1's.
-
-Recount for the record: the app has **12 layout media queries at 8 distinct widths**
-(40rem, 560, 640, 720, 860, 900, 1100, 1280px), 9 of them outside `/dev`. An earlier draft said
-five. Note `40rem` and `640px` are the same width written two ways.
+| PR | Layer | What | Retires |
+|---|---|---|---|
+| 1 ✅ | L1 | Tokens | groundwork |
+| 2 | L2+L3 | Fix `Split`; install interaction primitives; settle density | — |
+| 3 | L2+L3 | **Explore shell + filter drawer** ← **gate** | #3 |
+| 4 | L4 | `DenseRow`, adopted by `GameList` + `GameRow` + `whats-new` | #2, #4 |
+| 5 | L4 | `Seg` `Chip` `Pager` `EmptyState` `SectionLabel` `Door` | #6 |
+| 6 | — | Migrate remaining pages; residue | #1, #7, #8, #9 |
+| 7 | L5 | Rewrite the skill to describe what exists | recurrence |
 
 ---
 
-### PR 1 — Design tokens
+### PR 1 — Tokens ✅ *shipped (`2137504`)*
 
-**Branch:** `feat/design-tokens` (off `main`) · **Files:** `src/app.css`
+All 21 shadcn variables in both themes, plus `--tap-min` (44px), `--input-font-min` (16px), and
+the breakpoint convention. 114 insertions, 0 deletions. `just check` clean, build verified.
 
-1. Add the eleven missing shadcn variables to `:root` and `.dark` in oklch, consistent with the
-   warm-orange palette: `--popover(-foreground)`, `--secondary(-foreground)`,
-   `--accent(-foreground)`, `--destructive(-foreground)`, `--input`, `--sidebar*`.
-   `--destructive` resolves to the existing `--color-negative` — no second red.
-2. Extend `@theme inline` so they map to Tailwind utilities like the existing ten.
-3. Add the mobile primitives that have no component:
-   - `--input-font-min: 1rem` — the 16px floor that stops iOS auto-zoom (**fixes #5**).
-   - `--tap-min: 2.75rem` — the 44px target minimum, for PR 2's `Button` sizing and PR 5.
-   - Named breakpoints replacing the five arbitrary widths (**groundwork for #9**).
-4. **Preserve every existing comment.** The `--vote-*` reasoning is ~25 lines of real argument.
-
-**Verify:** `just check` clean. `just dev` → every page **identical** in both themes; nothing
-consumes the new tokens yet, so any visual change means something was overwritten. `git diff`
-shows additions only.
-
-**Risk:** low, purely additive.
+**PR 1 fixes nothing on its own.** It defines tokens; each is applied later. #5 in particular
+cannot be fixed globally — the four offending inputs compile to `input.s-xxx { font-size: … }`,
+which outranks any bare `input` rule `app.css` could add. #9 is not fixed by a token either,
+because a custom property cannot appear in a `@media` prelude; it is fixed by **deleting
+queries**, which is L2's job.
 
 ---
 
-### PR 2 — Install the presentation components
+### PR 2 — Foundation: fix `Split`, install L3, settle density
 
-**Branch:** `chore/shadcn-svelte-install` (off PR 1)
-**Files:** `package.json`, `pnpm-lock.yaml`, `components.json` (new), `src/lib/components/ui/*`
+**Branch:** `feat/frontend-foundation` · **Files:** `layout/split.svelte`, `layout/tokens.ts`,
+`package.json`, `components.json` (new), `src/lib/components/ui/*`
 
-1. **Verify compatibility first.** Svelte 5.56 / Tailwind 4.3 / Kit 2.63. If `@latest` doesn't
-   support this combination cleanly — **stop and report**, don't pin something that half-works.
-2. `pnpm add bits-ui @lucide/svelte`. **Nothing from `@tanstack/*`.**
-3. **Guard `app.css` through `init`** — it rewrites the file. Back up, run, diff, restore every
+**a. Fix the layout primitives.** They are unproven code — zero imports, zero tests.
+
+1. **Bug:** `at="sm"` is in `SplitAt` but no `.at-sm` rule exists; passing it silently leaves the
+   region stacked forever. Add the rule. **Also fix upstream in `front-end-design/kit`** — every
+   project seeded from that kit has the same dead prop.
+2. **Missing capability:** add a fixed-length basis (e.g. `basis="16rem"`) alongside the
+   percentage ratios. Explore's rail is fixed-width; `aside-narrow` would give it 38rem inside
+   `Container size="wide"` and grow it with the window.
+3. Add a later collapse threshold — 35rem is right for content-beside-content, wrong for a
+   control rail beside a dense table (which needs ~56rem).
+4. Audit `AutoGrid` and `Container` for the same class of unexercised defect before PR 3 leans
+   on them.
+
+**b. Install L3.**
+
+5. **Verify compatibility first** — Svelte 5.56 / Tailwind 4.3 / Kit 2.63. If `@latest` doesn't
+   support this cleanly, **stop and report**; don't pin something that half-works.
+6. `pnpm add bits-ui @lucide/svelte`. **Nothing from `@tanstack/*`.**
+7. **Guard `app.css` through `init`** — it rewrites the file. Back up, run, diff, restore every
    deliberate line: palette, comments, `.chart-area`, `@custom-variant dark`, PR 1's tokens.
-4. `add card button badge input sheet tooltip dialog checkbox separator scroll-area`.
-   **Not** `table` — spec D1.
-5. Confirm `components.json` points at `$lib/components/ui` without disturbing `layout/`.
-6. Set `Button`'s size variants against `--tap-min` so tap targets are correct by default.
+8. `add sheet dialog tooltip popover button input checkbox collapsible separator scroll-area`.
+   **Not `table`** (spec L3).
+
+**c. Settle density (spec D5).** Put a shadcn `Button` and `Input` on screen next to the Rail
+and decide: restyle shadcn down to the app's 0.66–0.85rem density, or bring the app up at narrow
+widths only. This determines how `Button`'s size variants bind to `--tap-min`, so it cannot be
+deferred past this PR. **Bring Phil the comparison rather than deciding alone.**
 
 **Verify:** `just check` clean. Named imports resolve. `just dev` → **all pages render
-identically**, both themes — this PR must be visually inert. Spot-check `AnalysisPanel`'s
-fullscreen dialog specifically (preflight's `margin: 0` on `dialog` broke it once before).
-`git diff src/app.css` empty or intentional-additions-only.
-
-**Risks:** `init` clobbering `app.css` (step 3 exists for this); Tailwind preflight regressions
-elsewhere (caught by the identical-render check).
+identically** — this PR must be visually inert. Spot-check `AnalysisPanel`'s fullscreen dialog
+(preflight's `margin: 0` on `dialog` broke it once). `git diff src/app.css` empty or additive.
+Render `Split` in a scratch route at several widths — it has never been rendered.
 
 ---
 
-### PR 3 — Explore: `Split` shell + `Sheet` filter drawer ← **the review gate**
+### PR 3 — Explore shell + filter drawer ← **the gate**
 
-**Branch:** `feat/explore-mobile-shell` (off PR 2)
-**Files:** `src/routes/(app)/games/+page.svelte`. `Rail` gets a wrapper, not a rewrite.
-`GameList`, `ShapeStrip`, `AnalysisPanel` and the filter controls are **untouched**.
+**Branch:** `feat/explore-shell` · **Files:** `games/+page.svelte`. `Rail` gets a wrapper, not a
+rewrite. `GameList`, `ShapeStrip`, `AnalysisPanel` untouched.
 
-This is where mobile first visibly works, and it delivers what the code already asked for at
-`games/+page.svelte:380`: *"A proper narrow layout wants the filters behind a drawer with the
-results first."*
+The first point mobile visibly works, and what `games/+page.svelte:380` already asks for:
+*"A proper narrow layout wants the filters behind a drawer with the results first."*
 
-**Prerequisite — `Split` cannot do this job as written.** Two defects, found in review, in a
-primitive that has **never been used by any page** and so has never been exercised:
+1. Replace `grid-template-columns: 16rem minmax(0, 1fr)` with the fixed-basis `Split`. Preserve
+   the two independently scrolling columns and `Container size="wide" fill`'s fill-height.
+   **Preserve `.canvas`'s `container-type: inline-size`** — `GameList`'s column-shedding resolves
+   against it and PR 4 builds on that.
+2. Below the narrow threshold, the rail moves into a `Sheet` behind a Filters trigger, results
+   first. Above it, the rail stays exactly where it is. `Rail` is *placed*, not rewritten.
+3. Trigger shows the active-filter count — filters must be legible while hidden.
+4. Delete the `@media (max-width: 900px)` block that stacks a 20rem filter box above results.
+5. Otherwise **equivalence**: desktop Explore indistinguishable from `main`.
 
-1. **The basis is percentage-only.** `SPLIT_BASIS` offers `half: 50%`, `aside-narrow: 34%`,
-   `aside-wide: 40%`, applied as `flex: 0 0 var(--aside-basis)`. Explore's rail is a fixed
-   `16rem`. Inside `Container size="wide"` (112rem cap), `aside-narrow` resolves to **38rem —
-   2.4× the current rail** on a wide screen. That is not equivalence, it is a visible redesign.
-   `Split` needs a fixed-length basis option (e.g. `basis="16rem"`) before Explore can use it.
-2. **`at="sm"` is a dead prop.** `SplitAt = 'sm' | 'md'`, but the stylesheet only defines
-   `.at-md` inside `@container (min-width: 35rem)`. There is no `.at-sm` rule at all, so
-   `at="sm"` silently leaves the region permanently stacked. Nobody has hit it because nobody
-   has used `Split`.
-
-Additionally, 35rem is almost certainly the wrong collapse point for Explore: a 16rem rail
-beside a dense games table needs roughly 56rem before both are usable, not 35rem.
-
-So PR 3 starts by **fixing the primitive** — fixed-basis support, a real `at="sm"` rule, and a
-collapse threshold Explore can actually use. Do that as the first commit of this PR, not as a
-silent workaround inside the page, or the next page to reach for `Split` hits the same wall.
-
-1. **Shell** — replace `grid-template-columns: 16rem minmax(0, 1fr)` with the fixed-basis
-   `Split`. Preserve the two independently scrolling columns and the fill-height behaviour from
-   `Container size="wide" fill`. **Preserve `.canvas`'s `container-type: inline-size`** —
-   `GameList`'s `@container (max-width: 62rem)` column-shedding resolves against it, and PR 4
-   builds on that.
-2. **Drawer** — below the narrow breakpoint, the rail moves into a `Sheet` behind a "Filters"
-   trigger, with results first. Above it, the rail stays exactly where it is. `Rail` itself is
-   not rewritten — it is placed in a different container.
-3. Trigger shows active-filter count, so it is legible that filters are applied while hidden.
-4. Delete the `@media (max-width: 900px)` block that stacks a 20rem scrolling filter box above
-   the results — the drawer replaces it (**fixes #3**).
-5. Rename any Tailwind-colliding scoped class in this file.
-6. Otherwise **equivalence**. Desktop Explore should be indistinguishable from `main`.
-
-**Verify:**
-- `just check` clean; `just test` passing.
-- **375px:** results visible first; drawer opens/closes; filters apply and the list updates;
-  trigger count correct; no horizontal page scroll.
-- **Desktop:** side by side against `main` — rail, scope, sort, paging, universe switch,
-  List/Visualize toggle, row → detail navigation all unchanged.
-- **Both themes.**
-- Record the real cost — time, lines removed vs added, anything the primitives couldn't do.
-
-**Risks:** Explore is the most important page (mitigated: branch, local review, Phil merges).
-Scope creep — 11 other Explore components sit right there and are out of scope.
+**Verify:** 375px — results first, drawer opens/closes, filters apply, count correct, no
+horizontal scroll. Desktop — side by side against `main`: rail, scope, sort, paging, universe
+switch, List/Visualize, row → detail. Both themes. Record the real cost.
 
 ---
 
 ## Gate — stop here
 
-Phil reviews Explore locally, on a phone-width window. Outcomes:
+Phil reviews Explore locally at phone width. Outcomes:
 
-- **Continue to PR 4/5** as planned.
-- **Change the narrow strategy** for PR 4 having seen PR 3 at 375px.
-- **Stop.** Two revertible PRs and one small feature is a cheap answer if the primitives don't
-  deliver.
+- **Continue** to PR 4+.
+- **Adjust** — having seen it, change `DenseRow`'s narrow strategy or the drawer threshold.
+- **Stop.** Two foundation PRs and one feature is a cheap answer if the system doesn't deliver.
 
-Also decided here: finish Explore's remaining components, sweep the app, or adopt-on-contact.
-
----
-
-### PR 4 — Dense-row narrow strategy *(post-gate)*
-
-**Branch:** `feat/dense-row-narrow` · **Files:** `GameList.svelte`, `GameRow.svelte`,
-`discover/+page.svelte` (its `.collhead` mirrors `GameRow`'s template and must move in step)
-
-Rows stay **anchors on a CSS grid** — spec D2. This is a grid-template problem, not a component
-one, and both lists get the same answer so they stop diverging.
-
-1. Fix the clipping defect: `.listwrap { overflow: hidden }` currently makes overflowing columns
-   unreachable rather than scrollable (**#2**).
-2. Give both lists a narrow strategy below the point where columns stop fitting — shed further,
-   scroll horizontally with a pinned name column, or stack into a card row. **Decide from what
-   PR 3 looks like at 375px**, not now (spec open question 2).
-3. `GameList` currently bottoms out at ~585px against 335px available; `GameRow` at ~388px.
-   Both must fit 335px with no clipping.
-4. Preserve the encodings — `Gauge`, `ComplexityMeter`, `PlayerPips`, the two-line name cell.
-   They are why it isn't a plain table.
-
-**Verify:** 375px with no horizontal scroll and nothing clipped, both lists; desktop unchanged;
-both themes; sort/page/navigate still work.
+Also decided here: migrate everything, or adopt-on-contact (spec open question 3).
 
 ---
 
-### PR 5 — Residue *(post-gate)*
+### PR 4 — `DenseRow` *(post-gate)*
 
-**Branch:** `fix/mobile-residue` · **Files:** `+layout.svelte`, `AnalysisPanel.svelte`,
-`StackedColumns.svelte`, `MiniColumns.svelte`, `VizOfTheDay.svelte`
+**Branch:** `feat/dense-row` · **Files:** new `DenseRow`; `GameList`, `GameRow`,
+`discover/+page.svelte` (its `.collhead` mirrors `GameRow`'s template and must move in step),
+`whats-new/+page.svelte`
 
-1. **App bar + footer** (**#1**) — wrap or collapse behind a menu; truncate the user email.
-   Currently one no-wrap `flex` row that overflows at 375px.
-2. **Touch tooltips** (**#7**) — `StackedColumns:149` and `MiniColumns:82` use
-   `onmouseenter`/`onmouseleave`; `VizOfTheDay:850` is a pure CSS `:hover` reveal. All
-   unreachable on touch. Move to `Tooltip`/`Popover`, or pointer events with `touch-action`
-   like `MiniHistogram` and `Scatter` already do correctly.
-3. **`dvh`** (**#8**) — `AnalysisPanel:686` uses `100vh`/`100vw` for fullscreen; on mobile `vh`
-   is the large viewport so the bottom hides under the URL bar.
-4. Remaining sub-16px inputs and sub-44px tap targets not caught by PRs 1–2.
+**Defects #2 and #4 are the same defect in two files.** One component, one narrow strategy.
+
+1. Extract the anchor-on-a-grid row (spec D2 — rows stay `<a>`, never `<tr>`).
+2. Give it **one** defined narrow behaviour — shed further, horizontal scroll with a pinned name
+   column, or stack into a card row. **Decide from PR 3 at 375px**, not on paper.
+3. Fix the clipping defect: `.listwrap { overflow: hidden }` makes overflowing columns
+   unreachable rather than scrollable.
+4. Both lists must fit 335px with nothing clipped (`GameList` is ~585px today, `GameRow` ~388px).
+5. Preserve the encodings — `Gauge`, `ComplexityMeter`, `PlayerPips`, the two-line name cell.
+6. **Delete all three copies.**
 
 ---
 
-## Also, whenever convenient
+### PR 5 — The rest of L4 *(post-gate)*
 
-- **Delete `src/lib/query/keys.ts`** — a fossil of the superseded MVP server-backed design,
-  imported by nothing (spec, Cause 2).
-- **Resolve `src/app.d.ts`'s `breadcrumbs?`/`subtitle?`** — typed, never populated or read.
-- **Skill:** add a data-pattern section stating the DuckDB-WASM architecture and explicitly
-  ruling out TanStack Query, so this cannot recur. Reconcile the rest with what shipped.
-- **`front-end-design`:** deferred until PRs 1–3 have run, so the upstream correction is written
-  from what actually broke rather than guessed at.
+**Branch:** `feat/house-components`
+
+`Seg` (6 copies) · `Chip` (7) · `Pager` (3) · `EmptyState` (5) · `SectionLabel` (4) · `Door` (2).
+Each extracted from the copies that exist, tap- and touch-correct **once**, and every copy
+deleted in the same PR. `Seg` retires #6 in one place rather than six.
+
+---
+
+### PR 6 — Migrate + residue *(post-gate)*
+
+Discover, whats-new, game detail, landing onto the proven components. Plus: app bar and footer
+(#1), touch tooltips (#7 — `StackedColumns:149`, `MiniColumns:82`, `VizOfTheDay:850`), `dvh`
+(#8), and deleting media queries the primitives made redundant (#9).
+
+---
+
+### PR 7 — Codify *(post-gate)*
+
+Rewrite `frontend-patterns` to describe **what exists**: the five layers, the compose-primitives
+rule, `@container` over `@media`, the DuckDB-WASM data pattern with TanStack Query explicitly
+excluded, rows-are-anchors, the tap and input floors.
+
+**This is what stops the problem recurring** — it began because a skill described a system nobody
+had installed. Also: delete `src/lib/query/keys.ts`, resolve `app.d.ts`'s unused
+`breadcrumbs?`/`subtitle?`, and push the verified `front-end-design` correction.
 
 ## Out of scope
 
-TanStack anything. Migrating all 156 files. Porting `Scatter.svelte` to LayerChart. Any data-layer
-change. Deployment.
+TanStack anything. Porting `Scatter.svelte` to LayerChart. Any data-layer change. Deployment.
 
 ## Open questions
 
-1. If `shadcn-svelte@latest` doesn't support Svelte 5.56 / Tailwind 4.3 cleanly — stop and
-   report, or pin older? PR 2 assumes **stop and report**.
-2. PR 4's narrow strategy — deliberately deferred until PR 3 is on screen at 375px.
+1. **Density (D5)** — decided in PR 2, with a component on screen.
+2. **`DenseRow`'s narrow behaviour** — decided at the gate, at 375px.
+3. **Migration breadth** — decided at the gate.
+4. If `shadcn-svelte@latest` doesn't support this stack cleanly — PR 2 assumes **stop and report**.
