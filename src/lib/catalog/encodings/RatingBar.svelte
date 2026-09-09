@@ -13,10 +13,14 @@
    */
   import Gauge from './Gauge.svelte';
 
-  let { value, barHeight = '3px' }: { value: number | null; barHeight?: string } = $props();
+  let {
+    value,
+    barHeight = '3px',
+    width
+  }: { value: number | null; barHeight?: string; width?: string } = $props();
 
   const GEEK_LO = 5.5;
   const GEEK_HI = 8.8;
 </script>
 
-<Gauge value={value} domain={[GEEK_LO, GEEK_HI]} decimals={2} color="var(--chart-1)" {barHeight} />
+<Gauge value={value} domain={[GEEK_LO, GEEK_HI]} decimals={2} color="var(--chart-1)" {barHeight} {width} />

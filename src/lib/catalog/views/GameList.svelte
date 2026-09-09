@@ -303,6 +303,7 @@
               decimals={2}
               color="var(--chart-1)"
               barHeight="3px"
+              width="var(--gauge-w, 3.5rem)"
             />
           </span>
 
@@ -313,7 +314,7 @@
                one invented for this room would mean a reader had to learn complexity twice. -->
           <span class="c-weight">
             <span class="stat-lbl">Cplx</span>
-            <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
+            <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" width="var(--gauge-w, 3.5rem)" />
           </span>
 
           <!-- The same bar as predicted geek, in a narrower slot. The column inherited
@@ -332,14 +333,14 @@
         {:else}
           <span class="c-geek">
             <span class="stat-lbl">Geek</span>
-            <RatingBar value={r.geek_rating} />
+            <RatingBar value={r.geek_rating} width="var(--gauge-w, 3.5rem)" />
           </span>
 
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
             <span class="stat-lbl">Cplx</span>
-            <ComplexityMeter weight={r.average_weight} barHeight="3px" />
+            <ComplexityMeter weight={r.average_weight} barHeight="3px" width="var(--gauge-w, 3.5rem)" />
           </span>
 
           <span class="c-best">
@@ -688,6 +689,20 @@
     .c-weight { grid-area: weight; align-items: start; }
     .c-best,
     .c-hurdle { grid-area: best; align-items: start; }
+    /* Gauge's own default (`3.5rem`) is sized for a table column with six other columns
+       competing for the same row — small on purpose. A card grid area is roughly a third of
+       ~335px with nothing else in it, so the same fixed width left most of the column empty.
+       `--gauge-w` is what RatingBar/ComplexityMeter/Gauge actually read (each call site passes
+       `width="var(--gauge-w, 3.5rem)"`), so redefining it here stretches the bar to fill the
+       space it's actually been given, instead of overriding a hardcoded prop value directly. */
+    .c-geek,
+    .c-weight { --gauge-w: 100%; }
+    /* Gauge centers its own number+bar internally, which reads fine at 3.5rem sitting near
+       the label anyway; stretched to 100% the centering would drift the number to the middle
+       of a now-wide box while `.stat-lbl` stays put at the left edge above it. Left-aligning
+       keeps label, number and bar on one edge. */
+    .c-geek :global(.gauge),
+    .c-weight :global(.gauge) { align-items: flex-start; }
     /* The meta line is the first thing to go when width is scarce — the name is not. */
     .c-name .nm { font-size: 0.95rem; white-space: normal; }
     .c-name .mt { font-size: 0.78rem; }
