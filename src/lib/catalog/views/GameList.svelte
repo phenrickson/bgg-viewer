@@ -217,7 +217,11 @@
     {:else}
       <b class="tnum">{from.toLocaleString()}–{to.toLocaleString()}</b>
       of <b class="tnum">{total.toLocaleString()}</b>
-      <span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>
+      <!-- `.sortby` because on narrow it says nothing `.sortbar`'s own dropdown doesn't already
+           say, one line below — the sort control became a visible select instead of a click on
+           a column header, so this sentence stopped adding information and started repeating
+           it. Desktop still shows it; there the pager is the only other place sort appears. -->
+      <span class="dim sortby">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>
     {/if}
   </span>
   <!-- Narrow only. The column headers double as the sort control, and the card layout below
@@ -292,6 +296,7 @@
                `RatingBar`'s 5.5–8.8 was set against a catalog that reaches 8.7, and this
                population tops out at 6.93. -->
           <span class="c-geek">
+            <span class="stat-lbl">Geek</span>
             <Gauge
               value={r.predicted_geek_rating}
               domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
@@ -307,6 +312,7 @@
                the same measure on the same 1-5 scale, so it gets the same encoding — a second
                one invented for this room would mean a reader had to learn complexity twice. -->
           <span class="c-weight">
+            <span class="stat-lbl">Cplx</span>
             <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
           </span>
 
@@ -315,6 +321,7 @@
                need; the surplus goes to the game's name, where publisher and categories
                were truncating mid-word. -->
           <span class="c-hurdle">
+            <span class="stat-lbl">Hurdle</span>
             <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
             <span class="fill" aria-hidden="true"
               ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
@@ -323,15 +330,20 @@
 
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
-          <span class="c-geek"><RatingBar value={r.geek_rating} /></span>
+          <span class="c-geek">
+            <span class="stat-lbl">Geek</span>
+            <RatingBar value={r.geek_rating} />
+          </span>
 
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
           <span class="c-weight">
+            <span class="stat-lbl">Cplx</span>
             <ComplexityMeter weight={r.average_weight} barHeight="3px" />
           </span>
 
           <span class="c-best">
+            <span class="stat-lbl">Best at</span>
             <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
           </span>
 
@@ -654,6 +666,8 @@
     .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
     /* The headers were the sort control; `.sortbar` above takes that over. */
     .head { display: none; }
+    /* Said once, by the select below, not twice. */
+    .sortby { display: none; }
 
     .row,
     .row.pred {
@@ -673,10 +687,39 @@
     .c-geek { grid-area: geek; align-items: start; }
     .c-weight { grid-area: weight; align-items: start; }
     .c-best,
-    .c-hurdle { grid-area: best; }
+    .c-hurdle { grid-area: best; align-items: start; }
     /* The meta line is the first thing to go when width is scarce — the name is not. */
     .c-name .nm { font-size: 0.95rem; white-space: normal; }
     .c-name .mt { font-size: 0.78rem; }
+
+    /*
+     * The table taught these encodings once, in its column headers — "Geek", "Complexity",
+     * "Best at" — and the card layout dropped the header row along with the table. What was
+     * left was a bare blue bar, a bare orange bar, and a row of seven numerals with one
+     * bolded: unlabelled, and by itself not obviously even related to player count. A card
+     * has no header to lean on, so it needs its own word.
+     */
+    .stat-lbl {
+      display: block;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      color: var(--muted-foreground);
+      margin-bottom: 0.1rem;
+    }
+
+    /*
+     * "Best at," specifically: PlayerPips' full seven-cell grid — six numerals plus a "+",
+     * most of them muted, one or two picked out — reads as noise at card width. It's built
+     * for a table column that gives it room to be scanned down a whole page of rows; a
+     * single card doesn't have that context, so the same information reads better as the
+     * two or three numbers it actually is. `.compact` is PlayerPips' own alternate
+     * rendering (same underlying best/recommended data, same accessible name) — the card
+     * layout just switches which one shows.
+     */
+    :global(.c-best .pips) { display: none; }
+    :global(.c-best .compact) { display: block; }
   }
 
   /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */

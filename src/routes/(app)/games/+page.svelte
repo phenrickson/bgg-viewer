@@ -313,7 +313,10 @@
               {#if narrowed}
                 of <span class="tnum">{universeTotal?.toLocaleString()}</span>
               {:else}
-                in {universeLabel}
+                <!-- On narrow the toolbar's own Universe button is already lit to say this;
+                     `.unilabel` lets CSS drop just this branch there, not the `narrowed` one
+                     above, which is real information ("of X") the toolbar can't show. -->
+                <span class="unilabel">in {universeLabel}</span>
               {/if}
             </span>
           </p>
@@ -494,6 +497,14 @@
      A touch control should look touch-sized. Desktop density is left alone. */
   @media (max-width: 40rem) {
     .viewtoggle button { padding: 0.65rem 1.1rem; font-size: 0.9rem; }
+
+    /* The toolbar's own Universe button is already lit to say "All rated" — this said the
+       same thing a second time, and made `.count` long enough that List/Visualize had
+       nowhere to go but its own wrapped line, `margin-left: auto` pulling it to the right
+       edge with dead space in front of it. Dropping the redundant phrase is what lets
+       count + view toggle actually share the row they're meant to. */
+    .unilabel { display: none; }
+    .chead { gap: var(--space-sm); }
   }
 
 
