@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchOwnedCollection } from './read';
+import { fetchOwnedCollection, fetchOwnedCollectionSafe } from './read';
 import type { BigQuery } from '@google-cloud/bigquery';
 
 function fakeClient(rows: unknown[]) {
@@ -28,5 +28,26 @@ describe('fetchOwnedCollection', () => {
 	it('returns an empty result with null updated_at for an unknown username', async () => {
 		const result = await fetchOwnedCollection('nobody', fakeClient([]));
 		expect(result).toEqual({ game_ids: [], updated_at: null });
+	});
+});
+
+describe('fetchOwnedCollectionSafe', () => {
+	it('returns the collection unchanged when the read succeeds', async () => {
+		const client = fakeClient([{ game_id: 13, updated_at: { value: '2026-08-20T00:00:00Z' } }]);
+		const result = await fetchOwnedCollectionSafe('phil', client);
+		expect(result).toEqual({ game_ids: [13], updated_at: '2026-08-20T00:00:00Z' });
+	});
+
+	// The whole point: a settings page that renders without sync status beats a 500.
+	it('returns null instead of throwing when the query fails', async () => {
+		const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const client = {
+			query: vi.fn().mockRejectedValue(new Error('Access Denied: Table ... user_collections'))
+		} as unknown as BigQuery;
+
+		await expect(fetchOwnedCollectionSafe('phil', client)).resolves.toBeNull();
+		// Still logged, so the underlying cause reaches Cloud Run logs at severity=ERROR.
+		expect(spy).toHaveBeenCalled();
+		spy.mockRestore();
 	});
 });

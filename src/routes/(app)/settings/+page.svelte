@@ -139,6 +139,19 @@
         </form>
         {#if refreshMessage}<p class="note">{refreshMessage}</p>{/if}
       </section>
+    {:else if data.collectionUnavailable}
+      <!-- The read failed, as opposed to "linked but nothing synced yet". Say so rather than
+           dropping the row silently — an absent row is indistinguishable from an empty
+           collection, which is how a warehouse outage went unnoticed here before. No refresh
+           button: it would fire, but the poll that confirms it reads the same broken source. -->
+      <section class="row">
+        <span class="lbl">Collection sync</span>
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <p class="note err">
+          Couldn't load your collection sync status. Your BGG account is still linked — try
+          reloading in a moment.
+        </p>
+      </section>
     {/if}
   </div>
 </div>
