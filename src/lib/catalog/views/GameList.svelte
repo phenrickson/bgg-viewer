@@ -220,6 +220,23 @@
       <span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>
     {/if}
   </span>
+  <!-- Narrow only. The column headers double as the sort control, and the card layout below
+       drops them — so sorting needs somewhere else to live or it becomes unreachable. A native
+       select is the right size for a thumb and comes with its own platform picker. -->
+  <span class="sortbar">
+    <label class="vh" for="sortby">Sort by</label>
+    <select id="sortby" bind:value={sortKey}>
+      {#each COLS as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
+    </select>
+    <button
+      type="button"
+      class="dir"
+      onclick={() => (desc = !desc)}
+      aria-label={desc ? 'Sort ascending' : 'Sort descending'}
+      title={desc ? 'High to low' : 'Low to high'}>{desc ? '▼' : '▲'}</button
+    >
+  </span>
+
   {#if pages > 1}
     <span class="pager">
       <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
@@ -602,6 +619,64 @@
     text-align: center;
     color: var(--muted-foreground);
     font-size: 0.88rem;
+  }
+
+  /* Screen-reader-only, for the sort select's label. */
+  .vh {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  /* Desktop sorts by clicking a column header; this only exists where the headers don't. */
+  .sortbar { display: none; }
+  .sortbar select {
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--background); color: var(--foreground);
+    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.5rem;
+  }
+  .sortbar .dir {
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--background); color: var(--muted-foreground);
+    font: inherit; font-size: 0.8rem; padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+
+  /*
+   * Phone: a row stops being a row.
+   *
+   * Seven columns need ~585px and a phone gives ~335px, so the table was scrolling sideways
+   * inside a page that scrolls down inside a rail that also scrolled — you never knew what a
+   * swipe would do, and a row you have to scroll horizontally to read isn't a row. Two lines
+   * per game instead: identity on top, the numbers that matter underneath.
+   *
+   * `.c-rating` and `.c-rated` are already dropped at 62rem above, so the three stats left to
+   * place are exactly the three the set is usually read by.
+   */
+  @container (max-width: 40rem) {
+    .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
+    /* The headers were the sort control; `.sortbar` above takes that over. */
+    .head { display: none; }
+
+    .row,
+    .row.pred {
+      grid-template-columns: 2.9rem repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        'thumb name name year'
+        'thumb geek weight best';
+      row-gap: 0.35rem;
+      column-gap: var(--space-sm);
+      padding: 0.6rem var(--space-md);
+      align-items: center;
+    }
+    .rk { display: none; }
+    .c-thumb { grid-area: thumb; width: 2.9rem; height: 2.9rem; align-self: start; }
+    .c-name { grid-area: name; }
+    .c-year { grid-area: year; text-align: right; }
+    .c-geek { grid-area: geek; align-items: start; }
+    .c-weight { grid-area: weight; align-items: start; }
+    .c-best,
+    .c-hurdle { grid-area: best; }
+    /* The meta line is the first thing to go when width is scarce — the name is not. */
+    .c-name .nm { font-size: 0.95rem; white-space: normal; }
+    .c-name .mt { font-size: 0.78rem; }
   }
 
   /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */

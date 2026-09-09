@@ -27,6 +27,7 @@
     universeWhere,
     scopeToParams,
     scopeFromParams,
+    activeFilters,
     type Scope
   } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
@@ -71,6 +72,46 @@
    * now — GameCards.svelte still exists, just unwired, in case it's worth revisiting later.
    */
   let view = $state<'list' | 'visualize'>('list');
+
+  /**
+   * Below 40rem the workspace stops being a workspace. A 16rem rail and a five-chart strip
+   * ahead of the results means ~1000px of controls before the first game — on the page whose
+   * whole job is showing games. So on narrow the rail and the strip move into a sheet you
+   * open deliberately, and the results become the page.
+   *
+   * The strip goes in with the rail because that is what it *is*: its interaction is "drag a
+   * chart to filter". It reads as a visualization, but it is a filter control, and on a phone
+   * it belongs with the other filter controls rather than as permanent chrome above them.
+   *
+   * `matchMedia` rather than CSS because the two have to be the SAME component instance —
+   * rendering `Rail` twice would double every facet query against DuckDB. Same technique
+   * ShapeStrip already uses for its own layout switch.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
+
+  /**
+   * A native <dialog>, not a hand-rolled drawer. `showModal()` gives focus trapping,
+   * Escape-to-close and an inert background from the platform — the same reasoning
+   * AnalysisPanel's own dialog records.
+   */
+  let sheet = $state<HTMLDialogElement | null>(null);
+  const openSheet = () => sheet?.showModal();
+  const closeSheet = () => sheet?.close();
+
+  /** The count on the trigger — filters must stay legible while they're out of sight. */
+  const activeCount = $derived(activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0));
+
+  // Leaving narrow with the sheet open would strand a modal over a desktop layout.
+  $effect(() => {
+    if (!narrow) closeSheet();
+  });
 
   onMount(async () => {
     await initCatalog();
@@ -176,11 +217,13 @@
   </div>
 {:else if where != null && baseWhere != null}
   <Container size="wide" fill>
-    <div class="workspace">
-      <div class="sidebar">
-        <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-        {#if data.isAdmin}<AdminCollectionPicker />{/if}
-      </div>
+    <div class="workspace" class:narrow>
+      {#if !narrow}
+        <div class="sidebar">
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+          {#if data.isAdmin}<AdminCollectionPicker />{/if}
+        </div>
+      {/if}
 
       <div class="canvas">
         <div class="chead">
@@ -213,6 +256,12 @@
             }}
           />
 
+          {#if narrow}
+            <button type="button" class="filterbtn" onclick={openSheet}>
+              Filters{#if activeCount}<span class="badge">{activeCount}</span>{/if}
+            </button>
+          {/if}
+
           <span class="viewtoggle" role="group" aria-label="View">
             <button type="button" class:on={view === 'list'} onclick={() => (view = 'list')}>List</button>
             <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
@@ -221,7 +270,9 @@
           </span>
         </div>
 
-        <ShapeStrip {where} {baseWhere} bind:scope />
+        {#if !narrow}
+          <ShapeStrip {where} {baseWhere} bind:scope />
+        {/if}
         {#if view === 'visualize'}
           <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
         {:else}
@@ -238,6 +289,23 @@
         {/if}
       </div>
     </div>
+
+    {#if narrow}
+      <!-- Everything the narrow layout took out of the page, in one place you open on
+           purpose. Closes on Escape and on the backdrop for free — it is a real <dialog>. -->
+      <dialog class="sheet" bind:this={sheet} onclick={(e) => e.target === sheet && closeSheet()}>
+        <div class="sheethead">
+          <b>Filters</b>
+          <span class="sheetcount">{total?.toLocaleString() ?? '—'} games</span>
+          <button type="button" class="sheetdone" onclick={closeSheet}>Done</button>
+        </div>
+        <div class="sheetbody">
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+          {#if data.isAdmin}<AdminCollectionPicker />{/if}
+          <ShapeStrip {where} {baseWhere} bind:scope />
+        </div>
+      </dialog>
+    {/if}
   </Container>
 {/if}
 
@@ -384,20 +452,79 @@
     font-weight: 600;
   }
 
-  /* Below the two-column threshold the workspace becomes an ordinary scrolling document —
-     but the rail keeps its own bounded scroll there, or a stacked rail would push the games
-     a screen and a half down the page. (A proper narrow layout wants the filters behind a
-     drawer with the results first; this keeps them both in reach until that exists.) */
+  /* Between the two-column threshold and the sheet: an ordinary scrolling document, with the
+     rail keeping its own bounded scroll so a stacked rail doesn't push the games a screen and
+     a half down. Below 40rem this stops applying — `.narrow` drops the rail entirely. */
   @media (max-width: 900px) {
-    .workspace {
+    .workspace:not(.narrow) {
       grid-template-columns: 1fr;
       height: auto;
     }
-    .workspace :global(.rail) {
+    .workspace:not(.narrow) :global(.rail) {
       max-height: 20rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: var(--space-md);
     }
   }
+
+  /* One column, one scroll direction, results first. */
+  .workspace.narrow { grid-template-columns: 1fr; }
+
+  /* The trigger. Carries the active-filter count because filters that are out of sight still
+     have to be legible — a set narrowed to 300 games should never look like the whole catalog. */
+  .filterbtn {
+    flex: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    color: var(--primary);
+    font: inherit; font-size: 0.9rem; font-weight: 650;
+    padding: 0.65rem 1.1rem;
+    cursor: pointer;
+  }
+  .filterbtn .badge {
+    display: inline-grid; place-items: center;
+    min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--primary); color: var(--primary-foreground);
+    font-size: 0.75rem; font-weight: 700;
+  }
+
+  /* Full-bleed on a phone: a centred card with margins wastes the width the rail needs, and
+     `dvh` because `vh` is the LARGE viewport on mobile — the bottom would sit under the URL
+     bar with the last facet group unreachable. */
+  .sheet {
+    margin: 0; padding: 0; border: none;
+    width: 100dvw; max-width: 100dvw;
+    height: 100dvh; max-height: 100dvh;
+    background: var(--background); color: var(--foreground);
+    display: flex; flex-direction: column;
+  }
+  .sheet::backdrop { background: oklch(0 0 0 / 0.5); }
+  .sheethead {
+    flex: none;
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .sheethead b { font-size: 1.05rem; }
+  .sheetcount { color: var(--muted-foreground); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .sheetdone {
+    margin-left: auto;
+    border: 1px solid var(--primary); border-radius: 6px;
+    background: color-mix(in oklch, var(--primary) 12%, transparent);
+    color: var(--primary);
+    font: inherit; font-size: 0.9rem; font-weight: 650;
+    padding: 0.55rem 1.1rem; cursor: pointer;
+  }
+  /* The sheet scrolls, so the rail must not also scroll inside it — one scroll container. */
+  .sheetbody {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: var(--space-md);
+    display: flex; flex-direction: column; gap: var(--space-md);
+  }
+  .sheetbody :global(.rail) { overflow-y: visible; }
 </style>
