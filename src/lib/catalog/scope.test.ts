@@ -4,6 +4,8 @@ import {
 	toWhere,
 	scopeToParams,
 	scopeFromParams,
+	universeChoice,
+	withUniverseChoice,
 	universeWhere,
 	activeFilters,
 	compactCount,
@@ -491,6 +493,19 @@ describe('URL round-trip', () => {
 	it('records the universe only when it is not the All rated default', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('u')).toBe(false);
 		expect(scopeToParams({ ...DEFAULT_SCOPE, universe: 'upcoming' }).get('u')).toBe('upcoming');
+	});
+
+	it('maps the three Universe buttons onto the two fields underneath', () => {
+		expect(universeChoice(DEFAULT_SCOPE)).toBe('rated');
+		expect(universeChoice({ ...DEFAULT_SCOPE, rankedOnly: true })).toBe('top10k');
+		expect(universeChoice({ ...DEFAULT_SCOPE, universe: 'upcoming' })).toBe('upcoming');
+
+		const top = withUniverseChoice(DEFAULT_SCOPE, 'top10k');
+		expect([top.universe, top.rankedOnly]).toEqual(['rated', true]);
+		// Leaving upcoming and coming back must land on the default floor, not null.
+		const up = withUniverseChoice(top, 'upcoming');
+		expect([up.universe, up.rankedOnly, up.hurdleMin]).toEqual(['upcoming', false, 0.25]);
+		expect(withUniverseChoice(up, 'rated').hurdleMin).toBe(null);
 	});
 
 	it('round-trips the ranked top-10,000 filter', () => {

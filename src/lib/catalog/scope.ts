@@ -577,16 +577,41 @@ export function defaultHurdleFor(universe: Scope['universe']): number | null {
 }
 
 /**
- * Switch universe, carrying the hurdle floor with it — leaving upcoming and coming back would
- * otherwise land on `null` rather than the default, silently widening the set by ~3,000
- * placeholder entries. Pulled out of `Rail.svelte` (the only place it used to live) so the
- * narrow-width toolbar in `games/+page.svelte` can offer the same Universe control without a
- * second, drifting copy of this logic — one more `.seg` duplicate is exactly what got this
- * app into its current shape.
+ * The three choices Explore's Universe control offers — which is NOT the same list as
+ * `Scope['universe']`, on purpose.
+ *
+ * Underneath, top-10,000 is a filter over the rated catalog (see `rankedOnly`): it is a
+ * popularity floor, not a different kind of data, and modelling it as a third universe left a
+ * constraint that removes ~21,000 games with no way to clear it. That is the right shape for
+ * the data. It is not the right shape for the *control* — "which slice am I in" is one question
+ * to a reader, and answering it with a segmented control that shows all three at once, one of
+ * them lit, is the clearest thing to put in front of them.
+ *
+ * So the model keeps the honest three fields and the control keeps the simple three buttons,
+ * and these two functions are the join between them. Picking "Top 10,000" still leaves a
+ * clearable chip, because the filter really is on.
  */
-export function withUniverse(scope: Scope, u: Scope['universe']): Scope {
-	if (scope.universe === u) return scope;
-	return { ...scope, universe: u, hurdleMin: defaultHurdleFor(u) };
+export type UniverseChoice = 'top10k' | 'rated' | 'upcoming';
+
+export function universeChoice(scope: Scope): UniverseChoice {
+	if (scope.universe === 'upcoming') return 'upcoming';
+	return scope.rankedOnly ? 'top10k' : 'rated';
+}
+
+/**
+ * Apply a choice. Switching universe carries the hurdle floor with it: leaving upcoming and
+ * coming back would otherwise land on `null` rather than the default, silently widening the set
+ * by ~3,000 placeholder entries. Moving between the two rated slices is not a universe change
+ * and leaves the floor alone.
+ */
+export function withUniverseChoice(scope: Scope, choice: UniverseChoice): Scope {
+	const universe: Scope['universe'] = choice === 'upcoming' ? 'upcoming' : 'rated';
+	return {
+		...scope,
+		universe,
+		rankedOnly: choice === 'top10k',
+		hurdleMin: universe === scope.universe ? scope.hurdleMin : defaultHurdleFor(universe)
+	};
 }
 
 /** Parse a scope back from URLSearchParams, falling back to defaults. */

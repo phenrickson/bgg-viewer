@@ -24,6 +24,8 @@
   import {
     playerCountModeFor,
     setPlayerCount,
+    universeChoice,
+    withUniverseChoice,
     type PlayerCountMode,
     type Scope
   } from './scope';
@@ -175,31 +177,36 @@
 
     <div class="grp top">
       <!--
-        Universe used to be three segmented buttons here: Top 10,000 / All rated / Upcoming.
-        Two of those were the same catalog at different popularity floors and one was a
-        different kind of data entirely, so the control asked two unrelated questions at once
-        and made answering them the first thing anybody did. Upcoming is now a navigation
-        destination (the Games menu already offers it), and top-10,000 is the filter it always
-        was — a toggle, below, that ANDs onto the rated catalog and carries a clearable chip.
+        Three buttons over two fields. `top10k` is not a universe underneath — it is the rated
+        catalog with a popularity filter on, which is why it can be cleared from the chip bar
+        like any other constraint. But "which slice am I looking at" is one question to a
+        reader, and a segmented control showing all three at once with one lit is the clearest
+        way to ask it. `universeChoice`/`withUniverseChoice` are the join; see scope.ts.
+
+        Not lifted into a toolbar on narrow. It was, briefly, on the reasoning that it is the
+        first thing you touch — but that put a mode switch above the games on the one screen
+        with no room to spare, and Upcoming is a different kind of data rather than a filter
+        anyone toggles idly. Here it is the first control in the sheet instead.
       -->
-      {#if !upcoming}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={scope.rankedOnly}
-          class="toggle"
-          onclick={() => (scope.rankedOnly = !scope.rankedOnly)}
-        >
-          <span class="track" class:on={scope.rankedOnly}><span class="knob"></span></span>
-          <span class="switch-label">Ranked top 10,000</span>
-        </button>
-        <!-- Copy note: placeholder — Phil writes final copy. -->
-        <p class="note">
-          {scope.rankedOnly
-            ? 'BGG’s ranked top 10,000, by geek rating.'
-            : 'Everything with 30+ ratings — about 35,000.'}
-        </p>
-      {/if}
+      <span class="lbl">Universe</span>
+      <div class="seg two">
+        {#each [['top10k', 'Top 10,000'], ['rated', 'All rated'], ['upcoming', 'Upcoming']] as [key, label] (key)}
+          {@const on = universeChoice(scope) === key}
+          <button
+            class:on
+            aria-pressed={on}
+            onclick={() => (scope = withUniverseChoice(scope, key as 'top10k' | 'rated' | 'upcoming'))}
+            >{label}</button
+          >
+        {/each}
+      </div>
+      <p class="note">
+        {universeChoice(scope) === 'top10k'
+          ? 'BGG’s ranked top 10,000, by geek rating.'
+          : universeChoice(scope) === 'rated'
+            ? 'Everything with 30+ ratings — about 35,000.'
+            : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
+      </p>
       {#if bggUsername}
         <button
           type="button"
