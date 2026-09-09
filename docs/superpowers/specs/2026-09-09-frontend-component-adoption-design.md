@@ -1,261 +1,217 @@
-# BGG Viewer — Front-End Component Adoption — Design
+# BGG Viewer — Front-End Standardization & Mobile — Design
 
 **Date:** 2026-09-09
-**Status:** Draft for review
-**Source kit:** `front-end-design` — `basecamp-rebuild-kit.md` §2 (deps) and §6 (shadcn-svelte),
-plus `skills/frontend-patterns`
+**Status:** Draft for review (rewritten 2026-09-09 after the data-layer finding)
+**Source kit:** `front-end-design` — `basecamp-rebuild-kit.md` §2/§6, plus `skills/frontend-patterns`
+**Builds on:** [2026-07-28-client-catalog-architecture-design.md](2026-07-28-client-catalog-architecture-design.md)
+— that spec settles the data layer, and is the reason half of the source kit does not apply here.
 
-> Copy note: no user-facing copy changes in this spec. Any strings introduced during the
-> refactor are **placeholder** — Phil writes the final copy.
+> Copy note: no user-facing copy changes. Any strings introduced during the refactor are
+> **placeholder** — Phil writes the final copy.
 
 ## Why
 
-The front end does not use the component system its own skill documents. The
-`frontend-patterns` skill (847 lines, `.claude/skills/`) is an accurate description of the
-`front-end-design` kit's **post-scaffold** state, but bgg-viewer only ever ran part of that
-scaffold. The component layer was skipped.
+The front end is not usable on a phone, which is strange for an app that ships a documented
+component system. Two causes, and they compound.
 
-Audit against the kit's own steps:
+### Cause 1 — the component layer was never installed
 
-| Kit step | Status in bgg-viewer |
+The `frontend-patterns` skill (847 lines) accurately describes the `front-end-design` kit's
+**post-scaffold** state. bgg-viewer ran only part of that scaffold. Commit `db969c8`
+("project skeleton") copied the skills and the layout primitives; the components never came.
+
+| Kit step | Status |
 |---|---|
 | §2 styling — `clsx`, `tailwind-merge`, `tailwind-variants`, `tw-animate-css` | ran |
-| §2 component primitives — `bits-ui`, `@lucide/svelte`, `svelte-sonner` | **skipped** (only `mode-watcher`) |
-| §2 tables/charts — `@tanstack/table-core`, `@tanstack/svelte-virtual` | **skipped** (only `layerchart`, `d3-*`) |
-| §2 client data — `@tanstack/svelte-query` | **skipped** |
+| §2 component primitives — `bits-ui`, `@lucide/svelte` | **skipped** |
 | §2 forms — `sveltekit-superforms`, `formsnap`, `zod` | ran |
 | §5 layout primitives + `cn.ts` | ran |
-| §6 `shadcn-svelte init` + `add ...` | **never ran** — no `components.json` |
+| §6 `shadcn-svelte init` + `add` | **never ran** — no `components.json` |
 
-Every plain utility `pnpm add` landed; everything constituting the component layer did not.
+An agent then loads the skill, writes `import { Card } from '$lib/components/ui/card'`, gets a
+resolution error, and hand-writes scoped CSS instead. Repeated across the codebase that
+produced **~15,800 lines of Svelte in 156 files with 422 distinct scoped class names**, and:
 
-### What that cost
-
-An agent loads the skill, writes `import { Card } from '$lib/components/ui/card'`, gets a
-module-resolution error, and falls back to hand-writing scoped CSS. Repeated across the
-codebase, that produced:
-
-- **~15,800 lines of Svelte across 156 files**, with **422 distinct scoped class names**.
-- **`AutoGrid` and `Split` imported by zero pages**, despite both existing and both being
-  incapable of overflowing. `Stack` appears in 3 files. `Container` is used only as a
-  `max-width` cap.
-- **`.chart-area` (defined in `app.css`) used zero times**; 5 of 7 charts hand-rolled in raw
-  SVG/canvas rather than LayerChart.
-- **Fossils of abandoned attempts**: `src/lib/query/keys.ts` (TanStack Query key factories,
-  imported by nothing) and `breadcrumbs?`/`subtitle?` typed on `PageData` in `src/app.d.ts`,
-  never populated or read — someone started the unified header, hit the missing components,
-  and stopped at the type declaration.
-- **A front end that is not usable on a phone** — see Appendix A. Every mobile defect traces
-  to a hand-written `grid-template-columns` standing where a primitive belonged.
+- **`AutoGrid` and `Split` imported by zero pages** — the two primitives that cannot overflow
+  by construction. `Stack` appears in 3 files; `Container` is used only as a `max-width` cap.
+- **`.chart-area` used zero times.**
+- **Nine layout media queries at five arbitrary widths** (560/640/860/900/1280px), nothing
+  mobile-first, and `ShapeStrip.svelte:114` reading `window.matchMedia` in JS while its
+  siblings use container queries.
 
 The hand-rolled CSS is not bad work — the reasoning in `GameList.svelte` and `tokens.ts` is
 unusually careful. The problem is that it is 156 *independent* decisions rather than one
-system, which is why mobile cannot be fixed page by page.
+system, which is exactly why mobile cannot be fixed page by page.
+
+### Cause 2 — half the kit does not apply here, and nobody had written that down
+
+bgg-viewer is a **local-database app**. The client-catalog spec is explicit:
+
+> *"All catalog interaction is client-side SQL — filter, sort, paginate, aggregate, search,
+> chart — sub-100ms over 38k rows, **zero server round-trips**, zero BQ cost."*
+
+One ~3MB Parquet artifact loads once per day into DuckDB-WASM; every interaction is SQL against
+that local database. **42 `query<T>()` call sites across 13 files.** The server is deliberately
+thin so it scales to zero.
+
+The source kit's data layer assumes the opposite — TanStack Query (`createQuery`, `staleTime`,
+`gcTime`) caching *server responses*, `$app/server` remote query functions making *server round
+trips*, TanStack Table row models sorting *in-memory JS arrays*. All three solve a problem this
+app spent a whole spec deciding not to have.
+
+**Correcting an earlier reading in this spec's own first draft:** `src/lib/query/keys.ts` and the
+absent `@tanstack/svelte-query` were called fossils of the skipped scaffold. They are not.
+`keys.ts` says *"detail now; list/facets in PR 5"* — that is the **MVP-era server-backed design**,
+which the client-catalog spec explicitly *supersedes*. The app did not fail to install TanStack
+Query; it outgrew the need. `keys.ts` should be **deleted**, not wired up.
 
 ## Goal
 
-Complete the scaffold that was skipped, adopt the resulting components in bgg-viewer, and
-correct `front-end-design` so the same gap cannot recur in the next project seeded from it.
+Standardize the front end on the parts of the kit that fit this architecture, and use that
+standardization to make the app work on a phone.
 
-Mobile friendliness is the **motivating symptom, not the deliverable** — it largely falls out
-of pages moving onto primitives that cannot overflow. Remaining mobile-specific work
-(filter drawer, touch targets, row layout) is scoped in a follow-up spec.
+Mobile is **the goal, not a follow-up**. An earlier draft deferred it on the theory that it
+would fall out of a component migration. Once TanStack is out of scope, "standardize the
+components" and "make mobile work" stop being sequential and become the same project.
 
 ### Success criteria
 
-1. `components.json` exists; `shadcn-svelte` components resolve from `$lib/components/ui/*`.
-2. The `frontend-patterns` skill is true of this repo — every import it names resolves.
-3. All 21 shadcn token variables are defined in `app.css` in the app's own oklch palette, in
-   both light and dark.
-4. At least one non-trivial page is fully migrated and demonstrably equivalent in light and
-   dark, with no visual regression.
-5. `just check` clean; no new horizontal scroll at any width on migrated pages.
-6. `front-end-design` gains whatever the audit shows is missing, so `just build` produces a
-   project where the skill is true from commit one.
+1. `components.json` exists; the presentation components resolve from `$lib/components/ui/*`.
+2. All 21 shadcn token variables defined in `app.css` in the app's own oklch palette, both themes.
+3. Explore is usable on a 375px screen: filters reachable, results readable, no clipped columns.
+4. No horizontal page scroll at 375px on any migrated surface.
+5. `just check` clean; light **and** dark verified on every change.
+6. The skill states this app's data pattern explicitly, so no future agent reaches for TanStack
+   Query against a local DuckDB.
+
+## The decision: adopt the presentation half, skip the data half
+
+### D1 — No TanStack. Neither Query nor Table.
+
+**Query:** no per-interaction server fetch exists to cache.
+
+**Table:** run headless with `manualSorting` + `manualPagination` — which this architecture
+forces — and every row model is bypassed. What remains is column definitions and sort state,
+against the ~20 lines of runes `GameList.svelte:101-120` already uses. It would mean ~60 lines
+of table config, cell rendering pushed from direct markup into `renderComponent()` indirection,
+and **zero** new behaviour. Worse, not neutral.
+
+**shadcn's `table` component is also out**, for a reason that matters more than the above: it is
+styled `<table>`/`<tr>`/`<td>`, and the table layout algorithm is rigid. Reflowing a `<table>`
+row into a stacked card at narrow widths means `display: block` overrides fighting the table's
+own layout. The CSS grid `GameList` uses today is the **more** mobile-friendly structure.
+Converting would also break its anchor rows (see D2) while making the mobile problem harder.
+
+### D2 — `GameList`'s rows stay anchors on a grid
+
+`GameList.svelte:253` rows are real `<a href="/games/{id}">`, which its header comment states as
+a deliberate choice. Moving to `<tr>` + onclick loses middle-click, cmd-click, right-click-copy,
+and — functionally — SvelteKit's `data-sveltekit-preload-data="hover"`, which resolves anchor
+`href`s. `+layout.svelte:20-30` explicitly depends on that preloading to cover the blocking
+warehouse round-trip on game detail; without it, every row click waits with nothing on screen.
+
+Consequence: `GameList`'s narrow-width problem is a **CSS grid-template strategy** problem, not
+a component-adoption problem. Cheaper than a migration, and shared with `GameRow`.
+
+### D3 — TanStack fixes none of the mobile defects
+
+Checked one by one; the table is in [Appendix A](#appendix-a--the-mobile-defect-inventory).
+**Zero of nine.** What fixes mobile is the layout primitives, the design tokens, and a small set
+of *interaction* components. This is the evidence for D1.
+
+### D4 — What to install
+
+**Install:** `card` · `button` · `badge` · `input` · `sheet` · `tooltip` · `dialog` ·
+`checkbox` · `separator` · `scroll-area`, on `bits-ui` + `@lucide/svelte`.
+
+**Do not install:** `@tanstack/table-core`, `@tanstack/svelte-query`, `@tanstack/svelte-virtual`,
+shadcn `table`, `svelte-sonner`.
+
+`Sheet` is the highest-value single component: it is the filter drawer that
+`games/+page.svelte:380` already asks for in a comment — *"A proper narrow layout wants the
+filters behind a drawer with the results first; this keeps them both in reach until that
+exists."*
+
+### D5 — Tokens before components
+
+shadcn components reference 21 CSS variables; `app.css` defines 10. Missing: `--popover(-foreground)`,
+`--secondary(-foreground)`, `--accent(-foreground)`, `--destructive(-foreground)`, `--input`,
+`--sidebar*`. Installing first means every component appears half-BGG-palette, half-slate, in
+both themes, and gets re-themed twice.
+
+The token pass also carries the mobile primitives that have no component: a **16px input
+font-size floor** (defect #5), **tap-target minimums** (#6), and **named breakpoints** to replace
+the five arbitrary widths (#9).
+
+`--destructive` should resolve to the existing `--color-negative` rather than introduce a second
+red. `--vote-*` and `--color-positive`/`--color-negative` stay as the app-specific layer they are.
+
+### D6 — Class-name collisions get renamed on contact
+
+Tailwind's utility layer is global and beats a component's scoped rule for the same property —
+already documented in-repo, and why `Container` uses `.measured` not `.container`. Of 422 scoped
+class names, two collide today: `.grid` (`GameCards`, `Scatter:671`, `VizOfTheDay:768`,
+`dev/similar:2035`) and `.card` (`GameCards:133`, `PredictionPanel:243`, `games/[id]:757`).
+Rename on any file being touched, not as a sweep.
 
 ## Scope
 
-**In:**
-- Dependency + `shadcn-svelte` install (kit §2 component blocks, §6).
-- The eleven missing design tokens, authored in the existing oklch palette.
-- A pilot page migration to prove the approach.
-- Class-name collision remediation on migrated surfaces.
-- Corrections to `front-end-design` (kit and/or skill).
+**In:** the install above; the tokens; Explore's workspace shell on `Split`; the filter drawer
+via `Sheet`; the dense-row responsive strategy shared by `GameList`/`GameRow`; app bar, tooltips
+and `dvh` fixes; deleting `src/lib/query/keys.ts`; a data-pattern section in the skill.
 
-**Out (deliberately):**
-- Mobile-specific redesign — filter drawer, stacked row layout, touch-target pass.
-  Follow-up spec.
-- Migrating all 156 files. This spec establishes the mechanism and proves it on one page;
-  the sweep is planned separately once the cost per page is measured.
-- Porting `Scatter.svelte` (696 lines, custom canvas hit-testing) to LayerChart — needs its
-  own spike; see Risks.
-- Any change to the data layer — client catalog (DuckDB-WASM/Arrow) and warehouse read API
-  are untouched.
-- Deployment. Local branch verification only; ship via PR, Actions-only as always.
+**Out:** TanStack anything. Migrating all 156 files. Porting `Scatter.svelte` (696 lines, custom
+canvas hit-testing) to LayerChart. Any change to the data layer itself. Deployment.
+`front-end-design` corrections — deferred until this repo has run the install and knows what
+actually breaks (see Delivery).
 
-## Design decisions
+## Risks
 
-### D1 — Install the real library, don't rewrite the skill down
+- **`shadcn-svelte init` rewrites `app.css`**, which carries a deliberate, heavily-commented
+  palette (~25 lines of argument on `--vote-*` alone). Back up, run, diff, restore by hand.
+- **Version compatibility.** Svelte 5.56 / Tailwind 4.3 / Kit 2.63. Confirm before relying on
+  `@latest`; **stop and report** rather than pinning something that half-works.
+- **Tailwind preflight.** Already bitten once — preflight's `margin: 0` on `dialog` broke
+  `AnalysisPanel`'s centering. More components, more of this.
+- **Explore is the app's most important page.** Mitigated by branch + local review + Phil merges.
 
-Considered: trimming the skill to describe only what exists. Rejected — it would codify the
-hand-rolled status quo as the house style, leave `AutoGrid`/`Split` unused, and leave the
-mobile problem structural. The kit already documents a working install; the cheaper and more
-durable move is to run it.
-
-### D2 — Tokens before components
-
-`shadcn-svelte` components reference 21 CSS variables. `app.css` defines 10:
-
-| Defined | Missing |
-|---|---|
-| `--background` `--foreground` `--card` `--card-foreground` `--primary` `--primary-foreground` `--muted` `--muted-foreground` `--border` `--ring` `--radius` | `--popover` `--popover-foreground` `--secondary` `--secondary-foreground` `--accent` `--accent-foreground` `--destructive` `--destructive-foreground` `--input` `--sidebar*` |
-
-A bare `shadcn-svelte add` therefore yields components half-styled in the BGG palette and half
-in shadcn's slate defaults, in **both** themes. The eleven missing tokens must be authored
-first, in oklch, consistent with the existing warm-orange-primary palette — a design task, not
-an install step. Doing it after adoption means re-theming everything twice.
-
-Note `--destructive` has a near-equivalent already: `--color-negative`. The new tokens should
-reconcile with the existing semantic set (`--color-positive`/`--color-negative`) and the
-`--vote-*` ramp rather than duplicating them.
-
-### D3 — Pilot on a small page before Explore
-
-Migrate one low-risk page end to end before touching the workspace. `/whats-new` or `/about`
-are the candidates: small, self-contained, already using `Stack`, and neither is load-bearing
-for the product thesis. Explore (`/games`) is the densest surface and the one whose regression
-would hurt most; it goes last, after the per-page cost is known.
-
-### D4 — Class-name collisions are a real, bounded hazard
-
-Tailwind's utility layer is global and wins over a component's scoped rule for the same
-property — already documented in-repo in `Rail.svelte` and `ShapeStrip.svelte`, and the reason
-`Container` uses `.measured` rather than `.container`. Of 422 scoped class names, two collide
-with Tailwind utilities today:
-
-- `.grid` — `GameCards.svelte:128`, `Scatter.svelte:671`, `VizOfTheDay.svelte:768`,
-  `dev/similar/+page.svelte:2035`
-- `.card` — `GameCards.svelte:133`, `PredictionPanel.svelte:243`, `games/[id]/+page.svelte:757`
-
-Adoption increases utility usage in files that currently rely on scoped CSS, so these must be
-renamed on any file being migrated. Two is tractable; the risk is that the number grows as
-utilities spread, which argues for renaming on contact rather than a big-bang sweep.
-
-### D5 — `Scatter` and the hand-rolled charts stay, for now
-
-Five charts are raw SVG/canvas. `MiniHistogram` and `Scatter` already handle pointer events
-and `touch-action` correctly and represent real, working interaction design. The skill's
-"always LayerChart" rule is right in general, but porting `Scatter`'s canvas hit-testing is a
-spike, not a checklist item. `.chart-area` adoption and the LayerChart port are tracked
-separately.
-
-## Affected surfaces
-
-- `package.json`, `pnpm-lock.yaml`, `components.json` (new)
-- `src/app.css` — the eleven tokens, both themes
-- `src/lib/components/ui/*` — new shadcn components alongside existing `layout/`
-- `src/app.d.ts` — either implement or delete the `breadcrumbs`/`subtitle` fossil
-- `src/lib/query/keys.ts` — either wire to TanStack Query or delete
-- The pilot page + its server load
-- `.claude/skills/frontend-patterns/SKILL.md` — reconcile with reality post-install
-- `front-end-design/` — kit and/or skill corrections (separate repo, separate PR)
-
-## Risks / unknowns
-
-- **shadcn-svelte version compatibility.** Repo is Svelte 5.56 / Tailwind 4.3 / Kit 2.63.
-  The kit's `pnpm dlx shadcn-svelte@latest` must be confirmed against these before relying on
-  it. **Verify first; do not assume.**
-- **`shadcn-svelte init` overwrites `app.css`.** `app.css` carries a heavily commented,
-  deliberate palette (the `--vote-*` ramp reasoning alone is ~25 lines). Init must not be
-  allowed to clobber it — check what it rewrites, and reconcile by hand.
-- **Tailwind preflight interactions.** Already bitten once: preflight's `margin: 0` on
-  `dialog` broke `AnalysisPanel`'s centering. More components means more of this.
-- **Two-repo drift.** If bgg-viewer diverges from `front-end-design` during the work, the
-  correction pushed upstream may not match what actually shipped. Sequence upstream-first.
-- **Scope creep into the full migration.** The pilot must be allowed to stop at one page.
-
-**Rollback:** all work on a branch, verified locally. Nothing deploys until a PR merges; the
-install is additive (new `$lib/components/ui/*` dirs) and existing pages keep working
-unmigrated, so the branch can be abandoned without partial-state risk.
+**Rollback:** all work on a branch. The install is additive; unmigrated pages keep working, so
+the branch can be abandoned wholesale.
 
 ## Delivery
 
-Branch-and-PR as always, one concern per PR, **never on `main`**, and **Phil merges**.
-Build/deploy stays Actions-only — nothing runs locally beyond `just check` and `just dev`.
+Branch per PR, stacked, one concern each. **Never on `main`; Phil merges.** Build/deploy stays
+Actions-only — locally nothing beyond `just check`, `just test`, `just dev`. Check
+`gh pr view --json state,mergedAt` before every push, not just once.
 
-**Sequencing — pilot-first, not upstream-first.** *(revised 2026-09-09)*
-
-This spec originally proposed correcting `front-end-design` first, so the fixed kit would be
-what gets copied down. That reasoning does not hold here: bgg-viewer is **not** being re-seeded
-from the kit, it is being fixed in place, so nothing downstream is waiting on the upstream fix.
-Worse, writing an upstream guardrail before running the install here means guessing at what
-actually breaks. Run it in bgg-viewer, learn, then push a **verified** correction upstream.
-
-This also gets the pilot in front of Phil sooner, which is what the decision gate needs.
-
-1. bgg-viewer — tokens (the eleven missing variables, both themes).
-2. bgg-viewer — deps + `shadcn-svelte init`/`add`, `components.json`.
-3. bgg-viewer — **pilot migration of `/whats-new`** → **review gate**.
-4. *Everything below is planned only after the gate:* the migration scope Phil chooses,
-   reconciling the skill, resolving the `app.d.ts` and `query/keys.ts` fossils, and the
-   `front-end-design` correction informed by what steps 1–3 actually hit.
-
-Verification per step: `just check` (svelte-check + types), `just dev` on localhost:5173 in
-**both light and dark**, and a width sweep for horizontal overflow.
-
-## Resolved questions
-
-**Q2 — How far does adoption go? → Pilot, review locally, then decide.** *(Phil, 2026-09-09)*
-
-The migration sweep is explicitly **not** committed to up front. One page is migrated, reviewed
-running locally, and the scope of everything after is decided from what that review shows. This
-makes the pilot a **decision gate**, not merely the first step of a predetermined sweep — the
-legitimate outcomes include "carry on page by page", "sweep it all", and "this isn't worth it,
-stop here."
-
-Consequence for the plan: work is sequenced so the pilot is runnable and reviewable as early as
-possible, and nothing after the gate is planned in detail until the gate is passed.
-
-**Q1 — Pilot page? → `/whats-new`.**
-
-It exercises a server load, a sortable paginated table, a chart, and a segmented toolbar, and it
-already imports `Container`/`Stack` — so it covers most of the baseline component set. `/about`
-is nearly pure prose and would prove almost nothing. `/whats-new` is not load-bearing for the
-product thesis, so a regression there is cheap.
+**Pilot-first, upstream-last.** bgg-viewer is not being re-seeded from the kit, so nothing
+downstream waits on the upstream fix — and writing an upstream guardrail before running the
+install here means guessing at what breaks. Run it, learn, then push a verified correction.
 
 ## Open questions
 
-1. **`front-end-design` correction** — is the kit actually wrong, or was it simply not run?
-   The audit suggests the latter, in which case the upstream fix may be a guardrail (a
-   `just verify` that fails when the skill's imports don't resolve) rather than new content.
-   **Note:** this reverses the "upstream-first" sequencing above — see the Delivery section.
-2. **The `--vote-*` and `--color-positive`/`--color-negative` tokens** — fold into shadcn's
-   semantic set, or keep as an independent app-specific layer?
-
-## Next
-
-Answer the open questions, then write the plan at
-`docs/superpowers/plans/2026-09-09-frontend-component-adoption.md`.
+1. After the Explore pilot: finish Explore, sweep the app, or adopt-on-contact? Deliberately
+   unanswered — it is the gate's decision.
+2. Does the dense-row narrow strategy shed columns further, scroll horizontally with a pinned
+   name column, or become a stacked card row? Needs to be seen at 375px before deciding.
 
 ---
 
-## Appendix A — the mobile symptoms
+## Appendix A — the mobile defect inventory
 
-Recorded here as evidence for the "one system, not 156 decisions" argument, and as input to
-the follow-up mobile spec. Measured statically at a 375px viewport; `.content` padding
-(`--space-lg` ×2) leaves **335px ≈ 21rem** usable.
+Measured statically at 375px; `.content` padding leaves **335px ≈ 21rem** usable. This is now
+the work list, not deferred evidence. The right-hand column is the D3 evidence.
 
-| # | Symptom | Location |
-|---|---|---|
-| 1 | App bar is one `flex` row, no wrap, no hamburger; the only mobile rule in the header hides the search at 640px. Full user email, Settings, Log out, toggle all overflow. Footer identical. | `+layout.svelte:106`, `:175` |
-| 2 | Explore table needs **~36.5rem / 585px** minimum against 335px available, and `.listwrap { overflow: hidden }` **clips** the surplus — columns vanish unreachably | `GameList.svelte:416` |
-| 3 | Explore workspace is `16rem minmax(0,1fr)` with one 900px fallback that stacks a 20rem scrolling filter box *above* the results. The code comment already asks for a drawer. | `games/+page.svelte:282`, `:380` |
-| 4 | Discover row bottoms out at **24.25rem / 388px**, still wider than available; no step below 34rem | `GameRow.svelte:124` |
-| 5 | Inputs at 0.82–0.9rem trigger iOS Safari auto-zoom on focus and stay zoomed | `Rail.svelte`, `EntityFilter.svelte:95`, `GameSearch.svelte:83` |
-| 6 | Tap targets ~17–24px against a 44px guideline | `ShapeStrip.svelte` `.seg button`, `Rail.svelte` `.seg button` |
-| 7 | Tooltips driven by `onmouseenter`/`onmouseleave` or CSS `:hover` — unreachable on touch | `StackedColumns.svelte:149`, `MiniColumns.svelte:82`, `VizOfTheDay.svelte:850` |
-| 8 | Fullscreen uses `100vh`/`100vw`; on mobile `vh` is the *large* viewport, so the bottom sits under the URL bar (`dvh` is the fix) | `AnalysisPanel.svelte:686` |
-| 9 | 9 layout media queries + 5 container queries at 5 arbitrary values (560/640/860/900/1280px); nothing mobile-first; `ShapeStrip:114` reads `window.matchMedia` in JS while siblings use container queries, so the strip and the list disagree about how narrow they are | app-wide |
+| # | Defect | Location | Fixed by |
+|---|---|---|---|
+| 1 | App bar is one `flex` row, no wrap, no hamburger; only mobile rule hides search at 640px. Email, Settings, Log out, toggle all overflow. Footer identical. | `+layout.svelte:106`, `:175` | layout + `Sheet` |
+| 2 | Games list needs **~36.5rem / 585px** against 335px, and `.listwrap { overflow: hidden }` **clips** the surplus — columns unreachable | `GameList.svelte:416` | grid-template strategy |
+| 3 | Explore is `16rem minmax(0,1fr)` with one 900px fallback stacking a 20rem filter box *above* results | `games/+page.svelte:282`, `:380` | **`Split`** + **`Sheet`** |
+| 4 | Discover row bottoms out at **24.25rem / 388px**, still too wide; no step below 34rem | `GameRow.svelte:124` | grid-template strategy |
+| 5 | Inputs at 0.82–0.9rem trigger iOS Safari auto-zoom on focus, and it persists | `Rail`, `EntityFilter:95`, `GameSearch:83` | **token** (16px floor) |
+| 6 | Tap targets ~17–24px against a 44px guideline | `ShapeStrip` `.seg button`, `Rail` `.seg button` | **`Button`** variants |
+| 7 | Tooltips on `onmouseenter`/`onmouseleave` or CSS `:hover` — unreachable on touch | `StackedColumns:149`, `MiniColumns:82`, `VizOfTheDay:850` | **`Tooltip`/`Popover`** |
+| 8 | Fullscreen uses `100vh`/`100vw`; on mobile `vh` is the *large* viewport, so the bottom hides under the URL bar | `AnalysisPanel:686` | `dvh` (one line) |
+| 9 | 9 media + 5 container queries at 5 arbitrary widths; nothing mobile-first; `ShapeStrip:114` uses `window.matchMedia` while siblings use container queries | app-wide | **tokens + primitives** |
 
-Items 2, 3, 4 and 9 are direct consequences of hand-written grid templates standing where
-`AutoGrid`/`Split` belonged. Items 5, 6, 7, 8 are independent and need the follow-up spec.
+**None of the nine is addressed by TanStack.**
