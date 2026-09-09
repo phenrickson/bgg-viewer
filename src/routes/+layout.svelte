@@ -68,20 +68,37 @@
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
 
-  // Any navigation closes it — otherwise the menu hangs open over the page you just chose.
+  /**
+   * The narrow-screen menu. Six text targets — Home, Games, About, Settings, Log out, theme —
+   * do not fit across a phone, and letting the bar wrap was worse than not fitting: `.actions`
+   * keeps its `margin-left: auto` on the second row, so it pinned itself to the right edge with
+   * a dead gap beside it. One menu button is what the row wants, and it is the pattern the
+   * Games dropdown already establishes, so it reuses `.pop` rather than inventing a second
+   * kind of menu.
+   */
+  let navOpen = $state(false);
+  let navMenu = $state<HTMLElement | null>(null);
+
+  // Any navigation closes them — otherwise a menu hangs open over the page you just chose.
   $effect(() => {
     path;
     gamesOpen = false;
+    navOpen = false;
   });
 
   /** Click-away and Escape, the two ways every menu is expected to close. */
   $effect(() => {
-    if (!gamesOpen) return;
+    if (!gamesOpen && !navOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (gamesMenu && !gamesMenu.contains(e.target as Node)) gamesOpen = false;
+      const t = e.target as Node;
+      if (gamesOpen && gamesMenu && !gamesMenu.contains(t)) gamesOpen = false;
+      if (navOpen && navMenu && !navMenu.contains(t)) navOpen = false;
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') gamesOpen = false;
+      if (e.key === 'Escape') {
+        gamesOpen = false;
+        navOpen = false;
+      }
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -163,6 +180,38 @@
           <a class="link" href="/login">Log in</a>
         {/if}
         <button class="toggle" type="button" onclick={toggleMode} aria-label="Toggle light/dark theme">◐</button>
+
+        <!-- Narrow screens only. Carries everything the bar drops below 40rem: the nav, the
+             Games rows (flattened — a submenu inside a menu is not worth it for four links),
+             and the account actions. -->
+        <div class="navmenu" bind:this={navMenu}>
+          <button
+            type="button"
+            class="toggle burger"
+            aria-expanded={navOpen}
+            aria-haspopup="true"
+            aria-label="Menu"
+            onclick={() => (navOpen = !navOpen)}>☰</button
+          >
+          {#if navOpen}
+            <div class="pop right" role="menu">
+              <a href="/" role="menuitem" class:on={onHome}><b>Home</b></a>
+              <a href="/discover" role="menuitem" class:on={onDiscover}><b>Discover</b></a>
+              <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}><b>Explore</b></a>
+              <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}><b>Upcoming</b></a>
+              <a href="/whats-new" role="menuitem" class:on={onWhatsNew}><b>What's New</b></a>
+              <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
+              {#if data.user}
+                <hr />
+                <a href="/settings" role="menuitem"><b>Settings</b><span>{data.user.display_name || data.user.email}</span></a>
+                <form method="POST" action="/logout"><button type="submit"><b>Log out</b></button></form>
+              {:else}
+                <hr />
+                <a href="/login" role="menuitem"><b>Log in</b></a>
+              {/if}
+            </div>
+          {/if}
+        </div>
       </nav>
     </Container>
   </header>
@@ -299,17 +348,39 @@
   .appbar { flex: none; }
 
   /* Fixed-height sliver, not part of the scrolling content — same reasoning as the appbar. */
-  /* The bar was a single no-wrap flex row: brand + nav + the full user email + Settings +
-     Log out + the theme toggle. That needs ~585px and a phone gives it ~295px, so it simply
-     ran off the right edge. Wrapping is the honest fix — everything stays reachable, it just
-     takes two lines. The email goes: it is the one item here that isn't actionable, and
-     "Settings" already leads to where you'd change it. */
+  /* The burger and its panel exist only below 40rem; everything else here is desktop-only. */
+  .navmenu { display: none; position: relative; }
+  .burger { font-size: 1.05rem; }
+  .pop.right { left: auto; right: 0; }
+  .pop hr { margin: 0.3rem 0.2rem; border: none; border-top: 1px solid var(--border); }
+  .pop form { margin: 0; }
+  .pop form button {
+    display: flex; width: 100%; padding: 0.6rem;
+    background: none; border: none; border-radius: 7px;
+    font: inherit; color: inherit; text-align: left; cursor: pointer;
+  }
+  .pop form button:hover { background: color-mix(in oklch, var(--primary) 10%, transparent); }
+
+  /*
+   * Six text targets — Home, Games, About, Settings, Log out, theme — do not fit across a
+   * phone. The first attempt let the bar wrap, which was worse than not fitting: `.actions`
+   * keeps `margin-left: auto` on the second row, so it pinned itself to the right edge and
+   * left a dead gap beside it. Collapsing into one menu is what the row actually wants.
+   *
+   * Brand stays left, theme and menu stay right, one line, at any width.
+   */
   @media (max-width: 40rem) {
     .appbar { padding: var(--space-sm) var(--space-md); }
-    .appbar :global(.appbar-inner) { flex-wrap: wrap; row-gap: var(--space-sm); }
-    .mainnav { margin-left: 0; }
-    .who { display: none; }
-    .actions { gap: var(--space-md); }
+    .mainnav { display: none; }
+    .actions .who,
+    .actions > .link,
+    .actions > form { display: none; }
+    .navmenu { display: block; }
+    .actions { gap: var(--space-sm); }
+    /* Rows are tap targets here, not menu lines. */
+    .pop { min-width: 13rem; }
+    .pop a { padding: 0.7rem 0.6rem; }
+    .pop b { font-size: 0.95rem; }
   }
 
   .appfoot { flex: none; border-top: 1px solid var(--border); background: var(--card); }
