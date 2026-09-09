@@ -245,12 +245,76 @@
   /* Narrow canvases drop the categories rather than squeezing the pips. */
   /* Shed in order of least value: the categories first, then the recommended-at column, so
      the game's name and its best-at count — the two things Discover exists to surface —
-     survive the narrowest layout. */
+     survive the narrowest layout.
+
+     These three blocks are in deliberate order, widest first. They all re-declare
+     `.row { grid-template-columns }` at equal specificity and a phone matches every one of
+     them, so the last block in the source is the one that actually lays the row out. Explore's
+     card layout was silently overridden this way for a week — the card grid kept its
+     `grid-template-areas` but inherited the table's column widths, which put one stat on a
+     thumbnail-sized track and another on the name's `1fr`. Narrowest goes last. */
   @container (max-width: 46rem) {
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
     .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 4.5rem; }
     .fact:nth-of-type(2) { display: none; }
+  }
+
+  /*
+   * Phone: the row stops being a row.
+   *
+   * Even after shedding twice, the six remaining slots want 2 + 3.5 + 4.5×3 = 19rem of fixed
+   * width plus five gaps before the title gets anything at all. A phone panel is about 18rem
+   * wide in total, so the title was down to a couple of characters and an ellipsis. Two lines
+   * per game instead — who it is on top, what it scores underneath — which is the same shape
+   * Explore's list takes at the same width.
+   *
+   * Complexity keeps the WORD and loses the meter here. The badge in the title line and the
+   * gauge in the stat row are two renderings of one number, and a card has no column headers
+   * to make that read as reinforcement rather than repetition; the word is the one Discover
+   * exists to say. That leaves three signals, each stated once: best-at, complexity, rating.
+   */
+  @container (max-width: 30rem) {
+    .row {
+      grid-template-columns: 3.5rem minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        'thumb main main'
+        'thumb best rate';
+      row-gap: 0.4rem;
+      column-gap: var(--space-sm);
+      padding: 0.6rem var(--space-md);
+      /* The placeholder height the scrollbar is sized from — a card is taller than a row, and
+         a stale figure here makes the scroll thumb jump as cards enter and leave. */
+      contain-intrinsic-size: auto 5.5rem;
+    }
+    /* A position marker earns its slot in a dense list you scan down; on a card it is a
+       number with nothing to be read against. */
+    .rk { display: none; }
+    .thumb { grid-area: thumb; align-self: start; }
+    .main { grid-area: main; }
+    .fact:nth-of-type(1) { grid-area: best; }
+    .cplx { display: none; }
+    .rate { grid-area: rate; justify-self: stretch; text-align: left; }
+    /* The name gets the whole width now, so it can wrap rather than ellipsis at word two. */
+    .nm { white-space: normal; }
+
+    /*
+     * The headings come back out of the screen-reader-only state they are in above.
+     *
+     * `.collhead` says "Best" / "Rating" once, above the list, which is exactly right for
+     * rows — and it is the first thing the card layout drops, because a card has no columns
+     * for a heading to sit over. Without this the card is a bare orange number beside a bare
+     * blue bar, neither of which announces what it measures.
+     */
+    .lbl {
+      position: static; width: auto; height: auto; overflow: visible; clip: auto;
+      display: block;
+      font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
+      font-weight: 600; color: var(--muted-foreground); margin-bottom: 0.1rem;
+    }
+    /* Gauge sizes itself intrinsically so a wide table column doesn't stretch a bar out of
+       proportion to the number above it. On a card the column IS the measure's own slot. */
+    .rate :global(.gauge) { width: 100%; align-items: flex-start; }
   }
 </style>

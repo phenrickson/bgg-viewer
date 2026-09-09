@@ -113,4 +113,13 @@
 
   /* No `.num` rule: player chips read as answers ("2 players"), not bare digits, so they
      no longer need a width floor to stop looking accidental. */
+
+  /* Touch sizing: padding AND type together, not `min-height` alone. Raising only the height
+     gives tall boxes with small text floating in them — a desktop control in a bigger box
+     rather than a touch control. These are the page's ONLY controls, so if any chip in the app
+     has to be comfortably tappable it is these. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .chip { padding: 0.6rem 0.9rem; font-size: 0.95rem; }
+    .chips { gap: 0.6rem; }
+  }
 </style>
