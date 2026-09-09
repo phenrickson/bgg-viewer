@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.18](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.17...bgg-viewer-v0.0.18) (2026-09-09)
+
+
+### Bug Fixes
+
+* **settings:** degrade instead of 500 when the collection read fails ([#60](https://github.com/phenrickson/bgg-viewer/issues/60)) ([4175586](https://github.com/phenrickson/bgg-viewer/commit/41755869eac85a4b8be7b23dd5bee7fdf5aa69bc))
+
 ## [0.0.17](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.16...bgg-viewer-v0.0.17) (2026-09-05)
 
 
