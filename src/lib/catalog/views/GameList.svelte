@@ -182,9 +182,8 @@
    * rest of the design credit, a narrow one quietly drops them, and neither needs a
    * breakpoint or a second render path.
    */
-  function meta(r: Row): string {
+  function metaCore(r: Row): string {
     const des = list(r.designers);
-    const cats = list(r.categories);
     const bits = [playerRange(r)];
     if (des.length) bits.push(des.length > 3 ? `${des.slice(0, 2).join(', ')} +${des.length - 2}` : des.join(', '));
     // Publisher earns a place only in the upcoming universe. For a game nobody has played,
@@ -195,8 +194,21 @@
       const pub = list(r.publishers);
       if (pub.length) bits.push(pub[0]);
     }
-    if (cats.length) bits.push(cats.slice(0, upcoming ? 2 : 3).join(', '));
     return bits.filter(Boolean).join(' · ');
+  }
+
+  /**
+   * Categories, kept as their own span rather than joined into the line above.
+   *
+   * They are the tail of the sentence and the first thing that should go when it doesn't fit —
+   * on a phone the line ellipsised inside them every time ("Dice, Territory Building, M…"),
+   * spending a third of the width to deliver a fragment of one word. A separate element is
+   * what lets the card layout drop them outright instead of truncating them, without a second
+   * render path or a width measurement in JS. The wide table still shows the whole line.
+   */
+  function metaCats(r: Row): string {
+    const cats = list(r.categories);
+    return cats.length ? cats.slice(0, upcoming ? 2 : 3).join(', ') : '';
   }
 
   /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters. */
@@ -283,7 +295,18 @@
 
         <span class="c-name">
           <span class="nm">{r.name}</span>
-          <span class="mt">{meta(r)}</span>
+          <span class="mt">
+            <!-- Year, twice in the markup and never twice on screen. The table gives it a
+                 sortable column of its own; the card has no columns, and floating it alone in
+                 the top-right corner set it against nothing — vertically centred on a name
+                 that might be one line or three, reading as a stray number rather than as part
+                 of what the game is. Here it is the first fact in the same sentence as the
+                 player count and the designer, which is where it belongs when there is no
+                 column header to explain it. CSS picks which copy shows. -->
+            <span class="mt-year tnum">{r.year_published ?? '—'} · </span><span
+              >{metaCore(r)}</span
+            >{#if metaCats(r)}<span class="mt-cats"> · {metaCats(r)}</span>{/if}
+          </span>
         </span>
 
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
@@ -562,6 +585,8 @@
   a.row:hover .nm {
     color: var(--primary);
   }
+  /* Both inline by default; the card block above swaps which is which. */
+  .mt-year { display: none; }
   .c-name .mt {
     font-size: 0.72rem;
     color: var(--muted-foreground);
@@ -712,7 +737,7 @@
     .row.pred {
       grid-template-columns: 2.9rem repeat(3, minmax(0, 1fr));
       grid-template-areas:
-        'thumb name name year'
+        'thumb name name name'
         'thumb geek weight best';
       row-gap: 0.35rem;
       column-gap: var(--space-sm);
@@ -722,7 +747,9 @@
     .rk { display: none; }
     .c-thumb { grid-area: thumb; width: 2.9rem; height: 2.9rem; align-self: start; }
     .c-name { grid-area: name; }
-    .c-year { grid-area: year; text-align: right; }
+    .c-year { display: none; }
+    .mt-year { display: inline; }
+    .mt-cats { display: none; }
     .c-geek { grid-area: geek; align-items: start; }
     .c-weight { grid-area: weight; align-items: start; }
     .c-best,

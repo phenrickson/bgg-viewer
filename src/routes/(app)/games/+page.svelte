@@ -484,7 +484,32 @@
        edge with dead space in front of it. Dropping the redundant phrase is what lets
        count + view toggle actually share the row they're meant to. */
     .unilabel { display: none; }
-    .chead { gap: var(--space-sm); }
+
+    /*
+     * Two explicit rows instead of one wrapping one.
+     *
+     * `.chead` is a `flex-wrap` row of [count] [chips] [view toggle], with the toggle pushed
+     * right by `margin-left: auto`. That holds while there are no filters. Add one chip and
+     * the row overflows: the toggle wraps to a line of its own, still `auto`-pushed, so it
+     * sits alone at the right edge with a band of empty space beside it — and the chips, which
+     * are the thing that just changed, end up sandwiched between the count and that gap. The
+     * layout was reporting the wrap, not the structure.
+     *
+     * The structure is: one row that says what you are looking at and how, and one row that
+     * says what you did to it. A grid states that outright, so adding a filter grows the
+     * header downward in a predictable place instead of rearranging what was already there.
+     */
+    .chead {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      row-gap: var(--space-sm);
+      column-gap: var(--space-sm);
+    }
+    .count { grid-column: 1; }
+    .viewtoggle { grid-column: 2; margin-left: 0; }
+    /* FilterChips owns its own root; from out here it's the child that has to span. */
+    .chead > :global(.chips) { grid-column: 1 / -1; }
   }
 
 
