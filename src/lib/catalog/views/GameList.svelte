@@ -278,6 +278,10 @@
 </div>
 
 <div class="listwrap">
+  <!-- The header row belongs to the table and only to the table. Cards have no columns for it
+       to head, and it is also the sort control — which `SortBar` takes over above, for exactly
+       that reason. -->
+  {#if !cards}
   <div class="head row" class:pred={upcoming}>
     <span class="rk">#</span>
     <span class="c-thumb" aria-hidden="true"></span>
@@ -293,6 +297,7 @@
       </span>
     {/each}
   </div>
+  {/if}
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
