@@ -1,0 +1,53 @@
+name: catalog artifact
+
+# Rebuild the in-browser catalog artifact and publish it to GCS.
+#
+# Triggered by the warehouse pipeline finishing (bgg-data-warehouse's dataform.yml dispatches
+# `catalog_refresh` from its terminal `embeddings_complete` branch), because that is when the
+# data actually changes — once a day, not every six hours as the old in-process TTL guessed.
+#
+# `workflow_dispatch` is here so the artifact can be rebuilt by hand: useful for the first
+# run, when the bucket is empty and nothing has dispatched yet, and for recovering from a
+# missed pipeline run without waiting a day.
+on:
+  repository_dispatch:
+    types: [catalog_refresh]
+  workflow_dispatch:
+
+# Two pipeline runs finishing close together would otherwise race to write the pointer.
+# Not cancel-in-progress: a half-finished run has already uploaded an artifact, and letting
+# it finish writing its pointer is harmless (the object is content-hashed either way).
+concurrency:
+  group: catalog-artifact
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: bgg-data-warehouse
+
+jobs:
+  build:
+    name: Build and upload catalog artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_BGG_DW }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.9 --activate
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      # tsx rather than plain node: the script reuses `columns.ts` and `serialize.ts` so the
+      # query and the Arrow schema keep coming from one definition. See the script's header.
+      - name: Build and upload
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: pnpm exec tsx scripts/build-catalog-artifact.ts
