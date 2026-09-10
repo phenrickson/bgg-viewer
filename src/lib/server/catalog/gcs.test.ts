@@ -61,6 +61,55 @@ describe('signed url stability', () => {
 		expect(b.url).not.toBe(a.url);
 	});
 
+
+	/**
+	 * The window is the whole caching mechanism, so cover it at its edges rather than at one
+	 * arbitrary moment. Every instant inside a window must yield the same URL — including the
+	 * first millisecond and the last — or some unlucky fraction of visits misses the cache.
+	 */
+	it('is identical at every point within one window', async () => {
+		const DAY = 24 * 60 * 60 * 1000;
+		const start = Math.floor(Date.parse('2026-09-10T00:00:00.000Z') / DAY) * DAY;
+		const offsets = [0, 1, DAY / 2, DAY - 1000, DAY - 1];
+
+		const urls: string[] = [];
+		for (const o of offsets) {
+			_resetPointerCache();
+			urls.push((await getSignedCatalog(() => start + o, fakeSign, readPointer)).url);
+		}
+		expect(new Set(urls).size).toBe(1);
+	});
+
+	it('rolls over exactly at the boundary, not before or after', async () => {
+		const DAY = 24 * 60 * 60 * 1000;
+		const start = Math.floor(Date.parse('2026-09-10T00:00:00.000Z') / DAY) * DAY;
+
+		_resetPointerCache();
+		const last = (await getSignedCatalog(() => start + DAY - 1, fakeSign, readPointer)).url;
+		_resetPointerCache();
+		const first = (await getSignedCatalog(() => start + DAY, fakeSign, readPointer)).url;
+
+		expect(first).not.toBe(last);
+	});
+
+	/**
+	 * A new artifact must invalidate immediately — that is the entire reason the object is
+	 * named by content hash rather than being overwritten in place.
+	 */
+	it('changes as soon as the pointer names a new artifact', async () => {
+		const at = Date.parse('2026-09-10T09:00:00.000Z');
+		_resetPointerCache();
+		const before = (await getSignedCatalog(() => at, fakeSign, readPointer)).url;
+
+		const moved = { ...POINTER, hash: 'ffffffffffffffff', name: 'catalog-ffffffffffffffff.arrow.gz' };
+		_resetPointerCache();
+		const after = (
+			await getSignedCatalog(() => at, fakeSign, () => Promise.resolve(Buffer.from(JSON.stringify(moved))))
+		).url;
+
+		expect(after).not.toBe(before);
+	});
+
 	it('signs the artifact named by the pointer, not a fixed name', async () => {
 		const { url, hash } = await getSignedCatalog(() => Date.parse(POINTER.builtAt), fakeSign, readPointer);
 		expect(url).toContain(POINTER.name);
