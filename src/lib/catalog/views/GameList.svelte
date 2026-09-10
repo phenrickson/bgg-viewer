@@ -240,21 +240,31 @@
 
 </script>
 
+<!-- One definition, rendered in one of two places: beside the count on a table, at the foot of
+     the list on cards. See the `{#if cards}` branches below for why. -->
+{#snippet pager()}
+  <span class="pager">
+    <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
+    <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
+    <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
+    <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
+    <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
+  </span>
+{/snippet}
+
 <div class="bar">
   <span class="pos">
     {#if loading && !rows.length}
       Counting…
     {:else}
       <b class="tnum">{from.toLocaleString()}–{to.toLocaleString()}</b>
-      of <b class="tnum">{total.toLocaleString()}</b>
-      <!-- `.sortby` because on narrow it says nothing `.sortbar`'s own dropdown doesn't already
-           say, one line below — the sort control became a visible select instead of a click on
-           a column header, so this sentence stopped adding information and started repeating
-           it. Desktop still shows it; there the pager is the only other place sort appears. -->
-      <!-- On cards this says nothing the sort control one line below doesn't already say —
-           the headers stopped being the sort control, so this sentence stopped adding
-           information and started repeating it. The table still shows it; there the pager is
-           the only other place sort appears. -->
+      <!-- The total, only where it isn't already on screen. On cards the page's own header
+           says "30,957 games" one row above this, so repeating it here was the same number
+           twice in two lines. The table has no such header above it. -->
+      {#if !cards}of <b class="tnum">{total.toLocaleString()}</b>{/if}
+      <!-- Likewise the sort: on cards the control saying it is right there in this same row,
+           so this sentence stopped adding information and started repeating it. The table
+           still shows it — there the headers carry the arrow and nothing else spells it out. -->
       {#if !cards}<span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>{/if}
     {/if}
   </span>
@@ -266,15 +276,7 @@
     />
   {/if}
 
-  {#if pages > 1}
-    <span class="pager">
-      <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
-      <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
-      <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
-      <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
-      <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
-    </span>
-  {/if}
+  {#if pages > 1 && !cards}{@render pager()}{/if}
 </div>
 
 <div class="listwrap">
@@ -444,6 +446,21 @@
 
     {#if !rows.length && !loading}
       <p class="empty">No games match this scope. Loosen a filter above, or clear one from the bar.</p>
+    {/if}
+
+    <!--
+      At the foot of the cards, inside the scroll, rather than up in the bar.
+      A table has a sticky header: you page, the header stays, and you are already at the top
+      of the new page — so the control belongs where your eye already is. A card list has
+      neither, and the moment you want the next page is the moment you run out of this one.
+      Inside `.rows` rather than pinned below it, so it costs no permanent chrome on a screen
+      that has none to spare — it arrives when you reach it.
+    -->
+    {#if pages > 1 && cards}
+      <div class="footpager">
+        <span class="dim">{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
+        {@render pager()}
+      </div>
     {/if}
   </div>
 </div>
@@ -715,6 +732,19 @@
     line-height: 1.2;
   }
 
+
+  .footpager {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--space-lg) var(--space-md);
+    font-size: 0.78rem;
+    border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  }
+  /* Touch sizing, since down here the pager is the only thing to hit and there is room for it
+     to be comfortable — the copy in `.bar` is sharing a row and stays compact. */
+  .footpager .pager button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
 
   .empty {
     padding: var(--space-xl) var(--space-lg);
