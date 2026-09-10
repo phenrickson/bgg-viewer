@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.19](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.18...bgg-viewer-v0.0.19) (2026-09-10)
+
+
+### Features
+
+* **mobile:** card-based lists for Explore, Discover, and What's New ([#62](https://github.com/phenrickson/bgg-viewer/issues/62)) ([3c624af](https://github.com/phenrickson/bgg-viewer/commit/3c624af59a96ac26e154d33fef8f666829cec9be))
+
 ## [0.0.18](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.17...bgg-viewer-v0.0.18) (2026-09-09)
 
 
