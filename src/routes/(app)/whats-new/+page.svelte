@@ -4,6 +4,8 @@
   import type { NewGameRow } from '$lib/server/warehouse';
   import type { PageData } from './$types';
   import Trend from './Trend.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
+  import SortBar from '$lib/catalog/SortBar.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -97,10 +99,41 @@
   $effect(() => {
     data.days;
     tierFilter;
+    // Also the sort: `sortBy()` reset the page itself, but the sort control binds these two
+    // directly, so the reset has to be stated where the change actually happens. Landing on
+    // page 7 of a freshly reordered list shows you the middle of an answer you didn't ask for.
+    sortKey;
+    desc;
     page = 0;
   });
 
   const arrow = (key: SortKey) => (key === sortKey ? (desc ? '▼' : '▲') : '');
+
+  /** What the sort control offers, and in what order. */
+  const SORT_OPTIONS = [
+    { value: 'added', label: 'Added' },
+    { value: 'hurdle', label: 'P(hurdle)' },
+    { value: 'name', label: 'Game' },
+    { value: 'year', label: 'Year' }
+  ];
+
+  /**
+   * Cards below 40rem, the same threshold and the same reason as Explore and Discover: five
+   * columns with a fixed colgroup want about 35rem before the game's name gets anything, and a
+   * phone has 21. It was scrolling sideways inside a page that scrolls down.
+   *
+   * `matchMedia` rather than a container query — see `GameCard.svelte`. A breakpoint would mean
+   * one element carrying the table's markup and the card's at once, with CSS choosing which
+   * half is real.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
 
   // Paginated client-side, same shape as GameList.svelte's own pager — a table meant
   // to be scanned needs a bounded page, not a page that grows without end as the
@@ -148,6 +181,9 @@
             0 games
           {/if}
         </span>
+        {#if narrow}
+          <SortBar options={SORT_OPTIONS} bind:value={() => sortKey, (v) => (sortKey = v as SortKey)} bind:desc />
+        {/if}
         {#if pageCount > 1}
           <span class="pager">
             <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
@@ -159,7 +195,45 @@
         {/if}
       </div>
 
-      <div class="tablewrap">
+      <div class="tablewrap" class:cards={narrow}>
+        {#if narrow}
+          {#each pageRows as g (g.game_id)}
+            {@const tier = hurdleTier(g.predicted_hurdle_prob)}
+            <GameCard href="/games/{g.game_id}">
+              {#snippet art()}
+                {#if g.thumbnail}
+                  <img src={g.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+                {:else}
+                  <span class="ph" aria-hidden="true">{g.name.charAt(0).toUpperCase()}</span>
+                {/if}
+              {/snippet}
+              {#snippet identity()}
+                <span class="nm">{g.name}</span>
+                <span class="mt">{g.year_published ?? '—'}</span>
+              {/snippet}
+              {#snippet stats()}
+                <!-- The three columns the table keeps once Year has moved up into the line
+                     above: when it turned up, how likely it is to be rated at all, and what
+                     that adds up to. Status carries no label — the pill says its own name,
+                     and an empty cell under a "STATUS" heading reads as missing data rather
+                     than as "this one is neither". -->
+                <span class="stat">
+                  <span class="stat-lbl">Added</span>
+                  <span class="sv tnum" title={absoluteFmt.format(new Date(g.first_seen))}
+                    >{formatSeen(g.first_seen)}</span
+                  >
+                </span>
+                <span class="stat">
+                  <span class="stat-lbl">P(hurdle)</span>
+                  <span class="sv tnum">{probText(g.predicted_hurdle_prob)}</span>
+                </span>
+                <span class="stat">
+                  {#if tier}<span class="tag {tier}">{BADGE_LABELS[tier]}</span>{/if}
+                </span>
+              {/snippet}
+            </GameCard>
+          {/each}
+        {:else}
         <table>
           <colgroup>
             <col />
@@ -223,6 +297,7 @@
             {/each}
           </tbody>
         </table>
+        {/if}
 
         {#if !filtered.length}
           <p class="empty">
@@ -297,6 +372,19 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
+     gave tall boxes with tiny text floating in them — a desktop control in a bigger box.
+     A touch control should look touch-sized. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .seg a,
+    .seg button {
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
   /* Position + pager, matching GameList.svelte's own .bar exactly. */
   .bar {
     display: flex;
@@ -346,6 +434,12 @@
     overflow-x: auto;
     background: var(--card);
   }
+  /* Cards are already bounded by the panel's width; there is nothing to scroll sideways, and
+     leaving the axis scrollable makes a horizontal swipe wobble the list for no reason. */
+  .tablewrap.cards { overflow-x: visible; }
+
+  /* A card's stat values. GameCard styles the labels; what sits under them is the caller's. */
+  .sv { font-size: 0.85rem; font-weight: 600; color: var(--foreground); }
   /* Fixed layout + a colgroup means every row is the same height regardless of
      which games land on a given page — nothing about the table should visibly
      resize as you paginate or re-sort. */

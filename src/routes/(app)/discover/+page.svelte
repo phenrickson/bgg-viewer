@@ -96,6 +96,29 @@
 
   const hasMore = $derived(rows.length < total);
 
+  /**
+   * Whether the list is currently a window onto a longer list, or just the list.
+   *
+   * `.listwrap` caps itself at 45rem and scrolls internally, which is right on a desktop: the
+   * games can run to thousands while the page keeps scrolling past them to the door below. On
+   * a phone that cap is taller than the whole viewport, so the panel became a scroll region
+   * nested inside the document's own — you swipe, the page moves, you swipe again over the
+   * list and the page stops moving. Explore hit the same thing. Below 40rem the panel stops
+   * capping itself (see the CSS) and the document does all the scrolling.
+   *
+   * The observer has to follow: it is rooted on the panel, and a root that doesn't scroll
+   * always contains the sentinel, so it would fire immediately and keep firing — pulling every
+   * page at once. `null` roots it on the viewport, which is what is actually scrolling there.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
+
   // A new scope is a new question — start it at the opening bound rather than however far the
   // last one had been scrolled.
   $effect(() => {
@@ -113,7 +136,7 @@
       // viewport-rooted observer would fire once and then never again. The margin starts the
       // next page a panel-height early, so rows are usually there before the scroll reaches
       // them.
-      { root: listwrap, rootMargin: '400px' }
+      { root: narrow ? null : listwrap, rootMargin: '400px' }
     );
     io.observe(sentinel);
     return () => io.disconnect();
@@ -216,13 +239,13 @@
                spelling out "BEST" / "ALSO GOOD" / "RATING" beside its own numbers. Column
                widths and the narrow-container collapse mirror GameRow.svelte's `.row` grid
                exactly, so the heading always sits over the values it names. -->
-          <div class="collhead" aria-hidden="true">
+          <div class="collhead" class:cards={narrow} aria-hidden="true">
             <span></span><span></span><span></span>
             <span>Best</span><span>Also good</span><span>Complexity</span><span>Rating</span>
           </div>
           <div class="rows">
             {#each rows as g, i (g.game_id)}
-              <GameRow game={g} rank={i + 1} />
+              <GameRow game={g} rank={i + 1} card={narrow} />
             {/each}
           </div>
           {#if hasMore}
@@ -324,6 +347,18 @@
     background: var(--card);
     /* Anchoring stops the viewport jumping when a page of rows is appended above the fold. */
     overflow-anchor: auto;
+    /*
+     * The rows and the column heading size themselves against THIS panel, not the app shell.
+     * Without it the nearest container is `.content`, which is the full window width — so a
+     * row bounded to the 64rem `list` measure was answering questions about a 112rem shell,
+     * and the two only agreed by coincidence at certain window sizes.
+     */
+    container-type: inline-size;
+  }
+
+  /* One scroll, not two. See `narrow` in the script for why the observer moves with it. */
+  @media (max-width: 40rem) {
+    .listwrap { max-height: none; overflow-y: visible; }
   }
 
   /* Same six-way split as GameRow's `.row`, so "Best" / "Also good" / "Rating" sit directly
@@ -355,6 +390,10 @@
     }
     .collhead span:nth-child(5) { display: none; }
   }
+  /* A card has no columns for a heading to sit over, so the heading goes and each card labels
+     its own numbers instead. Keyed off the same `narrow` the rows are, rather than a container
+     query of its own — a heading that outlives the columns it names is worse than no heading. */
+  .collhead.cards { display: none; }
 
   .msg {
     padding: var(--space-xl) var(--space-lg); text-align: center;

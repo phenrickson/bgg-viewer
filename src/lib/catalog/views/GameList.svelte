@@ -21,9 +21,27 @@
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
+  import SortBar from '$lib/catalog/SortBar.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
-  let { where, universe = 'top10k' }: { where: string; universe?: Scope['universe'] } = $props();
+  let {
+    where,
+    universe = 'rated',
+    /**
+     * Render cards instead of table rows. The page already knows this — it decides on the same
+     * question whether the rail is inline or in a sheet — so it is passed down rather than
+     * measured a second time here.
+     *
+     * A prop rather than the container query this used to be. As a query, one element had to
+     * carry the table's markup and the card's at once with CSS choosing which half was real,
+     * and every rule in the narrow block existed to undo something the wide layout had done:
+     * hide the header, hide four columns, hide the labels the table doesn't want, un-hide the
+     * year copy the table does, swap the pip grid for its text form, re-stretch the gauges.
+     * That is where the two bugs came from. Now each branch renders only what it shows.
+     */
+    cards = false
+  }: { where: string; universe?: Scope['universe']; cards?: boolean } = $props();
 
   /**
    * The upcoming universe reads the model's estimates rather than what happened — the same
@@ -182,9 +200,8 @@
    * rest of the design credit, a narrow one quietly drops them, and neither needs a
    * breakpoint or a second render path.
    */
-  function meta(r: Row): string {
+  function metaCore(r: Row): string {
     const des = list(r.designers);
-    const cats = list(r.categories);
     const bits = [playerRange(r)];
     if (des.length) bits.push(des.length > 3 ? `${des.slice(0, 2).join(', ')} +${des.length - 2}` : des.join(', '));
     // Publisher earns a place only in the upcoming universe. For a game nobody has played,
@@ -195,8 +212,21 @@
       const pub = list(r.publishers);
       if (pub.length) bits.push(pub[0]);
     }
-    if (cats.length) bits.push(cats.slice(0, upcoming ? 2 : 3).join(', '));
     return bits.filter(Boolean).join(' · ');
+  }
+
+  /**
+   * Categories, kept as their own span rather than joined into the line above.
+   *
+   * They are the tail of the sentence and the first thing that should go when it doesn't fit —
+   * on a phone the line ellipsised inside them every time ("Dice, Territory Building, M…"),
+   * spending a third of the width to deliver a fragment of one word. A separate element is
+   * what lets the card layout drop them outright instead of truncating them, without a second
+   * render path or a width measurement in JS. The wide table still shows the whole line.
+   */
+  function metaCats(r: Row): string {
+    const cats = list(r.categories);
+    return cats.length ? cats.slice(0, upcoming ? 2 : 3).join(', ') : '';
   }
 
   /** "38%", "5.3%", "<1%" — a rounded "0%" and a rounded "5%" hide the range that matters. */
@@ -210,28 +240,50 @@
 
 </script>
 
+<!-- One definition, rendered in one of two places: beside the count on a table, at the foot of
+     the list on cards. See the `{#if cards}` branches below for why. -->
+{#snippet pager()}
+  <span class="pager">
+    <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
+    <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
+    <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
+    <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
+    <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
+  </span>
+{/snippet}
+
 <div class="bar">
   <span class="pos">
     {#if loading && !rows.length}
       Counting…
     {:else}
       <b class="tnum">{from.toLocaleString()}–{to.toLocaleString()}</b>
-      of <b class="tnum">{total.toLocaleString()}</b>
-      <span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>
+      <!-- The total, only where it isn't already on screen. On cards the page's own header
+           says "30,957 games" one row above this, so repeating it here was the same number
+           twice in two lines. The table has no such header above it. -->
+      {#if !cards}of <b class="tnum">{total.toLocaleString()}</b>{/if}
+      <!-- Likewise the sort: on cards the control saying it is right there in this same row,
+           so this sentence stopped adding information and started repeating it. The table
+           still shows it — there the headers carry the arrow and nothing else spells it out. -->
+      {#if !cards}<span class="dim">· by {sortCol.label} {desc ? 'high→low' : 'low→high'}</span>{/if}
     {/if}
   </span>
-  {#if pages > 1}
-    <span class="pager">
-      <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
-      <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
-      <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
-      <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
-      <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
-    </span>
+  {#if cards}
+    <SortBar
+      options={COLS.map((c) => ({ value: c.key, label: c.label }))}
+      bind:value={sortKey}
+      bind:desc
+    />
   {/if}
+
+  {#if pages > 1 && !cards}{@render pager()}{/if}
 </div>
 
 <div class="listwrap">
+  <!-- The header row belongs to the table and only to the table. Cards have no columns for it
+       to head, and it is also the sort control — which `SortBar` takes over above, for exactly
+       that reason. -->
+  {#if !cards}
   <div class="head row" class:pred={upcoming}>
     <span class="rk">#</span>
     <span class="c-thumb" aria-hidden="true"></span>
@@ -247,9 +299,75 @@
       </span>
     {/each}
   </div>
+  {/if}
 
   <div class="rows">
     {#each rows as r, i (r.game_id)}
+      {#if cards}
+        <GameCard href="/games/{r.game_id}">
+          {#snippet art()}
+            {#if r.thumbnail}
+              <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+            {:else}
+              <span class="ph" aria-hidden="true">{r.name.charAt(0).toUpperCase()}</span>
+            {/if}
+          {/snippet}
+          {#snippet identity()}
+            <span class="nm">{r.name}</span>
+            <!-- Year leads the line rather than floating in a corner of its own. The table
+                 gives it a sortable column; a card has none, so it becomes the first fact in
+                 the same sentence as the player count and the designer. Categories are left
+                 out entirely — they are the tail of that sentence and the ellipsis always
+                 landed inside them, spending a third of the width on a fragment of a word. -->
+            <span class="mt">{r.year_published ?? '—'} · {metaCore(r)}</span>
+          {/snippet}
+          {#snippet stats()}
+            {#if upcoming}
+              <span class="stat">
+                <span class="stat-lbl">Geek</span>
+                <Gauge
+                  value={r.predicted_geek_rating}
+                  domain={[PRED_GEEK_LO, PRED_GEEK_HI]}
+                  decimals={2}
+                  color="var(--chart-1)"
+                  barHeight="3px"
+                />
+              </span>
+              <span class="stat">
+                <span class="stat-lbl">Cplx</span>
+                <ComplexityMeter weight={r.predicted_complexity} barHeight="3px" />
+              </span>
+              <span class="stat c-hurdle">
+                <span class="stat-lbl">Hurdle</span>
+                <span class="pv tnum">{probText(r.predicted_hurdle_prob)}</span>
+                <span class="fill" aria-hidden="true"
+                  ><i style:width="{(r.predicted_hurdle_prob ?? 0) * 100}%"></i></span
+                >
+              </span>
+            {:else}
+              <span class="stat">
+                <span class="stat-lbl">Geek</span>
+                <RatingBar value={r.geek_rating} />
+              </span>
+              <span class="stat">
+                <span class="stat-lbl">Cplx</span>
+                <ComplexityMeter weight={r.average_weight} barHeight="3px" />
+              </span>
+              <!-- PlayerPips' compact form, not its pip grid. The grid earns its keep scanned
+                   down a table column; alone on a card, six mostly-muted numerals with one
+                   picked out read as noise rather than as an answer. -->
+              <span class="stat">
+                <span class="stat-lbl">Best at</span>
+                <PlayerPips
+                  best={r.best_player_counts}
+                  recommended={r.recommended_player_counts}
+                  compact
+                />
+              </span>
+            {/if}
+          {/snippet}
+        </GameCard>
+      {:else}
       <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
         <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
 
@@ -262,7 +380,7 @@
 
         <span class="c-name">
           <span class="nm">{r.name}</span>
-          <span class="mt">{meta(r)}</span>
+          <span class="mt">{metaCore(r)}{#if metaCats(r)} · {metaCats(r)}{/if}</span>
         </span>
 
         <span class="c-year r tnum">{r.year_published ?? '—'}</span>
@@ -306,7 +424,9 @@
 
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
-          <span class="c-geek"><RatingBar value={r.geek_rating} /></span>
+          <span class="c-geek">
+            <RatingBar value={r.geek_rating} />
+          </span>
 
           <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
 
@@ -321,10 +441,26 @@
           <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
         {/if}
       </a>
+      {/if}
     {/each}
 
     {#if !rows.length && !loading}
       <p class="empty">No games match this scope. Loosen a filter above, or clear one from the bar.</p>
+    {/if}
+
+    <!--
+      At the foot of the cards, inside the scroll, rather than up in the bar.
+      A table has a sticky header: you page, the header stays, and you are already at the top
+      of the new page — so the control belongs where your eye already is. A card list has
+      neither, and the moment you want the next page is the moment you run out of this one.
+      Inside `.rows` rather than pinned below it, so it costs no permanent chrome on a screen
+      that has none to spare — it arrives when you reach it.
+    -->
+    {#if pages > 1 && cards}
+      <div class="footpager">
+        <span class="dim">{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
+        {@render pager()}
+      </div>
     {/if}
   </div>
 </div>
@@ -597,12 +733,31 @@
   }
 
 
+  .footpager {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--space-lg) var(--space-md);
+    font-size: 0.78rem;
+    border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  }
+  /* Touch sizing, since down here the pager is the only thing to hit and there is room for it
+     to be comfortable — the copy in `.bar` is sharing a row and stays compact. */
+  .footpager .pager button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+
   .empty {
     padding: var(--space-xl) var(--space-lg);
     text-align: center;
     color: var(--muted-foreground);
     font-size: 0.88rem;
   }
+
+  /* Only one of the two blocks below still touches `.row`, which is the point. When the card
+     was a breakpoint on this same element, both did, at equal specificity, and a phone matched
+     both — so the card grid kept its `grid-template-areas` and inherited the table's column
+     widths from whichever block happened to come last. That class of bug isn't reachable now
+     that the card is its own component. */
 
   /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
   @container (max-width: 62rem) {
@@ -631,4 +786,66 @@
       display: none;
     }
   }
+  /*
+   * Phone: the list stops being a table.
+   *
+   * Seven columns need ~585px and a phone gives ~335px, so the table scrolled sideways inside
+   * a page that scrolls down inside a rail that also scrolled — you never knew what a swipe
+   * would do, and a row you have to scroll horizontally to read isn't a row. The card that
+   * replaces it is `GameCard.svelte` and the sort control that comes with it is
+   * `SortBar.svelte`, both chosen by the `cards` prop. Nothing about that switch is expressed
+   * in CSS any more, which is why there is no block here to read.
+   */
+
+  /* Only one of the two blocks below still touches `.row`, which is the point. When the card
+     was a breakpoint on this same element, both did, at equal specificity, and a phone matched
+     both — so the card grid kept its `grid-template-areas` and inherited the table's column
+     widths from whichever block happened to come last. That class of bug isn't reachable now
+     that the card is its own component. */
+
+  /* Narrow canvases drop the least load-bearing numbers rather than squeezing everything. */
+  @container (max-width: 62rem) {
+    .row {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(6.2rem, max-content);
+    }
+    .row.pred {
+      grid-template-columns:
+        minmax(2.4rem, max-content)
+        1.85rem
+        minmax(8rem, 1fr)
+        minmax(3.4rem, max-content)
+        minmax(4rem, max-content)
+        minmax(4.6rem, max-content)
+        minmax(4.6rem, max-content);
+    }
+    .c-rating,
+    .c-rated {
+      display: none;
+    }
+  }
+  /*
+   * Phone: the list stops being a table.
+   *
+   * Seven columns need ~585px and a phone gives ~335px, so the table scrolled sideways inside
+   * a page that scrolls down inside a rail that also scrolled — you never knew what a swipe
+   * would do, and a row you have to scroll horizontally to read isn't a row.
+   *
+   * The card that replaces it is `GameCard.svelte`, chosen by the `cards` prop rather than by
+   * a rule in here. What's left below is the sort control, which is the one piece of table
+   * chrome that has to survive the change: the column headers WERE the sort control, and the
+   * cards have no headers, so sorting needs somewhere else to live or it becomes unreachable.
+   */
+  @container (max-width: 40rem) {
+    .sortbar { display: inline-flex; gap: 0.35rem; align-items: center; }
+    /* Said once, by the select, rather than twice. */
+    .sortby { display: none; }
+  }
+
 </style>

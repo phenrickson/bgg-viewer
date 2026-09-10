@@ -14,7 +14,7 @@
 import { COMPLEXITY_BANDS, columnsFor, type ComplexityBand, type Scope } from './scope';
 
 export type MeasureColumns = ReturnType<typeof columnsFor>;
-const RATED: MeasureColumns = columnsFor('top10k');
+const RATED: MeasureColumns = columnsFor('rated');
 export const measures = (universe: Scope['universe']): MeasureColumns => columnsFor(universe);
 
 /** One-row summary for the stat tiles. */

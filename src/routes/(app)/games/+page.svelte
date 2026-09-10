@@ -27,6 +27,7 @@
     universeWhere,
     scopeToParams,
     scopeFromParams,
+    activeFilters,
     type Scope
   } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
@@ -36,6 +37,8 @@
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
   import { Container } from '$lib/components/ui/layout';
+  import * as Sheet from '$lib/components/ui/sheet';
+  import { Button } from '$lib/components/ui/button';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -71,6 +74,50 @@
    * now — GameCards.svelte still exists, just unwired, in case it's worth revisiting later.
    */
   let view = $state<'list' | 'visualize'>('list');
+
+  /**
+   * Below 40rem the workspace stops being a workspace.
+   *
+   * First attempt put the WHOLE rail — including the shape strip — behind a "Filters" button,
+   * one flat pile of controls with a single exit. Two things were wrong with that, not one:
+   *
+   *   1. Universe (Top 10k / All rated / Upcoming) is the single most-reached-for control —
+   *      Rail's own header comment says so, "always open," the thing you touch before anything
+   *      else — and it was buried a tap deep with everything else. It belongs where you can
+   *      always reach it, not inside a drawer.
+   *   2. The shape strip isn't a filter, it's a chart — "drag a chart to filter" was never
+   *      going to work with a thumb, and it doesn't belong beside checkboxes just because it
+   *      technically narrows the set too. It already has a real home: List/Visualize.
+   *
+   * So narrow gets a small persistent toolbar (Universe + a Filters trigger, count visible),
+   * and the sheet holds only what's actually a filter: search, player count, the collapsed
+   * facet groups, complexity. The strip stays exactly where desktop already puts it — behind
+   * Visualize — rather than getting a second, narrower copy of itself.
+   *
+   * `matchMedia` rather than CSS because Rail has to be the SAME component instance whether
+   * it's inline (desktop) or in the sheet (narrow) — rendering it twice would double every
+   * facet query against DuckDB. Same technique ShapeStrip already uses for its own switch.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
+
+  /** `Sheet.Root`'s own open state — bits-ui owns the focus trap, Escape and the inert
+      background; this file just needs to know whether it's open. */
+  let filtersOpen = $state(false);
+
+  /** The count on the trigger — filters must stay legible while they're out of sight. */
+  const activeCount = $derived(activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0));
+
+  // Leaving narrow with the sheet open would strand a modal over a desktop layout.
+  $effect(() => {
+    if (!narrow) filtersOpen = false;
+  });
 
   onMount(async () => {
     await initCatalog();
@@ -142,13 +189,7 @@
       .catch((e) => console.error('cutoff query failed', e));
   });
 
-  const universeLabel = $derived(
-    scope.universe === 'top10k'
-      ? 'the top 10,000'
-      : scope.universe === 'rated'
-        ? 'all rated games'
-        : 'upcoming games'
-  );
+  const universeLabel = $derived(scope.universe === 'rated' ? 'all rated games' : 'upcoming games');
   const narrowed = $derived(total != null && universeTotal != null && total < universeTotal);
 
   // Mirror the scope to the URL (shareable, reload-safe) without a navigation. Also the
@@ -176,11 +217,72 @@
   </div>
 {:else if where != null && baseWhere != null}
   <Container size="wide" fill>
-    <div class="workspace">
-      <div class="sidebar">
-        <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-        {#if data.isAdmin}<AdminCollectionPicker />{/if}
+    {#if narrow}
+      <!--
+        Filters, alone, and nothing else on this row.
+        It used to lead with three Universe buttons — the mobile answer to "Universe is the
+        first thing you touch, so don't bury it behind a button". That premise was wrong:
+        Universe was conflating a data mode (upcoming, where every number is a prediction)
+        with a popularity filter (top 10,000, a subset of rated), and neither belongs at the
+        top of a phone screen ahead of the games. Upcoming is a nav destination now; ranked
+        top-10,000 is a toggle inside the sheet like every other filter. What's left is one
+        trigger with a live count of what's applied, and a row of games starting higher up.
+      -->
+      <div class="flex items-center gap-2 pb-3">
+        <Sheet.Root bind:open={filtersOpen}>
+          <Sheet.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} variant="outline" size="sm" class="relative w-full">
+                Filters
+                {#if activeCount}
+                  <span
+                    class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                    >{activeCount}</span
+                  >
+                {/if}
+              </Button>
+            {/snippet}
+          </Sheet.Trigger>
+          <!-- Bottom, not the skill's default `side="right"`: a slide-over reads as a secondary
+               panel beside content (its documented use — record CRUD), where this needs to read
+               as its own screen you've deliberately entered to filter, the way Filters behaves
+               in most mobile apps. Left short of full height on purpose — 92dvh, not 100 — so a
+               sliver of the page stays visible behind it; a totally opaque takeover is what
+               made the first version feel like leaving the app rather than adjusting a query. -->
+          <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
+            <Sheet.Header class="border-b border-border">
+              <Sheet.Title>Filters</Sheet.Title>
+            </Sheet.Header>
+
+            <!-- Fill-height Pattern A from the layout skill: header at natural height, this
+                 region takes what's left and owns its own scroll. No shape strip here — see
+                 the narrow-mode comment above; it isn't a filter, Visualize already covers it. -->
+            <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
+              <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+              {#if data.isAdmin}<AdminCollectionPicker />{/if}
+            </div>
+
+            <!-- The live reward loop a desktop workspace gets for free: the count updates as
+                 you check a box, right on the button that gets you back to seeing it. Replaces
+                 the first version's plain "Done" — a label you had to go find beats nothing,
+                 but a number that moves is what makes filtering feel connected to results. -->
+            <Sheet.Footer class="border-t border-border">
+              <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
+                Show {total?.toLocaleString() ?? '…'} games
+              </Button>
+            </Sheet.Footer>
+          </Sheet.Content>
+        </Sheet.Root>
       </div>
+    {/if}
+
+    <div class="workspace" class:narrow>
+      {#if !narrow}
+        <div class="sidebar">
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+          {#if data.isAdmin}<AdminCollectionPicker />{/if}
+        </div>
+      {/if}
 
       <div class="canvas">
         <div class="chead">
@@ -191,7 +293,10 @@
               {#if narrowed}
                 of <span class="tnum">{universeTotal?.toLocaleString()}</span>
               {:else}
-                in {universeLabel}
+                <!-- On narrow the toolbar's own Universe button is already lit to say this;
+                     `.unilabel` lets CSS drop just this branch there, not the `narrowed` one
+                     above, which is real information ("of X") the toolbar can't show. -->
+                <span class="unilabel">in {universeLabel}</span>
               {/if}
             </span>
           </p>
@@ -221,11 +326,13 @@
           </span>
         </div>
 
-        <ShapeStrip {where} {baseWhere} bind:scope />
+        {#if !narrow}
+          <ShapeStrip {where} {baseWhere} bind:scope />
+        {/if}
         {#if view === 'visualize'}
           <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
         {:else}
-          <GameList {where} universe={scope.universe} />
+          <GameList {where} universe={scope.universe} cards={narrow} />
         {/if}
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
@@ -365,6 +472,46 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
+     gave tall boxes with tiny text floating in them — a desktop control in a bigger box.
+     A touch control should look touch-sized. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .viewtoggle button { padding: 0.65rem 1.1rem; font-size: 0.9rem; }
+
+    /* The toolbar's own Universe button is already lit to say "All rated" — this said the
+       same thing a second time, and made `.count` long enough that List/Visualize had
+       nowhere to go but its own wrapped line, `margin-left: auto` pulling it to the right
+       edge with dead space in front of it. Dropping the redundant phrase is what lets
+       count + view toggle actually share the row they're meant to. */
+    .unilabel { display: none; }
+
+    /*
+     * Two explicit rows instead of one wrapping one.
+     *
+     * `.chead` is a `flex-wrap` row of [count] [chips] [view toggle], with the toggle pushed
+     * right by `margin-left: auto`. That holds while there are no filters. Add one chip and
+     * the row overflows: the toggle wraps to a line of its own, still `auto`-pushed, so it
+     * sits alone at the right edge with a band of empty space beside it — and the chips, which
+     * are the thing that just changed, end up sandwiched between the count and that gap. The
+     * layout was reporting the wrap, not the structure.
+     *
+     * The structure is: one row that says what you are looking at and how, and one row that
+     * says what you did to it. A grid states that outright, so adding a filter grows the
+     * header downward in a predictable place instead of rearranging what was already there.
+     */
+    .chead {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      row-gap: var(--space-sm);
+      column-gap: var(--space-sm);
+    }
+    .count { grid-column: 1; }
+    .viewtoggle { grid-column: 2; margin-left: 0; }
+    /* FilterChips owns its own root; from out here it's the child that has to span. */
+    .chead > :global(.chips) { grid-column: 1 / -1; }
+  }
+
 
   .prov {
     margin: 0;
@@ -377,20 +524,29 @@
     font-weight: 600;
   }
 
-  /* Below the two-column threshold the workspace becomes an ordinary scrolling document —
-     but the rail keeps its own bounded scroll there, or a stacked rail would push the games
-     a screen and a half down the page. (A proper narrow layout wants the filters behind a
-     drawer with the results first; this keeps them both in reach until that exists.) */
+  /* Between the two-column threshold and the sheet: an ordinary scrolling document, with the
+     rail keeping its own bounded scroll so a stacked rail doesn't push the games a screen and
+     a half down. Below 40rem this stops applying — `.narrow` drops the rail entirely. */
   @media (max-width: 900px) {
-    .workspace {
+    .workspace:not(.narrow) {
       grid-template-columns: 1fr;
       height: auto;
     }
-    .workspace :global(.rail) {
+    .workspace:not(.narrow) :global(.rail) {
       max-height: 20rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: var(--space-md);
     }
   }
+
+  /* One column, one scroll direction, results first. */
+  .workspace.narrow { grid-template-columns: 1fr; }
+
+  /* Sheet.Content owns the scroll region now, not a hand-rolled `.sheetbody` — but Rail still
+     carries its own `.rail { overflow-y: auto }` for its desktop bounded-scroll use, and
+     nesting one scroll container inside another was exactly the "which way does a swipe go"
+     bug from the first version. Same fix, new host: the sheet's own scroll region wins. */
+  .sheet-scroll { display: flex; flex-direction: column; gap: var(--space-md); }
+  .sheet-scroll :global(.rail) { overflow-y: visible; }
 </style>

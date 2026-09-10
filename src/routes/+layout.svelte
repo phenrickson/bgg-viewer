@@ -68,20 +68,37 @@
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
 
-  // Any navigation closes it — otherwise the menu hangs open over the page you just chose.
+  /**
+   * The narrow-screen menu. Six text targets — Home, Games, About, Settings, Log out, theme —
+   * do not fit across a phone, and letting the bar wrap was worse than not fitting: `.actions`
+   * keeps its `margin-left: auto` on the second row, so it pinned itself to the right edge with
+   * a dead gap beside it. One menu button is what the row wants, and it is the pattern the
+   * Games dropdown already establishes, so it reuses `.pop` rather than inventing a second
+   * kind of menu.
+   */
+  let navOpen = $state(false);
+  let navMenu = $state<HTMLElement | null>(null);
+
+  // Any navigation closes them — otherwise a menu hangs open over the page you just chose.
   $effect(() => {
     path;
     gamesOpen = false;
+    navOpen = false;
   });
 
   /** Click-away and Escape, the two ways every menu is expected to close. */
   $effect(() => {
-    if (!gamesOpen) return;
+    if (!gamesOpen && !navOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (gamesMenu && !gamesMenu.contains(e.target as Node)) gamesOpen = false;
+      const t = e.target as Node;
+      if (gamesOpen && gamesMenu && !gamesMenu.contains(t)) gamesOpen = false;
+      if (navOpen && navMenu && !navMenu.contains(t)) navOpen = false;
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') gamesOpen = false;
+      if (e.key === 'Escape') {
+        gamesOpen = false;
+        navOpen = false;
+      }
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -163,6 +180,38 @@
           <a class="link" href="/login">Log in</a>
         {/if}
         <button class="toggle" type="button" onclick={toggleMode} aria-label="Toggle light/dark theme">◐</button>
+
+        <!-- Narrow screens only. Carries everything the bar drops below 40rem: the nav, the
+             Games rows (flattened — a submenu inside a menu is not worth it for four links),
+             and the account actions. -->
+        <div class="navmenu" bind:this={navMenu}>
+          <button
+            type="button"
+            class="toggle burger"
+            aria-expanded={navOpen}
+            aria-haspopup="true"
+            aria-label="Menu"
+            onclick={() => (navOpen = !navOpen)}>☰</button
+          >
+          {#if navOpen}
+            <div class="pop right" role="menu">
+              <a href="/" role="menuitem" class:on={onHome}><b>Home</b></a>
+              <a href="/discover" role="menuitem" class:on={onDiscover}><b>Discover</b></a>
+              <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}><b>Explore</b></a>
+              <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}><b>Upcoming</b></a>
+              <a href="/whats-new" role="menuitem" class:on={onWhatsNew}><b>What's New</b></a>
+              <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
+              {#if data.user}
+                <hr />
+                <a href="/settings" role="menuitem"><b>Settings</b><span>{data.user.display_name || data.user.email}</span></a>
+                <form method="POST" action="/logout"><button type="submit"><b>Log out</b></button></form>
+              {:else}
+                <hr />
+                <a href="/login" role="menuitem"><b>Log in</b></a>
+              {/if}
+            </div>
+          {/if}
+        </div>
       </nav>
     </Container>
   </header>
@@ -273,7 +322,6 @@
      are near-synonyms until something says how they differ. */
   .pop span { font-size: 0.76rem; color: var(--muted-foreground); line-height: 1.35; }
   .navsearch { flex: 1; max-width: 24rem; margin: 0 var(--space-md); }
-  @media (max-width: 640px) { .navsearch { display: none; } }
   .actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; }
   .actions form { margin: 0; }
   .who { color: var(--muted-foreground); font-size: 0.875rem; }
@@ -299,6 +347,52 @@
   .appbar { flex: none; }
 
   /* Fixed-height sliver, not part of the scrolling content — same reasoning as the appbar. */
+  /* The burger and its panel exist only below 40rem; everything else here is desktop-only. */
+  .navmenu { display: none; position: relative; }
+  .burger { font-size: 1.05rem; }
+  .pop.right { left: auto; right: 0; }
+  .pop hr { margin: 0.3rem 0.2rem; border: none; border-top: 1px solid var(--border); }
+  .pop form { margin: 0; }
+  .pop form button {
+    display: flex; width: 100%; padding: 0.6rem;
+    background: none; border: none; border-radius: 7px;
+    font: inherit; color: inherit; text-align: left; cursor: pointer;
+  }
+  .pop form button:hover { background: color-mix(in oklch, var(--primary) 10%, transparent); }
+
+  /*
+   * Six text targets — Home, Games, About, Settings, Log out, theme — do not fit across a
+   * phone. The first attempt let the bar wrap, which was worse than not fitting: `.actions`
+   * keeps `margin-left: auto` on the second row, so it pinned itself to the right edge and
+   * left a dead gap beside it. Collapsing into one menu is what the row actually wants.
+   *
+   * Brand stays left, theme and menu stay right, one line, at any width.
+   *
+   * 56rem (896px), not 40rem: the first pass copied 40rem from the pre-existing `.navsearch`
+   * hide rule without checking what the OLD layout actually needs, which left it overflowing
+   * uncollapsed the whole 640–900px band — nav links + a search box + email + Settings +
+   * Log out + the toggle genuinely need something like 860–900px, not 640px, so anything
+   * below that and above the old threshold still ran off the edge. 56rem is measured against
+   * that real content, not borrowed from an unrelated rule.
+   */
+  @media (max-width: 56rem) {
+    .appbar { padding: var(--space-sm) var(--space-md); }
+    .mainnav { display: none; }
+    /* The search box loses its room along with the nav — it isn't in the menu panel, it's
+       just gone below this width, same as before. Game search still works from the URL bar
+       or wherever a page links to a game; this only removes the header shortcut. */
+    .navsearch { display: none; }
+    .actions .who,
+    .actions > .link,
+    .actions > form { display: none; }
+    .navmenu { display: block; }
+    .actions { gap: var(--space-sm); }
+    /* Rows are tap targets here, not menu lines. */
+    .pop { min-width: 13rem; }
+    .pop a { padding: 0.7rem 0.6rem; }
+    .pop b { font-size: 0.95rem; }
+  }
+
   .appfoot { flex: none; border-top: 1px solid var(--border); background: var(--card); }
   .appfoot :global(.appfoot-inner) {
     display: flex; align-items: center; gap: var(--space-md);
@@ -315,5 +409,23 @@
     font-variant-numeric: tabular-nums;
     color: var(--muted-foreground);
     opacity: 0.7;
+  }
+  /*
+   * The footer is pinned shell chrome — `.content` scrolls, this doesn't — so on a phone it
+   * spends the scarcest thing on the screen (vertical space) on the least urgent thing on it.
+   * At 56rem the disclaimer wrapped to its own line and the footer cost two rows of a viewport
+   * that shows about eight games.
+   *
+   * So the sentence goes and the badge stays. They aren't the same obligation: the badge is a
+   * live credit linking back to BoardGameGeek, and it survives everywhere. The sentence is a
+   * statement of record, and a statement of record belongs on the page that makes the record —
+   * it now has a permanent section on About rather than only existing where a footer fits.
+   */
+  @media (max-width: 56rem) {
+    .appfoot :global(.appfoot-inner) {
+      padding: 0.3rem var(--space-md);
+    }
+    .bgg-badge img { height: 20px; }
+    .disclaimer { display: none; }
   }
 </style>

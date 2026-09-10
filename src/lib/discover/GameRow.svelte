@@ -15,9 +15,15 @@
   import { complexityLabel, complexityBandIndex } from './dials';
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
+  import GameCard from '$lib/catalog/GameCard.svelte';
   import type { DiscoverGame } from './types';
 
-  let { game, rank }: { game: DiscoverGame; rank: number } = $props();
+  let {
+    game,
+    rank,
+    /** Render as a card rather than a row — see `GameCard.svelte`. Decided by the page. */
+    card = false
+  }: { game: DiscoverGame; rank: number; card?: boolean } = $props();
 
   /**
    * Is THIS row the one being navigated to? The shell shows a global progress bar, but that
@@ -60,6 +66,55 @@
   );
 </script>
 
+{#if card}
+  <!--
+    The same shell Explore's list uses at this width, filled with Discover's own answers.
+    Sharing the shape was the point, not sharing the content: Explore states three gauges on
+    fixed domains, Discover states a word and two numbers, and they stay different because
+    the two pages are answering different questions. What they had in common — art, identity,
+    a row of labelled stats, and how all three behave when the screen is 335px wide — is what
+    was being written twice.
+
+    Complexity keeps the WORD and drops the meter here. The badge in the title line and a
+    gauge in the stat row are two renderings of one number, and a card has no column headings
+    to make that read as reinforcement rather than repetition. That leaves the two facts the
+    stat row states once each.
+  -->
+  <GameCard {href} {opening}>
+    {#snippet art()}
+      {#if game.thumbnail}
+        <img src={game.thumbnail} alt="" loading="lazy" aria-hidden="true" />
+      {:else}
+        <span class="ph" aria-hidden="true">{initials}</span>
+      {/if}
+    {/snippet}
+    {#snippet identity()}
+      <span class="nm">{game.name}</span>
+      <span class="mt">
+        {#if weight}<span class="cx" data-step={weightStep}>{weight}</span>{/if}
+        {#if game.year_published != null}<span class="yr">{game.year_published}</span>{/if}
+      </span>
+    {/snippet}
+    {#snippet stats()}
+      <span class="stat">
+        <span class="stat-lbl">Best with</span>
+        <b class="hl">{bestAt || '—'}</b>
+      </span>
+      <!-- The row sheds this column at 34rem, where it is competing with five other fixed
+           tracks for a width the title also needs. A card isn't competing: three equal columns
+           of a full-width row is more space per stat than the row ever gave it, and player
+           count is the question Discover is mostly being asked. -->
+      <span class="stat">
+        <span class="stat-lbl">Also good</span>
+        <b>{recAt || '—'}</b>
+      </span>
+      <span class="stat">
+        <span class="stat-lbl">Rating</span>
+        <RatingBar value={game.geek_rating} />
+      </span>
+    {/snippet}
+  </GameCard>
+{:else}
 <a class="row" class:opening {href} aria-busy={opening}>
   <!-- Position in the returned set. In a panel that scrolls through thousands, this is the
        only thing telling you whether you are at the top of the list or deep inside it. -->
@@ -85,13 +140,18 @@
 
   <!-- Two columns, not one cluster: each label owns a fixed slot, so "BEST" sits at the same
        x on every row whether or not the game has a "RECOMMENDED" beside it. -->
-  <span class="fact">
+  <span class="fact f-best">
     {#if bestAt}
       <span class="lbl">Best</span>
       <b class="hl">{bestAt}</b>
     {/if}
   </span>
-  <span class="fact">
+  <!-- Named, not `:nth-of-type(2)`. That selector counts siblings of the same ELEMENT type,
+       and these two spans are the fourth and fifth spans in the row, so the rule below that
+       meant to drop this column at narrow widths matched nothing at any width — it kept
+       rendering, and once the card layout gave the grid named areas it had no slot to land in
+       and auto-placed itself onto a third row of its own. -->
+  <span class="fact f-also">
     {#if recAt}
       <span class="lbl">Also good</span>
       <b>{recAt}</b>
@@ -108,6 +168,7 @@
     <RatingBar value={game.geek_rating} />
   </span>
 </a>
+{/if}
 
 <style>
   /* Fixed art, flexible title, then three fixed columns. Everything except the title is a
@@ -176,7 +237,10 @@
 
   .main { display: flex; flex-direction: column; gap: 0.28rem; }
   .l1 { display: flex; align-items: baseline; gap: 0.35rem; min-width: 0; }
-  .nm {
+  /* Scoped to `.row`, not bare `.nm`: GameCard styles the same class for the card branch, and
+     an unscoped rule here would reach across and re-impose the row's single ellipsised line on
+     a card whose whole point is that the title finally has room to wrap. */
+  .row .nm {
     font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; color: var(--foreground);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
@@ -245,12 +309,30 @@
   /* Narrow canvases drop the categories rather than squeezing the pips. */
   /* Shed in order of least value: the categories first, then the recommended-at column, so
      the game's name and its best-at count — the two things Discover exists to surface —
-     survive the narrowest layout. */
+     survive the narrowest layout.
+
+     These three blocks are in deliberate order, widest first. They all re-declare
+     `.row { grid-template-columns }` at equal specificity and a phone matches every one of
+     them, so the last block in the source is the one that actually lays the row out. Explore's
+     card layout was silently overridden this way for a week — the card grid kept its
+     `grid-template-areas` but inherited the table's column widths, which put one stat on a
+     thumbnail-sized track and another on the name's `1fr`. Narrowest goes last. */
   @container (max-width: 46rem) {
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
     .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 4.5rem; }
-    .fact:nth-of-type(2) { display: none; }
+    .f-also { display: none; }
   }
+
+  /* The card layout that used to live here is `GameCard.svelte` now, chosen by the `card`
+     prop. Everything it contained was a rule undoing something the row layout had done —
+     re-area the grid, hide the rank, hide a column, un-hide the labels, re-stretch the gauge —
+     which is the shape a breakpoint takes when it is really a second component in disguise. */
+
+  /* The card's second line: the complexity word and the year, side by side. GameCard sizes and
+     tints it; only the arrangement is Discover's own. */
+  .mt { display: flex; align-items: center; gap: 0.4rem; }
+  .cx { align-self: center; }
+
 </style>

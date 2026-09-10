@@ -22,9 +22,10 @@
    * with no JS.
    */
   import {
-    defaultHurdleFor,
     playerCountModeFor,
     setPlayerCount,
+    universeChoice,
+    withUniverseChoice,
     type PlayerCountMode,
     type Scope
   } from './scope';
@@ -80,16 +81,6 @@
    */
   const upcoming = $derived(scope.universe === 'upcoming');
   const pred = $derived(upcoming ? 'predicted ' : '');
-
-  /**
-   * Switching universe carries the hurdle floor with it: leaving upcoming and coming back
-   * would otherwise land on `null` rather than the default, silently widening the set by
-   * ~3,000 placeholder entries.
-   */
-  function setUniverse(u: Scope['universe']) {
-    if (scope.universe === u) return;
-    scope = { ...scope, universe: u, hurdleMin: defaultHurdleFor(u) };
-  }
 
   /**
    * The hurdle floor as steps, not a slider. A probability filter doesn't reward fine
@@ -185,28 +176,34 @@
     </label>
 
     <div class="grp top">
+      <!--
+        Three buttons over two fields. `top10k` is not a universe underneath — it is the rated
+        catalog with a popularity filter on, which is why it can be cleared from the chip bar
+        like any other constraint. But "which slice am I looking at" is one question to a
+        reader, and a segmented control showing all three at once with one lit is the clearest
+        way to ask it. `universeChoice`/`withUniverseChoice` are the join; see scope.ts.
+
+        Not lifted into a toolbar on narrow. It was, briefly, on the reasoning that it is the
+        first thing you touch — but that put a mode switch above the games on the one screen
+        with no room to spare, and Upcoming is a different kind of data rather than a filter
+        anyone toggles idly. Here it is the first control in the sheet instead.
+      -->
       <span class="lbl">Universe</span>
       <div class="seg two">
-        <button
-          class:on={scope.universe === 'top10k'}
-          aria-pressed={scope.universe === 'top10k'}
-          onclick={() => setUniverse('top10k')}>Top 10,000</button
-        >
-        <button
-          class:on={scope.universe === 'rated'}
-          aria-pressed={scope.universe === 'rated'}
-          onclick={() => setUniverse('rated')}>All rated</button
-        >
-        <button
-          class:on={upcoming}
-          aria-pressed={upcoming}
-          onclick={() => setUniverse('upcoming')}>Upcoming</button
-        >
+        {#each [['top10k', 'Top 10,000'], ['rated', 'All rated'], ['upcoming', 'Upcoming']] as [key, label] (key)}
+          {@const on = universeChoice(scope) === key}
+          <button
+            class:on
+            aria-pressed={on}
+            onclick={() => (scope = withUniverseChoice(scope, key as 'top10k' | 'rated' | 'upcoming'))}
+            >{label}</button
+          >
+        {/each}
       </div>
       <p class="note">
-        {scope.universe === 'top10k'
+        {universeChoice(scope) === 'top10k'
           ? 'BGG’s ranked top 10,000, by geek rating.'
-          : scope.universe === 'rated'
+          : universeChoice(scope) === 'rated'
             ? 'Everything with 30+ ratings — about 35,000.'
             : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
       </p>
@@ -215,7 +212,7 @@
           type="button"
           role="switch"
           aria-checked={collectionActive}
-          class="collection-switch"
+          class="toggle"
           disabled={collectionStatus === 'loading'}
           onclick={toggleCollection}
         >
@@ -414,6 +411,12 @@
     font: inherit;
     font-size: 0.85rem;
   }
+  /* iOS Safari zooms the page when a focused input computes under 16px, and does not zoom
+     back out on blur — you are left panning a magnified page. The rail's density is a desktop
+     affordance, so the floor only applies where the problem exists. */
+  @media (max-width: 40rem) {
+    .find input { font-size: var(--input-font-min); }
+  }
 
   .grp {
     display: flex;
@@ -480,11 +483,18 @@
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }
+  /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
+     gave tall boxes with tiny text floating in them — a desktop control in a bigger box.
+     A touch control should look touch-sized. Desktop density is left alone. */
+  @media (max-width: 40rem) {
+    .seg button { padding: 0.7rem 0.5rem; font-size: 0.95rem; }
+  }
+
 
   /* A switch, not a `.seg` button or a checkbox — Universe's segmented buttons read as
      mutually-exclusive choices, which this deliberately isn't (it ANDs onto whatever Universe
      is active). A switch's on/off affordance says "toggle," not "pick one of these." */
-  .collection-switch {
+  .toggle {
     margin-top: 0.3rem;
     display: flex;
     align-items: center;
@@ -496,11 +506,11 @@
     cursor: pointer;
     font: inherit;
   }
-  .collection-switch:disabled {
+  .toggle:disabled {
     opacity: 0.6;
     cursor: default;
   }
-  .collection-switch .track {
+  .toggle .track {
     flex: none;
     width: 1.9rem;
     height: 1.05rem;
@@ -509,10 +519,10 @@
     position: relative;
     transition: background 0.15s ease;
   }
-  .collection-switch .track.on {
+  .toggle .track.on {
     background: var(--primary);
   }
-  .collection-switch .knob {
+  .toggle .knob {
     position: absolute;
     top: 0.12rem;
     left: 0.12rem;
@@ -522,27 +532,27 @@
     background: var(--background);
     transition: transform 0.15s ease;
   }
-  .collection-switch .track.on .knob {
+  .toggle .track.on .knob {
     transform: translateX(0.85rem);
   }
   @media (prefers-reduced-motion: reduce) {
-    .collection-switch .track,
-    .collection-switch .knob {
+    .toggle .track,
+    .toggle .knob {
       transition: none;
     }
   }
-  .collection-switch .switch-label {
+  .toggle .switch-label {
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
-  .collection-switch:hover:not(:disabled) .switch-label {
+  .toggle:hover:not(:disabled) .switch-label {
     color: var(--foreground);
   }
-  .collection-switch[aria-checked='true'] .switch-label {
+  .toggle[aria-checked='true'] .switch-label {
     color: var(--primary);
     font-weight: 600;
   }
-  .collection-switch:focus-visible {
+  .toggle:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
     border-radius: 4px;

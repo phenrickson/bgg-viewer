@@ -26,6 +26,43 @@
   /* Single definite chart height so cards in a row equalize by construction */
   --chart-h: 24rem;
 
+  /*
+   * Minimum comfortable size for anything you tap. 2.75rem = 44px, which is where Apple's
+   * HIG and WCAG 2.5.5 (AAA) both land. The app's hand-rolled segmented controls currently
+   * run 17–24px — fine with a mouse, a coin toss with a thumb.
+   */
+  --tap-min: 2.75rem;
+
+  /*
+   * iOS Safari zooms the page in when a focused input's computed font-size is under 16px,
+   * and does NOT zoom back out on blur — you are left panning a magnified page. It is the
+   * single most common reason a site "feels broken" on a phone, and this app has four
+   * inputs between 0.82rem and 0.9rem. Nothing that takes text input may go below this.
+   */
+  --input-font-min: 1rem;
+
+  /*
+   * Breakpoints — the canonical set, replacing five arbitrary widths (560/640/860/900/1280px)
+   * that accumulated across nine media queries with nothing naming them.
+   *
+   * Deliberately NOT custom properties. A custom property cannot appear in a `@media` or
+   * `@container` prelude — `@media (max-width: var(--bp-md))` simply does not work — so a
+   * token here would be a fake abstraction that reads as enforced and isn't. This block is a
+   * convention, applied literally, and the one place the numbers are stated.
+   *
+   *   sm   35rem  (560px)   phone → small tablet. Also `split.svelte`'s own stacking point,
+   *                         so the primitive and the hand-written queries agree.
+   *   md   40rem  (640px)   where the header search already drops out.
+   *   lg   56rem  (896px)   one-column → two-column threshold (was 860px *and* 900px).
+   *   xl   80rem  (1280px)  wide desktop (already in use in ShapeStrip).
+   *
+   * Tailwind's own sm/md/lg scale is deliberately left alone: shadcn components are built
+   * against its defaults, and redefining them would change component behaviour underneath us.
+   *
+   * Prefer `@container` over `@media` for anything inside the app shell — a component should
+   * respond to the space it is given, not to the window. GameList and GameRow already do.
+   */
+
   /* Brand palette (light) */
   --background: oklch(0.99 0.004 80);
   --foreground: oklch(0.22 0.02 260);
@@ -37,6 +74,45 @@
   --muted-foreground: oklch(0.50 0.02 260);
   --border: oklch(0.91 0.008 80);
   --ring: oklch(0.64 0.17 45);
+
+  /*
+   * The rest of the shadcn-svelte contract. Its components reference 21 variables; the ten
+   * above were the only ones defined, so adding a component without these would render it
+   * half in this palette and half in shadcn's slate defaults — in BOTH themes, and invisibly,
+   * since nothing errors.
+   *
+   * Each is pinned to a decision the app had already made in scoped CSS, so components inherit
+   * conventions that exist rather than starting a parallel set beside them:
+   *   popover   → the surface `.pop` in +layout.svelte already uses (= --card)
+   *   secondary → the quiet fill `.mainnav a.active` already uses (= --muted)
+   *   accent    → the primary-tinted hover of `.pop a:hover` / `.seg button.on`, stated as a
+   *               literal rather than a color-mix so it survives being mixed again by
+   *               Tailwind's own opacity modifiers (`bg-accent/50`)
+   *   input     → inputs are already `background: --background` + `1px solid --border`;
+   *               note shadcn spends --input on the BORDER, not the fill
+   */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.02 260);
+  --secondary: oklch(0.96 0.006 80);
+  --secondary-foreground: oklch(0.22 0.02 260);
+  --accent: oklch(0.96 0.02 45);
+  --accent-foreground: oklch(0.22 0.02 260);
+  /* Deliberately the same red as --color-negative below, not a second one. Two reds drift,
+     and then a destructive button and a negative delta disagree about what "bad" looks like. */
+  --destructive: oklch(0.60 0.17 25);
+  --destructive-foreground: oklch(0.99 0.01 80);
+  --input: oklch(0.91 0.008 80);
+
+  /* No sidebar component is installed. These exist so that `shadcn-svelte add sidebar` can't
+     quietly introduce slate defaults later, and so PR 2's `init` diff is obvious. */
+  --sidebar: oklch(0.99 0.004 80);
+  --sidebar-foreground: oklch(0.22 0.02 260);
+  --sidebar-primary: oklch(0.64 0.17 45);
+  --sidebar-primary-foreground: oklch(0.99 0.01 80);
+  --sidebar-accent: oklch(0.96 0.02 45);
+  --sidebar-accent-foreground: oklch(0.22 0.02 260);
+  --sidebar-border: oklch(0.91 0.008 80);
+  --sidebar-ring: oklch(0.64 0.17 45);
 
   /* Colorblind-safe categorical series — blue + amber is the gold-standard pair.
      All fills stay above lightness 0.55 for 3:1 contrast on light backgrounds. */
@@ -96,6 +172,27 @@
   --border: oklch(0.32 0.02 260);
   --ring: oklch(0.70 0.16 48);
 
+  /* The shadcn contract's dark half. Same pinning as the light block above: popover = card,
+     secondary = muted, accent = a warm lift just above the card surface, input = border.
+     --destructive is NOT re-stated: --color-negative isn't either, and the two must not
+     diverge by theme — one red, both themes, the way the app already works. */
+  --popover: oklch(0.23 0.02 260);
+  --popover-foreground: oklch(0.94 0.006 80);
+  --secondary: oklch(0.27 0.02 260);
+  --secondary-foreground: oklch(0.94 0.006 80);
+  --accent: oklch(0.30 0.04 45);
+  --accent-foreground: oklch(0.94 0.006 80);
+  --input: oklch(0.32 0.02 260);
+
+  --sidebar: oklch(0.19 0.02 260);
+  --sidebar-foreground: oklch(0.94 0.006 80);
+  --sidebar-primary: oklch(0.70 0.16 48);
+  --sidebar-primary-foreground: oklch(0.18 0.02 260);
+  --sidebar-accent: oklch(0.30 0.04 45);
+  --sidebar-accent-foreground: oklch(0.94 0.006 80);
+  --sidebar-border: oklch(0.32 0.02 260);
+  --sidebar-ring: oklch(0.70 0.16 48);
+
   /* Against a dark track (`--muted` 0.27) the ramp runs the other way: "recommended" is a pale
      blue that reads as a lighter step of best, and "not recommended" is a dark near-grey that
      sits just above the track without competing with it. */
@@ -116,6 +213,23 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
