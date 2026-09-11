@@ -118,6 +118,17 @@ one pass — or ship placeholder and iterate.
 - **Nothing here is one-way.** No data, schema, or infra changes. Rollback is reverting the
   PR.
 
+## Follow-up (agreed 2026-09-11, own PR after this lands)
+
+**Live game of the day for members.** Everything `FeaturedGame` needs is already in the
+catalog in DuckDB — name, year, geek, weight, users rated, the facet arrays, and box art once
+thumbnails load; the rank fact is one window function over `geek_rating`. Seed the pick on
+the date so it is the same game for everyone all day and prev/next walk one sequence; put a
+quality floor under it. Render the static featured game immediately and swap its *data* in
+place once `catalog.status === 'ready'` — the component's boxes are fixed-size for exactly
+this, so it does not jump. ~60 lines: a query helper in `catalog.svelte.ts`, a row → `Featured`
+mapper, and the page preferring the live game when ready.
+
 ## Out of scope
 
 - Opening the catalog, game detail, or registration — decided in the spec.
