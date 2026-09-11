@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.20](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.19...bgg-viewer-v0.0.20) (2026-09-11)
+
+
+### Features
+
+* **catalog:** serve the artifact from GCS via a signed URL ([#64](https://github.com/phenrickson/bgg-viewer/issues/64)) ([ca91580](https://github.com/phenrickson/bgg-viewer/commit/ca915808e9248f87a66c493f106f49f6d03d5faf))
+
 ## [0.0.19](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.18...bgg-viewer-v0.0.19) (2026-09-10)
 
 
