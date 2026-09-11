@@ -195,13 +195,8 @@
       {/each}
     </div>
 
-    <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
-         so three quarters of the landing page advertised things that don't work yet; as a row
-         of muted pills they still say where this is going without competing for the click. -->
-    <a class="door" href={gate('/games')}>
-      <span class="door-t">Explore the catalog <span class="arw">→</span></span>
-      <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
-    </a>
+    <!-- No standalone Explore door: the Explore frame in the showcase below IS that link,
+         with the room shown rather than described. -->
 
     <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
          getting you into a room; these sections are for when you have read that and are
@@ -209,15 +204,13 @@
          Inside the hero's own `prose` measure, not a wider one: a foot that runs wider than
          the copy above it makes the page look like two pages stitched together, and the
          charts do not need the extra width to read. -->
-    <!-- The foot splits by auth. A member gets the warm gap as before — content for the
-         seconds the catalog takes. A visitor has nothing warming and can't open the doors
-         above, so this slot shows them what's behind those doors instead: the real app. -->
+    <!-- One foot for everyone. First the app itself — three frames that double as doors —
+         then a taste of the data behind it. Auth changes only where the doors lead. -->
     <div class="gapwrap">
-      {#if loggedIn}
-        <WarmGap {content} day={today} />
-      {:else}
-        <Showcase {gate} />
-      {/if}
+      <Showcase {gate} />
+      <div class="rotation">
+        <WarmGap {content} day={today} slots={2} />
+      </div>
     </div>
     </div>
 </Container>
@@ -240,28 +233,14 @@
 
 
   /* Tight to its own chips, roomy above — so each eyebrow reads as heading the group beneath
-     it rather than floating between two. The last group carries the gap to the door. */
+     it rather than floating between two. The last group carries the gap to the foot. */
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
 
-  /* Clears `Coming next` above and leaves air at the end of the scroll. */
-  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); }
+  /* Air between the chips and the showcase, and at the end of the scroll. */
+  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); display: flex; flex-direction: column; gap: clamp(2.5rem, 5vw, 4.5rem); }
 
-  /* The gap above the door lives HERE, not as `.chips:last-of-type { margin-bottom }`.
-     `:last-of-type` keys off the element type, not the class — it meant "the last div in
-     `.land`", which was the second chip group only for as long as `.land` ended in one.
-     Adding the warm-gap div at the foot made THAT the last div, the rule matched nothing,
-     and the space above the door disappeared. Owned by the door, it cannot break again. */
-  .door { margin-top: 2.2rem;
-    display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
-    background: color-mix(in oklch, var(--primary) 10%, var(--card));
-    border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    border-radius: var(--radius); padding: var(--space-lg); }
-  .door:hover { background: color-mix(in oklch, var(--primary) 16%, var(--card)); border-color: var(--primary); }
-  .door-t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
-  .door-t .arw { opacity: .7; }
-  .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
 </style>
