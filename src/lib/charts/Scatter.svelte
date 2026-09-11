@@ -130,7 +130,9 @@
     onPointClick?: (id: number) => void;
   } = $props();
 
-  const PAD = { l: 44, r: 12, t: 10, b: 34 };
+  // l/r match VizOfTheDay's shared --gutter-l/--gutter-r (3.2rem / .75rem at 16px), so a
+  // scatter's plot area lines up with the column and line charts it rotates among.
+  const PAD = { l: 51, r: 12, t: 10, b: 34 };
 
   let wrap = $state<HTMLElement | null>(null);
   let canvas = $state<HTMLCanvasElement | null>(null);

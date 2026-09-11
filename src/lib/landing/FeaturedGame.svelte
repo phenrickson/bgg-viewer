@@ -178,6 +178,23 @@
   dd { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
   .tnum { font-variant-numeric: tabular-nums; }
 
+  /* PHONE. Desktop is art | stats column | badges. On a phone the stats column wrapped under
+     the art as a tall single-file list — three oversized numbers each on its own row, then
+     the badges under those — so one featured game ran most of a screen. Instead: smaller art
+     beside a compact 2x2 grid of stats (the link takes the fourth cell), badges below. */
+  @media (max-width: 40rem) {
+    .body { gap: var(--space-md); }
+    img { width: 120px; height: 120px; }
+    .stats {
+      flex: 1 1 10rem; width: auto; min-width: 10rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: .6rem .9rem; align-content: center;
+    }
+    dd { font-size: 1.15rem; }
+    .go { align-self: end; }
+    .badges { flex-basis: 100%; min-width: 0; }
+    .bgroup { grid-template-columns: 4.5rem 1fr; }
+  }
+
   .go a { font-size: 0.9rem; font-weight: 650; color: var(--primary); text-decoration: none; }
   .go a:hover { text-decoration: underline; }
   .go .arw { opacity: .7; }
