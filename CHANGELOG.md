@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.21](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.20...bgg-viewer-v0.0.21) (2026-09-11)
+
+
+### Bug Fixes
+
+* **deploy:** keep tsx out of the runtime dependency graph ([#66](https://github.com/phenrickson/bgg-viewer/issues/66)) ([082042a](https://github.com/phenrickson/bgg-viewer/commit/082042a4293aa5fe94543cbaab80a37f3fc7849e))
+
 ## [0.0.20](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.19...bgg-viewer-v0.0.20) (2026-09-11)
 
 
