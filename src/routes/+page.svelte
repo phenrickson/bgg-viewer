@@ -174,44 +174,59 @@
     <p class="lede">Looking for a game? Search, filter, and visualize the
       world of board games in your browser.</p>
 
-    <!-- The chips ARE the hero.
-         A name-search box used to sit here, first thing on a page about finding games by
-         criteria — it answered a question the page isn't about, and duplicated the box that
-         is permanently in the header on every page. The criteria are what's unique to this
-         page, so they get the position.
-         Two groups, because the split teaches the app's structure without a word of prose
-         about it: simple questions open the simple room, precise ones open the workshop. -->
-    <p class="try">Start simple</p>
-    <div class="chips">
-      {#each simple as c (c.label)}
-        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
-      {/each}
-    </div>
+    <!-- Same sections, ordered by who is looking.
 
-    <p class="try">Go deeper</p>
-    <div class="chips">
-      {#each deeper as c (c.label)}
-        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
-      {/each}
-    </div>
+         The chips were the hero because they were the only thing that worked before the
+         catalog loaded; that constraint is gone, and judged fresh there is no single right
+         headline. A stranger's first question is "what is this" — the screenshots answer it
+         in a glance, and thirteen phrases like "Hidden gems" only mean something after that.
+         A member already knows what this is; for them the chips are the fastest thing on
+         the page, one click into a scoped room, and three large frames in the way is the
+         old mistake of making the page worse for the people who use it.
 
-    <!-- No standalone Explore door: the Explore frame in the showcase below IS that link,
-         with the room shown rather than described. -->
+         So: logged out, show the thing, then the questions. Logged in, launchers first,
+         previews behind them. One {#if} around the order; the parts are identical.
 
-    <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
-         getting you into a room; these sections are for when you have read that and are
-         still waiting for the catalog.
-         Inside the hero's own `prose` measure, not a wider one: a foot that runs wider than
-         the copy above it makes the page look like two pages stitched together, and the
-         charts do not need the extra width to read. -->
-    <!-- One foot for everyone. First the app itself — three frames that double as doors —
-         then a taste of the data behind it. Auth changes only where the doors lead. -->
-    <div class="gapwrap">
-      <Showcase {gate} />
-      <div class="rotation">
-        <WarmGap {content} day={today} slots={2} />
-      </div>
-    </div>
+         Two chip groups, because the split teaches the app's structure without a word of
+         prose about it: simple questions open the simple room, precise ones the workshop. -->
+    {#snippet chips()}
+      <section class="block">
+        <p class="try">Start simple</p>
+        <div class="chips">
+          {#each simple as c (c.label)}
+            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+          {/each}
+        </div>
+
+        <p class="try">Go deeper</p>
+        <div class="chips">
+          {#each deeper as c (c.label)}
+            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+          {/each}
+        </div>
+      </section>
+    {/snippet}
+
+    {#snippet showcase()}
+      <section class="block">
+        <Showcase {gate} />
+      </section>
+    {/snippet}
+
+    {#if loggedIn}
+      {@render chips()}
+      {@render showcase()}
+    {:else}
+      {@render showcase()}
+      {@render chips()}
+    {/if}
+
+    <!-- Then a taste of the data behind the app, for everyone: one chart, one game. Inside
+         the hero's own `prose` measure, not a wider one — a foot that runs wider than the
+         copy above it makes the page look like two pages stitched together. -->
+    <section class="block rotation">
+      <WarmGap {content} day={today} slots={2} />
+    </section>
     </div>
 </Container>
 
@@ -235,12 +250,14 @@
   /* Tight to its own chips, roomy above — so each eyebrow reads as heading the group beneath
      it rather than floating between two. The last group carries the gap to the foot. */
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
+  .block > .try:first-child { margin-top: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
 
-  /* Air between the chips and the showcase, and at the end of the scroll. */
-  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); display: flex; flex-direction: column; gap: clamp(2.5rem, 5vw, 4.5rem); }
+  /* Each block is a destination you scroll to; the last one leaves air at the end. */
+  .block { margin-top: clamp(2.5rem, 5vw, 4.5rem); }
+  .rotation { padding-bottom: clamp(3rem, 6vw, 6rem); }
 
 </style>
