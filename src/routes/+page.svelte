@@ -27,10 +27,10 @@
   import { onMount } from 'svelte';
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
-  import { Container, Split } from '$lib/components/ui/layout';
-  import VizOfTheDay from '$lib/landing/VizOfTheDay.svelte';
-  import SneakPeek from './SneakPeek.svelte';
-  import { dayIndex, pick } from '$lib/landing/rotation';
+  import { Container } from '$lib/components/ui/layout';
+  import WarmGap from '$lib/landing/WarmGap.svelte';
+  import Showcase from './Showcase.svelte';
+  import { dayIndex } from '$lib/landing/rotation';
   import { estimateMs, humanise, DEFAULT_MS } from '$lib/landing/estimate';
   import { landingContent as content } from '$lib/landing/content';
 
@@ -61,24 +61,6 @@
    * while the server is still building the catalog and cannot answer anything promptly.
    */
   const today = dayIndex();
-
-  /**
-   * One chart for the hero, rotating daily like the old warm gap did — and static, from
-   * content.json, for everyone. The catalog is fast now, but a hero that shows a spinner for
-   * several seconds before its chart appears is a worse first impression than a chart that
-   * is simply there. Orientation does not need this morning's data.
-   */
-  const heroViz = $derived(pick(content.vizzes, today, 0));
-
-  /**
-   * The sneak peek: the highest-rated handful of the featured pool, fixed rather than
-   * rotating. A ranking table you can trust to look the same tomorrow reads as data; one
-   * that reshuffles reads as decoration.
-   */
-  const peek = [...content.featured]
-    .filter((g) => g.geek != null)
-    .sort((a, b) => (b.geek ?? 0) - (a.geek ?? 0))
-    .slice(0, 7);
 
   /**
    * Logged out, every door goes through /login with the room as `next`, so the chip is both
@@ -154,112 +136,132 @@
 
 <svelte:head><title>bgg-viewer</title></svelte:head>
 
-<Container>
-  <div class="land">
+<Container size="prose">
+    <div class="land">
+    <!-- The pill says roughly HOW LONG, not merely that something is happening: a bounded
+         wait is a categorically different experience from an indefinite one, and it costs
+         one string. The number is the median of this browser's own past loads (see
+         estimate.ts), so it describes the machine actually doing the waiting rather than a
+         figure measured somewhere else.
 
-    <!-- HERO — copy beside a real chart. Modelled on fantasycalc.com: the first thing you see
-         is the product's actual output, not an illustration of it. -->
-    <Split ratio="half" side="end" at="md" class="hero">
-      {#snippet main()}
-        <div class="copy">
-          <!-- PLACEHOLDER copy -->
-          <h1>Explore board games <em>as a set</em>.</h1>
-          <p class="lede">Filter, sort and chart every game on BoardGameGeek at once —
-            the thing BGG itself can't do.</p>
-
-          <!-- The live count, from the catalog pointer — not a baked figure that drifts. -->
-          <p class="count"><strong>{data.gameCount.toLocaleString()}</strong> games · refreshed daily</p>
-
-          <div class="doors">
-            <a class="door primary" href={gate('/discover')}>Discover <span class="arw">→</span></a>
-            <a class="door" href={gate('/games')}>Explore the catalog <span class="arw">→</span></a>
-          </div>
-
-          {#if loggedIn}
-            <!-- Phil's call to keep this: it shows the catalog is working. Logged-in only —
-                 nothing warms for a visitor who can't load it. -->
-            <span class="warming" class:ready={catalog.status === 'ready'}>
-              {#if catalog.status === 'ready'}
-                <span class="dot"></span> Catalog ready
-                {#if !catalog.thumbnailsReady}<span class="dim">· loading art…</span>{/if}
-              {:else if catalog.status === 'error'}
-                Catalog failed to load
-              {:else}
-                <span class="spin"></span> Warming the catalog — {wait}
-              {/if}
-            </span>
-          {/if}
-        </div>
-      {/snippet}
-      {#snippet aside()}
-        {#if heroViz}
-          <div class="heroviz">
-            <VizOfTheDay viz={heroViz} eyebrow="From the catalog" />
-          </div>
+         No game count while warming: `content.stats.games` is a static number baked into
+         content.json at some point in the past, and the catalog gains new games every day
+         (What's New adds ~195/week) — so it drifts from the real count and had visibly
+         disagreed with `catalog.count` a few seconds later, on the same page. The count
+         belongs only in the ready state, where it's the live, authoritative number. -->
+    {#if loggedIn}
+    <span class="warming" class:ready={catalog.status === 'ready'}>
+      {#if catalog.status === 'ready'}
+        <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
+        <!-- Thumbnails load in the background after the catalog itself, and were otherwise
+             invisible — there was no way to tell "still loading" from "quietly failed"
+             short of the network tab. Only shown for the gap; once art has loaded, the box
+             art appearing on the games below is its own confirmation and this line adds
+             nothing further. -->
+        {#if !catalog.thumbnailsReady}
+          <span class="dim">· loading art…</span>
         {/if}
-      {/snippet}
-    </Split>
+      {:else if catalog.status === 'error'}
+        Catalog failed to load
+      {:else}
+        <span class="spin"></span> Warming the catalog — {wait}
+      {/if}
+    </span>
+    {/if}
 
-    <!-- SNEAK PEEK — real rows, visibly truncated. The most important element on the page. -->
-    <SneakPeek games={peek} total={data.gameCount} exploreHref={gate('/games')} {loggedIn} />
+    <!-- PLACEHOLDER copy -->
+    <h1>Explore board games <em>as a set</em>.</h1>
+    <p class="lede">Looking for a game? Search, filter, and visualize the
+      world of board games in your browser.</p>
 
-    <!-- HOW IT WORKS — PLACEHOLDER copy, two or three sentences on the thesis. -->
-    <section class="how">
-      <p class="eyebrow">How it works</p>
-      <p>Every game on BoardGameGeek, loaded into your browser as one table. Filter by
-        mechanics, player count, weight or year; see the shape of the set you've picked; then
-        drill into any game. Refreshed from BGG every day.</p>
-    </section>
+    <!-- The chips ARE the hero.
+         A name-search box used to sit here, first thing on a page about finding games by
+         criteria — it answered a question the page isn't about, and duplicated the box that
+         is permanently in the header on every page. The criteria are what's unique to this
+         page, so they get the position.
+         Two groups, because the split teaches the app's structure without a word of prose
+         about it: simple questions open the simple room, precise ones open the workshop. -->
+    <p class="try">Start simple</p>
+    <div class="chips">
+      {#each simple as c (c.label)}
+        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+      {/each}
+    </div>
 
-    <!-- TRY A QUESTION — the chips, demoted from hero to a row. They are entry points for
-         people who already understand the app; a stranger needs the table above first. -->
-    <section class="try">
-      <p class="eyebrow">Try a question</p>
-      <div class="chips">
-        {#each [...simple, ...deeper] as c (c.label)}
-          <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
-        {/each}
-      </div>
-    </section>
+    <p class="try">Go deeper</p>
+    <div class="chips">
+      {#each deeper as c (c.label)}
+        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+      {/each}
+    </div>
 
-  </div>
+    <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
+         so three quarters of the landing page advertised things that don't work yet; as a row
+         of muted pills they still say where this is going without competing for the click. -->
+    <a class="door" href={gate('/games')}>
+      <span class="door-t">Explore the catalog <span class="arw">→</span></span>
+      <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
+    </a>
+
+    <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
+         getting you into a room; these sections are for when you have read that and are
+         still waiting for the catalog.
+         Inside the hero's own `prose` measure, not a wider one: a foot that runs wider than
+         the copy above it makes the page look like two pages stitched together, and the
+         charts do not need the extra width to read. -->
+    <!-- The foot splits by auth. A member gets the warm gap as before — content for the
+         seconds the catalog takes. A visitor has nothing warming and can't open the doors
+         above, so this slot shows them what's behind those doors instead: the real app. -->
+    <div class="gapwrap">
+      {#if loggedIn}
+        <WarmGap {content} day={today} />
+      {:else}
+        <Showcase {gate} />
+      {/if}
+    </div>
+    </div>
 </Container>
 
 <style>
-  .land { display: flex; flex-direction: column; gap: clamp(2.5rem, 5vw, 4.5rem); padding: clamp(1rem, 3vw, 2.5rem) 0 clamp(3rem, 6vw, 6rem); }
+  .land { padding: clamp(1rem, 3vw, 2.5rem) 0; }
 
-  /* HERO */
-  .copy { display: flex; flex-direction: column; gap: .9rem; justify-content: center; height: 100%; }
-  h1 { font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem)); font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0; text-wrap: balance; }
-  h1 em { font-style: normal; color: var(--primary); }
-  .lede { font-size: 1.1rem; color: var(--muted-foreground); max-width: 34rem; margin: 0; }
-  .count { font-size: .9rem; color: var(--muted-foreground); margin: 0; }
-  .count strong { color: var(--foreground); font-variant-numeric: tabular-nums; }
-
-  .doors { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .3rem; }
-  .door { display: inline-flex; align-items: center; gap: .4rem; text-decoration: none; font-weight: 650; font-size: .95rem;
-    padding: .6rem 1rem; border-radius: var(--radius); border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); }
-  .door:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
-  .door.primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
-  .door.primary:hover { filter: brightness(1.08); }
-  .arw { opacity: .7; }
-
-  .heroviz { height: 100%; display: flex; align-items: center; }
-
-  .warming { align-self: flex-start; display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
+  .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
   .warming.ready { color: var(--foreground); }
+  /* Quieter than the ready state around it — a transient aside, not a second headline. */
   .warming .dim { color: var(--muted-foreground); font-weight: 400; }
   .warming .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--color-positive, oklch(0.62 0.14 150)); }
   .warming .spin { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .warming .spin { animation: none; } }
 
-  /* SECTIONS */
-  .eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 0 0 .55rem; }
-  .how p:not(.eyebrow) { font-size: 1.05rem; line-height: 1.55; max-width: 44rem; margin: 0; color: var(--foreground); }
+  h1 { font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem)); font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 1.1rem 0 .5rem; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--primary); }
+  .lede { font-size: 1.1rem; color: var(--muted-foreground); max-width: 40rem; margin: 0; }
 
+
+  /* Tight to its own chips, roomy above — so each eyebrow reads as heading the group beneath
+     it rather than floating between two. The last group carries the gap to the door. */
+  .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
+  .chip .arw { opacity: .6; }
+
+  /* Clears `Coming next` above and leaves air at the end of the scroll. */
+  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); }
+
+  /* The gap above the door lives HERE, not as `.chips:last-of-type { margin-bottom }`.
+     `:last-of-type` keys off the element type, not the class — it meant "the last div in
+     `.land`", which was the second chip group only for as long as `.land` ended in one.
+     Adding the warm-gap div at the foot made THAT the last div, the rule matched nothing,
+     and the space above the door disappeared. Owned by the door, it cannot break again. */
+  .door { margin-top: 2.2rem;
+    display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
+    background: color-mix(in oklch, var(--primary) 10%, var(--card));
+    border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+    border-radius: var(--radius); padding: var(--space-lg); }
+  .door:hover { background: color-mix(in oklch, var(--primary) 16%, var(--card)); border-color: var(--primary); }
+  .door-t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
+  .door-t .arw { opacity: .7; }
+  .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
 </style>
