@@ -33,6 +33,7 @@
   import { dayIndex } from '$lib/landing/rotation';
   import { estimateMs, humanise, DEFAULT_MS } from '$lib/landing/estimate';
   import { landingContent as content } from '$lib/landing/content';
+  import { gate as gateFor } from '$lib/landing/gate';
 
   /** `user` comes from the root layout's server load — the same `locals` the guard reads. */
   let { data } = $props();
@@ -62,12 +63,8 @@
    */
   const today = dayIndex();
 
-  /**
-   * Logged out, every door goes through /login with the room as `next`, so the chip is both
-   * the pitch and the delivery: sign in and you land on the exact question you clicked, not
-   * a generic home page.
-   */
-  const gate = (url: string) => (loggedIn ? url : `/login?next=${encodeURIComponent(url)}`);
+  /** See `$lib/landing/gate.ts` — bound to this page's auth state. */
+  const gate = (url: string) => gateFor(loggedIn, url);
   const href = (room: 'discover' | 'games', overrides: Partial<Scope>) =>
     gate(`/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`);
 
