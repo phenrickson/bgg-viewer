@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.22](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.21...bgg-viewer-v0.0.22) (2026-09-11)
+
+
+### Features
+
+* **landing:** render the front door for logged-out visitors, showing the real app ([#68](https://github.com/phenrickson/bgg-viewer/issues/68)) ([63750a1](https://github.com/phenrickson/bgg-viewer/commit/63750a14ce27245c107f1e78a4b4f983dc8ddd83))
+
 ## [0.0.21](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.20...bgg-viewer-v0.0.21) (2026-09-11)
 
 
