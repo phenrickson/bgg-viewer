@@ -47,7 +47,15 @@ jobs:
 
       # tsx rather than plain node: the script reuses `columns.ts` and `serialize.ts` so the
       # query and the Arrow schema keep coming from one definition. See the script's header.
+      #
+      # `dlx` (fetch on demand), NOT a devDependency. Adding tsx to package.json satisfies one
+      # of vite's OPTIONAL PEER dependencies (esbuild, jiti, tsx, yaml), which re-resolves
+      # vite's whole peer set and drags esbuild@0.28.2 into the lockfile. esbuild ships a
+      # postinstall script, pnpm refuses to run unapproved build scripts and exits non-zero,
+      # and the Dockerfile's `pnpm install --frozen-lockfile --prod` then fails — so the image
+      # never builds and the deploy dies. This is CI-only tooling; it has no business in the
+      # runtime dependency graph.
       - name: Build and upload
         env:
           GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
-        run: pnpm exec tsx scripts/build-catalog-artifact.ts
+        run: pnpm dlx tsx@4 scripts/build-catalog-artifact.ts
