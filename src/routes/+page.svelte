@@ -1,8 +1,19 @@
 <script lang="ts">
   /**
-   * Landing — the front door, and the room where the catalog warms.
+   * Landing — the front door, and (logged in) the room where the catalog warms.
    *
-   * This page exists because every other view blocks on the in-browser catalog (~4 MB into
+   * Lives at the route root, OUTSIDE the `(app)` group, on purpose: `(app)`'s layout guard
+   * redirects every request without a session to /login, and for a long time that included
+   * this page — so a stranger arriving at the site was asked to sign in without ever being
+   * shown what they would be signing in for. Everything else stays behind that guard; only
+   * the front door moved.
+   *
+   * Nothing here needs the catalog. The content is static and build-time (content.json), so
+   * a logged-out visitor downloads no data and costs nothing per visit. Only a logged-in
+   * user kicks off the catalog load, and the doors carry `?next=` when logged out so signing
+   * in lands you on exactly the question you clicked.
+   *
+   * This page exists because every other view blocks on the in-browser catalog (~5 MB into
    * DuckDB). It renders cold, kicks off that load, and offers entry points that are pure
    * links so they work before it finishes.
    *
@@ -22,6 +33,10 @@
   import { estimateMs, humanise, DEFAULT_MS } from '$lib/landing/estimate';
   import { landingContent as content } from '$lib/landing/content';
 
+  /** `user` comes from the root layout's server load — the same `locals` the guard reads. */
+  let { data } = $props();
+  const loggedIn = $derived(Boolean(data.user));
+
   /**
    * How long to tell the user this will take. Read on mount rather than at module scope
    * because it touches `localStorage`, which does not exist during SSR — and read BEFORE
@@ -30,7 +45,10 @@
   let wait = $state(humanise(DEFAULT_MS));
 
   // Kick the catalog warm in the background so Explore is ready when the user arrives there.
+  // Logged out, don't: /api/catalog would 401 and the page would announce "Catalog failed to
+  // load" at a visitor who hasn't done anything wrong. There is nothing to warm for them.
   onMount(() => {
+    if (!loggedIn) return;
     wait = humanise(estimateMs());
     initCatalog();
   });
@@ -43,8 +61,14 @@
    */
   const today = dayIndex();
 
+  /**
+   * Logged out, every door goes through /login with the room as `next`, so the chip is both
+   * the pitch and the delivery: sign in and you land on the exact question you clicked, not
+   * a generic home page.
+   */
+  const gate = (url: string) => (loggedIn ? url : `/login?next=${encodeURIComponent(url)}`);
   const href = (room: 'discover' | 'games', overrides: Partial<Scope>) =>
-    `/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
+    gate(`/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`);
 
   /**
    * Each chip goes to the room that can actually hold its question.
@@ -124,6 +148,7 @@
          (What's New adds ~195/week) — so it drifts from the real count and had visibly
          disagreed with `catalog.count` a few seconds later, on the same page. The count
          belongs only in the ready state, where it's the live, authoritative number. -->
+    {#if loggedIn}
     <span class="warming" class:ready={catalog.status === 'ready'}>
       {#if catalog.status === 'ready'}
         <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
@@ -141,6 +166,7 @@
         <span class="spin"></span> Warming the catalog — {wait}
       {/if}
     </span>
+    {/if}
 
     <!-- PLACEHOLDER copy -->
     <h1>Explore board games <em>as a set</em>.</h1>
@@ -171,7 +197,7 @@
     <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
          so three quarters of the landing page advertised things that don't work yet; as a row
          of muted pills they still say where this is going without competing for the click. -->
-    <a class="door" href="/games">
+    <a class="door" href={gate('/games')}>
       <span class="door-t">Explore the catalog <span class="arw">→</span></span>
       <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
     </a>
