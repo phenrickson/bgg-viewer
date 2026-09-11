@@ -47,6 +47,22 @@
 
   const HEIGHT = 360;
 
+  /**
+   * Phone or not. Two column-chart strides — one label per N buckets on desktop, per 2N on a
+   * phone — because a label every 0.5 across a ~300px plot overlaps into a smear at the end
+   * ("9.1" under "9.6"). Read from the viewport rather than the container so it agrees with
+   * the CSS breakpoint the gutters use. False on the server; the desktop stride renders and
+   * hydration corrects it — a one-frame flicker of extra labels, never a layout shift.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const update = () => (narrow = mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  });
+
   /** Column geometry as percentages, so the bars reflow with the section. */
   const colMax = $derived(
     viz.kind === 'columns' ? Math.max(1, ...viz.bins.map(([, n]) => n)) : 1
@@ -57,7 +73,7 @@
 
   const cols = $derived.by(() => {
     if (viz.kind !== 'columns') return [];
-    const every = viz.tickEvery ?? Math.ceil(viz.bins.length / 8);
+    const every = (viz.tickEvery ?? Math.ceil(viz.bins.length / 8)) * (narrow ? 2 : 1);
     const dp = viz.precision ?? 0;
     const wide = viz.bins.length <= 12; // room to print a number on every bar
     return viz.bins.map(([v, n], i) => ({
@@ -328,7 +344,7 @@
    */
   const stackPlot = $derived.by(() => {
     if (viz.kind !== 'stack') return null;
-    const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
+    const every = (viz.tickEvery ?? Math.ceil(viz.points.length / 8)) * (narrow ? 2 : 1);
     const color = (si: number) =>
       si === 0 ? 'var(--primary)' : 'color-mix(in oklch, var(--chart-1) 55%, black)';
     const legend = viz.series.map((s, si) => ({ key: s.key, label: s.label, color: color(si) }));
@@ -735,6 +751,9 @@
 
 <style>
   .sec { border-top: 1px solid var(--border); padding-top: var(--space-lg); --gutter-l: 3.2rem; --gutter-r: .75rem; }
+  /* The last tick label is centred under a column a few px wide, so half of it hangs past
+     the plot's edge; at desktop width .75rem absorbs that, on a phone "2025" became "202". */
+  @media (max-width: 40rem) { .sec { --gutter-r: 1.5rem; } }
 
   header { display: flex; align-items: start; gap: var(--space-lg); margin-bottom: var(--space-lg); }
   .titles { min-width: 0; }
@@ -883,7 +902,12 @@
     display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr;
     align-items: center; gap: var(--space-md);
   }
-  .dots-axis { margin-top: .3rem; }
+  .dots-axis { margin-top: .3rem; padding-bottom: 1.1rem; } /* room for the tick text below the track */
+  @media (max-width: 40rem) {
+    /* Headroom past 100% for the value label of the top-ranked row, which the scale's own
+       ~12% padding no longer covers once the track is ~200px wide. */
+    .dots li, .dots-axis { padding-right: 2.4rem; }
+  }
   .dot-track { position: relative; height: .8rem; }
   .dotgrid {
     position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-.5px);
@@ -918,7 +942,7 @@
      of the plotted lines/gridlines, rather than trying to fit them inside the plot itself.
      The SVG polyline and every label (end-of-line, x-ticks) share this one coordinate box so
      they can never drift apart from each other. */
-  .linearea { position: absolute; left: 3.2rem; top: 0; bottom: 0; }
+  .linearea { position: absolute; left: var(--gutter-l); top: 0; bottom: 0; }
   .linesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .linesvg .lineseries { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .linesvg .lineseriesfill { opacity: 0.16; stroke: none; }
