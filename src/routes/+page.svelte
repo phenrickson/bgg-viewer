@@ -1,8 +1,19 @@
 <script lang="ts">
   /**
-   * Landing — the front door, and the room where the catalog warms.
+   * Landing — the front door, and (logged in) the room where the catalog warms.
    *
-   * This page exists because every other view blocks on the in-browser catalog (~4 MB into
+   * Lives at the route root, OUTSIDE the `(app)` group, on purpose: `(app)`'s layout guard
+   * redirects every request without a session to /login, and for a long time that included
+   * this page — so a stranger arriving at the site was asked to sign in without ever being
+   * shown what they would be signing in for. Everything else stays behind that guard; only
+   * the front door moved.
+   *
+   * Nothing here needs the catalog. The content is static and build-time (content.json), so
+   * a logged-out visitor downloads no data and costs nothing per visit. Only a logged-in
+   * user kicks off the catalog load, and the doors carry `?next=` when logged out so signing
+   * in lands you on exactly the question you clicked.
+   *
+   * This page exists because every other view blocks on the in-browser catalog (~5 MB into
    * DuckDB). It renders cold, kicks off that load, and offers entry points that are pure
    * links so they work before it finishes.
    *
@@ -18,9 +29,15 @@
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
   import { Container } from '$lib/components/ui/layout';
   import WarmGap from '$lib/landing/WarmGap.svelte';
+  import Showcase from './Showcase.svelte';
   import { dayIndex } from '$lib/landing/rotation';
   import { estimateMs, humanise, DEFAULT_MS } from '$lib/landing/estimate';
   import { landingContent as content } from '$lib/landing/content';
+  import { gate as gateFor } from '$lib/landing/gate';
+
+  /** `user` comes from the root layout's server load — the same `locals` the guard reads. */
+  let { data } = $props();
+  const loggedIn = $derived(Boolean(data.user));
 
   /**
    * How long to tell the user this will take. Read on mount rather than at module scope
@@ -30,7 +47,10 @@
   let wait = $state(humanise(DEFAULT_MS));
 
   // Kick the catalog warm in the background so Explore is ready when the user arrives there.
+  // Logged out, don't: /api/catalog would 401 and the page would announce "Catalog failed to
+  // load" at a visitor who hasn't done anything wrong. There is nothing to warm for them.
   onMount(() => {
+    if (!loggedIn) return;
     wait = humanise(estimateMs());
     initCatalog();
   });
@@ -43,8 +63,10 @@
    */
   const today = dayIndex();
 
+  /** See `$lib/landing/gate.ts` — bound to this page's auth state. */
+  const gate = (url: string) => gateFor(loggedIn, url);
   const href = (room: 'discover' | 'games', overrides: Partial<Scope>) =>
-    `/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`;
+    gate(`/${room}?${scopeToParams({ ...DEFAULT_SCOPE, ...overrides }).toString()}`);
 
   /**
    * Each chip goes to the room that can actually hold its question.
@@ -124,6 +146,7 @@
          (What's New adds ~195/week) — so it drifts from the real count and had visibly
          disagreed with `catalog.count` a few seconds later, on the same page. The count
          belongs only in the ready state, where it's the live, authoritative number. -->
+    {#if loggedIn}
     <span class="warming" class:ready={catalog.status === 'ready'}>
       {#if catalog.status === 'ready'}
         <span class="dot"></span> Catalog ready · {catalog.count.toLocaleString()} games
@@ -141,50 +164,66 @@
         <span class="spin"></span> Warming the catalog — {wait}
       {/if}
     </span>
+    {/if}
 
     <!-- PLACEHOLDER copy -->
     <h1>Explore board games <em>as a set</em>.</h1>
     <p class="lede">Looking for a game? Search, filter, and visualize the
       world of board games in your browser.</p>
 
-    <!-- The chips ARE the hero.
-         A name-search box used to sit here, first thing on a page about finding games by
-         criteria — it answered a question the page isn't about, and duplicated the box that
-         is permanently in the header on every page. The criteria are what's unique to this
-         page, so they get the position.
-         Two groups, because the split teaches the app's structure without a word of prose
-         about it: simple questions open the simple room, precise ones open the workshop. -->
-    <p class="try">Start simple</p>
-    <div class="chips">
-      {#each simple as c (c.label)}
-        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
-      {/each}
-    </div>
+    <!-- Same sections, ordered by who is looking.
 
-    <p class="try">Go deeper</p>
-    <div class="chips">
-      {#each deeper as c (c.label)}
-        <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
-      {/each}
-    </div>
+         The chips were the hero because they were the only thing that worked before the
+         catalog loaded; that constraint is gone, and judged fresh there is no single right
+         headline. A stranger's first question is "what is this" — the screenshots answer it
+         in a glance, and thirteen phrases like "Hidden gems" only mean something after that.
+         A member already knows what this is; for them the chips are the fastest thing on
+         the page, one click into a scoped room, and three large frames in the way is the
+         old mistake of making the page worse for the people who use it.
 
-    <!-- One live door, made to look like one. The three unbuilt ideas were four equal cards,
-         so three quarters of the landing page advertised things that don't work yet; as a row
-         of muted pills they still say where this is going without competing for the click. -->
-    <a class="door" href="/games">
-      <span class="door-t">Explore the catalog <span class="arw">→</span></span>
-      <span class="door-p">Filter to a set, see its shape, then drill into any game.</span>
-    </a>
+         So: logged out, show the thing, then the questions. Logged in, launchers first,
+         previews behind them. One {#if} around the order; the parts are identical.
 
-    <!-- The warm gap runs down the FOOT of the page. Above the fold this page is about
-         getting you into a room; these sections are for when you have read that and are
-         still waiting for the catalog.
-         Inside the hero's own `prose` measure, not a wider one: a foot that runs wider than
-         the copy above it makes the page look like two pages stitched together, and the
-         charts do not need the extra width to read. -->
-    <div class="gapwrap">
-      <WarmGap {content} day={today} />
-    </div>
+         Two chip groups, because the split teaches the app's structure without a word of
+         prose about it: simple questions open the simple room, precise ones the workshop. -->
+    {#snippet chips()}
+      <section class="block">
+        <p class="try">Start simple</p>
+        <div class="chips">
+          {#each simple as c (c.label)}
+            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+          {/each}
+        </div>
+
+        <p class="try">Go deeper</p>
+        <div class="chips">
+          {#each deeper as c (c.label)}
+            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+          {/each}
+        </div>
+      </section>
+    {/snippet}
+
+    {#snippet showcase()}
+      <section class="block">
+        <Showcase {gate} />
+      </section>
+    {/snippet}
+
+    {#if loggedIn}
+      {@render chips()}
+      {@render showcase()}
+    {:else}
+      {@render showcase()}
+      {@render chips()}
+    {/if}
+
+    <!-- Then a taste of the data behind the app, for everyone: one chart, one game. Inside
+         the hero's own `prose` measure, not a wider one — a foot that runs wider than the
+         copy above it makes the page look like two pages stitched together. -->
+    <section class="block rotation">
+      <WarmGap {content} day={today} slots={2} />
+    </section>
     </div>
 </Container>
 
@@ -206,28 +245,16 @@
 
 
   /* Tight to its own chips, roomy above — so each eyebrow reads as heading the group beneath
-     it rather than floating between two. The last group carries the gap to the door. */
+     it rather than floating between two. The last group carries the gap to the foot. */
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
+  .block > .try:first-child { margin-top: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
 
-  /* Clears `Coming next` above and leaves air at the end of the scroll. */
-  .gapwrap { padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(3rem, 6vw, 6rem); }
+  /* Each block is a destination you scroll to; the last one leaves air at the end. */
+  .block { margin-top: clamp(2.5rem, 5vw, 4.5rem); }
+  .rotation { padding-bottom: clamp(3rem, 6vw, 6rem); }
 
-  /* The gap above the door lives HERE, not as `.chips:last-of-type { margin-bottom }`.
-     `:last-of-type` keys off the element type, not the class — it meant "the last div in
-     `.land`", which was the second chip group only for as long as `.land` ended in one.
-     Adding the warm-gap div at the foot made THAT the last div, the rule matched nothing,
-     and the space above the door disappeared. Owned by the door, it cannot break again. */
-  .door { margin-top: 2.2rem;
-    display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: inherit;
-    background: color-mix(in oklch, var(--primary) 10%, var(--card));
-    border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    border-radius: var(--radius); padding: var(--space-lg); }
-  .door:hover { background: color-mix(in oklch, var(--primary) 16%, var(--card)); border-color: var(--primary); }
-  .door-t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
-  .door-t .arw { opacity: .7; }
-  .door-p { font-size: 0.86rem; color: var(--muted-foreground); }
 </style>

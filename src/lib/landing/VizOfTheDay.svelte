@@ -47,6 +47,22 @@
 
   const HEIGHT = 360;
 
+  /**
+   * Phone or not. Two column-chart strides — one label per N buckets on desktop, per 2N on a
+   * phone — because a label every 0.5 across a ~300px plot overlaps into a smear at the end
+   * ("9.1" under "9.6"). Read from the viewport rather than the container so it agrees with
+   * the CSS breakpoint the gutters use. False on the server; the desktop stride renders and
+   * hydration corrects it — a one-frame flicker of extra labels, never a layout shift.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 40rem)');
+    const update = () => (narrow = mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  });
+
   /** Column geometry as percentages, so the bars reflow with the section. */
   const colMax = $derived(
     viz.kind === 'columns' ? Math.max(1, ...viz.bins.map(([, n]) => n)) : 1
@@ -57,7 +73,7 @@
 
   const cols = $derived.by(() => {
     if (viz.kind !== 'columns') return [];
-    const every = viz.tickEvery ?? Math.ceil(viz.bins.length / 8);
+    const every = (viz.tickEvery ?? Math.ceil(viz.bins.length / 8)) * (narrow ? 2 : 1);
     const dp = viz.precision ?? 0;
     const wide = viz.bins.length <= 12; // room to print a number on every bar
     return viz.bins.map(([v, n], i) => ({
@@ -328,7 +344,7 @@
    */
   const stackPlot = $derived.by(() => {
     if (viz.kind !== 'stack') return null;
-    const every = viz.tickEvery ?? Math.ceil(viz.points.length / 8);
+    const every = (viz.tickEvery ?? Math.ceil(viz.points.length / 8)) * (narrow ? 2 : 1);
     const color = (si: number) =>
       si === 0 ? 'var(--primary)' : 'color-mix(in oklch, var(--chart-1) 55%, black)';
     const legend = viz.series.map((s, si) => ({ key: s.key, label: s.label, color: color(si) }));
@@ -364,16 +380,11 @@
       };
     });
 
-    // Sized to THIS chart's own longest label, not a shared constant across every stack viz —
-    // a fixed 11rem (big enough for "Solo / Solitaire Game") left a wide dead-space gap on
-    // charts with short labels like "Kickstarter"/"Everything else". Same formula the line
-    // chart uses for its own end-label gutter. Trade-off: plot width now varies slightly
-    // chart-to-chart with label length, instead of being pixel-identical — a much smaller sin
-    // than the wasted space was.
-    const longestLabel = Math.max(0, ...legend.map((s) => s.label.length));
-    const legendRem = Math.min(11, Math.max(4, longestLabel * 0.42 + 0.9));
-
-    return { gridlines, cols, legend, legendRem };
+    // The legend used to sit beside the plot, sized to its own longest label — which made the
+    // plot's width vary chart-to-chart by however long that label was. It now wraps below the
+    // plot instead, so there is nothing to size: the plot spans the same measure as every
+    // other chart of the day.
+    return { gridlines, cols, legend };
   });
 
   /**
@@ -631,8 +642,11 @@
           </div>
         </div>
 
-        <!-- To the side, stacked vertically — not a horizontal row above the plot. -->
-        <div class="legend" style="flex-basis: {stackPlot.legendRem}rem">
+        <!-- Below the plot, as a wrapping row. It used to sit to the side, sized to its own
+             longest label — which made this the one chart whose plot was narrower than the
+             others by a varying amount. Under the plot it costs a line and the plot spans the
+             same measure as every other chart of the day. -->
+        <div class="legend">
           {#each stackPlot.legend as s (s.key)}
             <span class="legenditem"><i style="background: {s.color}"></i>{s.label}</span>
           {/each}
@@ -736,7 +750,10 @@
 </section>
 
 <style>
-  .sec { border-top: 1px solid var(--border); padding-top: var(--space-lg); }
+  .sec { border-top: 1px solid var(--border); padding-top: var(--space-lg); --gutter-l: 3.2rem; --gutter-r: .75rem; }
+  /* The last tick label is centred under a column a few px wide, so half of it hangs past
+     the plot's edge; at desktop width .75rem absorbs that, on a phone "2025" became "202". */
+  @media (max-width: 40rem) { .sec { --gutter-r: 1.5rem; } }
 
   header { display: flex; align-items: start; gap: var(--space-lg); margin-bottom: var(--space-lg); }
   .titles { min-width: 0; }
@@ -764,9 +781,14 @@
 
   /* Gridlines are absolutely positioned inside `.plot`, which the columns also fill — so the
      lines sit behind the bars without a stacking context that would hide the value labels. */
-  .plot { position: relative; padding-left: 3.2rem; }
+  /* ONE pair of gutters for every vertical-axis chart — columns, line, range, stack, and
+     (via its PAD constant) Scatter. Before this, each kind chose its own: 3.2rem here, 44px in
+     Scatter, a variable-width legend to the right of the stack chart — so paging from one
+     chart of the day to the next visibly shifted where the plot began and ended. The right
+     gutter exists so the last tick label has somewhere to sit instead of overflowing. */
+  .plot { position: relative; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
   .grid {
-    position: absolute; left: 3.2rem; right: 0; height: 0;
+    position: absolute; left: var(--gutter-l); right: var(--gutter-r); height: 0;
     border-top: 1px dashed color-mix(in oklch, var(--border) 70%, transparent);
   }
   .gval {
@@ -811,14 +833,9 @@
      bar's is, so unlike the other chart kinds this one needs a key. */
   /* Plot + legend side by side, not legend-above-plot — a vertical key reads more like a
      fixed reference than a header competing with the title for the eye. */
-  .stackrow { display: flex; align-items: center; gap: var(--space-lg); }
-  .stackrow .plot { flex: 1 1 auto; min-width: 0; }
-  /* Width set inline per-instance (`stackPlot.legendRem`, same formula the line chart's own
-     label gutter uses) — sized to THIS chart's own longest label, not a shared constant big
-     enough for the worst case across every stack viz, which left a dead-space gap on charts
-     with short labels. `flex-grow`/`flex-shrink` still pinned to 0 so it doesn't stretch or
-     compress with the plot. */
-  .legend { flex: 0 0 auto; display: flex; flex-direction: column; gap: .6rem; }
+  .stackrow { display: flex; flex-direction: column; gap: var(--space-md); }
+  .stackrow .plot { min-width: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; padding-left: var(--gutter-l); }
   .legenditem {
     display: inline-flex; align-items: center; gap: .45rem;
     font-size: 0.78rem; color: var(--muted-foreground); white-space: nowrap;
@@ -885,7 +902,12 @@
     display: grid; grid-template-columns: minmax(0, min(14rem, 32%)) 1fr;
     align-items: center; gap: var(--space-md);
   }
-  .dots-axis { margin-top: .3rem; }
+  .dots-axis { margin-top: .3rem; padding-bottom: 1.1rem; } /* room for the tick text below the track */
+  @media (max-width: 40rem) {
+    /* Headroom past 100% for the value label of the top-ranked row, which the scale's own
+       ~12% padding no longer covers once the track is ~200px wide. */
+    .dots li, .dots-axis { padding-right: 2.4rem; }
+  }
   .dot-track { position: relative; height: .8rem; }
   .dotgrid {
     position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-.5px);
@@ -920,7 +942,7 @@
      of the plotted lines/gridlines, rather than trying to fit them inside the plot itself.
      The SVG polyline and every label (end-of-line, x-ticks) share this one coordinate box so
      they can never drift apart from each other. */
-  .linearea { position: absolute; left: 3.2rem; top: 0; bottom: 0; }
+  .linearea { position: absolute; left: var(--gutter-l); top: 0; bottom: 0; }
   .linesvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .linesvg .lineseries { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .linesvg .lineseriesfill { opacity: 0.16; stroke: none; }

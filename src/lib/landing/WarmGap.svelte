@@ -17,7 +17,13 @@
   import { pick } from './rotation';
   import type { LandingContent } from './types';
 
-  let { content, day }: { content: LandingContent; day: number } = $props();
+  /**
+   * `slots`: how many sections to show, in the fixed order chart → game → chart → game.
+   * Four filled a twenty-second wait. Now that the catalog arrives in a few seconds and the
+   * landing page leads with screenshots of the app, two is enough — one chart, one game —
+   * and four made the foot of the page longer than the page.
+   */
+  let { content, day, slots = 4 }: { content: LandingContent; day: number; slots?: number } = $props();
 
   // One offset per slot, so strolling one section never shuffles the others under the reader.
   let steps = $state([0, 0, 0, 0]);
@@ -42,17 +48,17 @@
       onprev={() => step(0, -1)} onnext={() => step(0, 1)} />
   {/if}
 
-  {#if game1}
+  {#if slots > 1 && game1}
     <FeaturedGame game={game1} eyebrow="Featured game"
       onprev={() => step(1, -1)} onnext={() => step(1, 1)} />
   {/if}
 
-  {#if viz2 && content.vizzes.length > 1}
+  {#if slots > 2 && viz2 && content.vizzes.length > 1}
     <VizOfTheDay viz={viz2} eyebrow="Also worth a look"
       onprev={() => step(2, -1)} onnext={() => step(2, 1)} />
   {/if}
 
-  {#if game2 && content.featured.length > 1}
+  {#if slots > 3 && game2 && content.featured.length > 1}
     <FeaturedGame game={game2} eyebrow="And one more"
       onprev={() => step(3, -1)} onnext={() => step(3, 1)} />
   {/if}

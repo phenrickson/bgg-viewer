@@ -80,33 +80,42 @@
   <div class="body">
     <a class="art" href="/games/{game.id}" aria-label={game.name}>
       {#if game.image}
-        <!-- Fixed box so a slow or missing image never reflows the section mid-wait — the one
-             moment the page must not jump under the reader. -->
-        <img src={game.image} alt="" width="180" height="180" loading="lazy" decoding="async" />
+        <!-- A fixed 4:3 box, so a slow or missing image never reflows the section mid-wait —
+             the one moment the page must not jump under the reader. `contain`, not `cover`:
+             BGG's small images are 200x150 and a square crop sliced the sides off every
+             landscape box (the title of Twilight Imperium lost its first and last letters). -->
+        <img src={game.image} alt="" width="200" height="150" loading="lazy" decoding="async" />
       {/if}
     </a>
 
-    <dl class="stats">
-      <div><dt>Geek rating</dt><dd class="tnum">{fmt(game.geek, 2)}</dd></div>
-      <div><dt>Complexity</dt><dd class="tnum">{fmt(game.weight)}</dd></div>
-      <div><dt>Ratings</dt><dd class="tnum">{game.usersRated.toLocaleString()}</dd></div>
-      <div class="go"><a href="/games/{game.id}">Open this game <span class="arw">→</span></a></div>
-    </dl>
+    <!-- One column beside the art, everything top-aligned on one rhythm. Before this the
+         stats were a vertically-centred column and the badges a top-aligned block with dead
+         space beneath — three columns with three different alignments that never read as
+         one thing, and the "open" link stranded at the foot of the middle one. -->
+    <div class="content">
+      <dl class="stats">
+        <div><dt>Geek rating</dt><dd class="tnum">{fmt(game.geek, 2)}</dd></div>
+        <div><dt>Complexity</dt><dd class="tnum">{fmt(game.weight)}</dd></div>
+        <div><dt>Ratings</dt><dd class="tnum">{game.usersRated.toLocaleString()}</dd></div>
+      </dl>
 
-    {#if badges.length}
-      <div class="badges">
-        {#each badges as g (g.kind)}
-          <div class="bgroup">
-            <span class="blabel">{g.label}</span>
-            <div class="bchips">
-              {#each g.items as b (b.href)}
-                <a class="chip {g.kind}" href={b.href}>{b.label}</a>
-              {/each}
+      {#if badges.length}
+        <div class="badges">
+          {#each badges as g (g.kind)}
+            <div class="bgroup">
+              <span class="blabel">{g.label}</span>
+              <div class="bchips">
+                {#each g.items as b (b.href)}
+                  <a class="chip {g.kind}" href={b.href}>{b.label}</a>
+                {/each}
+              </div>
             </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
+          {/each}
+        </div>
+      {/if}
+
+      <a class="go" href="/games/{game.id}">Open this game <span class="arw">→</span></a>
+    </div>
   </div>
 </section>
 
@@ -155,41 +164,40 @@
   }
   .nav button:hover { color: var(--foreground); border-color: var(--primary); }
 
-  .body { display: flex; gap: var(--space-lg); align-items: stretch; flex-wrap: wrap; }
+  .body { display: flex; gap: var(--space-lg); align-items: start; }
 
   .art { flex: none; display: block; line-height: 0; }
   img {
-    width: 180px; height: 180px; object-fit: cover;
+    width: 200px; aspect-ratio: 4 / 3; height: auto; object-fit: contain;
     border-radius: var(--radius); background: var(--muted);
     border: 1px solid var(--border);
   }
 
-  /* A column of labelled numbers beside the art, rather than a cramped row under it — the
-     section has the width, and stacked pairs are easier to compare than a wrapping strip.
-     Fixed width now (was `flex: 1`, back when it was the only thing beside the art) — `.desc`
-     is what grows to fill the row now, so this column stays a stable size instead of stretching
-     with it. */
-  .stats {
-    flex: 0 0 auto; width: 12rem; margin: 0;
-    display: flex; flex-direction: column; justify-content: center; gap: var(--space-md);
-  }
+  .content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--space-md); }
+
+  /* A row of labelled numbers, not a column: three across reads as a strip of facts about
+     one game, and it leaves the badges the full width below instead of squeezing beside. */
+  .stats { margin: 0; display: flex; flex-wrap: wrap; gap: .4rem var(--space-lg); }
   .stats div { display: flex; flex-direction: column; gap: .1rem; }
   dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); }
   dd { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
   .tnum { font-variant-numeric: tabular-nums; }
 
-  .go a { font-size: 0.9rem; font-weight: 650; color: var(--primary); text-decoration: none; }
-  .go a:hover { text-decoration: underline; }
+  .go { align-self: flex-start; font-size: 0.9rem; font-weight: 650; color: var(--primary); text-decoration: none; }
+  .go:hover { text-decoration: underline; }
   .go .arw { opacity: .7; }
 
-  /* The only flexible element in the row — wraps to use whatever width `.art` + `.stats`
-     (both fixed) leave behind, instead of that space sitting empty. `align-self: start` tops
-     it out with the art: with only a few short groups it would otherwise float in the middle
-     of a 180px-tall row, leaving a gap under the fact line and dead space beneath itself. */
-  .badges {
-    flex: 1 1 16rem; min-width: 16rem; align-self: start;
-    display: flex; flex-direction: column; gap: 0.45rem;
+  .badges { display: flex; flex-direction: column; gap: 0.45rem; }
+
+  /* PHONE. The art shrinks and the row wraps under it; the stats strip and badges keep their
+     shape, so the section is compact rather than a single-file list of oversized numbers. */
+  @media (max-width: 40rem) {
+    .body { flex-wrap: wrap; gap: var(--space-md); }
+    img { width: 120px; }
+    .content { flex-basis: 100%; }
+    dd { font-size: 1.15rem; }
   }
+
   /* Two columns, not one wrapping line: the label sits in a fixed gutter and every chip —
      including ones that wrap to a second line — stays in the values column, so the
      label → values reading survives a long list of mechanics. */

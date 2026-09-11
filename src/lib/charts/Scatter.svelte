@@ -130,7 +130,9 @@
     onPointClick?: (id: number) => void;
   } = $props();
 
-  const PAD = { l: 44, r: 12, t: 10, b: 34 };
+  // l/r match VizOfTheDay's shared --gutter-l/--gutter-r (3.2rem / .75rem at 16px), so a
+  // scatter's plot area lines up with the column and line charts it rotates among.
+  const PAD = { l: 51, r: 12, t: 10, b: 34 };
 
   let wrap = $state<HTMLElement | null>(null);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -357,19 +359,39 @@
   const fmtTip = (v: number) => (v >= 1000 ? `${Math.round(v).toLocaleString()}` : v.toFixed(2));
 
   /**
-   * Place each annotation's text, flipping it to the left of its dot when the label would
-   * otherwise run past the plot's right edge. The svg is `overflow: hidden` (see the note on
-   * the y-axis label below), so an unflipped label near the edge is silently truncated rather
-   * than merely ugly. 6.2px/char approximates the 11px label font well enough to decide.
+   * Place each annotation's text: to the right of its dot if that fits inside the plot, else
+   * to the left if THAT fits, else not at all (the dot still draws). The svg is
+   * `overflow: hidden` (see the note on the y-axis label below), so a label that runs past
+   * either edge is silently truncated rather than merely ugly — and on a phone-width plot a
+   * long game name can fit on neither side. 6.2px/char approximates the 11px label font.
+   *
+   * Then a collision pass: any label whose box overlaps one already placed is dropped. At
+   * desktop width the annotations are spread enough that this rarely fires; at ~300px they
+   * piled onto each other ("CATAN" through "Pandemic" as one smear). Fewer readable names
+   * beat more unreadable ones. Order is source order, so the generator's first picks win.
    */
-  const placed = $derived.by(() =>
-    annotations.map((a) => {
+  const placed = $derived.by(() => {
+    const H = 13; // label line height, for the overlap test
+    const left = PAD.l;
+    const right = PAD.l + plotW;
+    const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    return annotations.map((a) => {
       const px = sx(a.x);
       const py = sy(a.y);
-      const flip = px + a.label.length * 6.2 + 10 > PAD.l + plotW;
-      return { ...a, px, py, flip, tx: flip ? px - 7 : px + 7 };
-    })
-  );
+      const wpx = a.label.length * 6.2;
+      const fitsRight = px + 7 + wpx <= right;
+      const fitsLeft = px - 7 - wpx >= left;
+      const flip = !fitsRight && fitsLeft;
+      let show = fitsRight || fitsLeft;
+      if (show) {
+        const x0 = flip ? px - 7 - wpx : px + 7;
+        const box = { x0, x1: x0 + wpx, y0: py - H / 2, y1: py + H / 2 };
+        show = !boxes.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0);
+        if (show) boxes.push(box);
+      }
+      return { ...a, px, py, flip, show, tx: flip ? px - 7 : px + 7 };
+    });
+  });
 
   /**
    * Hover/click hit-testing — a plain nearest-point scan against the same jittered screen
@@ -501,18 +523,20 @@
            a halo, rather than a background box that would blank out the very points it sits on. -->
       {#each placed as a (a.label)}
         <circle cx={a.px} cy={a.py} r="4.5" class="anndot" />
-        <text
-          x={a.tx}
-          y={a.py}
-          class="annlabel halo"
-          text-anchor={a.flip ? 'end' : 'start'}
-          dominant-baseline="middle">{a.label}</text>
-        <text
-          x={a.tx}
-          y={a.py}
-          class="annlabel"
-          text-anchor={a.flip ? 'end' : 'start'}
-          dominant-baseline="middle">{a.label}</text>
+        {#if a.show}
+          <text
+            x={a.tx}
+            y={a.py}
+            class="annlabel halo"
+            text-anchor={a.flip ? 'end' : 'start'}
+            dominant-baseline="middle">{a.label}</text>
+          <text
+            x={a.tx}
+            y={a.py}
+            class="annlabel"
+            text-anchor={a.flip ? 'end' : 'start'}
+            dominant-baseline="middle">{a.label}</text>
+        {/if}
       {/each}
 
       <text x={PAD.l + plotW / 2} y={height - 4} class="axl" text-anchor="middle">{xLabel}</text>
