@@ -15,7 +15,7 @@ import type { GameFacts } from './facts';
 import type { ColourBy } from './view';
 
 export interface Palette {
-	/** `--chart-1..7` */
+	/** `--map-cat-1..7` — the map's own validated categorical set. */
 	chart: string[];
 	/** `--map-ramp-lo` / `--map-ramp-hi` — light→dark shades of one hue. */
 	ramp: [string, string];
