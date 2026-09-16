@@ -68,6 +68,51 @@
     unplaced = null;
   }
 
+  // --- legend filter -------------------------------------------------------------------
+  /** Click a swatch: keep only it; click more to add; click the last one standing to release. */
+  function toggleCategory(code: number) {
+    const cur = view.categories;
+    let next: number[] | null;
+    if (cur == null) next = [code];
+    else if (cur.includes(code)) next = cur.length === 1 ? null : cur.filter((c) => c !== code);
+    else next = [...cur, code].sort((a, b) => a - b);
+    view = { ...view, categories: next };
+  }
+
+  // --- lasso → table -------------------------------------------------------------------
+  let lassoIds = $state<number[]>([]);
+  type SortKey = 'name' | 'year' | 'weight' | 'geek' | 'ratings' | 'category';
+  let sortKey = $state<SortKey>('ratings');
+  let sortDir = $state<1 | -1>(-1);
+  function sortBy(k: SortKey) {
+    if (sortKey === k) sortDir = sortDir === 1 ? -1 : 1;
+    else { sortKey = k; sortDir = k === 'name' || k === 'category' ? 1 : -1; }
+  }
+  const lassoRows = $derived.by(() => {
+    if (!coords || !facts) return [];
+    const c = coords, f = facts;
+    const rows = lassoIds
+      .map((id) => c.index.get(id))
+      .filter((i): i is number => i != null)
+      .map((i) => ({
+        id: c.ids[i],
+        name: f.name(c.ids[i]),
+        year: f.year[i] || null,
+        weight: f.weight[i] || null,
+        geek: f.geekRating[i] || null,
+        ratings: f.usersRated[i],
+        category: f.categoryLabels[f.category[i]]
+      }));
+    const key = sortKey;
+    rows.sort((a, b) => {
+      const av = a[key], bv = b[key];
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+    });
+    return rows;
+  });
+
   // --- search ------------------------------------------------------------------------
   let q = $state('');
   let hits = $state<{ game_id: number; name: string; year_published: number | null }[]>([]);
@@ -172,6 +217,11 @@
     <label class="check">
       <input type="checkbox" bind:checked={view.upcoming} /> Upcoming
     </label>
+    {#if view.categories}
+      <button type="button" class="chip" onclick={() => (view = { ...view, categories: null })}>
+        {view.categories.length} {view.categories.length === 1 ? 'category' : 'categories'} kept ×
+      </button>
+    {/if}
     <label>Renderer
       <select bind:value={renderer}>
         <option value="webgl">WebGL</option>
@@ -198,7 +248,15 @@
         {#if renderer === 'canvas'}
           <EmbeddingMapCanvas {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
         {:else}
-          <EmbeddingMap {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
+          <EmbeddingMap
+            {coords}
+            {facts}
+            {view}
+            anchors={ANCHORS}
+            onselect={select}
+            onlasso={(ids) => (lassoIds = ids)}
+            ontogglecategory={toggleCategory}
+          />
         {/if}
       {/if}
     </div>
@@ -233,6 +291,40 @@
       </aside>
     {/if}
   </div>
+
+  {#if lassoRows.length}
+    <section class="lasso">
+      <header>
+        <strong>{lassoRows.length.toLocaleString()} games selected</strong>
+        <button type="button" class="chip" onclick={() => (lassoIds = [])}>Clear ×</button>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {#each [['name', 'Game'], ['year', 'Year'], ['weight', 'Weight'], ['geek', 'Geek'], ['ratings', 'Ratings'], ['category', 'Category']] as [k, label] (k)}
+                <th class:active={sortKey === k} onclick={() => sortBy(k as SortKey)}>
+                  {label}{sortKey === k ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each lassoRows as r (r.id)}
+              <tr class:selected={view.selected === r.id} onclick={() => select(r.id)}>
+                <td><a href="/games/{r.id}" onclick={(e) => e.stopPropagation()}>{r.name}</a></td>
+                <td>{r.year ?? '—'}</td>
+                <td>{r.weight?.toFixed(2) ?? '—'}</td>
+                <td>{r.geek?.toFixed(2) ?? '—'}</td>
+                <td>{r.ratings.toLocaleString()}</td>
+                <td>{r.category}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {/if}
 
   <footer class="foot">
     {#if coords && facts}
@@ -313,6 +405,33 @@
     position: absolute; top: 0.4rem; right: 0.4rem;
     border: 0; background: none; color: var(--muted-foreground); font-size: 1.2rem; cursor: pointer;
   }
+
+  .chip {
+    border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
+    border-radius: 999px; padding: 0.15rem 0.6rem; font: inherit; font-size: 0.8rem; cursor: pointer;
+  }
+
+  .lasso {
+    flex: 0 0 auto; max-height: 40%; min-height: 0;
+    display: flex; flex-direction: column; gap: var(--space-sm);
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+    padding: var(--space-sm) var(--space-md);
+  }
+  .lasso header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+  .table-wrap { overflow: auto; min-height: 0; }
+  .lasso table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .lasso th {
+    position: sticky; top: 0; background: var(--card); text-align: left; padding: 0.3rem 0.5rem;
+    color: var(--muted-foreground); font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .lasso th.active { color: var(--foreground); }
+  .lasso td { padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); white-space: nowrap; }
+  .lasso td:first-child { white-space: normal; }
+  .lasso tbody tr { cursor: pointer; }
+  .lasso tbody tr:hover { background: var(--muted); }
+  .lasso tbody tr.selected { background: color-mix(in oklch, var(--primary) 14%, transparent); }
+  .lasso a { color: var(--primary); text-decoration: none; }
+  .lasso a:hover { text-decoration: underline; }
 
   .foot { color: var(--muted-foreground); font-size: 0.8rem; min-height: 1.2em; }
 

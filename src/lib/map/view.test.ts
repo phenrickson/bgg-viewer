@@ -18,6 +18,7 @@ describe('view ⇄ params', () => {
 			size: 'uniform' as const,
 			upcoming: false,
 			minRatings: 500,
+			categories: [1, 3],
 			selected: 224517
 		};
 		expect(fromParams(toParams(view), K)).toEqual(view);
@@ -37,6 +38,11 @@ describe('view ⇄ params', () => {
 		expect(v.colour).toBe('weight');
 		expect(v.minRatings).toBe(MIN_RATINGS_FLOOR);
 		expect(v.selected).toBeNull();
+	});
+
+	it('parses a category filter, dropping junk and duplicates', () => {
+		expect(fromParams(new URLSearchParams('cat=3,1,x,3,9'), K).categories).toEqual([1, 3]);
+		expect(fromParams(new URLSearchParams('cat='), K).categories).toBeNull();
 	});
 
 	it('never plots a component against itself', () => {

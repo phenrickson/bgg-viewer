@@ -26,7 +26,9 @@
     view,
     anchors = [],
     onselect,
-    onhover
+    onhover,
+    onlasso,
+    ontogglecategory
   }: {
     coords: CoordinateSet;
     facts: GameFacts;
@@ -34,6 +36,10 @@
     anchors?: number[];
     onselect?: (id: number | null) => void;
     onhover?: (id: number | null) => void;
+    /** A lasso (shift+drag or long-press) closed around these games; empty = cleared. */
+    onlasso?: (ids: number[]) => void;
+    /** A legend swatch was clicked — the page decides what the filter becomes. */
+    ontogglecategory?: (code: number) => void;
   } = $props();
 
   const CURRENT_YEAR = new Date().getFullYear();
@@ -85,9 +91,11 @@
   const visible = $derived.by(() => {
     const n = coords.ids.length;
     const idx: number[] = [];
+    const cats = view.categories ? new Set(view.categories) : null;
     for (let i = 0; i < n; i++) {
       const up = facts.upcoming[i] === 1;
-      const show = up ? view.upcoming : facts.usersRated[i] >= view.minRatings;
+      let show = up ? view.upcoming : facts.usersRated[i] >= view.minRatings;
+      if (show && cats) show = cats.has(facts.category[i]);
       if (show && Number.isFinite(xs[i]) && Number.isFinite(ys[i])) idx.push(i);
     }
     return idx;
@@ -143,8 +151,9 @@
 
   function applySelection() {
     if (!plot || !drawn) return;
+    const current = plot.get('selectedPoints');
     if (selectedIdx >= 0) plot.select([selectedIdx], { preventEvent: true });
-    else plot.deselect({ preventEvent: true });
+    else if (current.length === 1) plot.deselect({ preventEvent: true }); // leave a lasso set alone
   }
   $effect(() => { void selectedIdx; applySelection(); });
 
@@ -233,8 +242,13 @@
     });
     plot.subscribe('pointOver', (i) => { hovered = i; onhover?.(coords.ids[i]); });
     plot.subscribe('pointOut', () => { hovered = -1; onhover?.(null); });
-    plot.subscribe('select', ({ points }) => { if (points.length) onselect?.(coords.ids[points[0]]); });
-    plot.subscribe('deselect', () => onselect?.(null));
+    // One point is a click (detail panel); several is a lasso (table). regl fires the same
+    // `select` for both, so the count is the tell.
+    plot.subscribe('select', ({ points }) => {
+      if (points.length === 1) onselect?.(coords.ids[points[0]]);
+      else if (points.length > 1) onlasso?.(points.map((i) => coords.ids[i]));
+    });
+    plot.subscribe('deselect', () => { onselect?.(null); onlasso?.([]); });
     plot.subscribe('view', scheduleOverlay);
     plot.subscribe('draw', scheduleOverlay);
     const reset = () => plot?.reset();
@@ -275,7 +289,17 @@
         <div class="swatch-row"><i style:background={colouring.colours[0]}></i> no value</div>
       {:else}
         {#each colouring.legend as { label, bucket } (bucket)}
-          <div class="swatch-row"><i style:background={colouring.colours[bucket]}></i> {label}</div>
+          {#if view.colour === 'category'}
+            <button
+              type="button"
+              class="swatch-row"
+              class:off={view.categories != null && !view.categories.includes(bucket)}
+              onclick={() => ontogglecategory?.(bucket)}
+              title="Click to keep only this category; click again to release"
+            ><i style:background={colouring.colours[bucket]}></i> {label}</button>
+          {:else}
+            <div class="swatch-row"><i style:background={colouring.colours[bucket]}></i> {label}</div>
+          {/if}
         {/each}
       {/if}
     </div>
@@ -333,7 +357,7 @@
     position: absolute;
     right: 0.75rem;
     bottom: 0.75rem;
-    pointer-events: none;
+    pointer-events: auto;
     padding: 0.45rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 0.375rem;
@@ -348,6 +372,12 @@
   .ends { position: relative; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
   .ends .mid { position: absolute; transform: translateX(-50%); color: var(--foreground); }
   .swatch-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
+  button.swatch-row {
+    border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer;
+    width: 100%; text-align: left;
+  }
+  button.swatch-row:hover { color: var(--foreground); }
+  button.swatch-row.off { opacity: 0.35; }
   .swatch-row i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
   .tip .name { font-weight: 600; }
   .tip .meta { color: var(--muted-foreground); }

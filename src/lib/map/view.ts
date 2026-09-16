@@ -20,6 +20,8 @@ export interface ViewState {
 	upcoming: boolean;
 	/** Hide established games rated by fewer people than this. */
 	minRatings: number;
+	/** Category codes (1..k) to keep; null = all. Set by clicking legend swatches. */
+	categories: number[] | null;
 	selected: number | null;
 }
 
@@ -34,6 +36,7 @@ export const DEFAULT_VIEW: ViewState = {
 	size: 'popularity',
 	upcoming: true,
 	minRatings: MIN_RATINGS_FLOOR,
+	categories: null,
 	selected: null
 };
 
@@ -56,6 +59,10 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 	let y = int(params.get('y'), DEFAULT_VIEW.y, 1, k);
 	if (y === x) y = x === 1 ? 2 : 1; // never plot a component against itself
 	const sel = int(params.get('g'), 0, 1, Number.MAX_SAFE_INTEGER);
+	const cats = (params.get('cat') ?? '')
+		.split(',')
+		.map((c) => int(c, 0, 1, 7))
+		.filter((c) => c > 0);
 	return {
 		projection: oneOf(params.get('p'), PROJECTIONS, DEFAULT_VIEW.projection),
 		x,
@@ -64,6 +71,7 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size),
 		upcoming: params.get('u') !== '0',
 		minRatings: int(params.get('r'), DEFAULT_VIEW.minRatings, MIN_RATINGS_FLOOR, 1_000_000),
+		categories: cats.length ? [...new Set(cats)].sort((a, b) => a - b) : null,
 		selected: sel || null
 	};
 }
@@ -80,6 +88,7 @@ export function toParams(view: ViewState): URLSearchParams {
 	if (view.size !== DEFAULT_VIEW.size) p.set('s', view.size);
 	if (!view.upcoming) p.set('u', '0');
 	if (view.minRatings !== DEFAULT_VIEW.minRatings) p.set('r', String(view.minRatings));
+	if (view.categories?.length) p.set('cat', view.categories.join(','));
 	if (view.selected) p.set('g', String(view.selected));
 	return p;
 }
