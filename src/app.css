@@ -122,6 +122,9 @@
   --chart-4: oklch(0.62 0.12 300);   /* violet */
   --chart-5: oklch(0.65 0.15 25);    /* rose */
   --chart-6: oklch(0.68 0.14 140);   /* green */
+  /* Seventh slot for the embedding map's category layer. Darker than the rest on purpose:
+     the hue wheel is full at six, so lightness is what keeps it apart (validated). */
+  --chart-7: oklch(0.50 0.09 60);    /* brown */
 
   /* Sequential ramp for the embedding map's continuous encodings (weight, year):
      light→dark shades of the chart-1 blue. Endpoints only — the map interpolates. */

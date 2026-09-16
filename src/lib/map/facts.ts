@@ -6,12 +6,12 @@
  *
  * Column-oriented (typed arrays indexed like `CoordinateSet.ids`) because the renderer
  * touches every row per frame. Category is an int code into `categoryLabels` rather than a
- * string per row: the palette only has six slots anyway, so the top six categories by
- * count get codes 1..6 and everything else is 0 ("other").
+ * string per row: the palette has seven slots, so the curated categories get codes 1..7
+ * and everything else is 0 ("other").
  */
 import type { CoordinateSet } from './coordinates';
 
-export const CATEGORY_SLOTS = 6;
+export const CATEGORY_SLOTS = 7;
 
 export interface GameFacts {
 	weight: Float32Array;

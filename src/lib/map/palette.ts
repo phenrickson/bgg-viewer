@@ -15,7 +15,7 @@ export function readTheme(el: Element = document.documentElement): MapTheme {
 	const cs = getComputedStyle(el);
 	const v = (name: string) => cs.getPropertyValue(name).trim();
 	return {
-		chart: [1, 2, 3, 4, 5, 6].map((i) => v(`--chart-${i}`)),
+		chart: [1, 2, 3, 4, 5, 6, 7].map((i) => v(`--chart-${i}`)),
 		ramp: [v('--map-ramp-lo'), v('--map-ramp-hi')],
 		muted: v('--muted-foreground'),
 		accent: v('--primary'),

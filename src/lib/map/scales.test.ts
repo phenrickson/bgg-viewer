@@ -13,7 +13,7 @@ import {
 import type { GameFacts } from './facts';
 
 const palette: Palette = {
-	chart: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6'],
+	chart: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
 	ramp: ['oklch(0.9 0.05 250)', 'oklch(0.4 0.15 250)'],
 	muted: 'muted',
 	accent: 'accent'
@@ -28,7 +28,7 @@ function facts(over: Partial<GameFacts> = {}): GameFacts {
 		usersRated: Int32Array.from([30, 1000, 100000, 0]),
 		upcoming: Uint8Array.from([0, 0, 1, 1]),
 		category: Uint8Array.from([1, 6, 0, 0]),
-		categoryLabels: ['Other', 'Economic', 'B', 'C', 'D', 'E', 'Wargame'],
+		categoryLabels: ['Other', 'Economic', 'B', 'C', 'D', 'E', 'Wargame', 'G'],
 		missing: 0,
 		name: (id) => String(id),
 		...over
@@ -105,9 +105,9 @@ describe('buildColouring', () => {
 		expect(c.colours).toEqual(['muted', 'accent']);
 		expect(c.legend.map((l) => l.bucket)).toEqual([0, 1]);
 	});
-	it('category: chart tokens for the top six, muted for other, other last in the legend', () => {
+	it('category: chart tokens for the curated seven, muted for other, other last in the legend', () => {
 		const c = buildColouring('category', facts(), palette, 2026);
-		expect(c.colours).toEqual(['muted', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6']);
+		expect(c.colours).toEqual(['muted', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7']);
 		expect(Array.from(c.bucketOf)).toEqual([1, 6, 0, 0]);
 		expect(c.legend.at(-1)).toEqual({ label: 'Other', bucket: 0 });
 		expect(c.legend[0]).toEqual({ label: 'Economic', bucket: 1 });

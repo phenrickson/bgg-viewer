@@ -57,14 +57,14 @@ describe('factsSql', () => {
 		expect(sql).toContain('ELSE 0 END AS cat_code');
 	});
 	it('never encodes more than the palette can show', () => {
-		const sql = factsSql(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
-		expect(sql).toContain("'f') THEN 6");
-		expect(sql).not.toContain("'g'");
+		const sql = factsSql(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+		expect(sql).toContain("'g') THEN 7");
+		expect(sql).not.toContain("'h'");
 	});
 	it('degrades to a constant when there are no categories', () => {
 		expect(factsSql([])).toContain('0 AS cat_code');
 	});
 	it('never asks for more slots than the palette has', () => {
-		expect(CATEGORY_SLOTS).toBe(6);
+		expect(CATEGORY_SLOTS).toBe(7);
 	});
 });

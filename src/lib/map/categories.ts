@@ -6,7 +6,9 @@
  *
  * ORDER IS PRIORITY: a game carrying several of these takes the first one listed, so put
  * the more specific tag before the broader one it usually travels with (Trains before
- * Economic). At most six — one per chart colour token; anything else is "Other".
+ * Economic). At most seven — one per chart colour token; anything else is "Other".
+ * Card Game last: it's a format tag most of the others travel with, so it only claims a
+ * game that is none of the more specific ones.
  */
 export const CATEGORIES: string[] = [
 	'Trains',
@@ -14,5 +16,6 @@ export const CATEGORIES: string[] = [
 	'Wargame',
 	'Party Game',
 	"Children's Game",
-	'Abstract Strategy'
+	'Abstract Strategy',
+	'Card Game'
 ];
