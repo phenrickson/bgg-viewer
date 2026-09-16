@@ -133,7 +133,8 @@
       backgroundColor: toHex(theme.background),
       pointColor: colouring.colours.map(toHex),
       pointColorHover: toHex(theme.accent),
-      pointColorActive: toHex(theme.accent)
+      pointColorActive: toHex(theme.accent),
+      lassoColor: toHex(theme.accent)
     });
   });
 
@@ -158,6 +159,29 @@
     else plot.filter(visible, { preventEvent: true });
   }
   $effect(() => { void visible; applyFilter(); });
+
+  /**
+   * A lasso set arriving usually also shrinks the map (the table opens below it), and regl
+   * keeps its camera, so the kept cluster would sit small in the middle. Frame it instead;
+   * clearing the set goes back to the whole map. Runs after layout has settled so the zoom
+   * targets the new canvas size, not the old one.
+   */
+  let lastKeep: number[] | null = null;
+  $effect(() => {
+    const k = keep;
+    if (!plot || !drawn || k === lastKeep) return;
+    const had = lastKeep;
+    lastKeep = k;
+    const p = plot;
+    setTimeout(() => {
+      if (k && k.length) {
+        const idx = k.map((id) => coords.index.get(id)).filter((i): i is number => i != null);
+        p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 400 });
+      } else if (had) {
+        p.reset();
+      }
+    }, 60);
+  });
 
   function applySelection() {
     if (!plot || !drawn) return;
@@ -248,7 +272,12 @@
       pointOutlineWidth: 0,
       deselectOnDblClick: false,
       deselectOnEscape: true,
-      lassoOnLongPress: true
+      lassoOnLongPress: true,
+      // Sample the pointer every frame and every pixel — the defaults (10ms / 3px) drew a
+      // visibly jagged polygon.
+      lassoMinDelay: 0,
+      lassoMinDist: 1,
+      lassoLineWidth: 1.5
     });
     plot.subscribe('pointOver', (i) => { hovered = i; onhover?.(coords.ids[i]); });
     plot.subscribe('pointOut', () => { hovered = -1; onhover?.(null); });
