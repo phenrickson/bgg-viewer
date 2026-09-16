@@ -9,8 +9,8 @@
  * Colours are token *values* resolved by the caller from `app.css` (see `readPalette` in
  * the component) so this module never sees a hex and dark mode just works.
  */
-import { ratingColor, complexityColor } from '$lib/game/similarity';
-import { divergingAt } from '$lib/charts/ramps';
+import { ratingColor } from '$lib/game/similarity';
+import { seq, divergingAt } from '$lib/charts/ramps';
 import type { GameFacts } from './facts';
 import type { ColourBy } from './view';
 
@@ -115,10 +115,11 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 	const n = facts.weight.length;
 	const bucketOf = new Uint8Array(n);
 	switch (by) {
-		// Weight and geek rating use the game page's own colour functions (similarity.ts) so a
-		// game reads the same colour here as on its detail page. Same domains as there.
 		case 'weight':
-			return continuous(facts.weight, 1, 5, sampledRamp(complexityColor, 1, 5), palette);
+			// The app's sequential ramp (one hue, pale→dark — what Explore's clouds use), not the
+			// game page's complexityColor: that one switches hue at 3.0, which on a 3px meter
+			// reads as "lighter/heavier" but on 36k dots reads as two populations with a seam.
+			return continuous(facts.weight, 1, 5, sampledRamp((v) => seq((v - 1) / 4), 1, 5), palette);
 		case 'geek': {
 			// Same scale as the About page's popularity-vs-rating cloud: the app's diverging ramp
 			// (rose below, blue above), clamped to 5–8 with the pivot at 6 — where a game stops
