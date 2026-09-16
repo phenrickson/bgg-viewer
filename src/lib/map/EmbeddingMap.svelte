@@ -112,17 +112,51 @@
   const anchorIdx = $derived(anchors.map((id) => coords.index.get(id) ?? -1).filter((i) => i >= 0));
 
   // --- drawing -----------------------------------------------------------------------
+  /*
+   * Three kinds of work, cheapest first:
+   *   'overlay' — clear + redraw rings/labels (every pointer move)
+   *   'view'    — zoom/pan: blit the cached cloud bitmap through the new transform (one
+   *               drawImage, ~1ms), then a full repaint once the gesture pauses. Dots blur
+   *               slightly mid-gesture and snap crisp on settle — the map-tile trick.
+   *   'cloud'   — full repaint of 36k dots into the offscreen bitmap, then blit.
+   */
   let raf = 0;
-  let dirtyCloud = false, dirtyOverlay = false;
-  function schedule(layer: 'cloud' | 'overlay') {
-    if (layer === 'cloud') dirtyCloud = true; else dirtyOverlay = true;
+  let dirtyCloud = false, dirtyView = false, dirtyOverlay = false;
+  let settleTimer = 0;
+  const SETTLE_MS = 140;
+  function schedule(layer: 'cloud' | 'view' | 'overlay') {
+    if (layer === 'cloud') dirtyCloud = true;
+    else if (layer === 'view') {
+      dirtyView = true;
+      clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => schedule('cloud'), SETTLE_MS);
+    } else dirtyOverlay = true;
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
       if (dirtyCloud) drawCloud();
-      if (dirtyCloud || dirtyOverlay) drawOverlay();
-      dirtyCloud = dirtyOverlay = false;
+      else if (dirtyView) blitCloud();
+      if (dirtyCloud || dirtyView || dirtyOverlay) drawOverlay();
+      dirtyCloud = dirtyView = dirtyOverlay = false;
     });
+  }
+
+  /** The cloud as last fully rendered, and the transform it was rendered at. */
+  let bitmap: HTMLCanvasElement | null = null;
+  let rendered = { k: 1, tx: 0, ty: 0 };
+
+  /** Paint the cached bitmap through the current transform relative to when it was drawn. */
+  function blitCloud() {
+    if (!canvas || !bitmap || !theme || width === 0) return;
+    const ctx = context(canvas);
+    const r = k / rendered.k;
+    ctx.fillStyle = theme.background;
+    ctx.fillRect(0, 0, width, height);
+    ctx.save();
+    ctx.translate(tx - r * rendered.tx, ty - r * rendered.ty);
+    ctx.scale(r, r);
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    ctx.restore();
   }
 
   /** Size a canvas to the host at the capped DPR; returns a context in CSS px units. */
@@ -136,7 +170,9 @@
 
   function drawCloud() {
     if (!canvas || !theme || !colouring || width === 0) return;
-    const ctx = context(canvas);
+    bitmap ??= document.createElement('canvas');
+    const ctx = context(bitmap);
+    rendered = { k, tx, ty };
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, width, height);
 
@@ -169,6 +205,9 @@
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+
+    // Bitmap is fresh at the current transform: a straight copy onto the visible canvas.
+    context(canvas).drawImage(bitmap, 0, 0, width, height);
   }
 
   function drawOverlay() {
@@ -206,7 +245,8 @@
     ctx.fillStyle = ink; ctx.fillText(text, lx, y);
   }
 
-  $effect(() => { void drawOrder; void k; void tx; void ty; void width; void height; schedule('cloud'); });
+  $effect(() => { void drawOrder; void width; void height; schedule('cloud'); });
+  $effect(() => { void k; void tx; void ty; schedule('view'); });
   $effect(() => { void hovered; void selectedIdx; void anchorIdx; schedule('overlay'); });
 
   // --- interaction -------------------------------------------------------------------
@@ -282,7 +322,7 @@
     // Re-read tokens when the theme class flips.
     const mo = new MutationObserver(() => { theme = readTheme(); });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => { ro.disconnect(); mo.disconnect(); if (raf) cancelAnimationFrame(raf); };
+    return () => { ro.disconnect(); mo.disconnect(); if (raf) cancelAnimationFrame(raf); clearTimeout(settleTimer); };
   });
 </script>
 
