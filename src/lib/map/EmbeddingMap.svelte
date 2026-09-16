@@ -305,15 +305,22 @@
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
 
+    // regl caches the canvas's bounding box for pointer→data mapping; anything that moves or
+    // resizes the host (the selection table opening below, the page scrolling) leaves it
+    // stale and clicks land beside the cursor. `refresh()` re-reads it.
     const ro = new ResizeObserver(([entry]) => {
       width = entry.contentRect.width; height = entry.contentRect.height;
       plot?.set({ width, height });
+      plot?.refresh();
     });
     ro.observe(host);
+    const onScroll = () => plot?.refresh();
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
     const mo = new MutationObserver(() => { theme = readTheme(); });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {
       ro.disconnect(); mo.disconnect();
+      document.removeEventListener('scroll', onScroll, { capture: true });
       glCanvas.removeEventListener('dblclick', reset);
       if (raf) cancelAnimationFrame(raf);
       plot?.destroy(); plot = null;
