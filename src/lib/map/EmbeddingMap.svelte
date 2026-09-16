@@ -305,22 +305,18 @@
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
 
-    // regl caches the canvas's bounding box for pointer→data mapping; anything that moves or
-    // resizes the host (the selection table opening below, the page scrolling) leaves it
-    // stale and clicks land beside the cursor. `refresh()` re-reads it.
+    // Size is regl's job: with width/height 'auto' it observes its own canvas and keeps the
+    // camera, aspect ratio and pointer mapping in step. Setting explicit numbers here would
+    // switch it out of auto mode and freeze that — which is what made clicks land beside the
+    // cursor once the selection table opened. This observer only sizes the overlay.
     const ro = new ResizeObserver(([entry]) => {
       width = entry.contentRect.width; height = entry.contentRect.height;
-      plot?.set({ width, height });
-      plot?.refresh();
     });
     ro.observe(host);
-    const onScroll = () => plot?.refresh();
-    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
     const mo = new MutationObserver(() => { theme = readTheme(); });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {
       ro.disconnect(); mo.disconnect();
-      document.removeEventListener('scroll', onScroll, { capture: true });
       glCanvas.removeEventListener('dblclick', reset);
       if (raf) cancelAnimationFrame(raf);
       plot?.destroy(); plot = null;

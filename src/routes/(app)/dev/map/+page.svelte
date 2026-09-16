@@ -378,6 +378,14 @@
   }
   .notice a { color: var(--primary); }
 
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg button {
+    border: 0; background: var(--background); color: var(--muted-foreground);
+    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--muted); color: var(--foreground); }
+
   .chip {
     border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
     border-radius: 999px; padding: 0.15rem 0.6rem; font: inherit; font-size: 0.8rem; cursor: pointer;
