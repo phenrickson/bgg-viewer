@@ -102,14 +102,8 @@
     return n;
   });
 
-  // log-scale slider for min ratings: 30 … 30,000
-  const R_LO = Math.log(MIN_RATINGS_FLOOR), R_HI = Math.log(30_000);
-  const sliderPos = $derived(((Math.log(view.minRatings) - R_LO) / (R_HI - R_LO)) * 100);
-  function onslider(e: Event) {
-    const t = Number((e.currentTarget as HTMLInputElement).value) / 100;
-    const v = Math.round(Math.exp(R_LO + t * (R_HI - R_LO)));
-    view = { ...view, minRatings: t <= 0 ? MIN_RATINGS_FLOOR : v };
-  }
+  // Min-ratings steps. A slider was tried and was hard to hit; a short list is enough.
+  const MIN_RATINGS_STEPS = [MIN_RATINGS_FLOOR, 50, 100, 250, 500, 1000];
 </script>
 
 <svelte:head>
@@ -184,8 +178,13 @@
         <option value="canvas">Canvas</option>
       </select>
     </label>
-    <label class="range">Min ratings <strong>{view.minRatings.toLocaleString()}</strong>
-      <input type="range" min="0" max="100" value={sliderPos} oninput={onslider} />
+    <label>Min ratings
+      <select bind:value={view.minRatings}>
+        {#each MIN_RATINGS_STEPS as r (r)}<option value={r}>{r.toLocaleString()}</option>{/each}
+        {#if !MIN_RATINGS_STEPS.includes(view.minRatings)}
+          <option value={view.minRatings}>{view.minRatings.toLocaleString()}</option>
+        {/if}
+      </select>
     </label>
   </div>
 
@@ -286,8 +285,6 @@
   }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .controls select { color: var(--foreground); }
-  .controls .range { gap: 0.6rem; }
-  .controls .range input { width: 10rem; }
   .controls strong { color: var(--foreground); font-variant-numeric: tabular-nums; }
 
   .body {
