@@ -5,7 +5,7 @@
  * footer. Bespoke like `thumbnails/serialize.ts`, for the same reason: a handful of typed
  * columns doesn't need the catalog serializer's facet machinery.
  */
-import { Table, vectorFromArray, tableToIPC, Int32, Float32, Schema, Field } from 'apache-arrow';
+import { Table, vectorFromArray, tableToIPC, Int32, Float32, Schema, Field, type Vector } from 'apache-arrow';
 import { PC_COLUMNS } from './columns';
 
 export type CoordinateRow = {
@@ -42,7 +42,7 @@ export function rowsToArrowIPC(rows: CoordinateRow[]): Uint8Array {
 			rows.map((r) => (r[key] == null ? NaN : Number(r[key]))),
 			new Float32()
 		);
-	const columns: Record<string, ReturnType<typeof f32>> = {
+	const columns: Record<string, Vector> = {
 		game_id: vectorFromArray(rows.map((r) => num(r.game_id)), new Int32())
 	};
 	for (const pc of PC_COLUMNS) columns[pc] = f32(pc as keyof CoordinateRow);
