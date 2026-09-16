@@ -27,9 +27,8 @@
     anchors = [],
     mode = 'pan',
     keep = null,
-    onselect,
+    onselectionchange,
     onhover,
-    onlasso,
     ontogglecategory
   }: {
     coords: CoordinateSet;
@@ -40,10 +39,12 @@
     mode?: 'pan' | 'lasso';
     /** Game ids to keep on the map (a lasso set); null = everything the other filters allow. */
     keep?: number[] | null;
-    onselect?: (id: number | null) => void;
+    /**
+     * The selection changed: a click toggled one game, or a lasso added its enclosed games.
+     * The page owns the list (it's `view.selected`); the map only proposes the next one.
+     */
+    onselectionchange?: (ids: number[]) => void;
     onhover?: (id: number | null) => void;
-    /** A lasso (shift+drag or long-press) closed around these games; empty = cleared. */
-    onlasso?: (ids: number[]) => void;
     /** A legend swatch was clicked — the page decides what the filter becomes. */
     ontogglecategory?: (code: number) => void;
   } = $props();
@@ -62,6 +63,7 @@
   /** regl-scatterplot sizes are diameters in px; sizes are bucketed to whole px so they can
    * ride in the categorical `valueB` slot with a lookup table. */
   const MAX_DIAMETER = 20;
+  const MAX_SELECTED_LABELS = 25;
   const SIZE_TABLE = Array.from({ length: MAX_DIAMETER + 1 }, (_, i) => Math.max(i, 1));
 
   let host: HTMLDivElement;
@@ -122,7 +124,7 @@
   });
 
   let hovered = $state<number>(-1);
-  const selectedIdx = $derived(view.selected != null ? (coords.index.get(view.selected) ?? -1) : -1);
+  const selectedIdx = $derived(view.selected.map((id) => coords.index.get(id) ?? -1).filter((i) => i >= 0));
   const anchorIdx = $derived(anchors.map((id) => coords.index.get(id) ?? -1).filter((i) => i >= 0));
 
   // --- push state into the plot ------------------------------------------------------
@@ -150,7 +152,7 @@
     drawn = false;
     plot
       .draw({ x: nx, y: ny, valueA: va, valueB: vb }, { preventFilterReset: true })
-      .then(() => { drawn = true; applyFilter(); applySelection(); scheduleOverlay(); });
+      .then(() => { drawn = true; applyFilter(); scheduleOverlay(); });
   });
 
   function applyFilter() {
@@ -183,13 +185,6 @@
     }, 60);
   });
 
-  function applySelection() {
-    if (!plot || !drawn) return;
-    const current = plot.get('selectedPoints');
-    if (selectedIdx >= 0) plot.select([selectedIdx], { preventEvent: true });
-    else if (current.length === 1) plot.deselect({ preventEvent: true }); // leave a lasso set alone
-  }
-  $effect(() => { void selectedIdx; applySelection(); });
 
   // --- overlay -----------------------------------------------------------------------
   let raf = 0;
@@ -221,12 +216,18 @@
       ring(ctx, p[0], p[1], r(i) + 2, theme.foreground, theme.background);
       label(ctx, facts.name(coords.ids[i]), p[0], p[1], r(i), theme.foreground, theme.background);
     }
-    for (const i of [hovered, selectedIdx]) {
-      if (i < 0 || !shown.has(i)) continue;
+    // Selected games: accent ring each; labels only while the set is small enough to read.
+    const labelSelected = selectedIdx.length <= MAX_SELECTED_LABELS;
+    for (const i of selectedIdx) {
+      if (!shown.has(i)) continue;
       const p = plot.getScreenPosition(i);
       if (!p) continue;
       ring(ctx, p[0], p[1], r(i) + 3, theme.accent, theme.background, 2);
-      if (i === selectedIdx) label(ctx, facts.name(coords.ids[i]), p[0], p[1], r(i) + 3, theme.foreground, theme.background);
+      if (labelSelected) label(ctx, facts.name(coords.ids[i]), p[0], p[1], r(i) + 3, theme.foreground, theme.background);
+    }
+    if (hovered >= 0 && shown.has(hovered)) {
+      const p = plot.getScreenPosition(hovered);
+      if (p) ring(ctx, p[0], p[1], r(hovered) + 3, theme.accent, theme.background, 2);
     }
     if (hovered >= 0) {
       const p = plot.getScreenPosition(hovered);
@@ -281,17 +282,24 @@
     });
     plot.subscribe('pointOver', (i) => { hovered = i; onhover?.(coords.ids[i]); });
     plot.subscribe('pointOut', () => { hovered = -1; onhover?.(null); });
-    // One point is a click (detail panel); several is a lasso (table). regl fires the same
-    // `select` for both, so the count is the tell.
+    // regl fires the same `select` for a click (one point) and a lasso (many). A click
+    // toggles that game in the selection; a lasso adds its games. The highlight is ours (the
+    // overlay rings), so regl's own selection is dropped straight after — otherwise its
+    // tint would linger and its next click would replace rather than toggle.
     plot.subscribe('select', ({ points }) => {
-      if (points.length === 1) onselect?.(coords.ids[points[0]]);
-      else if (points.length > 1) {
-        onlasso?.(points.map((i) => coords.ids[i]));
-        // The page turns the set into a filter; regl's own highlight would just linger.
-        plot?.deselect({ preventEvent: true });
+      const cur = view.selected;
+      let next: number[];
+      if (points.length === 1) {
+        const id = coords.ids[points[0]];
+        next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      } else {
+        const add = points.map((i) => coords.ids[i]).filter((id) => !cur.includes(id));
+        next = [...cur, ...add];
       }
+      plot?.deselect({ preventEvent: true });
+      onselectionchange?.(next);
     });
-    plot.subscribe('deselect', () => { onselect?.(null); onlasso?.([]); });
+    // Background clicks and Escape fire `deselect`; the page's Clear owns emptying the list.
     plot.subscribe('view', scheduleOverlay);
     plot.subscribe('draw', scheduleOverlay);
     const reset = () => plot?.reset();

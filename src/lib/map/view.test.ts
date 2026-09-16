@@ -19,7 +19,7 @@ describe('view ⇄ params', () => {
 			upcoming: false,
 			minRatings: 500,
 			categories: [1, 3],
-			selected: 224517
+			selected: [224517, 13]
 		};
 		expect(fromParams(toParams(view), K)).toEqual(view);
 	});
@@ -37,7 +37,14 @@ describe('view ⇄ params', () => {
 		expect(v.y).toBe(2);
 		expect(v.colour).toBe('weight');
 		expect(v.minRatings).toBe(MIN_RATINGS_FLOOR);
-		expect(v.selected).toBeNull();
+		expect(v.selected).toEqual([]);
+	});
+
+	it('caps the selection carried in the URL', () => {
+		const many = Array.from({ length: 150 }, (_, i) => i + 1);
+		const p = toParams({ ...DEFAULT_VIEW, selected: many });
+		expect(p.get('g')!.split(',')).toHaveLength(100);
+		expect(fromParams(new URLSearchParams('g=5,5,x,7'), K).selected).toEqual([5, 7]);
 	});
 
 	it('parses a category filter, dropping junk and duplicates', () => {

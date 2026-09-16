@@ -22,7 +22,8 @@ export interface ViewState {
 	minRatings: number;
 	/** Category codes (1..k) to keep; null = all. Set by clicking legend swatches. */
 	categories: number[] | null;
-	selected: number | null;
+	/** Selected game ids — clicked or lassoed. Capped in the URL (see MAX_URL_SELECTED). */
+	selected: number[];
 }
 
 /** The working set's own floor; the slider can only raise it. */
@@ -37,8 +38,11 @@ export const DEFAULT_VIEW: ViewState = {
 	upcoming: true,
 	minRatings: MIN_RATINGS_FLOOR,
 	categories: null,
-	selected: null
+	selected: []
 };
+
+/** A lasso can select thousands; the URL carries at most this many. */
+export const MAX_URL_SELECTED = 100;
 
 const PROJECTIONS: Projection[] = ['pca', 'umap'];
 const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
@@ -58,7 +62,11 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 	const x = int(params.get('x'), DEFAULT_VIEW.x, 1, k);
 	let y = int(params.get('y'), DEFAULT_VIEW.y, 1, k);
 	if (y === x) y = x === 1 ? 2 : 1; // never plot a component against itself
-	const sel = int(params.get('g'), 0, 1, Number.MAX_SAFE_INTEGER);
+	const sel = (params.get('g') ?? '')
+		.split(',')
+		.map((v) => int(v, 0, 1, Number.MAX_SAFE_INTEGER))
+		.filter((v) => v > 0)
+		.slice(0, MAX_URL_SELECTED);
 	const cats = (params.get('cat') ?? '')
 		.split(',')
 		.map((c) => int(c, 0, 1, 7))
@@ -72,7 +80,7 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 		upcoming: params.get('u') !== '0',
 		minRatings: int(params.get('r'), DEFAULT_VIEW.minRatings, MIN_RATINGS_FLOOR, 1_000_000),
 		categories: cats.length ? [...new Set(cats)].sort((a, b) => a - b) : null,
-		selected: sel || null
+		selected: [...new Set(sel)]
 	};
 }
 
@@ -89,6 +97,6 @@ export function toParams(view: ViewState): URLSearchParams {
 	if (!view.upcoming) p.set('u', '0');
 	if (view.minRatings !== DEFAULT_VIEW.minRatings) p.set('r', String(view.minRatings));
 	if (view.categories?.length) p.set('cat', view.categories.join(','));
-	if (view.selected) p.set('g', String(view.selected));
+	if (view.selected.length) p.set('g', view.selected.slice(0, MAX_URL_SELECTED).join(','));
 	return p;
 }

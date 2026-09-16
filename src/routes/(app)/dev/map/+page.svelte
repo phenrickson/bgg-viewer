@@ -1,8 +1,13 @@
 <script lang="ts">
   /**
-   * `/dev/map` — the free-exploration embedding map. Controls strip, the canvas, a detail
-   * panel on selection, a footer with what's plotted and which model it is. Everything in
-   * the controls is mirrored to the URL so a view can be shared and reopened.
+   * `/dev/map` — the free-exploration embedding map. Controls strip, the map, a table of the
+   * selected games below it, a footer with what's plotted and which model it is. Everything
+   * in the controls (and the selection, capped) is mirrored to the URL so a view can be
+   * shared and reopened.
+   *
+   * One selection model: a list of games, built by clicking points (toggle), lassoing
+   * (adds), or searching (adds). Selected games are ringed on the map and listed in the
+   * table — the table is the only place a selected game's details appear.
    *
    * All user-facing strings here are PLACEHOLDER — Phil writes the copy.
    */
@@ -15,11 +20,7 @@
   import { fromParams, toParams, DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
-  import EmbeddingMapCanvas from '$lib/map/EmbeddingMapCanvas.svelte';
 
-  // Renderer A/B while choosing: WebGL (regl-scatterplot) vs the hand-drawn 2-D canvas.
-  // Not view state — `?r=canvas` is a comparison switch, not something to share.
-  let renderer = $state<'webgl' | 'canvas'>('webgl');
   let mode = $state<'pan' | 'lasso'>('pan');
 
   let coords = $state<CoordinateSet | null>(null);
@@ -43,30 +44,30 @@
   // Same shape as /games: read the URL on every navigation that lands here, mirror the view
   // back with replaceState (no navigation, no history spam).
   afterNavigate(() => {
-    const params = new URLSearchParams(location.search);
-    renderer = params.get('r') === 'canvas' ? 'canvas' : 'webgl';
-    view = fromParams(params, coords?.k ?? 6);
+    view = fromParams(new URLSearchParams(location.search), coords?.k ?? 6);
     hydrated = true;
   });
   $effect(() => {
     if (!hydrated) return;
-    const p = toParams(view);
-    if (renderer === 'canvas') p.set('r', 'canvas');
-    const qs = p.toString();
+    const qs = toParams(view).toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
 
   const k = $derived(coords?.k ?? 6);
   const components = $derived(Array.from({ length: k }, (_, i) => i + 1));
 
-  // --- selection & detail ------------------------------------------------------------
-  const selectedIdx = $derived(coords && view.selected != null ? (coords.index.get(view.selected) ?? -1) : -1);
+  // --- selection -----------------------------------------------------------------------
   /** A searched-for game the catalog knows but the artifact lacks — "not yet placed". */
   let unplaced = $state<{ id: number; name: string } | null>(null);
+  /** Opt-in: hide everything but the selection. Off by default — selecting highlights. */
+  let keepOnly = $state(false);
 
-  function select(id: number | null) {
-    view = { ...view, selected: id };
-    unplaced = null;
+  function setSelection(ids: number[]) {
+    view = { ...view, selected: ids };
+    if (ids.length === 0) keepOnly = false;
+  }
+  function removeFromSelection(id: number) {
+    setSelection(view.selected.filter((x) => x !== id));
   }
 
   // --- legend filter -------------------------------------------------------------------
@@ -80,8 +81,7 @@
     view = { ...view, categories: next };
   }
 
-  // --- lasso → table -------------------------------------------------------------------
-  let lassoIds = $state<number[]>([]);
+  // --- selection table -----------------------------------------------------------------
   type SortKey = 'name' | 'year' | 'weight' | 'geek' | 'ratings' | 'category';
   let sortKey = $state<SortKey>('ratings');
   let sortDir = $state<1 | -1>(-1);
@@ -89,10 +89,10 @@
     if (sortKey === k) sortDir = sortDir === 1 ? -1 : 1;
     else { sortKey = k; sortDir = k === 'name' || k === 'category' ? 1 : -1; }
   }
-  const lassoRows = $derived.by(() => {
+  const rows = $derived.by(() => {
     if (!coords || !facts) return [];
     const c = coords, f = facts;
-    const rows = lassoIds
+    const rows = view.selected
       .map((id) => c.index.get(id))
       .filter((i): i is number => i != null)
       .map((i) => ({
@@ -134,8 +134,10 @@
   function pick(hit: { game_id: number; name: string }) {
     q = '';
     hits = [];
-    if (coords?.index.has(hit.game_id)) select(hit.game_id);
-    else { view = { ...view, selected: null }; unplaced = hit ? { id: hit.game_id, name: hit.name } : null; }
+    if (coords?.index.has(hit.game_id)) {
+      unplaced = null;
+      if (!view.selected.includes(hit.game_id)) setSelection([...view.selected, hit.game_id]);
+    } else unplaced = { id: hit.game_id, name: hit.name };
   }
 
   const plotted = $derived.by(() => {
@@ -227,12 +229,6 @@
         {view.categories.length} {view.categories.length === 1 ? 'category' : 'categories'} kept ×
       </button>
     {/if}
-    <label>Renderer
-      <select bind:value={renderer}>
-        <option value="webgl">WebGL</option>
-        <option value="canvas">Canvas</option>
-      </select>
-    </label>
     <label>Min ratings
       <select bind:value={view.minRatings}>
         {#each MIN_RATINGS_STEPS as r (r)}<option value={r}>{r.toLocaleString()}</option>{/each}
@@ -250,60 +246,38 @@
       {:else if !coords || !facts}
         <div class="state">Loading {catalog.status === 'ready' ? 'coordinates' : 'catalog'}…</div>
       {:else}
-        {#if renderer === 'canvas'}
-          <EmbeddingMapCanvas {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
-        {:else}
-          <EmbeddingMap
-            {coords}
-            {facts}
-            {view}
-            anchors={ANCHORS}
-            {mode}
-            keep={lassoIds.length ? lassoIds : null}
-            onselect={select}
-            onlasso={(ids) => (lassoIds = ids)}
-            ontogglecategory={toggleCategory}
-          />
-        {/if}
+        <EmbeddingMap
+          {coords}
+          {facts}
+          {view}
+          anchors={ANCHORS}
+          {mode}
+          keep={keepOnly && view.selected.length ? view.selected : null}
+          onselectionchange={setSelection}
+          ontogglecategory={toggleCategory}
+        />
       {/if}
     </div>
-
-    {#if coords && facts && (selectedIdx >= 0 || unplaced)}
-      <aside class="detail">
-        {#if selectedIdx >= 0}
-          {@const id = coords.ids[selectedIdx]}
-          <button class="close" type="button" onclick={() => select(null)} aria-label="Close">×</button>
-          <h2>{facts.name(id)}</h2>
-          <dl>
-            <dt>Year</dt><dd>{facts.year[selectedIdx] || '—'}</dd>
-            <dt>Weight</dt><dd>{facts.weight[selectedIdx] ? facts.weight[selectedIdx].toFixed(2) : '—'}</dd>
-            <dt>Geek rating</dt><dd>{facts.geekRating[selectedIdx] ? facts.geekRating[selectedIdx].toFixed(2) : '—'}</dd>
-            <dt>Avg rating</dt><dd>{facts.averageRating[selectedIdx] ? facts.averageRating[selectedIdx].toFixed(2) : '—'}</dd>
-            <dt>Ratings</dt><dd>{facts.usersRated[selectedIdx].toLocaleString()}</dd>
-            <dt>Category</dt><dd>{facts.categoryLabels[facts.category[selectedIdx]]}</dd>
-            {#if view.projection === 'pca'}
-              <dt>PC{view.x}</dt><dd>{coords.pcs[view.x - 1][selectedIdx].toFixed(2)}</dd>
-              <dt>PC{view.y}</dt><dd>{coords.pcs[view.y - 1][selectedIdx].toFixed(2)}</dd>
-            {:else}
-              <dt>UMAP</dt><dd>{coords.umap[0][selectedIdx].toFixed(2)}, {coords.umap[1][selectedIdx].toFixed(2)}</dd>
-            {/if}
-          </dl>
-          <a href="/games/{id}">Open game page →</a>
-        {:else if unplaced}
-          <button class="close" type="button" onclick={() => (unplaced = null)} aria-label="Close">×</button>
-          <h2>{unplaced.name}</h2>
-          <p class="muted">Not placed yet — this game has no coordinates in the current embedding.</p>
-          <a href="/games/{unplaced.id}">Open game page →</a>
-        {/if}
-      </aside>
-    {/if}
   </div>
 
-  {#if lassoRows.length}
+  {#if unplaced}
+    <p class="notice">
+      <strong>{unplaced.name}</strong> isn’t placed yet — no coordinates in the current embedding.
+      <a href="/games/{unplaced.id}">Open game page →</a>
+      <button type="button" class="chip" onclick={() => (unplaced = null)}>×</button>
+    </p>
+  {/if}
+
+  {#if rows.length}
     <section class="lasso">
       <header>
-        <strong>{lassoRows.length.toLocaleString()} games kept from the lasso</strong>
-        <button type="button" class="chip" onclick={() => (lassoIds = [])}>Clear ×</button>
+        <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
+        <span class="actions">
+          <button type="button" class="chip" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
+            {keepOnly ? 'Showing only these' : 'Show only these'}
+          </button>
+          <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
+        </span>
       </header>
       <div class="table-wrap">
         <table>
@@ -314,17 +288,19 @@
                   {label}{sortKey === k ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
                 </th>
               {/each}
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            {#each lassoRows as r (r.id)}
-              <tr class:selected={view.selected === r.id} onclick={() => select(r.id)}>
-                <td><a href="/games/{r.id}" onclick={(e) => e.stopPropagation()}>{r.name}</a></td>
+            {#each rows as r (r.id)}
+              <tr>
+                <td><a href="/games/{r.id}">{r.name}</a></td>
                 <td>{r.year ?? '—'}</td>
                 <td>{r.weight?.toFixed(2) ?? '—'}</td>
                 <td>{r.geek?.toFixed(2) ?? '—'}</td>
                 <td>{r.ratings.toLocaleString()}</td>
                 <td>{r.category}</td>
+                <td><button type="button" class="remove" onclick={() => removeFromSelection(r.id)} aria-label="Remove from selection">×</button></td>
               </tr>
             {/each}
           </tbody>
@@ -397,29 +373,11 @@
   }
   .state.error { color: var(--destructive, var(--foreground)); }
 
-  .detail {
-    flex: 0 0 18rem; position: relative;
-    padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--card); overflow: auto;
+  .notice {
+    margin: 0; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    color: var(--muted-foreground); font-size: 0.85rem;
   }
-  .detail h2 { margin: 0 1.5rem 0.5rem 0; font-size: 1.1rem; }
-  .detail dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; margin: 0 0 0.8rem; }
-  .detail dt { color: var(--muted-foreground); }
-  .detail dd { margin: 0; font-variant-numeric: tabular-nums; }
-  .detail a { color: var(--primary); }
-  .detail .muted { color: var(--muted-foreground); }
-  .close {
-    position: absolute; top: 0.4rem; right: 0.4rem;
-    border: 0; background: none; color: var(--muted-foreground); font-size: 1.2rem; cursor: pointer;
-  }
-
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .seg button {
-    border: 0; background: var(--background); color: var(--muted-foreground);
-    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; cursor: pointer;
-  }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--muted); color: var(--foreground); }
+  .notice a { color: var(--primary); }
 
   .chip {
     border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
@@ -442,9 +400,11 @@
   .lasso th.active { color: var(--foreground); }
   .lasso td { padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); white-space: nowrap; }
   .lasso td:first-child { white-space: normal; }
-  .lasso tbody tr { cursor: pointer; }
+  .lasso .actions { display: inline-flex; gap: 0.4rem; }
+  .lasso .chip.on { background: color-mix(in oklch, var(--primary) 18%, var(--muted)); }
   .lasso tbody tr:hover { background: var(--muted); }
-  .lasso tbody tr.selected { background: color-mix(in oklch, var(--primary) 14%, transparent); }
+  .remove { border: 0; background: none; color: var(--muted-foreground); cursor: pointer; font-size: 1rem; line-height: 1; }
+  .remove:hover { color: var(--foreground); }
   .lasso a { color: var(--primary); text-decoration: none; }
   .lasso a:hover { text-decoration: underline; }
 
