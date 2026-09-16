@@ -26,6 +26,7 @@
     view,
     anchors = [],
     mode = 'pan',
+    keep = null,
     onselect,
     onhover,
     onlasso,
@@ -37,6 +38,8 @@
     anchors?: number[];
     /** What a plain drag does. Shift+drag lassos in either mode. */
     mode?: 'pan' | 'lasso';
+    /** Game ids to keep on the map (a lasso set); null = everything the other filters allow. */
+    keep?: number[] | null;
     onselect?: (id: number | null) => void;
     onhover?: (id: number | null) => void;
     /** A lasso (shift+drag or long-press) closed around these games; empty = cleared. */
@@ -95,10 +98,12 @@
     const n = coords.ids.length;
     const idx: number[] = [];
     const cats = view.categories ? new Set(view.categories) : null;
+    const kept = keep ? new Set(keep) : null;
     for (let i = 0; i < n; i++) {
       const up = facts.upcoming[i] === 1;
       let show = up ? view.upcoming : facts.usersRated[i] >= view.minRatings;
       if (show && cats) show = cats.has(facts.category[i]);
+      if (show && kept) show = kept.has(coords.ids[i]);
       if (show && Number.isFinite(xs[i]) && Number.isFinite(ys[i])) idx.push(i);
     }
     return idx;
@@ -251,7 +256,11 @@
     // `select` for both, so the count is the tell.
     plot.subscribe('select', ({ points }) => {
       if (points.length === 1) onselect?.(coords.ids[points[0]]);
-      else if (points.length > 1) onlasso?.(points.map((i) => coords.ids[i]));
+      else if (points.length > 1) {
+        onlasso?.(points.map((i) => coords.ids[i]));
+        // The page turns the set into a filter; regl's own highlight would just linger.
+        plot?.deselect({ preventEvent: true });
+      }
     });
     plot.subscribe('deselect', () => { onselect?.(null); onlasso?.([]); });
     plot.subscribe('view', scheduleOverlay);

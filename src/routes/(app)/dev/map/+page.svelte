@@ -259,6 +259,7 @@
             {view}
             anchors={ANCHORS}
             {mode}
+            keep={lassoIds.length ? lassoIds : null}
             onselect={select}
             onlasso={(ids) => (lassoIds = ids)}
             ontogglecategory={toggleCategory}
@@ -301,7 +302,7 @@
   {#if lassoRows.length}
     <section class="lasso">
       <header>
-        <strong>{lassoRows.length.toLocaleString()} games selected</strong>
+        <strong>{lassoRows.length.toLocaleString()} games kept from the lasso</strong>
         <button type="button" class="chip" onclick={() => (lassoIds = [])}>Clear ×</button>
       </header>
       <div class="table-wrap">
