@@ -360,7 +360,6 @@
   }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .controls select { color: var(--foreground); }
-  .controls strong { color: var(--foreground); font-variant-numeric: tabular-nums; }
 
   .body {
     flex: 1 1 auto; min-height: 20rem;
@@ -412,6 +411,5 @@
 
   @container (max-width: 44rem) {
     .body { flex-direction: column; }
-    .detail { flex: none; }
   }
 </style>
