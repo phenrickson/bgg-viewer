@@ -13,6 +13,7 @@
 #   just vizzes     # regenerate landing content, print the /dev/vizzes review URL
 #   just dev-vizzes # regenerate + start the dev server, one command/one terminal
 #   just dev-similar # start the dev server, print the /dev/similar bench URL
+#   just dev-map    # start the dev server, print the /dev/map embedding-map URL
 #   just verify     # types + tests + build (run before every PR)
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
@@ -125,6 +126,21 @@ similar-rebuild:
 # Foreground, same as `dev`: Ctrl-C to stop.
 # Start the dev server, pointed at the /dev/similar bench.
 dev-similar: similar
+    -pnpm exec vite dev --port 5173
+
+# --- Embedding map (dev only) ------------------------------------------------
+
+# /dev/map is dev-gated and reads the coordinates artifact from BigQuery on first request
+# (~11s, then cached 24h in .cache/coordinates.arrow.gz). Nothing to regenerate up front;
+# this starts the server and points you at it. Foreground, same as `dev`: Ctrl-C to stop.
+# Print the /dev/map embedding-map URL.
+map:
+    @echo "-> http://localhost:5173/dev/map"
+
+# `map` runs first (prints the URL), then the server starts in the same terminal.
+# Foreground, same as `dev`: Ctrl-C to stop.
+# Start the dev server, pointed at the /dev/map embedding map.
+dev-map: map
     -pnpm exec vite dev --port 5173
 
 # Type-check (svelte-check).
