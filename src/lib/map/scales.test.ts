@@ -65,29 +65,33 @@ describe('oklch', () => {
 });
 
 describe('buildColouring', () => {
-	it('weight: quantises 1–5 into the ramp, unknown weight to the lightest', () => {
+	// Continuous encodings: bucket 0 is "no value" (muted), 1..RAMP_STEPS span the domain.
+	it('weight: 1–5 through the complexity ramp; unknown weight is the muted bucket', () => {
 		const c = buildColouring('weight', facts(), palette, 2026);
-		expect(c.colours).toHaveLength(RAMP_STEPS);
-		expect(c.bucketOf[0]).toBe(0);
-		expect(c.bucketOf[2]).toBe(RAMP_STEPS - 1);
-		expect(c.bucketOf[1]).toBeGreaterThan(0);
+		expect(c.colours).toHaveLength(RAMP_STEPS + 1);
+		expect(c.colours[0]).toBe('muted');
+		expect(c.colours[1]).toMatch(/^oklch\(/);
+		expect(c.bucketOf[0]).toBe(1);
+		expect(c.bucketOf[2]).toBe(RAMP_STEPS);
+		expect(c.bucketOf[1]).toBeGreaterThan(1);
 		expect(c.bucketOf[3]).toBe(0);
 		expect(c.domain).toEqual([1, 5]);
 	});
-	it('geek / average rating: ramps over their real bands, unrated to the lightest', () => {
+	it('geek / average rating: ramp over their real bands; unrated is the muted bucket', () => {
 		const g = buildColouring('geek', facts(), palette, 2026);
-		expect(g.bucketOf[0]).toBe(0);
-		expect(g.bucketOf[2]).toBe(RAMP_STEPS - 1);
+		expect(g.bucketOf[0]).toBe(1);
+		expect(g.bucketOf[2]).toBe(RAMP_STEPS);
 		expect(g.bucketOf[3]).toBe(0);
 		expect(g.domain).toEqual([5.5, 8.5]);
 		const a = buildColouring('rating', facts(), palette, 2026);
-		expect(a.bucketOf[2]).toBe(RAMP_STEPS - 1);
+		expect(a.bucketOf[2]).toBe(RAMP_STEPS);
 		expect(a.domain).toEqual([5, 9]);
 	});
 	it('year: clamps old games to the bottom of the ramp', () => {
 		const c = buildColouring('year', facts({ year: Int16Array.from([1980, 2010, 2026, 0]) }), palette, 2026);
-		expect(c.bucketOf[0]).toBe(0);
-		expect(c.bucketOf[2]).toBe(RAMP_STEPS - 1);
+		expect(c.bucketOf[0]).toBe(1);
+		expect(c.bucketOf[2]).toBe(RAMP_STEPS);
+		expect(c.bucketOf[3]).toBe(0);
 	});
 	it('upcoming: two buckets with a legend', () => {
 		const c = buildColouring('upcoming', facts(), palette, 2026);

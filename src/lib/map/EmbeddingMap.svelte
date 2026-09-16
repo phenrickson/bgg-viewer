@@ -37,6 +37,16 @@
   } = $props();
 
   const CURRENT_YEAR = new Date().getFullYear();
+  // PLACEHOLDER copy — legend titles.
+  const COLOUR_LABEL: Record<ViewState['colour'], string> = {
+    weight: 'Weight',
+    geek: 'Geek rating',
+    rating: 'Average rating',
+    year: 'Year',
+    upcoming: 'Upcoming',
+    category: 'Category'
+  };
+  const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
   /** regl-scatterplot sizes are diameters in px; sizes are bucketed to whole px so they can
    * ride in the categorical `valueB` slot with a lookup table. */
   const MAX_DIAMETER = 20;
@@ -249,6 +259,20 @@
 <div class="host" bind:this={host}>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
+  {#if colouring}
+    <div class="legend">
+      <div class="legend-title">{COLOUR_LABEL[view.colour]}</div>
+      {#if colouring.domain}
+        <div class="bar" style:background="linear-gradient(to right, {colouring.colours.slice(1).join(', ')})"></div>
+        <div class="ends"><span>{fmt(colouring.domain[0])}</span><span>{fmt(colouring.domain[1])}</span></div>
+        <div class="swatch-row"><i style:background={colouring.colours[0]}></i> no value</div>
+      {:else}
+        {#each colouring.legend as { label, bucket } (bucket)}
+          <div class="swatch-row"><i style:background={colouring.colours[bucket]}></i> {label}</div>
+        {/each}
+      {/if}
+    </div>
+  {/if}
   {#if tip && hovered >= 0}
     {@const id = coords.ids[hovered]}
     <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px">
@@ -298,6 +322,25 @@
     font-size: 0.8125rem;
     line-height: 1.3;
   }
+  .legend {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    pointer-events: none;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: color-mix(in oklch, var(--card) 88%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    min-width: 9rem;
+  }
+  .legend-title { color: var(--foreground); font-weight: 600; margin-bottom: 0.25rem; }
+  .bar { height: 0.55rem; border-radius: 2px; }
+  .ends { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .swatch-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
+  .swatch-row i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
   .tip .name { font-weight: 600; }
   .tip .meta { color: var(--muted-foreground); }
 </style>

@@ -9,6 +9,7 @@
  * Colours are token *values* resolved by the caller from `app.css` (see `readPalette` in
  * the component) so this module never sees a hex and dark mode just works.
  */
+import { ratingColor, complexityColor } from '$lib/game/similarity';
 import type { GameFacts } from './facts';
 import type { ColourBy } from './view';
 
@@ -68,43 +69,61 @@ export interface Colouring {
 	colours: string[];
 	/** Legend entries in display order; `bucket` indexes `colours`. */
 	legend: { label: string; bucket: number }[];
-	/** Continuous encodings expose their domain for the legend's end labels. */
+	/**
+	 * Continuous encodings: bucket 0 is "no value" (muted), buckets 1..RAMP_STEPS span
+	 * `domain` low→high. The legend draws `colours.slice(1)` as a bar with these end labels.
+	 */
 	domain?: [number, number];
 }
 
-function ramp(palette: Palette): string[] {
+/** The map's own blue ramp from the two `--map-ramp-*` tokens (theme-aware). */
+function tokenRamp(palette: Palette): string[] {
 	return Array.from({ length: RAMP_STEPS }, (_, i) => oklchMix(palette.ramp[0], palette.ramp[1], i / (RAMP_STEPS - 1)));
 }
 
+/** Sample one of the app's existing value→colour functions at each bucket's midpoint, so the
+ * map grades a measure exactly the way the game page does. */
+function sampledRamp(fn: (v: number) => string, lo: number, hi: number): string[] {
+	return Array.from({ length: RAMP_STEPS }, (_, i) => fn(lo + ((i + 0.5) / RAMP_STEPS) * (hi - lo)));
+}
+
+/** 1..RAMP_STEPS for a value in [lo, hi] (clamped); callers reserve 0 for "no value". */
 function quantise(v: number, lo: number, hi: number): number {
 	const t = (v - lo) / (hi - lo);
-	return Math.min(RAMP_STEPS - 1, Math.max(0, Math.floor(t * RAMP_STEPS)));
+	return 1 + Math.min(RAMP_STEPS - 1, Math.max(0, Math.floor(t * RAMP_STEPS)));
+}
+
+function continuous(
+	values: ArrayLike<number>,
+	lo: number,
+	hi: number,
+	ramp: string[],
+	palette: Palette
+): Colouring {
+	const n = values.length;
+	const bucketOf = new Uint8Array(n);
+	for (let i = 0; i < n; i++) bucketOf[i] = values[i] > 0 ? quantise(values[i], lo, hi) : 0;
+	return { bucketOf, colours: [palette.muted, ...ramp], legend: [], domain: [lo, hi] };
 }
 
 export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette, currentYear: number): Colouring {
 	const n = facts.weight.length;
 	const bucketOf = new Uint8Array(n);
 	switch (by) {
-		case 'weight': {
-			// BGG weight is 1–5; a game with no weight yet (most upcoming) sits at 0 → lightest.
-			for (let i = 0; i < n; i++) bucketOf[i] = facts.weight[i] > 0 ? quantise(facts.weight[i], 1, 5) : 0;
-			return { bucketOf, colours: ramp(palette), legend: [], domain: [1, 5] };
-		}
-		case 'geek': {
-			// Geek rating lives in a narrow band: the floor is ~5.5 (the Bayesian prior) and the top
-			// of BGG is ~8.5, so a 1–10 domain would put every game in two shades.
-			for (let i = 0; i < n; i++) bucketOf[i] = facts.geekRating[i] > 0 ? quantise(facts.geekRating[i], 5.5, 8.5) : 0;
-			return { bucketOf, colours: ramp(palette), legend: [], domain: [5.5, 8.5] };
-		}
-		case 'rating': {
-			for (let i = 0; i < n; i++) bucketOf[i] = facts.averageRating[i] > 0 ? quantise(facts.averageRating[i], 5, 9) : 0;
-			return { bucketOf, colours: ramp(palette), legend: [], domain: [5, 9] };
-		}
-		case 'year': {
-			const lo = currentYear - 35;
-			for (let i = 0; i < n; i++) bucketOf[i] = facts.year[i] ? quantise(facts.year[i], lo, currentYear) : 0;
-			return { bucketOf, colours: ramp(palette), legend: [], domain: [lo, currentYear] };
-		}
+		// Weight and geek rating use the game page's own colour functions (similarity.ts) so a
+		// game reads the same colour here as on its detail page. Same domains as there.
+		case 'weight':
+			return continuous(facts.weight, 1, 5, sampledRamp(complexityColor, 1, 5), palette);
+		case 'geek':
+			// Note the band is linear 5.5–8.5 like the game page, but half of all games sit in
+			// 5.49–5.54, so most of the map lands in the first shade. Honest, and the legend says so.
+			return continuous(facts.geekRating, 5.5, 8.5, sampledRamp(ratingColor, 5.5, 8.5), palette);
+		case 'rating':
+			// Average rating has no colour function of its own; borrow the geek ramp's look across
+			// average's wider 5–9 band.
+			return continuous(facts.averageRating, 5, 9, sampledRamp((v) => ratingColor(5.5 + ((v - 5) / 4) * 3), 5, 9), palette);
+		case 'year':
+			return continuous(facts.year, currentYear - 35, currentYear, tokenRamp(palette), palette);
 		case 'upcoming': {
 			for (let i = 0; i < n; i++) bucketOf[i] = facts.upcoming[i];
 			return {
