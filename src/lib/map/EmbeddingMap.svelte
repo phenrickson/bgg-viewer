@@ -25,6 +25,7 @@
     facts,
     view,
     anchors = [],
+    mode = 'pan',
     onselect,
     onhover,
     onlasso,
@@ -34,6 +35,8 @@
     facts: GameFacts;
     view: ViewState;
     anchors?: number[];
+    /** What a plain drag does. Shift+drag lassos in either mode. */
+    mode?: 'pan' | 'lasso';
     onselect?: (id: number | null) => void;
     onhover?: (id: number | null) => void;
     /** A lasso (shift+drag or long-press) closed around these games; empty = cleared. */
@@ -128,6 +131,8 @@
       pointColorActive: toHex(theme.accent)
     });
   });
+
+  $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
 
   /** Positions + encodings. One `draw` per change of projection/axes/colour/size. */
   let drawn = false;
@@ -270,7 +275,7 @@
   }
 </script>
 
-<div class="host" bind:this={host}>
+<div class="host" class:lasso={mode === 'lasso'} bind:this={host}>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   {#if colouring}
@@ -335,6 +340,7 @@
     touch-action: none;
     cursor: crosshair;
   }
+  .host.lasso .gl { cursor: cell; }
   .overlay {
     position: absolute;
     inset: 0;

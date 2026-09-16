@@ -20,6 +20,7 @@
   // Renderer A/B while choosing: WebGL (regl-scatterplot) vs the hand-drawn 2-D canvas.
   // Not view state — `?r=canvas` is a comparison switch, not something to share.
   let renderer = $state<'webgl' | 'canvas'>('webgl');
+  let mode = $state<'pan' | 'lasso'>('pan');
 
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
@@ -217,6 +218,10 @@
     <label class="check">
       <input type="checkbox" bind:checked={view.upcoming} /> Upcoming
     </label>
+    <div class="seg" role="group" aria-label="Drag mode">
+      <button type="button" class:on={mode === 'pan'} onclick={() => (mode = 'pan')}>Pan</button>
+      <button type="button" class:on={mode === 'lasso'} onclick={() => (mode = 'lasso')}>Lasso</button>
+    </div>
     {#if view.categories}
       <button type="button" class="chip" onclick={() => (view = { ...view, categories: null })}>
         {view.categories.length} {view.categories.length === 1 ? 'category' : 'categories'} kept ×
@@ -253,6 +258,7 @@
             {facts}
             {view}
             anchors={ANCHORS}
+            {mode}
             onselect={select}
             onlasso={(ids) => (lassoIds = ids)}
             ontogglecategory={toggleCategory}
@@ -405,6 +411,14 @@
     position: absolute; top: 0.4rem; right: 0.4rem;
     border: 0; background: none; color: var(--muted-foreground); font-size: 1.2rem; cursor: pointer;
   }
+
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg button {
+    border: 0; background: var(--background); color: var(--muted-foreground);
+    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--muted); color: var(--foreground); }
 
   .chip {
     border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
