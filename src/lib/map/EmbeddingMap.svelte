@@ -264,7 +264,14 @@
       <div class="legend-title">{COLOUR_LABEL[view.colour]}</div>
       {#if colouring.domain}
         <div class="bar" style:background="linear-gradient(to right, {colouring.colours.slice(1).join(', ')})"></div>
-        <div class="ends"><span>{fmt(colouring.domain[0])}</span><span>{fmt(colouring.domain[1])}</span></div>
+        <div class="ends">
+          <span>{fmt(colouring.domain[0])}</span>
+          {#if colouring.mid != null}
+            {@const [lo, hi] = colouring.domain}
+            <span class="mid" style:left="{((colouring.mid - lo) / (hi - lo)) * 100}%">{fmt(colouring.mid)}</span>
+          {/if}
+          <span>{fmt(colouring.domain[1])}</span>
+        </div>
         <div class="swatch-row"><i style:background={colouring.colours[0]}></i> no value</div>
       {:else}
         {#each colouring.legend as { label, bucket } (bucket)}
@@ -338,7 +345,8 @@
   }
   .legend-title { color: var(--foreground); font-weight: 600; margin-bottom: 0.25rem; }
   .bar { height: 0.55rem; border-radius: 2px; }
-  .ends { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .ends { position: relative; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .ends .mid { position: absolute; transform: translateX(-50%); color: var(--foreground); }
   .swatch-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
   .swatch-row i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
   .tip .name { font-weight: 600; }
