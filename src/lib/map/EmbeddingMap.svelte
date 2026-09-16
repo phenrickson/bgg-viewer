@@ -115,7 +115,7 @@
   /*
    * Three kinds of work, cheapest first:
    *   'overlay' — clear + redraw rings/labels (every pointer move)
-   *   'view'    — zoom/pan: a *fast* repaint (DPR 1, opaque squares, no alpha) so dots keep
+   *   'view'    — zoom/pan: a *fast* repaint (DPR 1, opaque, still round) so dots keep
    *               their size while the gesture runs, then the full repaint once it pauses.
    *               Scaling a cached bitmap instead was tried and felt wrong: dots grew with
    *               the zoom and snapped back on settle.
@@ -166,26 +166,17 @@
       if (idx.length === 0) continue;
       ctx.fillStyle = colouring.colours[b];
       ctx.strokeStyle = colouring.colours[b];
-      if (fast) {
-        // Squares, opaque: fillRect is several times cheaper than arc+fill with alpha, and
-        // at gesture speed nobody sees the corners.
-        ctx.globalAlpha = 1;
-        for (const i of idx) {
-          if (facts.upcoming[i]) continue;
-          const r = radiusFor(facts.usersRated[i], false);
-          ctx.fillRect(sx(xs[i]) - r, sy(ys[i]) - r, 2 * r, 2 * r);
-        }
-      } else {
-        ctx.globalAlpha = 0.65;
-        ctx.beginPath();
-        for (const i of idx) {
-          if (facts.upcoming[i]) continue;
-          const r = radiusFor(facts.usersRated[i], false);
-          ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
-          ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
-        }
-        ctx.fill();
+      // Fast pass keeps the dots round (squares read as a different chart) and saves its
+      // time on DPR 1 and opaque fills — alpha compositing is the pricier half.
+      ctx.globalAlpha = fast ? 1 : 0.65;
+      ctx.beginPath();
+      for (const i of idx) {
+        if (facts.upcoming[i]) continue;
+        const r = radiusFor(facts.usersRated[i], false);
+        ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
+        ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
       }
+      ctx.fill();
       ctx.globalAlpha = 0.9;
       ctx.beginPath();
       for (const i of idx) {
