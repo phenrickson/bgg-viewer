@@ -41,7 +41,11 @@
   const CURRENT_YEAR = new Date().getFullYear();
 
   let host: HTMLDivElement;
+  // Two stacked canvases. The cloud (36k dots) is expensive and only changes on
+  // data/zoom/colour; the overlay (anchors, hover ring, selection) is cheap and changes on
+  // every pointer move. Splitting them means hovering never repaints the cloud.
   let canvas: HTMLCanvasElement;
+  let overlay: HTMLCanvasElement;
   let width = $state(0);
   let height = $state(0);
 
@@ -109,17 +113,30 @@
 
   // --- drawing -----------------------------------------------------------------------
   let raf = 0;
-  function schedule() {
+  let dirtyCloud = false, dirtyOverlay = false;
+  function schedule(layer: 'cloud' | 'overlay') {
+    if (layer === 'cloud') dirtyCloud = true; else dirtyOverlay = true;
     if (raf) return;
-    raf = requestAnimationFrame(() => { raf = 0; draw(); });
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (dirtyCloud) drawCloud();
+      if (dirtyCloud || dirtyOverlay) drawOverlay();
+      dirtyCloud = dirtyOverlay = false;
+    });
   }
 
-  function draw() {
-    if (!canvas || !theme || !colouring || width === 0) return;
+  /** Size a canvas to the host at the capped DPR; returns a context in CSS px units. */
+  function context(c: HTMLCanvasElement): CanvasRenderingContext2D {
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    if (canvas.width !== Math.round(width * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
-    const ctx = canvas.getContext('2d')!;
+    if (c.width !== Math.round(width * dpr)) { c.width = Math.round(width * dpr); c.height = Math.round(height * dpr); }
+    const ctx = c.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return ctx;
+  }
+
+  function drawCloud() {
+    if (!canvas || !theme || !colouring || width === 0) return;
+    const ctx = context(canvas);
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, width, height);
 
@@ -152,6 +169,12 @@
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawOverlay() {
+    if (!overlay || !theme || width === 0) return;
+    const ctx = context(overlay);
+    ctx.clearRect(0, 0, width, height);
 
     // Anchors: a ring in the foreground ink plus a label — the map's signposts.
     ctx.font = `600 12px ${theme.font}`;
@@ -183,14 +206,15 @@
     ctx.fillStyle = ink; ctx.fillText(text, lx, y);
   }
 
-  $effect(() => { void drawOrder; void k; void tx; void ty; void hovered; void selectedIdx; void anchorIdx; void width; void height; schedule(); });
+  $effect(() => { void drawOrder; void k; void tx; void ty; void width; void height; schedule('cloud'); });
+  $effect(() => { void hovered; void selectedIdx; void anchorIdx; schedule('overlay'); });
 
   // --- interaction -------------------------------------------------------------------
   let pointers = new Map<number, { x: number; y: number }>();
   let dragging = false, moved = 0, lastX = 0, lastY = 0, pinchDist = 0;
 
   function local(e: PointerEvent | MouseEvent) {
-    const r = canvas.getBoundingClientRect();
+    const r = overlay.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
   function zoomAt(px: number, py: number, f: number) {
@@ -203,7 +227,7 @@
   }
 
   function onpointerdown(e: PointerEvent) {
-    canvas.setPointerCapture(e.pointerId);
+    overlay.setPointerCapture(e.pointerId);
     const p = local(e);
     pointers.set(e.pointerId, p);
     dragging = true; moved = 0; lastX = p.x; lastY = p.y;
@@ -263,8 +287,10 @@
 </script>
 
 <div class="host" bind:this={host}>
+  <canvas bind:this={canvas} style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   <canvas
-    bind:this={canvas}
+    bind:this={overlay}
+    class="overlay"
     style:width="{width}px"
     style:height="{height}px"
     {onpointerdown}
@@ -304,6 +330,10 @@
   canvas {
     display: block;
     touch-action: none;
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
     cursor: crosshair;
   }
   .tip {
