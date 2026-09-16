@@ -22,6 +22,8 @@ const palette: Palette = {
 function facts(over: Partial<GameFacts> = {}): GameFacts {
 	return {
 		weight: Float32Array.from([1, 3, 5, 0]),
+		geekRating: Float32Array.from([5.5, 7, 8.5, 0]),
+		averageRating: Float32Array.from([5, 7, 9, 0]),
 		year: Int16Array.from([1995, 2010, 2026, 0]),
 		usersRated: Int32Array.from([30, 1000, 100000, 0]),
 		upcoming: Uint8Array.from([0, 0, 1, 1]),
@@ -68,6 +70,16 @@ describe('buildColouring', () => {
 		expect(c.bucketOf[1]).toBeGreaterThan(0);
 		expect(c.bucketOf[3]).toBe(0);
 		expect(c.domain).toEqual([1, 5]);
+	});
+	it('geek / average rating: ramps over their real bands, unrated to the lightest', () => {
+		const g = buildColouring('geek', facts(), palette, 2026);
+		expect(g.bucketOf[0]).toBe(0);
+		expect(g.bucketOf[2]).toBe(RAMP_STEPS - 1);
+		expect(g.bucketOf[3]).toBe(0);
+		expect(g.domain).toEqual([5.5, 8.5]);
+		const a = buildColouring('rating', facts(), palette, 2026);
+		expect(a.bucketOf[2]).toBe(RAMP_STEPS - 1);
+		expect(a.domain).toEqual([5, 9]);
 	});
 	it('year: clamps old games to the bottom of the ramp', () => {
 		const c = buildColouring('year', facts({ year: Int16Array.from([1980, 2010, 2026, 0]) }), palette, 2026);

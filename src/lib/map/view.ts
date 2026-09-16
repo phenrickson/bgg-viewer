@@ -5,7 +5,7 @@
  */
 
 export type Projection = 'pca' | 'umap';
-export type ColourBy = 'weight' | 'year' | 'upcoming' | 'category';
+export type ColourBy = 'weight' | 'geek' | 'rating' | 'year' | 'upcoming' | 'category';
 
 export interface ViewState {
 	projection: Projection;
@@ -34,7 +34,7 @@ export const DEFAULT_VIEW: ViewState = {
 };
 
 const PROJECTIONS: Projection[] = ['pca', 'umap'];
-const COLOURS: ColourBy[] = ['weight', 'year', 'upcoming', 'category'];
+const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
 
 function oneOf<T extends string>(v: string | null, allowed: T[], fallback: T): T {
 	return v !== null && (allowed as string[]).includes(v) ? (v as T) : fallback;

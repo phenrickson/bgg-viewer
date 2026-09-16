@@ -153,6 +153,8 @@
     <label>Colour
       <select bind:value={view.colour}>
         <option value="weight">Weight</option>
+        <option value="geek">Geek rating</option>
+        <option value="rating">Average rating</option>
         <option value="year">Year</option>
         <option value="upcoming">Upcoming</option>
         <option value="category">Category</option>
@@ -186,6 +188,8 @@
           <dl>
             <dt>Year</dt><dd>{facts.year[selectedIdx] || '—'}</dd>
             <dt>Weight</dt><dd>{facts.weight[selectedIdx] ? facts.weight[selectedIdx].toFixed(2) : '—'}</dd>
+            <dt>Geek rating</dt><dd>{facts.geekRating[selectedIdx] ? facts.geekRating[selectedIdx].toFixed(2) : '—'}</dd>
+            <dt>Avg rating</dt><dd>{facts.averageRating[selectedIdx] ? facts.averageRating[selectedIdx].toFixed(2) : '—'}</dd>
             <dt>Ratings</dt><dd>{facts.usersRated[selectedIdx].toLocaleString()}</dd>
             <dt>Category</dt><dd>{facts.categoryLabels[facts.category[selectedIdx]]}</dd>
             {#if view.projection === 'pca'}

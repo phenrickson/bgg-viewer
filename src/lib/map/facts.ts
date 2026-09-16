@@ -15,6 +15,9 @@ export const CATEGORY_SLOTS = 6;
 
 export interface GameFacts {
 	weight: Float32Array;
+	/** BGG's Bayesian-shrunk rating; 0 where BGG hasn't assigned one (most upcoming games). */
+	geekRating: Float32Array;
+	averageRating: Float32Array;
 	year: Int16Array;
 	usersRated: Int32Array;
 	/** `year >= current year` — the working set's own definition of upcoming. */
@@ -31,6 +34,8 @@ export interface GameFacts {
 export interface FactRowColumns {
 	game_id: ArrayLike<number>;
 	average_weight: ArrayLike<number>;
+	geek_rating: ArrayLike<number>;
+	average_rating: ArrayLike<number>;
 	year_published: ArrayLike<number>;
 	users_rated: ArrayLike<number>;
 	cat_code: ArrayLike<number>;
@@ -47,6 +52,8 @@ export function alignFacts(
 ): GameFacts {
 	const n = coords.ids.length;
 	const weight = new Float32Array(n);
+	const geekRating = new Float32Array(n);
+	const averageRating = new Float32Array(n);
 	const year = new Int16Array(n);
 	const usersRated = new Int32Array(n);
 	const upcoming = new Uint8Array(n);
@@ -60,6 +67,10 @@ export function alignFacts(
 		}
 		const w = Number(cols.average_weight[r]);
 		weight[i] = Number.isFinite(w) ? w : 0;
+		const g = Number(cols.geek_rating[r]);
+		geekRating[i] = Number.isFinite(g) ? g : 0;
+		const a = Number(cols.average_rating[r]);
+		averageRating[i] = Number.isFinite(a) ? a : 0;
 		const y = Number(cols.year_published[r]);
 		year[i] = Number.isFinite(y) ? y : 0;
 		usersRated[i] = Number(cols.users_rated[r]) || 0;
@@ -67,7 +78,7 @@ export function alignFacts(
 		const c = Number(cols.cat_code[r]) || 0;
 		category[i] = c > 0 && c <= CATEGORY_SLOTS ? c : 0;
 	}
-	return { weight, year, usersRated, upcoming, category, categoryLabels, missing, name };
+	return { weight, geekRating, averageRating, year, usersRated, upcoming, category, categoryLabels, missing, name };
 }
 
 /**
@@ -85,8 +96,16 @@ export function factsSql(labels: string[]): string {
 	const esc = (s: string) => s.replace(/'/g, "''");
 	const cases = labels.map((l, i) => `WHEN '${esc(l)}' THEN ${i + 1}`).join(' ');
 	const code = labels.length ? `CASE categories[1] ${cases} ELSE 0 END` : '0';
-	return `SELECT game_id, average_weight, year_published, users_rated, ${code} AS cat_code
+	return `SELECT game_id, average_weight, geek_rating, average_rating, year_published, users_rated, ${code} AS cat_code
 		FROM catalog`;
 }
 
-export const FACT_COLUMNS = ['game_id', 'average_weight', 'year_published', 'users_rated', 'cat_code'] as const;
+export const FACT_COLUMNS = [
+	'game_id',
+	'average_weight',
+	'geek_rating',
+	'average_rating',
+	'year_published',
+	'users_rated',
+	'cat_code'
+] as const;

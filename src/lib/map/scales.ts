@@ -87,6 +87,16 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 			for (let i = 0; i < n; i++) bucketOf[i] = facts.weight[i] > 0 ? quantise(facts.weight[i], 1, 5) : 0;
 			return { bucketOf, colours: ramp(palette), legend: [], domain: [1, 5] };
 		}
+		case 'geek': {
+			// Geek rating lives in a narrow band: the floor is ~5.5 (the Bayesian prior) and the top
+			// of BGG is ~8.5, so a 1–10 domain would put every game in two shades.
+			for (let i = 0; i < n; i++) bucketOf[i] = facts.geekRating[i] > 0 ? quantise(facts.geekRating[i], 5.5, 8.5) : 0;
+			return { bucketOf, colours: ramp(palette), legend: [], domain: [5.5, 8.5] };
+		}
+		case 'rating': {
+			for (let i = 0; i < n; i++) bucketOf[i] = facts.averageRating[i] > 0 ? quantise(facts.averageRating[i], 5, 9) : 0;
+			return { bucketOf, colours: ramp(palette), legend: [], domain: [5, 9] };
+		}
 		case 'year': {
 			const lo = currentYear - 35;
 			for (let i = 0; i < n; i++) bucketOf[i] = facts.year[i] ? quantise(facts.year[i], lo, currentYear) : 0;

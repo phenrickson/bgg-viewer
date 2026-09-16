@@ -24,6 +24,8 @@ describe('alignFacts', () => {
 				// catalog order differs from artifact order; 99 is not in the artifact
 				game_id: [30, 99, 10],
 				average_weight: [3.5, 1, 2.25],
+				geek_rating: [6.1, 0, 7.9],
+				average_rating: [7.2, 0, 8.4],
 				year_published: [2027, 2000, 1995],
 				users_rated: [40, 5, 12000],
 				cat_code: [2, 1, 9]
@@ -33,6 +35,8 @@ describe('alignFacts', () => {
 			(id) => `game ${id}`
 		);
 		expect(Array.from(facts.weight)).toEqual([2.25, 0, 3.5]);
+		expect(facts.geekRating[0]).toBeCloseTo(7.9);
+		expect(facts.averageRating[2]).toBeCloseTo(7.2);
 		expect(Array.from(facts.year)).toEqual([1995, 0, 2027]);
 		expect(Array.from(facts.usersRated)).toEqual([12000, 0, 40]);
 		expect(Array.from(facts.upcoming)).toEqual([0, 0, 1]);
