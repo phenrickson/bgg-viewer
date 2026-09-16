@@ -13,7 +13,7 @@
    * page, the tour, a mini-map and a teaser all sit on the same component.
    */
   import { onMount } from 'svelte';
-  import createScatterplot from 'regl-scatterplot';
+  import type createScatterplot from 'regl-scatterplot';
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { ViewState } from './view';
@@ -48,7 +48,9 @@
   let width = $state(0);
   let height = $state(0);
   let theme: MapTheme | null = $state(null);
-  let plot: ReturnType<typeof createScatterplot> | null = null;
+  // $state.raw so the effects that push data/theme into the plot re-run once it exists
+  // (it's created after a dynamic import, well after the first effect pass).
+  let plot = $state.raw<ReturnType<typeof createScatterplot> | null>(null);
 
   // --- projection → normalised device coords -------------------------------------------
   const uniform = $derived(view.size === 'uniform');
@@ -194,6 +196,18 @@
 
   onMount(() => {
     theme = readTheme();
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+    // Browser-only library (WebGL, window): imported here rather than at module level so
+    // SSR never evaluates it.
+    import('regl-scatterplot').then(({ default: createScatterplot }) => {
+      if (disposed) return;
+      cleanup = init(createScatterplot);
+    });
+    return () => { disposed = true; cleanup?.(); };
+  });
+
+  function init(createScatterplot: typeof import('regl-scatterplot').default) {
     plot = createScatterplot({
       canvas: glCanvas,
       width: 'auto',
@@ -229,7 +243,7 @@
       if (raf) cancelAnimationFrame(raf);
       plot?.destroy(); plot = null;
     };
-  });
+  }
 </script>
 
 <div class="host" bind:this={host}>
