@@ -50,6 +50,7 @@
   let height = $state(0);
 
   // --- projection → data columns -----------------------------------------------------
+  const uniform = $derived(view.size === 'uniform');
   const xs = $derived(view.projection === 'pca' ? coords.pcs[view.x - 1] : coords.umap[0]);
   const ys = $derived(view.projection === 'pca' ? coords.pcs[view.y - 1] : coords.umap[1]);
 
@@ -172,7 +173,7 @@
       ctx.beginPath();
       for (const i of idx) {
         if (facts.upcoming[i]) continue;
-        const r = radiusFor(facts.usersRated[i], false);
+        const r = radiusFor(facts.usersRated[i], false, uniform);
         ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
         ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
       }
@@ -181,7 +182,7 @@
       ctx.beginPath();
       for (const i of idx) {
         if (!facts.upcoming[i]) continue;
-        const r = radiusFor(0, true);
+        const r = radiusFor(0, true, uniform);
         ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
         ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
       }
@@ -200,13 +201,13 @@
     ctx.textBaseline = 'middle';
     for (const i of anchorIdx) {
       if (!visible[i]) continue;
-      ring(ctx, sx(xs[i]), sy(ys[i]), radiusFor(facts.usersRated[i], facts.upcoming[i] === 1) + 2, theme.foreground, theme.background);
-      label(ctx, facts.name(coords.ids[i]), sx(xs[i]), sy(ys[i]), radiusFor(facts.usersRated[i], facts.upcoming[i] === 1), theme.foreground, theme.background);
+      ring(ctx, sx(xs[i]), sy(ys[i]), radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform) + 2, theme.foreground, theme.background);
+      label(ctx, facts.name(coords.ids[i]), sx(xs[i]), sy(ys[i]), radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform), theme.foreground, theme.background);
     }
     // Hovered then selected on top, in the accent.
     for (const i of [hovered, selectedIdx]) {
       if (i < 0 || !visible[i]) continue;
-      const r = radiusFor(facts.usersRated[i], facts.upcoming[i] === 1);
+      const r = radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform);
       ring(ctx, sx(xs[i]), sy(ys[i]), r + 3, theme.accent, theme.background, 2);
       if (i === selectedIdx) label(ctx, facts.name(coords.ids[i]), sx(xs[i]), sy(ys[i]), r + 3, theme.foreground, theme.background);
     }

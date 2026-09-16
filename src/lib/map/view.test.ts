@@ -15,6 +15,7 @@ describe('view ⇄ params', () => {
 			x: 3,
 			y: 5,
 			colour: 'category' as const,
+			size: 'uniform' as const,
 			upcoming: false,
 			minRatings: 500,
 			selected: 224517

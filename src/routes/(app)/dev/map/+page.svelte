@@ -160,6 +160,12 @@
         <option value="category">Category</option>
       </select>
     </label>
+    <label>Size
+      <select bind:value={view.size}>
+        <option value="popularity">Popularity</option>
+        <option value="uniform">Uniform</option>
+      </select>
+    </label>
     <label class="check">
       <input type="checkbox" bind:checked={view.upcoming} /> Upcoming
     </label>

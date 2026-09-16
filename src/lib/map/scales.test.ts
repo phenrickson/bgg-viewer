@@ -44,6 +44,9 @@ describe('radiusFor', () => {
 		expect(mid).toBeGreaterThan(RADIUS_MIN);
 		expect(mid).toBeLessThan(RADIUS_MAX);
 	});
+	it('uniform mode ignores popularity', () => {
+		expect(radiusFor(30, false, true)).toBe(radiusFor(100_000, false, true));
+	});
 	it('gives upcoming games a fixed small radius regardless of ratings', () => {
 		expect(radiusFor(50_000, true)).toBe(RADIUS_UPCOMING);
 	});

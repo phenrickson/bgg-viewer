@@ -27,9 +27,12 @@ export const RAMP_STEPS = 12;
 export const RADIUS_MIN = 1.2;
 export const RADIUS_MAX = 9;
 export const RADIUS_UPCOMING = 2.2;
+export const RADIUS_UNIFORM = 2.5;
 
-/** log-popularity → px. Anchors: 30 ratings ≈ min, 100k ratings ≈ max. */
-export function radiusFor(usersRated: number, upcoming: boolean): number {
+/** log-popularity → px. Anchors: 30 ratings ≈ min, 100k ratings ≈ max. Uniform mode
+ * ignores popularity so colour is the only encoding left to read. */
+export function radiusFor(usersRated: number, upcoming: boolean, uniform = false): number {
+	if (uniform) return upcoming ? RADIUS_UPCOMING : RADIUS_UNIFORM;
 	if (upcoming) return RADIUS_UPCOMING;
 	const t = (Math.log1p(Math.max(usersRated, 0)) - Math.log1p(30)) / (Math.log1p(100_000) - Math.log1p(30));
 	return RADIUS_MIN + Math.min(Math.max(t, 0), 1) * (RADIUS_MAX - RADIUS_MIN);
