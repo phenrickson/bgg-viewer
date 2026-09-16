@@ -1,0 +1,18 @@
+/**
+ * The categories the map colours by — hand-curated, like the anchors. BGG's own tag
+ * frequencies put format tags (Card Game, Dice) and catch-alls (Animals) at the top, which
+ * is not what makes the landscape legible; Trains has fewer than 600 games and belongs here
+ * anyway.
+ *
+ * ORDER IS PRIORITY: a game carrying several of these takes the first one listed, so put
+ * the more specific tag before the broader one it usually travels with (Trains before
+ * Economic). At most six — one per chart colour token; anything else is "Other".
+ */
+export const CATEGORIES: string[] = [
+	'Trains',
+	'Economic',
+	'Wargame',
+	'Party Game',
+	"Children's Game",
+	'Abstract Strategy'
+];

@@ -82,27 +82,16 @@ export function alignFacts(
 }
 
 /**
- * The top-N categories by how many working-set games list them *anywhere*. An earlier cut
- * used `categories[1]` ("primary category"), but BGG's order is entry order, not
- * prominence — a Wargame tagged "Fantasy, Wargame" landed in Other.
- */
-export const TOP_CATEGORIES_SQL = `
-	SELECT cat, COUNT(*) AS n
-	FROM catalog, UNNEST(categories) AS t(cat)
-	GROUP BY 1 ORDER BY n DESC, cat
-	LIMIT ${CATEGORY_SLOTS}`;
-
-/**
- * A game takes the *rarest* of the top categories it carries — the more specific tag wins,
- * so "Card Game, Wargame" is a Wargame, not a Card Game (a format tag that would otherwise
- * swallow half the map). `labels` is in count order, so the CASE tests them last-first.
- * None of them → 0 (Other).
+ * A game takes the first of `labels` (see `categories.ts` — order is priority) that it
+ * carries anywhere in its category list; none of them → 0 (Other). Earlier cuts used
+ * `categories[1]` (BGG lists alphabetically, so that was arbitrary) and then the six most
+ * frequent tags (format tags and catch-alls); a curated list is what makes the map legible.
  */
 export function factsSql(labels: string[]): string {
 	const esc = (s: string) => s.replace(/'/g, "''");
 	const cases = labels
+		.slice(0, CATEGORY_SLOTS)
 		.map((l, i) => `WHEN list_contains(categories, '${esc(l)}') THEN ${i + 1}`)
-		.reverse()
 		.join(' ');
 	const code = labels.length ? `CASE ${cases} ELSE 0 END` : '0';
 	return `SELECT game_id, average_weight, geek_rating, average_rating, year_published, users_rated, ${code} AS cat_code

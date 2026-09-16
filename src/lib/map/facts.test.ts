@@ -48,13 +48,18 @@ describe('alignFacts', () => {
 });
 
 describe('factsSql', () => {
-	it('encodes the top categories as 1-based codes, rarest tested first, and escapes quotes', () => {
+	it('encodes the curated categories as 1-based codes in priority order, escaping quotes', () => {
 		const sql = factsSql(["Children's Game", 'Wargame']);
 		expect(sql).toContain("WHEN list_contains(categories, 'Children''s Game') THEN 1");
 		expect(sql).toContain("WHEN list_contains(categories, 'Wargame') THEN 2");
-		// labels arrive in count order; the rarer (later) one must win, so it is tested first
-		expect(sql.indexOf("'Wargame'")).toBeLessThan(sql.indexOf("'Children''s Game'"));
+		// first listed wins: it is tested first
+		expect(sql.indexOf("'Children''s Game'")).toBeLessThan(sql.indexOf("'Wargame'"));
 		expect(sql).toContain('ELSE 0 END AS cat_code');
+	});
+	it('never encodes more than the palette can show', () => {
+		const sql = factsSql(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+		expect(sql).toContain("'f') THEN 6");
+		expect(sql).not.toContain("'g'");
 	});
 	it('degrades to a constant when there are no categories', () => {
 		expect(factsSql([])).toContain('0 AS cat_code');
