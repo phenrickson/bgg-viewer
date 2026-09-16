@@ -15,6 +15,11 @@
   import { fromParams, toParams, DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
+  import EmbeddingMapCanvas from '$lib/map/EmbeddingMapCanvas.svelte';
+
+  // Renderer A/B while choosing: WebGL (regl-scatterplot) vs the hand-drawn 2-D canvas.
+  // Not view state — `?r=canvas` is a comparison switch, not something to share.
+  let renderer = $state<'webgl' | 'canvas'>('webgl');
 
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
@@ -37,12 +42,16 @@
   // Same shape as /games: read the URL on every navigation that lands here, mirror the view
   // back with replaceState (no navigation, no history spam).
   afterNavigate(() => {
-    view = fromParams(new URLSearchParams(location.search), coords?.k ?? 6);
+    const params = new URLSearchParams(location.search);
+    renderer = params.get('r') === 'canvas' ? 'canvas' : 'webgl';
+    view = fromParams(params, coords?.k ?? 6);
     hydrated = true;
   });
   $effect(() => {
     if (!hydrated) return;
-    const qs = toParams(view).toString();
+    const p = toParams(view);
+    if (renderer === 'canvas') p.set('r', 'canvas');
+    const qs = p.toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
 
@@ -169,6 +178,12 @@
     <label class="check">
       <input type="checkbox" bind:checked={view.upcoming} /> Upcoming
     </label>
+    <label>Renderer
+      <select bind:value={renderer}>
+        <option value="webgl">WebGL</option>
+        <option value="canvas">Canvas</option>
+      </select>
+    </label>
     <label class="range">Min ratings <strong>{view.minRatings.toLocaleString()}</strong>
       <input type="range" min="0" max="100" value={sliderPos} oninput={onslider} />
     </label>
@@ -181,7 +196,11 @@
       {:else if !coords || !facts}
         <div class="state">Loading {catalog.status === 'ready' ? 'coordinates' : 'catalog'}…</div>
       {:else}
-        <EmbeddingMap {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
+        {#if renderer === 'canvas'}
+          <EmbeddingMapCanvas {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
+        {:else}
+          <EmbeddingMap {coords} {facts} {view} anchors={ANCHORS} onselect={select} />
+        {/if}
       {/if}
     </div>
 

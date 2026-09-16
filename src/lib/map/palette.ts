@@ -24,3 +24,22 @@ export function readTheme(el: Element = document.documentElement): MapTheme {
 		font: cs.fontFamily || 'system-ui, sans-serif'
 	};
 }
+
+/**
+ * Resolve any CSS colour (oklch tokens included) to an `rgb` triple in 0–255 by letting the
+ * browser paint it. regl-scatterplot wants hex/RGB, not CSS strings.
+ */
+let probe: CanvasRenderingContext2D | null = null;
+export function toRgb(css: string): [number, number, number] {
+	probe ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+	if (!probe) return [128, 128, 128];
+	probe.clearRect(0, 0, 1, 1);
+	probe.fillStyle = css;
+	probe.fillRect(0, 0, 1, 1);
+	const d = probe.getImageData(0, 0, 1, 1).data;
+	return [d[0], d[1], d[2]];
+}
+
+export function toHex(css: string): string {
+	return '#' + toRgb(css).map((c) => c.toString(16).padStart(2, '0')).join('');
+}

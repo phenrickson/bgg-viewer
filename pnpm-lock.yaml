@@ -59,6 +59,9 @@ importers:
       mode-watcher:
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.56.7)
+      regl-scatterplot:
+        specifier: ^1.16.0
+        version: 1.16.0(pub-sub-es@3.0.0)(regl@2.1.1)
       sveltekit-superforms:
         specifier: ^2.30.2
         version: 2.30.2(@sveltejs/kit@2.70.1(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(typescript@6.0.3)
@@ -162,6 +165,9 @@ packages:
 
   '@exodus/schemasafe@1.3.0':
     resolution: {integrity: sha512-5Aap/GaRupgNx/feGBwLLTVv8OQFfv3pq2lPRzPg9R+IOBnDgghTGW7l7EuVXOvg5cc/xSAlRW8rBrjIC3Nvqw==}
+
+  '@flekschas/utils@0.33.0':
+    resolution: {integrity: sha512-THnZZqtQ5me5kgF9xzI0oYJ8D+524kKXKCUJErAmlT8pfw2iTwiyPDS8f3SqrY9Y7M8zNY2dGME+JBUpKypEqg==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -933,6 +939,11 @@ packages:
     resolution: {integrity: sha512-8WB3Jcas3swSvjIeA2yvCJ+Miyz5l1ZmB6HFb9R1317dt9LCQoswg/BGrmAmkWVEszSrrg4RwmO46qIm2OEnSA==}
     engines: {node: '>=16'}
 
+  camera-2d-simple@3.0.0:
+    resolution: {integrity: sha512-hBeuUeerQ2Repi/61PGyFkuJ9jt6IKAny7pjQo2w8/8uZh+RKvNLZQy4xbQeDH8FrlnFxAJDjyM4/yuLdOV5vQ==}
+    peerDependencies:
+      gl-matrix: ~3.3.0
+
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
@@ -1138,12 +1149,20 @@ packages:
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
 
+  dom-2d-camera@2.2.6:
+    resolution: {integrity: sha512-HWfV26qjCfpOHa6X0PI1ZyZDhowk6skEs5f7aOwgewuJSP6IgPcK694ImYIOMGnDYK4vC4/Etsi26WpbJtS2vQ==}
+    peerDependencies:
+      gl-matrix: ^3.3.0
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
   duplexify@4.1.3:
     resolution: {integrity: sha512-M3BmBhwJRZsSx38lZyhE53Csddgzl5R7xGJNk7CVddZD6CcmwMCH8J+7AprIrQKH7TonKxaCjcv27Qmf+sQ+oA==}
+
+  earcut@3.2.3:
+    resolution: {integrity: sha512-vnS4AVwp1KHAF13i1vp1/2D5evWy3k5u/iW/B81QVsUZtV8cv2tU0b2VNFlqvh4kYwrFMDdjPCfAmfyJW9y14Q==}
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -1277,6 +1296,9 @@ packages:
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
+
+  gl-matrix@3.4.4:
+    resolution: {integrity: sha512-latSnyDNt/8zYUB6VIJ6PCh2jBjJX6gnDsoCZ7LyW7GkqrD51EWwa9qCoGixj8YqBtETQK/xY7OmpTF8xz1DdQ==}
 
   google-auth-library@10.9.0:
     resolution: {integrity: sha512-xtvUqvINPhTaBm7nXqlYPcrMHJPm1lCNdSovxnKKhTm+4JsvQ+KGVYJViLoH9Yxu8w+T0Qv5HubzYT9BLrppJg==}
@@ -1671,6 +1693,9 @@ packages:
   property-expr@2.0.6:
     resolution: {integrity: sha512-SVtmxhRE/CGkn3eZY1T6pC8Nln6Fr/lu1mKSgRud0eC73whjGfoAogbn78LkD8aFL0zz3bAFerKSnOl7NlErBA==}
 
+  pub-sub-es@3.0.0:
+    resolution: {integrity: sha512-pf+6yCPsOfvDMru2LnsqdKSN8XQyF5HZzmEoKBvjMk4TILMUQiq1vxI6rC92T9ErY06sLXBmC1p7JGNFVB1pUQ==}
+
   pure-rand@6.1.0:
     resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
@@ -1685,6 +1710,21 @@ packages:
   readdirp@4.1.2:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
     engines: {node: '>= 14.18.0'}
+
+  regl-line@1.1.1:
+    resolution: {integrity: sha512-IKcyiZq+nQg7x3mEmxf9kImM9CzmEyZDhCCfas2xVpsoiDJFEyILsuocD1G4dSXA/nC39za9OBw4FzYEgWNiUg==}
+    peerDependencies:
+      regl: ^2.1.0
+
+  regl-scatterplot@1.16.0:
+    resolution: {integrity: sha512-LSNRzihkLgaSEALZv95+w02nX1c6slJJahqHqMNY0YOkE3L6Bk1e38GJaGatW2w8PlB1tOdvq3Cj0tPPrBhpsA==}
+    engines: {node: '>=20.0.0', npm: '>=7.0.0'}
+    peerDependencies:
+      pub-sub-es: ~3.0.0
+      regl: ~2.1.1
+
+  regl@2.1.1:
+    resolution: {integrity: sha512-+IOGrxl3FZ8ZM9ixCWQZzFRiRn7Rzn9bu3iFHwg/yz4tlOUQgbO4PHLgG+1ZT60zcIV8tief6Qrmyl8qcoJP0g==}
 
   resolve@1.22.12:
     resolution: {integrity: sha512-TyeJ1zif53BPfHootBGwPRYT1RUt6oGWsaQr8UyZW/eAm9bKoijtvruSDEmZHm92CwS9nj7/fWttqPCgzep8CA==}
@@ -2172,6 +2212,8 @@ snapshots:
 
   '@exodus/schemasafe@1.3.0':
     optional: true
+
+  '@flekschas/utils@0.33.0': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:
@@ -2868,6 +2910,10 @@ snapshots:
   camelcase@8.0.0:
     optional: true
 
+  camera-2d-simple@3.0.0(gl-matrix@3.4.4):
+    dependencies:
+      gl-matrix: 3.4.4
+
   chai@6.2.2: {}
 
   chalk-template@0.4.0:
@@ -3056,6 +3102,11 @@ snapshots:
   dlv@1.1.3:
     optional: true
 
+  dom-2d-camera@2.2.6(gl-matrix@3.4.4):
+    dependencies:
+      camera-2d-simple: 3.0.0(gl-matrix@3.4.4)
+      gl-matrix: 3.4.4
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -3068,6 +3119,8 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
       stream-shift: 1.0.3
+
+  earcut@3.2.3: {}
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
@@ -3220,6 +3273,8 @@ snapshots:
     dependencies:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.2
+
+  gl-matrix@3.4.4: {}
 
   google-auth-library@10.9.0(supports-color@7.2.0):
     dependencies:
@@ -3576,6 +3631,8 @@ snapshots:
   property-expr@2.0.6:
     optional: true
 
+  pub-sub-es@3.0.0: {}
+
   pure-rand@6.1.0:
     optional: true
 
@@ -3591,6 +3648,23 @@ snapshots:
       util-deprecate: 1.0.2
 
   readdirp@4.1.2: {}
+
+  regl-line@1.1.1(regl@2.1.1):
+    dependencies:
+      gl-matrix: 3.4.4
+      regl: 2.1.1
+
+  regl-scatterplot@1.16.0(pub-sub-es@3.0.0)(regl@2.1.1):
+    dependencies:
+      '@flekschas/utils': 0.33.0
+      dom-2d-camera: 2.2.6(gl-matrix@3.4.4)
+      earcut: 3.2.3
+      gl-matrix: 3.4.4
+      pub-sub-es: 3.0.0
+      regl: 2.1.1
+      regl-line: 1.1.1(regl@2.1.1)
+
+  regl@2.1.1: {}
 
   resolve@1.22.12:
     dependencies:
