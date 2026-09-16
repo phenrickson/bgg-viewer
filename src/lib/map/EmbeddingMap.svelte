@@ -115,10 +115,11 @@
   /*
    * Three kinds of work, cheapest first:
    *   'overlay' — clear + redraw rings/labels (every pointer move)
-   *   'view'    — zoom/pan: blit the cached cloud bitmap through the new transform (one
-   *               drawImage, ~1ms), then a full repaint once the gesture pauses. Dots blur
-   *               slightly mid-gesture and snap crisp on settle — the map-tile trick.
-   *   'cloud'   — full repaint of 36k dots into the offscreen bitmap, then blit.
+   *   'view'    — zoom/pan: a *fast* repaint (DPR 1, opaque squares, no alpha) so dots keep
+   *               their size while the gesture runs, then the full repaint once it pauses.
+   *               Scaling a cached bitmap instead was tried and felt wrong: dots grew with
+   *               the zoom and snapped back on settle.
+   *   'cloud'   — full-quality repaint of 36k dots.
    */
   let raf = 0;
   let dirtyCloud = false, dirtyView = false, dirtyOverlay = false;
@@ -134,45 +135,25 @@
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
-      if (dirtyCloud) drawCloud();
-      else if (dirtyView) blitCloud();
+      if (dirtyCloud) drawCloud(false);
+      else if (dirtyView) drawCloud(true);
       if (dirtyCloud || dirtyView || dirtyOverlay) drawOverlay();
       dirtyCloud = dirtyView = dirtyOverlay = false;
     });
   }
 
-  /** The cloud as last fully rendered, and the transform it was rendered at. */
-  let bitmap: HTMLCanvasElement | null = null;
-  let rendered = { k: 1, tx: 0, ty: 0 };
-
-  /** Paint the cached bitmap through the current transform relative to when it was drawn. */
-  function blitCloud() {
-    if (!canvas || !bitmap || !theme || width === 0) return;
-    const ctx = context(canvas);
-    const r = k / rendered.k;
-    ctx.fillStyle = theme.background;
-    ctx.fillRect(0, 0, width, height);
-    ctx.save();
-    ctx.translate(tx - r * rendered.tx, ty - r * rendered.ty);
-    ctx.scale(r, r);
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    ctx.restore();
-  }
-
   /** Size a canvas to the host at the capped DPR; returns a context in CSS px units. */
-  function context(c: HTMLCanvasElement): CanvasRenderingContext2D {
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  function context(c: HTMLCanvasElement, dprCap = MAX_DPR): CanvasRenderingContext2D {
+    const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
     if (c.width !== Math.round(width * dpr)) { c.width = Math.round(width * dpr); c.height = Math.round(height * dpr); }
     const ctx = c.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return ctx;
   }
 
-  function drawCloud() {
+  function drawCloud(fast: boolean) {
     if (!canvas || !theme || !colouring || width === 0) return;
-    bitmap ??= document.createElement('canvas');
-    const ctx = context(bitmap);
-    rendered = { k, tx, ty };
+    const ctx = context(canvas, fast ? 1 : MAX_DPR);
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, width, height);
 
@@ -185,15 +166,26 @@
       if (idx.length === 0) continue;
       ctx.fillStyle = colouring.colours[b];
       ctx.strokeStyle = colouring.colours[b];
-      ctx.globalAlpha = 0.65;
-      ctx.beginPath();
-      for (const i of idx) {
-        if (facts.upcoming[i]) continue;
-        const r = radiusFor(facts.usersRated[i], false);
-        ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
-        ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
+      if (fast) {
+        // Squares, opaque: fillRect is several times cheaper than arc+fill with alpha, and
+        // at gesture speed nobody sees the corners.
+        ctx.globalAlpha = 1;
+        for (const i of idx) {
+          if (facts.upcoming[i]) continue;
+          const r = radiusFor(facts.usersRated[i], false);
+          ctx.fillRect(sx(xs[i]) - r, sy(ys[i]) - r, 2 * r, 2 * r);
+        }
+      } else {
+        ctx.globalAlpha = 0.65;
+        ctx.beginPath();
+        for (const i of idx) {
+          if (facts.upcoming[i]) continue;
+          const r = radiusFor(facts.usersRated[i], false);
+          ctx.moveTo(sx(xs[i]) + r, sy(ys[i]));
+          ctx.arc(sx(xs[i]), sy(ys[i]), r, 0, TAU);
+        }
+        ctx.fill();
       }
-      ctx.fill();
       ctx.globalAlpha = 0.9;
       ctx.beginPath();
       for (const i of idx) {
@@ -205,9 +197,6 @@
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-
-    // Bitmap is fresh at the current transform: a straight copy onto the visible canvas.
-    context(canvas).drawImage(bitmap, 0, 0, width, height);
   }
 
   function drawOverlay() {
