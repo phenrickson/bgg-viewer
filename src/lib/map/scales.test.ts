@@ -16,6 +16,7 @@ const palette: Palette = {
 	chart: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
 	ramp: ['oklch(0.9 0.05 250)', 'oklch(0.4 0.15 250)'],
 	muted: 'muted',
+	other: 'other',
 	accent: 'accent'
 };
 
@@ -107,7 +108,7 @@ describe('buildColouring', () => {
 	});
 	it('category: chart tokens for the curated seven, muted for other, other last in the legend', () => {
 		const c = buildColouring('category', facts(), palette, 2026);
-		expect(c.colours).toEqual(['muted', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7']);
+		expect(c.colours).toEqual(['other', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7']);
 		expect(Array.from(c.bucketOf)).toEqual([1, 6, 0, 0]);
 		expect(c.legend.at(-1)).toEqual({ label: 'Other', bucket: 0 });
 		expect(c.legend[0]).toEqual({ label: 'Economic', bucket: 1 });

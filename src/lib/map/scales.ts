@@ -19,8 +19,10 @@ export interface Palette {
 	chart: string[];
 	/** `--map-ramp-lo` / `--map-ramp-hi` — light→dark shades of one hue. */
 	ramp: [string, string];
-	/** `--muted-foreground` — established / other. */
+	/** `--muted-foreground` — "no value" on continuous encodings, established on upcoming. */
 	muted: string;
+	/** `--map-cat-other` — faint, so uncategorised games recede behind the seven slots. */
+	other: string;
 	/** `--primary` — upcoming, selected. */
 	accent: string;
 }
@@ -148,7 +150,7 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 		}
 		case 'category': {
 			bucketOf.set(facts.category);
-			const colours = [palette.muted, ...palette.chart];
+			const colours = [palette.other, ...palette.chart];
 			const legend = facts.categoryLabels.map((label, bucket) => ({ label, bucket }));
 			// "Other" last in the legend, first in the buckets.
 			return { bucketOf, colours, legend: [...legend.slice(1), legend[0]] };

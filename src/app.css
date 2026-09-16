@@ -128,16 +128,21 @@
   --map-ramp-lo: oklch(0.90 0.04 250);
   --map-ramp-hi: oklch(0.42 0.16 250);
 
-  /* Categorical palette for the embedding map's category layer — seven slots, its own set
-     rather than --chart-1..6 (which stops at six and has a rose/green adjacency). Validated
-     for CVD separation and lightness in both modes with the dataviz palette checker. */
-  --map-cat-1: #2a78d6;  /* blue */
-  --map-cat-2: #eb6834;  /* orange */
-  --map-cat-3: #1baf7a;  /* aqua */
-  --map-cat-4: #eda100;  /* yellow */
-  --map-cat-5: #e87ba4;  /* magenta */
-  --map-cat-6: #008300;  /* green */
-  --map-cat-7: #4a3aa7;  /* violet */
+  /* Categorical palette for the embedding map's category layer: Okabe–Ito's six chromatic
+     colours plus its neutral (dark grey here, light grey in dark mode). Chosen by measuring
+     every pair under simulated colour blindness (dataviz validator, --pairs all): worst pair
+     ΔE 7.6 in both modes, the best any seven-colour set reached — Tol bright/vibrant/muted
+     and IBM all scored lower. Seven hues cannot be perfectly CVD-safe; the legend and hover
+     tooltip carry identity for the one borderline pair (purple ↔ green). "Other" is drawn
+     faint (see --map-cat-other) so it never competes with the grey slot. */
+  --map-cat-1: #0072b2;  /* blue */
+  --map-cat-2: #e69f00;  /* orange */
+  --map-cat-3: #009e73;  /* green */
+  --map-cat-4: #cc79a7;  /* purple */
+  --map-cat-5: #56b4e9;  /* sky */
+  --map-cat-6: #d55e00;  /* vermillion */
+  --map-cat-7: #3a3a3a;  /* neutral */
+  --map-cat-other: color-mix(in oklch, var(--muted-foreground) 45%, var(--background));
 
   /* Semantic status tokens — pair with a label/icon, never color alone */
   --color-positive: oklch(0.62 0.14 150);
@@ -180,13 +185,7 @@
   --background: oklch(0.19 0.02 260);
   --map-ramp-lo: oklch(0.38 0.05 250);
   --map-ramp-hi: oklch(0.86 0.13 250);
-  --map-cat-1: #3987e5;
-  --map-cat-2: #d95926;
-  --map-cat-3: #199e70;
-  --map-cat-4: #c98500;
-  --map-cat-5: #d55181;
-  --map-cat-6: #008300;
-  --map-cat-7: #9085e9;
+  --map-cat-7: #d0d0d0;  /* the six chromatic slots hold in both modes; only the neutral flips */
   --foreground: oklch(0.94 0.006 80);
   --card: oklch(0.23 0.02 260);
   --card-foreground: oklch(0.94 0.006 80);

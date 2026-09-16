@@ -18,6 +18,7 @@ export function readTheme(el: Element = document.documentElement): MapTheme {
 		chart: [1, 2, 3, 4, 5, 6, 7].map((i) => v(`--map-cat-${i}`)),
 		ramp: [v('--map-ramp-lo'), v('--map-ramp-hi')],
 		muted: v('--muted-foreground'),
+		other: v('--map-cat-other'),
 		accent: v('--primary'),
 		background: v('--background'),
 		foreground: v('--foreground'),
