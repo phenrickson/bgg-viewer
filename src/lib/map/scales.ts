@@ -10,6 +10,7 @@
  * the component) so this module never sees a hex and dark mode just works.
  */
 import { ratingColor, complexityColor } from '$lib/game/similarity';
+import { divergingAt } from '$lib/charts/ramps';
 import type { GameFacts } from './facts';
 import type { ColourBy } from './view';
 
@@ -76,6 +77,8 @@ export interface Colouring {
 	domain?: [number, number];
 	/** Diverging encodings: the pivot value, for the legend's middle label. */
 	mid?: number;
+	/** The domain is a clamp narrower than the data; the legend marks the ends "lo−" / "hi+". */
+	clamped?: boolean;
 }
 
 /** The map's own blue ramp from the two `--map-ramp-*` tokens (theme-aware). */
@@ -87,21 +90,6 @@ function tokenRamp(palette: Palette): string[] {
  * map grades a measure exactly the way the game page does. */
 function sampledRamp(fn: (v: number) => string, lo: number, hi: number): string[] {
 	return Array.from({ length: RAMP_STEPS }, (_, i) => fn(lo + ((i + 0.5) / RAMP_STEPS) * (hi - lo)));
-}
-
-/**
- * Diverging: cool blue below `mid`, neutral grey at it, warm orange→red above — two hues with
- * a grey midpoint, never sweeping through green. Each half is its own lightness/chroma ramp,
- * same construction as `complexityColor`. Literal oklch like similarity.ts, so it reads the
- * same in both themes.
- */
-export function divergingColor(v: number, lo: number, mid: number, hi: number): string {
-	if (v < mid) {
-		const t = Math.max(0, Math.min(1, (mid - v) / (mid - lo)));
-		return `oklch(${0.7 - 0.12 * t} ${0.02 + 0.13 * t} 250)`;
-	}
-	const t = Math.max(0, Math.min(1, (v - mid) / (hi - mid)));
-	return `oklch(${0.7 - 0.1 * t} ${0.02 + 0.17 * t} ${60 - 35 * t})`;
 }
 
 /** 1..RAMP_STEPS for a value in [lo, hi] (clamped); callers reserve 0 for "no value". */
@@ -132,11 +120,12 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 		case 'weight':
 			return continuous(facts.weight, 1, 5, sampledRamp(complexityColor, 1, 5), palette);
 		case 'geek': {
-			// Diverging, pivot 6.0: half of all games sit in 5.49–5.54 and 90% under 6.04, so a
-			// sequential ramp over 5.5–8.5 painted the whole map one shade. Below the pivot the
-			// prior dominates (cool, receding); above it the rating means something (warm, loud).
-			const c = continuous(facts.geekRating, 5.5, 8.5, sampledRamp((v) => divergingColor(v, 5.5, 6, 8.5), 5.5, 8.5), palette);
-			return { ...c, mid: 6 };
+			// Same scale as the About page's popularity-vs-rating cloud: the app's diverging ramp
+			// (rose below, blue above), clamped to 5–8 with the pivot at 6 — where a game stops
+			// being indifferent — rather than at the arithmetic middle. Half of all games sit in
+			// 5.49–5.54, so a sequential ramp painted the whole map one shade.
+			const c = continuous(facts.geekRating, 5, 8, sampledRamp((v) => divergingAt(v, 5, 6, 8), 5, 8), palette);
+			return { ...c, mid: 6, clamped: true };
 		}
 		case 'rating':
 			// Average rating has no colour function of its own; borrow the geek ramp's look across

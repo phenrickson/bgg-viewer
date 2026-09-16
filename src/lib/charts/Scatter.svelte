@@ -22,6 +22,8 @@
    * stripe and hides the density behind it; a sub-bin displacement recovers the shape without
    * changing what the plot says.
    */
+  import { seq, div } from './ramps';
+
   let {
     points = [],
     xLabel,
@@ -225,30 +227,6 @@
     if (colorDomain) return colorDomain;
     return ext && ext.hasC ? [ext.c0, ext.c1] : [0, 1];
   });
-
-  /**
-   * Sequential: one hue, pale-and-desaturated to dark-and-saturated.
-   *
-   * OKLCH so the steps are perceptually even. The same interpolation in sRGB bunches its
-   * lightness at one end and reads as a broken scale.
-   */
-  function seq(u: number): string {
-    return `oklch(${0.86 - 0.34 * u} ${0.04 + 0.13 * u} 250)`;
-  }
-
-  /**
-   * Diverging: rose below the pivot, blue above, pale where the two meet.
-   *
-   * Only correct when the midpoint carries meaning — here it separates "rated worse than
-   * average" from "better". Both arms are colourblind-safe against each other (rose/blue,
-   * not red/green), and lightness carries the magnitude on both sides so the scale survives
-   * greyscale.
-   */
-  function div(u: number): string {
-    const d = Math.abs(u - 0.5) * 2; // 0 at the pivot, 1 at either end
-    const hue = u < 0.5 ? 25 : 250;
-    return `oklch(${0.85 - 0.3 * d} ${0.03 + 0.14 * d} ${hue})`;
-  }
 
   function ramp(v: number): string {
     const [lo, hi] = cdom;

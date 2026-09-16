@@ -78,11 +78,17 @@ describe('buildColouring', () => {
 		expect(c.domain).toEqual([1, 5]);
 	});
 	it('geek / average rating: ramp over their real bands; unrated is the muted bucket', () => {
-		const g = buildColouring('geek', facts(), palette, 2026);
-		expect(g.bucketOf[0]).toBe(1);
-		expect(g.bucketOf[2]).toBe(RAMP_STEPS);
+		// Geek rating: the About page's diverging scale — clamped 5–8, pivot 6.
+		const g = buildColouring('geek', facts({ geekRating: Float32Array.from([5.5, 6, 8.5, 0]) }), palette, 2026);
+		expect(g.bucketOf[0]).toBeGreaterThan(0);
+		expect(g.bucketOf[2]).toBe(RAMP_STEPS); // 8.5 clamps to the top
 		expect(g.bucketOf[3]).toBe(0);
-		expect(g.domain).toEqual([5.5, 8.5]);
+		expect(g.domain).toEqual([5, 8]);
+		expect(g.mid).toBe(6);
+		expect(g.clamped).toBe(true);
+		// rose arm below the pivot, blue arm above
+		expect(g.colours[1]).toMatch(/ 25\)$/);
+		expect(g.colours[RAMP_STEPS]).toMatch(/ 250\)$/);
 		const a = buildColouring('rating', facts(), palette, 2026);
 		expect(a.bucketOf[2]).toBe(RAMP_STEPS);
 		expect(a.domain).toEqual([5, 9]);
