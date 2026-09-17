@@ -17,19 +17,22 @@
   import type { GameFacts } from '$lib/map/facts';
   import type { ViewState } from '$lib/map/view';
   import { STEPS, BASE_VIEW, resolveStep } from '$lib/map/story';
+  import { fetchNeighbours, neighbourList, type NeighboursArtifact } from '$lib/map/neighbours';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
 
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
+  let neighbours = $state<NeighboursArtifact | null>(null);
   let loadError = $state<string | null>(null);
 
   onMount(async () => {
     try {
       await initCatalog();
       if (catalog.status !== 'ready') throw new Error(catalog.error ?? 'catalog failed to load');
-      const loaded = await loadMap();
+      const [loaded, nb] = await Promise.all([loadMap(), fetchNeighbours()]);
       coords = loaded.coords;
       facts = loaded.facts;
+      neighbours = nb;
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -55,7 +58,7 @@
   });
 
   const step = $derived(STEPS[active]);
-  const resolved = $derived(coords && facts ? resolveStep(step, coords, facts) : null);
+  const resolved = $derived(coords && neighbours ? resolveStep(step, coords, neighbours) : null);
 
   // The step's view is the starting point; clicks on the map layer a selection on top of it
   // until the next step takes over.
@@ -83,12 +86,12 @@
 
   /** Rows for the neighbour list beside a neighbourhood step. */
   const neighbourRows = $derived.by(() => {
-    if (!coords || !facts || !resolved || step.neighboursOf === undefined) return [];
+    if (!coords || !facts || !neighbours || step.neighboursOf === undefined) return [];
     const c = coords, f = facts;
-    return resolved.view.selected
-      .map((id) => c.index.get(id))
-      .filter((i): i is number => i != null)
-      .map((i) => ({ id: c.ids[i], name: f.name(c.ids[i]), year: f.year[i] || null, weight: f.weight[i] || null }));
+    return neighbourList(neighbours, step.neighboursOf, step.n ?? 10, step.upcomingOnly)
+      .map(({ id, sim }) => ({ id, sim, i: c.index.get(id) }))
+      .filter((r): r is { id: number; sim: number; i: number } => r.i != null)
+      .map(({ id, sim, i }) => ({ id, sim, name: f.name(id), year: f.year[i] || null }));
   });
 </script>
 
@@ -128,7 +131,7 @@
         {#if i === active && neighbourRows.length}
           <ol class="neighbours">
             {#each neighbourRows as r (r.id)}
-              <li><a href="/games/{r.id}">{r.name}</a> <span>{r.year ?? ''}{r.weight ? ` · ${r.weight.toFixed(1)}` : ''}</span></li>
+              <li><a href="/games/{r.id}">{r.name}</a> <span>{r.year ?? ''} · {r.sim.toFixed(2)}</span></li>
             {/each}
           </ol>
         {/if}
@@ -159,7 +162,7 @@
     </div>
     <p class="caption">
       {step.title}
-      {#if coords}<span> · {view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}</span>{/if}
+      {#if coords}<span> · {view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}</span>{/if}
     </p>
   </div>
 </div>

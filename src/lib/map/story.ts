@@ -10,8 +10,8 @@
  * them being absent from the current artifact (they're just filtered out).
  */
 import type { CoordinateSet } from './coordinates';
-import type { GameFacts } from './facts';
 import type { ViewState } from './view';
+import { neighboursOf, type NeighboursArtifact } from './neighbours';
 
 /** BGG ids of the games the tour points at. Names come from the catalog, never from here. */
 export const GAMES = {
@@ -56,7 +56,7 @@ export interface StoryStep {
 	view: Partial<Omit<ViewState, 'selected'>>;
 	/** Games drawn with a label. */
 	anchors?: number[];
-	/** Ring + label the `n` nearest games to this one (in the shipped PCs), and frame them. */
+	/** Ring + label the `n` nearest games to this one (engine cosine, precomputed), and frame them. */
 	neighboursOf?: number;
 	n?: number;
 	/** Restrict the neighbour search to upcoming games. */
@@ -191,53 +191,17 @@ export const STEPS: StoryStep[] = [
 	}
 ];
 
-/**
- * The `n` games nearest to `id` by Euclidean distance in the shipped components. A stand-in
- * for the production engine (cosine on the full embedding) — close enough to illustrate,
- * and it runs on what the browser already has. `keep` narrows the candidates.
- */
-export function nearest(
-	coords: CoordinateSet,
-	id: number,
-	n: number,
-	keep?: (row: number) => boolean
-): number[] {
-	const i0 = coords.index.get(id);
-	if (i0 === undefined) return [];
-	const k = coords.k;
-	const c = coords.pcs.map((pc) => pc[i0]);
-	const best: { d: number; i: number }[] = [];
-	for (let i = 0; i < coords.ids.length; i++) {
-		if (i === i0 || (keep && !keep(i))) continue;
-		let d = 0;
-		for (let j = 0; j < k; j++) {
-			const t = coords.pcs[j][i] - c[j];
-			d += t * t;
-		}
-		if (!Number.isFinite(d)) continue;
-		if (best.length < n) {
-			best.push({ d, i });
-			best.sort((a, b) => a.d - b.d);
-		} else if (d < best[n - 1].d) {
-			best[n - 1] = { d, i };
-			best.sort((a, b) => a.d - b.d);
-		}
-	}
-	return best.map((b) => coords.ids[b.i]);
-}
-
 /** Resolve a step to the concrete view, anchors and selection for the map. */
 export function resolveStep(
 	step: StoryStep,
 	coords: CoordinateSet,
-	facts: GameFacts
+	neighbours: NeighboursArtifact
 ): { view: ViewState; anchors: number[]; focus: number[] | null } {
 	const has = (id: number) => coords.index.has(id);
 	let selected: number[] = [];
 	let focus: number[] | null = null;
 	if (step.neighboursOf !== undefined && has(step.neighboursOf)) {
-		const keep = step.upcomingOnly ? (i: number) => facts.upcoming[i] === 1 : undefined;
-		selected = nearest(coords, step.neighboursOf, step.n ?? 10, keep);
+		selected = neighboursOf(neighbours, step.neighboursOf, step.n ?? 10, step.upcomingOnly).filter(has);
 		focus = [step.neighboursOf, ...selected];
 	}
 	const anchors = [
