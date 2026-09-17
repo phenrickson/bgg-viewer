@@ -63,4 +63,6 @@ if (missing.length) {
 	for (const [key, hint] of missing) console.log(`  ${key}  — ${hint}`);
 }
 
-console.log('\nNext: gcloud auth application-default login   (then `just doctor`)');
+console.log('\nNext: gcloud auth application-default login   (BigQuery access)');
+console.log('      gcloud auth login                       (warehouse API access)');
+console.log('      just doctor');
