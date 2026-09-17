@@ -19,6 +19,7 @@
   import { STEPS, BASE_VIEW, resolveStep } from '$lib/map/story';
   import { fetchNeighbours, neighbourList, type NeighboursArtifact } from '$lib/map/neighbours';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
+  import { scrolly, type ScrollyOptions } from '$lib/scrolly';
 
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
@@ -39,22 +40,21 @@
   });
 
   // --- which step is active ------------------------------------------------------------
+  // Scrollama drives this: a step is active from the moment it crosses the trigger line
+  // (mid-viewport) until the next one does. `progress` is how far through the active step
+  // the line is, for anything that wants to move continuously rather than snap.
   let active = $state(0);
-  let stepEls: HTMLElement[] = [];
-
-  onMount(() => {
-    // A step becomes active when it crosses the middle band of the viewport. The band is
-    // narrow so exactly one step is "in" at a time; the most recently entered one wins.
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) active = Number((e.target as HTMLElement).dataset.step);
-        }
-      },
-      { rootMargin: '-45% 0px -45% 0px', threshold: 0 }
-    );
-    for (const el of stepEls) if (el) io.observe(el);
-    return () => io.disconnect();
+  let progress = $state(0);
+  let prose = $state<HTMLElement | null>(null);
+  // The app shell scrolls `main`, not the window; Scrollama needs to measure against it.
+  const scrollRoot = $derived(prose?.closest('main') ?? null);
+  const scrollyOptions = $derived<ScrollyOptions>({
+    step: '.step',
+    offset: 0.5,
+    progress: true,
+    root: scrollRoot,
+    onEnter: (i) => { active = i; },
+    onProgress: (i, p) => { if (i === active) progress = p; }
   });
 
   const step = $derived(STEPS[active]);
@@ -100,7 +100,7 @@
 </svelte:head>
 
 <div class="story">
-  <div class="prose">
+  <div class="prose" bind:this={prose} use:scrolly={scrollyOptions}>
     <header class="intro">
       <p class="eyebrow">Dev only — every word is placeholder</p>
       <h1>How the map works</h1>
@@ -108,7 +108,7 @@
     </header>
 
     {#each STEPS as s, i (s.id)}
-      <article class="step" class:active={i === active} data-step={i} bind:this={stepEls[i]}>
+      <article class="step" class:active={i === active}>
         <p class="count">{i + 1} / {STEPS.length}</p>
         <h2>{s.title}</h2>
         {#each s.body as para}<p>{para}</p>{/each}
@@ -160,6 +160,11 @@
         />
       {/if}
     </div>
+    <div class="progress" aria-hidden="true">
+      {#each STEPS as s, i (s.id)}
+        <i class:done={i < active} style:--p={i === active ? progress : i < active ? 1 : 0}></i>
+      {/each}
+    </div>
     <p class="caption">
       {step.title}
       {#if coords}<span> · {view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}</span>{/if}
@@ -189,6 +194,13 @@
     min-height: 20rem;
   }
   .map { flex: 1 1 auto; min-height: 0; }
+  /* One segment per step; the active one fills with Scrollama's progress. */
+  .progress { display: flex; gap: 0.25rem; height: 3px; }
+  .progress i { flex: 1; background: var(--muted); border-radius: 2px; overflow: hidden; position: relative; }
+  .progress i::after {
+    content: ''; position: absolute; inset: 0; background: var(--primary);
+    transform-origin: left; transform: scaleX(var(--p, 0));
+  }
   .caption { margin: 0; color: var(--muted-foreground); font-size: 0.8rem; }
   .caption span { opacity: 0.8; }
 
