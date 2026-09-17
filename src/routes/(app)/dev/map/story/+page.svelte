@@ -6,8 +6,9 @@
    * Steps are data (`$lib/map/story.ts`); this page only decides which one is active and
    * hands its resolved view to the same `EmbeddingMap` the explore page uses.
    *
-   * The map is still live: hover for a tooltip, click to ring a game, drag to pan. Scrolling
-   * to the next step replaces the selection with that step's own.
+   * The map is a picture on most steps; a step opts into hover/click (`interactive`) where
+   * poking at the neighbourhood is the point. Scrolling to the next step replaces the
+   * selection with that step's own.
    *
    * All copy is PLACEHOLDER — Phil writes it.
    */
@@ -128,6 +129,8 @@
           anchors={resolved.anchors}
           focus={resolved.focus}
           cameraFixed
+          frame={false}
+          interactive={step.interactive ?? false}
           onselectionchange={(ids) => (view = { ...view, selected: ids })}
         />
       {/if}
@@ -251,7 +254,7 @@
   .intro > * { pointer-events: auto; }
   .card {
     pointer-events: auto;
-    width: min(100%, 30rem);
+    width: min(100%, 38rem);
     padding: 1.25rem 1.5rem;
     border: 1px solid var(--border);
     border-radius: var(--radius, 0.5rem);

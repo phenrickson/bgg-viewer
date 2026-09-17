@@ -63,6 +63,8 @@ export interface StoryStep {
 	upcomingOnly?: boolean;
 	/** Show this game's coordinate vector beside the prose. */
 	vectorOf?: number;
+	/** Let the reader hover/click the map on this step. Most steps are a picture. */
+	interactive?: boolean;
 }
 
 /** The view every step starts from; a step overrides what it needs to. */
@@ -145,7 +147,8 @@ export const STEPS: StoryStep[] = [
 		],
 		view: { colour: 'weight', size: 'uniform' },
 		neighboursOf: GAMES.brass,
-		n: 12
+		n: 12,
+		interactive: true
 	},
 	{
 		id: 'neighbours-2',
@@ -156,7 +159,8 @@ export const STEPS: StoryStep[] = [
 		],
 		view: { colour: 'weight', size: 'uniform' },
 		neighboursOf: GAMES.codenames,
-		n: 12
+		n: 12,
+		interactive: true
 	},
 	{
 		id: 'umap',
@@ -167,7 +171,8 @@ export const STEPS: StoryStep[] = [
 		],
 		view: { projection: 'umap', colour: 'category', size: 'uniform' },
 		neighboursOf: GAMES.codenames,
-		n: 12
+		n: 12,
+		interactive: true
 	},
 	{
 		id: 'upcoming',
@@ -187,7 +192,8 @@ export const STEPS: StoryStep[] = [
 		body: [
 			'That’s the whole idea. The full map lets you pick the axes, colour by whatever you like, find any game and see what surrounds it.'
 		],
-		view: { colour: 'weight', size: 'popularity', upcoming: true }
+		view: { colour: 'weight', size: 'popularity', upcoming: true },
+		interactive: true
 	}
 ];
 

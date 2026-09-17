@@ -29,6 +29,8 @@
     keep = null,
     focus = null,
     cameraFixed = false,
+    interactive = true,
+    frame = true,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -49,6 +51,11 @@
      * of being swallowed by the map.
      */
     cameraFixed?: boolean;
+    /** Hover, click and drag at all. Off, the map is a picture (a tour step that's just
+     * there to be looked at). */
+    interactive?: boolean;
+    /** Draw the border/rounding around the map. */
+    frame?: boolean;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
      * The page owns the list (it's `view.selected`); the map only proposes the next one.
@@ -162,10 +169,20 @@
     // Capture before the await so a later change doesn't race in.
     const va = colouring.bucketOf, vb = sizeBucket;
     drawn = false;
-    plot
-      .draw({ x: nx, y: ny, valueA: va, valueB: vb }, { preventFilterReset: true })
-      .then(() => { drawn = true; applyFilter(); scheduleOverlay(); });
+    // Positions animate: a projection switch shows each game travelling to its new spot
+    // rather than the cloud snapping. The very first draw starts everything at the centre
+    // so the opening is the cloud unfolding, not a lump already there.
+    const p = plot;
+    const first = !everDrawn;
+    everDrawn = true;
+    const settle = () =>
+      p.draw({ x: nx, y: ny, valueA: va, valueB: vb }, { preventFilterReset: true, transition: true, transitionDuration: first ? 1400 : 800 })
+        .then(() => { drawn = true; applyFilter(); scheduleOverlay(); });
+    if (first) {
+      p.draw({ x: new Float32Array(nx.length), y: new Float32Array(ny.length), valueA: va, valueB: vb }, { preventFilterReset: true }).then(settle);
+    } else settle();
   });
+  let everDrawn = false;
 
   function applyFilter() {
     if (!plot || !drawn) return;
@@ -280,11 +297,17 @@
   });
 
   function init(createScatterplot: typeof import('regl-scatterplot').default) {
+    // `pointSizeMouseDetection` is a real option (see `computePointSizeMouseDetection` in
+    // the library) that its typings omit.
     plot = createScatterplot({
+      pointSizeMouseDetection: 4,
       canvas: glCanvas,
       width: 'auto',
       height: 'auto',
       pointSize: SIZE_TABLE,
+      // With a size *table*, regl's auto hit radius is the table's max (20px + 4): a 2px
+      // dot 24px from the cursor would be "hovered" and the ring would jump to it. Use a
+      // small fixed radius; regl still picks the nearest point within it.
       sizeBy: 'valueB',
       colorBy: 'valueA',
       opacity: 0.75,
@@ -297,7 +320,7 @@
       lassoMinDelay: 0,
       lassoMinDist: 1,
       lassoLineWidth: 1.5
-    });
+    } as Parameters<typeof createScatterplot>[0]);
     plot.subscribe('pointOver', (i) => { hovered = i; onhover?.(coords.ids[i]); });
     plot.subscribe('pointOut', () => { hovered = -1; onhover?.(null); });
     // regl fires the same `select` for a click (one point) and a lasso (many). A click
@@ -342,7 +365,7 @@
   }
 </script>
 
-<div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} bind:this={host}>
+<div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} class:inert={!interactive} class:frameless={!frame} bind:this={host}>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   {#if colouring}
@@ -409,6 +432,8 @@
   }
   .host.lasso .gl { cursor: cell; }
   .host.fixed-camera .gl { cursor: default; }
+  .host.inert .gl { pointer-events: none; }
+  .host.frameless { border: 0; border-radius: 0; }
   .overlay {
     position: absolute;
     inset: 0;
