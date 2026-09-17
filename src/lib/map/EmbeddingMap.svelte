@@ -195,7 +195,10 @@
         const idx = k.map((id) => coords.index.get(id)).filter((i): i is number => i != null);
         if (idx.length) p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 600 });
       } else if (had) {
-        p.reset();
+        // Not `reset()`: that re-creates the camera with no transition (and doesn't take
+        // while the camera is fixed). Frame the whole data square the same way we framed
+        // the subset, so out mirrors in.
+        p.zoomToArea({ x: -1, y: -1, width: 2, height: 2 }, { transition: true, transitionDuration: 600 });
       }
     }, 60);
   });
