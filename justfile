@@ -173,3 +173,7 @@ verify: check test build
 # Remove generated artifacts (keeps source + node_modules). Portable via node.
 clean:
     node -e "for (const d of ['.svelte-kit','build']) require('fs').rmSync(d,{recursive:true,force:true})"
+
+# Print the /dev/map/story guided-tour URL (same server as `just dev-map`).
+map-story:
+    @echo "-> http://localhost:5173/dev/map/story"

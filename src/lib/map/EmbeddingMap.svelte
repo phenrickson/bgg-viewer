@@ -27,6 +27,7 @@
     anchors = [],
     mode = 'pan',
     keep = null,
+    focus = null,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -39,6 +40,8 @@
     mode?: 'pan' | 'lasso';
     /** Game ids to keep on the map (a lasso set); null = everything the other filters allow. */
     keep?: number[] | null;
+    /** Game ids to frame (zoom to) without hiding anything else; null = the whole map. */
+    focus?: number[] | null;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
      * The page owns the list (it's `view.selected`); the map only proposes the next one.
@@ -143,7 +146,8 @@
   $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
 
   /** Positions + encodings. One `draw` per change of projection/axes/colour/size. */
-  let drawn = false;
+  // Reactive so the filter and framing effects re-run once a fresh draw has landed.
+  let drawn = $state(false);
   $effect(() => {
     if (!plot || !colouring) return;
     const { nx, ny } = ndc;
@@ -168,17 +172,20 @@
    * clearing the set goes back to the whole map. Runs after layout has settled so the zoom
    * targets the new canvas size, not the old one.
    */
-  let lastKeep: number[] | null = null;
+  // `focus` frames a set the same way but leaves the rest of the map drawn (the tour uses
+  // it to zoom into a neighbourhood). `keep` wins when both are given.
+  let lastFrame: number[] | null = null;
   $effect(() => {
-    const k = keep;
-    if (!plot || !drawn || k === lastKeep) return;
-    const had = lastKeep;
-    lastKeep = k;
+    const k = keep ?? focus;
+    void ndc; // reframe after a projection change too — the points moved under the camera
+    if (!plot || !drawn) return;
+    const had = lastFrame;
+    lastFrame = k;
     const p = plot;
     setTimeout(() => {
       if (k && k.length) {
         const idx = k.map((id) => coords.index.get(id)).filter((i): i is number => i != null);
-        p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 400 });
+        if (idx.length) p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 600 });
       } else if (had) {
         p.reset();
       }
