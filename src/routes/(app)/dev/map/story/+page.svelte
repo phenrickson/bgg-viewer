@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
-   * `/dev/map/story` — the guided tour. The prose scrolls down the left; the map stays put
-   * on the right and changes as each step reaches the middle of the viewport. Steps are
-   * data (`$lib/map/story.ts`); this page only decides which one is active and hands its
-   * resolved view to the same `EmbeddingMap` the explore page uses.
+   * `/dev/map/story` — the guided tour, in the overlay layout scrollytelling pieces use:
+   * the map fills the viewport and stays pinned; the prose scrolls over it as narrow
+   * cards down the middle, and the map changes as each card reaches the trigger line.
+   * Steps are data (`$lib/map/story.ts`); this page only decides which one is active and
+   * hands its resolved view to the same `EmbeddingMap` the explore page uses.
    *
    * The map is still live: hover for a tooltip, click to ring a game, drag to pan. Scrolling
    * to the next step replaces the selection with that step's own.
@@ -48,8 +49,18 @@
   let prose = $state<HTMLElement | null>(null);
   // The app shell scrolls `main`, not the window; Scrollama needs to measure against it.
   const scrollRoot = $derived(prose?.closest('main') ?? null);
+  // The pinned figure is exactly one scroll-viewport tall. That's <main>'s box, not the
+  // window's (the app bar sits above it), so measure it rather than guess at 100svh − bar.
+  let viewportH = $state(0);
+  $effect(() => {
+    const root = scrollRoot;
+    if (!root) return;
+    const ro = new ResizeObserver(([e]) => { viewportH = e.contentRect.height; });
+    ro.observe(root);
+    return () => ro.disconnect();
+  });
   const scrollyOptions = $derived<ScrollyOptions>({
-    step: '.step',
+    step: 'article.step', // not the intro header, which shares the layout class
     offset: 0.5,
     progress: true,
     root: scrollRoot,
@@ -99,50 +110,8 @@
   <title>Embedding map — the tour (dev only)</title>
 </svelte:head>
 
-<div class="story">
-  <div class="prose" bind:this={prose} use:scrolly={scrollyOptions}>
-    <header class="intro">
-      <p class="eyebrow">Dev only — every word is placeholder</p>
-      <h1>How the map works</h1>
-      <p class="lede">Scroll. The map on the right follows along.</p>
-    </header>
-
-    {#each STEPS as s, i (s.id)}
-      <article class="step" class:active={i === active}>
-        <p class="count">{i + 1} / {STEPS.length}</p>
-        <h2>{s.title}</h2>
-        {#each s.body as para}<p>{para}</p>{/each}
-
-        {#if i === active && vector}
-          <figure class="vector" aria-label="Coordinate vector">
-            {#each vector as v (v.label)}
-              <div class="row">
-                <span class="lbl">{v.label}</span>
-                <span class="bar">
-                  <i class:neg={v.frac < 0} style:width="{Math.abs(v.frac) * 50}%" style:left="{v.frac < 0 ? 50 - Math.abs(v.frac) * 50 : 50}%"></i>
-                </span>
-                <span class="val">{v.value.toFixed(2)}</span>
-              </div>
-            {/each}
-            <figcaption>Six of the components the map is drawn from, scaled to the whole map’s range.</figcaption>
-          </figure>
-        {/if}
-
-        {#if i === active && neighbourRows.length}
-          <ol class="neighbours">
-            {#each neighbourRows as r (r.id)}
-              <li><a href="/games/{r.id}">{r.name}</a> <span>{r.year ?? ''} · {r.sim.toFixed(2)}</span></li>
-            {/each}
-          </ol>
-        {/if}
-
-        {#if s.id === 'explore'}
-          <p><a class="cta" href="/dev/map">Open the map →</a></p>
-        {/if}
-      </article>
-    {/each}
-  </div>
-
+<div class="story" bind:this={prose} use:scrolly={scrollyOptions} style:--vh="{viewportH}px">
+  <!-- Pinned. Everything after it scrolls over the top. -->
   <div class="figure">
     <div class="map">
       {#if loadError}
@@ -160,69 +129,141 @@
         />
       {/if}
     </div>
-    <div class="progress" aria-hidden="true">
-      {#each STEPS as s, i (s.id)}
-        <i class:done={i < active} style:--p={i === active ? progress : i < active ? 1 : 0}></i>
-      {/each}
+    <div class="hud">
+      <div class="progress" aria-hidden="true">
+        {#each STEPS as s, i (s.id)}
+          <i style:--p={i === active ? progress : i < active ? 1 : 0}></i>
+        {/each}
+      </div>
+      <p class="caption">
+        {#if coords}{view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}{/if}
+      </p>
     </div>
-    <p class="caption">
-      {step.title}
-      {#if coords}<span> · {view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}</span>{/if}
-    </p>
+  </div>
+
+  <div class="steps">
+    <header class="step intro">
+      <p class="eyebrow">Dev only — every word is placeholder</p>
+      <h1>How the map works</h1>
+      <p class="lede">Scroll.</p>
+    </header>
+
+    {#each STEPS as s, i (s.id)}
+      <article class="step" class:active={i === active}>
+        <div class="card">
+          <p class="count">{i + 1} / {STEPS.length}</p>
+          <h2>{s.title}</h2>
+          {#each s.body as para}<p>{para}</p>{/each}
+
+          {#if i === active && vector}
+            <figure class="vector" aria-label="Coordinate vector">
+              {#each vector as v (v.label)}
+                <div class="row">
+                  <span class="lbl">{v.label}</span>
+                  <span class="bar">
+                    <i class:neg={v.frac < 0} style:width="{Math.abs(v.frac) * 50}%" style:left="{v.frac < 0 ? 50 - Math.abs(v.frac) * 50 : 50}%"></i>
+                  </span>
+                  <span class="val">{v.value.toFixed(2)}</span>
+                </div>
+              {/each}
+              <figcaption>Six of the components the map is drawn from, scaled to the whole map’s range.</figcaption>
+            </figure>
+          {/if}
+
+          {#if i === active && neighbourRows.length}
+            <ol class="neighbours">
+              {#each neighbourRows as r (r.id)}
+                <li><a href="/games/{r.id}">{r.name}</a> <span>{r.year ?? ''} · {r.sim.toFixed(2)}</span></li>
+              {/each}
+            </ol>
+          {/if}
+
+          {#if s.id === 'explore'}
+            <p><a class="cta" href="/dev/map">Open the map →</a></p>
+          {/if}
+        </div>
+      </article>
+    {/each}
   </div>
 </div>
 
 <style>
-  .story {
-    display: grid;
-    grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr);
-    gap: var(--space-xl);
-    align-items: start;
-  }
   /*
-   * The figure is pinned while the prose scrolls past — a scrollytelling figure is by
-   * definition viewport-sized, which is the one place a viewport unit belongs. The
-   * subtraction is the app bar plus the shell's padding.
+   * Full-bleed: undo the shell's padding so the pinned map can take the whole scroll
+   * viewport. The figure is sticky at the top of <main> and exactly as tall as <main>'s
+   * visible box (`--vh`, measured above). The steps come after it in flow, pulled up over
+   * it with a negative margin so they scroll across the map.
    */
+  .story {
+    position: relative;
+    margin: calc(-1 * var(--space-lg));
+  }
   .figure {
     position: sticky;
     top: 0;
-    height: calc(100svh - 8rem);
+    height: var(--vh);
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
-    min-height: 20rem;
+    z-index: 0;
   }
   .map { flex: 1 1 auto; min-height: 0; }
+  .figure :global(.host) { border: 0; border-radius: 0; }
+
+  .hud {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 0.5rem var(--space-lg) 0.6rem;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    pointer-events: none;
+    background: linear-gradient(to top, color-mix(in oklch, var(--background) 85%, transparent), transparent);
+  }
   /* One segment per step; the active one fills with Scrollama's progress. */
-  .progress { display: flex; gap: 0.25rem; height: 3px; }
+  .progress { display: flex; gap: 0.25rem; height: 3px; max-width: 24rem; }
   .progress i { flex: 1; background: var(--muted); border-radius: 2px; overflow: hidden; position: relative; }
   .progress i::after {
     content: ''; position: absolute; inset: 0; background: var(--primary);
     transform-origin: left; transform: scaleX(var(--p, 0));
   }
-  .caption { margin: 0; color: var(--muted-foreground); font-size: 0.8rem; }
-  .caption span { opacity: 0.8; }
+  .caption { margin: 0; color: var(--muted-foreground); font-size: 0.75rem; }
 
-  .intro { padding-block: var(--space-lg) var(--space-xl); }
-  .eyebrow { margin: 0 0 0.25rem; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
-  .lede { color: var(--muted-foreground); }
-
-  /* Each step takes most of a screen so there's a clear moment where it is the one in view. */
+  .steps {
+    position: relative;
+    z-index: 1;
+    margin-top: calc(-1 * var(--vh));
+    padding-bottom: calc(0.3 * var(--vh));
+    /* The column itself must not swallow drags on the map between cards. */
+    pointer-events: none;
+  }
+  /* Each step is a viewport tall so there's a clear moment where its card is the one in
+   * the middle; the card is the only thing that takes the pointer. */
   .step {
-    min-height: 70svh;
+    min-height: var(--vh);
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    padding-block: var(--space-lg);
-    opacity: 0.35;
+    padding: 0 var(--space-lg);
+  }
+  .step.intro { flex-direction: column; text-align: center; }
+  .intro > * { pointer-events: auto; }
+  .card {
+    pointer-events: auto;
+    width: min(100%, 30rem);
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 0.5rem);
+    background: color-mix(in oklch, var(--card) 92%, transparent);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.12);
+    opacity: 0.55;
     transition: opacity 0.3s ease;
   }
-  .step.active { opacity: 1; }
-  .step:last-child { min-height: 50svh; }
+  .step.active .card { opacity: 1; }
+  .eyebrow { margin: 0 0 0.25rem; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+  .lede { color: var(--muted-foreground); }
   .count { margin: 0; font-size: 0.75rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-  .step h2 { margin: 0.25rem 0 0.75rem; color: var(--foreground); }
-  .step p { color: var(--muted-foreground); line-height: 1.55; margin: 0 0 0.75rem; }
+  .card h2 { margin: 0.25rem 0 0.75rem; color: var(--foreground); }
+  .card p { color: var(--muted-foreground); line-height: 1.55; margin: 0 0 0.75rem; }
+  .card p:last-child { margin-bottom: 0; }
   .cta { color: var(--primary); font-weight: 600; }
 
   .vector { margin: 0.5rem 0 0; font-size: 0.8rem; }
@@ -242,14 +283,12 @@
 
   .state {
     height: 100%; display: grid; place-items: center;
-    color: var(--muted-foreground); border: 1px dashed var(--border); border-radius: var(--radius, 0.5rem);
+    color: var(--muted-foreground);
   }
   .state.error { color: var(--destructive, #b00); }
 
-  @container (max-width: 48rem) {
-    .story { grid-template-columns: 1fr; gap: 0; }
-    .figure { order: -1; height: 46svh; top: 0; background: var(--background); z-index: 1; padding-bottom: var(--space-sm); }
-    .step { min-height: 40svh; }
+  @container (max-width: 40rem) {
     .neighbours { columns: 1; }
+    .card { padding: 1rem; }
   }
 </style>
