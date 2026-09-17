@@ -28,6 +28,7 @@
     mode = 'pan',
     keep = null,
     focus = null,
+    cameraFixed = false,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -42,6 +43,12 @@
     keep?: number[] | null;
     /** Game ids to frame (zoom to) without hiding anything else; null = the whole map. */
     focus?: number[] | null;
+    /**
+     * No wheel-zoom or drag-pan: the camera only moves programmatically (`focus`/`keep`).
+     * Hover and click still work. The tour sets this so the wheel scrolls the page instead
+     * of being swallowed by the map.
+     */
+    cameraFixed?: boolean;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
      * The page owns the list (it's `view.selected`); the map only proposes the next one.
@@ -144,6 +151,7 @@
   });
 
   $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
+  $effect(() => { plot?.set({ cameraIsFixed: cameraFixed }); });
 
   /** Positions + encodings. One `draw` per change of projection/axes/colour/size. */
   // Reactive so the filter and framing effects re-run once a fresh draw has landed.
@@ -331,7 +339,7 @@
   }
 </script>
 
-<div class="host" class:lasso={mode === 'lasso'} bind:this={host}>
+<div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} bind:this={host}>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   {#if colouring}
@@ -397,6 +405,7 @@
     cursor: crosshair;
   }
   .host.lasso .gl { cursor: cell; }
+  .host.fixed-camera .gl { cursor: default; }
   .overlay {
     position: absolute;
     inset: 0;

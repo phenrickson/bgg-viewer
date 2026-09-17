@@ -21,6 +21,7 @@
   import { fetchNeighbours, neighbourList, type NeighboursArtifact } from '$lib/map/neighbours';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import { scrolly, type ScrollyOptions } from '$lib/scrolly';
+  import { Container } from '$lib/components/ui/layout';
 
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
@@ -110,6 +111,7 @@
   <title>Embedding map — the tour (dev only)</title>
 </svelte:head>
 
+<Container size="content">
 <div class="story" bind:this={prose} use:scrolly={scrollyOptions} style:--vh="{viewportH}px">
   <!-- Pinned. Everything after it scrolls over the top. -->
   <div class="figure">
@@ -125,6 +127,7 @@
           {view}
           anchors={resolved.anchors}
           focus={resolved.focus}
+          cameraFixed
           onselectionchange={(ids) => (view = { ...view, selected: ids })}
         />
       {/if}
@@ -186,33 +189,34 @@
     {/each}
   </div>
 </div>
+</Container>
 
 <style>
   /*
-   * Full-bleed: undo the shell's padding so the pinned map can take the whole scroll
-   * viewport. The figure is sticky at the top of <main> and exactly as tall as <main>'s
-   * visible box (`--vh`, measured above). The steps come after it in flow, pulled up over
-   * it with a negative margin so they scroll across the map.
+   * Inside the site's content measure like every other page. The figure is sticky within
+   * <main>'s padding and fills its visible box (`--vh`, measured above) less that padding.
+   * The steps come after it in flow, pulled up over it with a negative margin so they
+   * scroll across the map.
    */
   .story {
     position: relative;
-    margin: calc(-1 * var(--space-lg));
+    --fig: calc(var(--vh) - 2 * var(--space-lg));
   }
   .figure {
     position: sticky;
-    top: 0;
-    height: var(--vh);
+    top: var(--space-lg);
+    height: var(--fig);
     display: flex;
     flex-direction: column;
     z-index: 0;
   }
   .map { flex: 1 1 auto; min-height: 0; }
-  .figure :global(.host) { border: 0; border-radius: 0; }
 
   .hud {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    padding: 0.5rem var(--space-lg) 0.6rem;
+    padding: 0.5rem var(--space-md) 0.6rem;
+    border-radius: 0 0 var(--radius, 0.5rem) var(--radius, 0.5rem);
     display: flex; flex-direction: column; gap: 0.4rem;
     pointer-events: none;
     background: linear-gradient(to top, color-mix(in oklch, var(--background) 85%, transparent), transparent);
@@ -229,15 +233,15 @@
   .steps {
     position: relative;
     z-index: 1;
-    margin-top: calc(-1 * var(--vh));
-    padding-bottom: calc(0.3 * var(--vh));
+    margin-top: calc(-1 * var(--fig));
+    padding-bottom: calc(0.3 * var(--fig));
     /* The column itself must not swallow drags on the map between cards. */
     pointer-events: none;
   }
   /* Each step is a viewport tall so there's a clear moment where its card is the one in
    * the middle; the card is the only thing that takes the pointer. */
   .step {
-    min-height: var(--vh);
+    min-height: var(--fig);
     display: flex;
     align-items: center;
     justify-content: center;
