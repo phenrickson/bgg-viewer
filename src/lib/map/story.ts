@@ -155,7 +155,7 @@ export const STEPS: StoryStep[] = [
 		view: { colour: 'weight', size: 'uniform' },
 		strip: {
 			pc: 1,
-			labels: [GAMES.happySalmon, GAMES.uno, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.terraformingMars, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl, GAMES.campaignForNorthAfrica],
+			labels: [GAMES.happySalmon, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl],
 			title: 'Direction 1 — weight',
 			poles: ['light, quick, big groups', 'heavy, long, grognard']
 		}
@@ -171,11 +171,8 @@ export const STEPS: StoryStep[] = [
 		strip: {
 			pc: 3,
 			labels: [
-				GAMES.werewolf, GAMES.stratego, GAMES.backgammon, GAMES.asl, GAMES.happySalmon, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.twilightImperium4,
-				GAMES.monopoly, GAMES.puertoRico, GAMES.mexica, GAMES.hotStreak, GAMES.lordsOfVegas, GAMES.flammeRouge, GAMES.ra, GAMES.modernArt,
-				GAMES.pandemic, GAMES.arcs, GAMES.brass, GAMES.root, GAMES.imperialAssault, GAMES.codenames, GAMES.dominion, GAMES.forbiddenIsland,
-				GAMES.feastForOdin, GAMES.scythe, GAMES.rurik, GAMES.terraformingMars, GAMES.wingspan, GAMES.nemesis, GAMES.spiritIsland, GAMES.arkNova,
-				GAMES.wyrmspan, GAMES.frosthaven, GAMES.gloomhaven, GAMES.slayTheSpire, GAMES.mageKnight, GAMES.aeonsEnd
+				GAMES.werewolf, GAMES.stratego, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
+				GAMES.brass, GAMES.feastForOdin, GAMES.terraformingMars, GAMES.nemesis, GAMES.spiritIsland, GAMES.gloomhaven, GAMES.aeonsEnd
 			],
 			title: 'Direction 3 — classic form ↔ modern hobby design',
 			poles: ['classic form: fixed seats, dice, no cards', 'Kickstarter-era: solo-playable, card engine, asymmetric']

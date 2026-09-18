@@ -21,7 +21,6 @@
     title = '',
     poles = ['', ''],
     minRatings = 30,
-    labelSide = 'both',
     bandAt = 0.5
   }: {
     coords: CoordinateSet;
@@ -35,8 +34,6 @@
     /** PLACEHOLDER copy — what the low and high ends mean. */
     poles?: [string, string];
     minRatings?: number;
-    /** Stack labels on both sides of the band, or only above it (when something sits below). */
-    labelSide?: 'both' | 'above';
     /** Where the band's centre sits, as a fraction of the plot height. */
     bandAt?: number;
   } = $props();
@@ -110,12 +107,11 @@
       ctx.fillRect(x - 1, y - 1, 2, 2);
     }
     ctx.globalAlpha = 1;
-    // Labelled games sit on the axis line itself — vertical position carries nothing, so
-    // pinning them makes the x reading exact and lets the label attach right beside them.
+    // Labelled games are drawn where they are (same jitter as everyone), on top, in the accent.
     for (const id of labels) {
       const i = coords.index.get(id);
       if (i === undefined || !Number.isFinite(xs[i])) continue;
-      const x = sx(xs[i]), y = band.mid;
+      const x = sx(xs[i]), y = band.mid + jitter(id) * band.half;
       ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2);
       ctx.fillStyle = theme.background; ctx.fill();
       ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
@@ -124,40 +120,49 @@
   }
 
   /**
-   * Label layout, annotated-timeline style: labels sit just outside the band, alternating
-   * above and below their dot, and step out to the next row only when the row nearest the
-   * band is taken at that x. A label is never far from its dot; a short vertical leader
-   * joins them. Good enough for a few dozen labels; not a general solver.
+   * Label placement: each label goes at the first free spot around its own point — to the
+   * right, then left, above, below, then the same again farther out — never overlapping a
+   * label already placed. A leader is drawn only when the label had to move away from the
+   * point. Greedy, in x order; fine for a few dozen labels.
    */
   const placed = $derived.by(() => {
     if (width === 0) return [];
-    const ctxW = (s: string) => Math.min(s.length * 6.4 + 8, 220);
+    const H = 16;
+    const textW = (s: string) => Math.min(s.length * 6.4 + 8, 220);
+    type Box = { x0: number; y0: number; x1: number; y1: number };
+    const overlaps = (a: Box, b: Box) => a.x0 < b.x1 + 3 && a.x1 + 3 > b.x0 && a.y0 < b.y1 + 2 && a.y1 + 2 > b.y0;
+    const taken: Box[] = [];
     const items = labels
       .map((id) => ({ id, i: coords.index.get(id) }))
       .filter((r): r is { id: number; i: number } => r.i !== undefined && Number.isFinite(xs[r.i]))
-      .map(({ id, i }) => ({ id, name: facts.name(id), x: sx(xs[i]), y: band.mid, w: 0 }))
+      .map(({ id, i }) => ({ id, name: facts.name(id), x: sx(xs[i]), y: band.mid + jitter(id) * band.half }))
       .sort((a, b) => a.x - b.x);
-    for (const it of items) it.w = ctxW(it.name);
-    const rows: { above: number[]; below: number[] } = { above: [], below: [] };
-    type Side = 'above' | 'below';
-    return items.map((it, k) => {
-      const lx = Math.max(PAD.l + it.w / 2, Math.min(width - PAD.r - it.w / 2, it.x));
-      const start = lx - it.w / 2, end = start + it.w;
-      // Alternate sides, but take whichever side has the nearer free row.
-      const prefer: Side[] = labelSide === 'above' ? ['above'] : k % 2 ? ['below', 'above'] : ['above', 'below'];
-      let side: Side = prefer[0], row = Infinity;
-      for (const sd of prefer) {
-        const ends = rows[sd];
-        let r = ends.findIndex((e) => e + 8 < start);
-        if (r === -1) r = ends.length;
-        if (r < row) { row = r; side = sd; }
+    return items.map((it) => {
+      const w = textW(it.name);
+      // Candidate label centres, nearest first. (dx, dy) in px from the point.
+      const cands: [number, number][] = [];
+      for (const d of [9, 22, 38, 56, 78]) {
+        cands.push([d + w / 2, 0], [-(d + w / 2), 0], [0, -(d + H / 2)], [0, d + H / 2]);
+        cands.push([d * 0.7 + w / 2, -(d * 0.7 + H / 2)], [d * 0.7 + w / 2, d * 0.7 + H / 2], [-(d * 0.7 + w / 2), -(d * 0.7 + H / 2)], [-(d * 0.7 + w / 2), d * 0.7 + H / 2]);
       }
-      while (rows[side].length <= row) rows[side].push(0);
-      rows[side][row] = end;
-      const ly = side === 'above'
-        ? band.mid - band.half - 12 - row * LABEL_H
-        : band.mid + band.half + 12 + row * LABEL_H;
-      return { ...it, lx, ly, side, row, k };
+      let pick: { lx: number; ly: number; far: boolean } | null = null;
+      for (const [dx, dy] of cands) {
+        const lx = it.x + dx, ly = it.y + dy;
+        const box = { x0: lx - w / 2, y0: ly - H / 2, x1: lx + w / 2, y1: ly + H / 2 };
+        if (box.x0 < PAD.l - 4 || box.x1 > width - PAD.r + 4 || box.y0 < PAD.t - 30 || box.y1 > height - PAD.b) continue;
+        if (taken.some((t) => overlaps(box, t))) continue;
+        taken.push(box);
+        pick = { lx, ly, far: Math.hypot(dx, dy) > w / 2 + 14 };
+        break;
+      }
+      if (!pick) {
+        // Nothing free nearby: park it above the band and accept the crossing.
+        const lx = Math.max(PAD.l + w / 2, Math.min(width - PAD.r - w / 2, it.x));
+        const ly = PAD.t - 8;
+        taken.push({ x0: lx - w / 2, y0: ly - H / 2, x1: lx + w / 2, y1: ly + H / 2 });
+        pick = { lx, ly, far: true };
+      }
+      return { ...it, w, ...pick };
     });
   });
 
@@ -178,7 +183,9 @@
   <div class="pole hi">{poles[1]} →</div>
   <svg class="leaders" {width} {height} aria-hidden="true">
     {#each placed as p (p.id)}
-      <line x1={p.x} y1={p.y + (p.side === 'above' ? -6 : 6)} x2={p.lx} y2={p.side === 'above' ? p.ly + 8 : p.ly - 8} />
+      {#if p.far}
+        <line x1={p.x} y1={p.y} x2={p.lx} y2={p.ly} />
+      {/if}
     {/each}
   </svg>
   {#each placed as p (p.id)}
@@ -189,7 +196,7 @@
 <style>
   .strip { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--background); }
   canvas, .leaders { position: absolute; inset: 0; pointer-events: none; }
-  .leaders line { stroke: var(--foreground); stroke-opacity: 0.35; stroke-width: 1; }
+  .leaders line { stroke: var(--foreground); stroke-opacity: 0.4; stroke-width: 1; }
   .title {
     position: absolute; top: 0.75rem; left: 50%; transform: translateX(-50%);
     color: var(--foreground); font-weight: 650; font-size: 0.95rem; white-space: nowrap;
@@ -202,7 +209,7 @@
     position: absolute; transform: translate(-50%, -50%);
     font-size: 0.75rem; line-height: 1; color: var(--foreground); white-space: nowrap;
     padding: 0.1rem 0.3rem; border-radius: 3px;
-    background: color-mix(in oklch, var(--background) 85%, transparent);
+    background: color-mix(in oklch, var(--background) 82%, transparent);
     pointer-events: none;
   }
 </style>
