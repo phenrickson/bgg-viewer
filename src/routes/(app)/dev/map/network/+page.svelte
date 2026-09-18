@@ -17,7 +17,7 @@
   import { loadMap } from '$lib/map/load';
   import type { CoordinateSet } from '$lib/map/coordinates';
   import type { GameFacts } from '$lib/map/facts';
-  import { DEFAULT_VIEW, type ViewState } from '$lib/map/view';
+  import { DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkData } from '$lib/map/network';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
@@ -75,9 +75,11 @@
   let hops = $state<1 | 2>(2);
   let mutual = $state(false);
   let oneWay = $state(false);
-  let minRatings = $state(100);
+  // Same floor as the map, so the graph is built from the games the map shows.
+  let minRatings = $state(MIN_RATINGS_FLOOR);
   let showNetwork = $state(false);
   let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform', selected: [] });
+  $effect(() => { view.minRatings = minRatings; });
 
   const source = $derived(coords?.index.get(sourceId) ?? null);
   const graph = $derived.by(() => {
@@ -112,6 +114,7 @@
     <div>
       <p class="eyebrow">Dev only — prototype</p>
       <h1>Ego network</h1>
+      <p class="muted">Map tab: {view.projection === 'umap' ? 'UMAP' : `PC${view.x} × PC${view.y}`} · Network tab: force layout by edges</p>
     </div>
     <div class="search">
       <input type="search" placeholder="Centre on a game…" bind:value={q} oninput={onsearch} aria-label="Centre on a game" />
@@ -139,7 +142,7 @@
     </label>
     <label class="check"><input type="checkbox" bind:checked={mutual} /> Mutual neighbours only</label>
     <label class="check"><input type="checkbox" bind:checked={oneWay} /> Show one-way edges</label>
-    <label>Min ratings <input type="range" min="0" max="2000" step="50" bind:value={minRatings} /> {minRatings}</label>
+    <label>Min ratings <input type="range" min={MIN_RATINGS_FLOOR} max="2000" step="10" bind:value={minRatings} /> {minRatings}</label>
     {#if graph}
       <span class="muted">{graph.nodes.length} games · {graph.edges.length} edges · {graph.edges.filter((e) => e.mutual).length} mutual</span>
     {/if}
