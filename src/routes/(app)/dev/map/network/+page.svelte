@@ -157,7 +157,7 @@
       {:else if !coords || !facts || !layout}
         <div class="state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
       {:else}
-        <PointCanvas>
+        <PointCanvas lasso={false}>
           {#if showNetwork}
             <NetworkLayer {coords} {facts} {layout} {oneWay} onpick={pick} />
           {:else}

@@ -23,6 +23,7 @@
     cameraFixed = false,
     interactive = true,
     frame = true,
+    lasso = true,
     children
   }: {
     /** What a plain drag does. Shift+drag lassos in either mode. */
@@ -37,6 +38,12 @@
     interactive?: boolean;
     /** Draw the border/rounding around the canvas. */
     frame?: boolean;
+    /**
+     * Lasso selection at all (shift+drag, long press). Off, a click is a click within a few
+     * px of movement — regl's lasso sampling step doubles as its click threshold, and the
+     * 1px step a smooth lasso needs makes clicks nearly impossible to land.
+     */
+    lasso?: boolean;
     children?: Snippet;
   } = $props();
 
@@ -265,11 +272,11 @@
       pointOutlineWidth: 0,
       deselectOnDblClick: false,
       deselectOnEscape: true,
-      lassoOnLongPress: true,
+      lassoOnLongPress: lasso,
       // Sample the pointer every frame and every pixel — the defaults (10ms / 3px) drew a
-      // visibly jagged polygon.
+      // visibly jagged polygon. Without a lasso, the distance is only the click threshold.
       lassoMinDelay: 0,
-      lassoMinDist: 1,
+      lassoMinDist: lasso ? 1 : 4,
       lassoLineWidth: 1.5
     } as Parameters<typeof createScatterplot>[0]);
     // Dev-only handle for poking at the plot from the console / headless checks.
