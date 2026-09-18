@@ -18,6 +18,12 @@ export interface NetworkData {
 	emb: Float32Array;
 	/** A node the graph may include (e.g. rated enough); the source is always included. */
 	eligible: (i: number) => boolean;
+	/**
+	 * Memo of `topK` results, keyed by node. Each list is a full scan of the set (~2ms per
+	 * node), and re-centring on a neighbour re-asks for most of the lists just computed, so
+	 * the caller keeps one cache per (k, eligibility) and hands it in. Optional.
+	 */
+	cache?: Map<number, { i: number; sim: number }[]>;
 }
 
 export interface NetworkOpts {
@@ -60,6 +66,8 @@ export function dot(emb: Float32Array, dim: number, a: number, b: number): numbe
 
 /** Top-`k` eligible neighbours of `from`, best first, as `{ i, sim }`. */
 export function topK(d: NetworkData, from: number, k: number): { i: number; sim: number }[] {
+	const hit = d.cache?.get(from);
+	if (hit) return hit;
 	// Small bounded insertion list: k is tens, n is tens of thousands.
 	const best: { i: number; sim: number }[] = [];
 	let floor = -Infinity;
@@ -73,6 +81,7 @@ export function topK(d: NetworkData, from: number, k: number): { i: number; sim:
 		if (best.length > k) best.pop();
 		if (best.length === k) floor = best[k - 1].sim;
 	}
+	d.cache?.set(from, best);
 	return best;
 }
 

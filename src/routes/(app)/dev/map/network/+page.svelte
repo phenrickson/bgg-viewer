@@ -82,10 +82,12 @@
   $effect(() => { view.minRatings = minRatings; });
 
   const source = $derived(coords?.index.get(sourceId) ?? null);
+  // Neighbour lists are memoised across re-centres; the memo is only valid for one
+  // (k, ratings floor), so it's rebuilt when either moves.
+  const cache = $derived.by(() => { void k; void minRatings; return new Map<number, { i: number; sim: number }[]>(); });
   const graph = $derived.by(() => {
     if (!data || source == null) return null;
-    void minRatings; // `eligible` reads it untracked; recompute when it moves
-    return buildEgoNetwork(data, source, { k, hops, mutual });
+    return buildEgoNetwork({ ...data, cache }, source, { k, hops, mutual });
   });
   const layout = $derived(graph ? layoutEgoNetwork(graph, (i) => (i === graph.source ? 8 : 5)) : null);
   const nodeIds = $derived(graph && coords ? graph.nodes.map((n) => coords!.ids[n.i]) : []);

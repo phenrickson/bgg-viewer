@@ -71,7 +71,10 @@
     get palette() { return palette; },
     get size() { return size; },
     get visible() { return visible; },
-    focus: null,
+    // Frame the graph after every change of centre: the layout is refitted to the data
+    // square, so the camera has to follow it or a zoomed-in view is left looking at
+    // nothing.
+    get focus() { return visible; },
     opacity: 0.9,
     onhover: (i) => onhover?.(i >= 0 ? coords.ids[i] : null),
     onselect: (points) => { if (points.length === 1) onpick?.(coords.ids[points[0]]); },
