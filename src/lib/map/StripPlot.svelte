@@ -21,6 +21,7 @@
     title = '',
     poles = ['', ''],
     minRatings = 30,
+    upcoming = false,
     bandAt = 0.5
   }: {
     coords: CoordinateSet;
@@ -34,6 +35,14 @@
     /** PLACEHOLDER copy — what the low and high ends mean. */
     poles?: [string, string];
     minRatings?: number;
+    /**
+     * Draw upcoming (unreleased, unrated) games. Off by default: a dimension should be read
+     * from the games the model has real data for. The extremes among upcoming games — a
+     * 2026 murder-mystery dinner game past Campaign for North Africa on PC3 — are how far a
+     * thin feature row can be flung, and are better treated as outlier candidates than as
+     * part of the shape.
+     */
+    upcoming?: boolean;
     /** Where the band's centre sits, as a fraction of the plot height. */
     bandAt?: number;
   } = $props();
@@ -51,9 +60,12 @@
 
   /** Full min–max with a little padding. The tails are the point of a strip — clipping to a
    * percentile (an earlier cut) pinned exactly the games worth labelling to the edge. */
+  /** Row is drawn at all under the current settings. */
+  const shown = $derived((i: number) => (facts.upcoming[i] === 1 ? upcoming : facts.usersRated[i] >= minRatings));
+
   const domain = $derived.by(() => {
     let lo = Infinity, hi = -Infinity;
-    for (let i = 0; i < xs.length; i++) { const v = xs[i]; if (!Number.isFinite(v)) continue; if (v < lo) lo = v; if (v > hi) hi = v; }
+    for (let i = 0; i < xs.length; i++) { const v = xs[i]; if (!Number.isFinite(v) || !shown(i)) continue; if (v < lo) lo = v; if (v > hi) hi = v; }
     const pad = (hi - lo) * 0.03;
     return [lo - pad, hi + pad] as [number, number];
   });
@@ -74,7 +86,7 @@
     return { mid, half };
   });
 
-  $effect(() => { void width; void height; void theme; void xs; void minRatings; draw(); });
+  $effect(() => { void width; void height; void theme; void xs; void minRatings; void upcoming; draw(); });
 
   function draw() {
     if (!canvas || !theme || width === 0) return;
@@ -99,8 +111,7 @@
     const n = coords.ids.length;
     for (let i = 0; i < n; i++) {
       const v = xs[i];
-      if (!Number.isFinite(v)) continue;
-      if (facts.upcoming[i] !== 1 && facts.usersRated[i] < minRatings) continue;
+      if (!Number.isFinite(v) || !shown(i)) continue;
       if (labelled.has(coords.ids[i])) continue;
       const x = Math.max(PAD.l, Math.min(width - PAD.r, sx(v)));
       const y = band.mid + jitter(coords.ids[i]) * band.half;
@@ -110,7 +121,7 @@
     // Labelled games are drawn where they are (same jitter as everyone), on top, in the accent.
     for (const id of labels) {
       const i = coords.index.get(id);
-      if (i === undefined || !Number.isFinite(xs[i])) continue;
+      if (i === undefined || !Number.isFinite(xs[i]) || !shown(i)) continue;
       const x = sx(xs[i]), y = band.mid + jitter(id) * band.half;
       ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2);
       ctx.fillStyle = theme.background; ctx.fill();
@@ -134,7 +145,7 @@
     const taken: Box[] = [];
     const items = labels
       .map((id) => ({ id, i: coords.index.get(id) }))
-      .filter((r): r is { id: number; i: number } => r.i !== undefined && Number.isFinite(xs[r.i]))
+      .filter((r): r is { id: number; i: number } => r.i !== undefined && Number.isFinite(xs[r.i]) && shown(r.i))
       .map(({ id, i }) => ({ id, name: facts.name(id), x: sx(xs[i]), y: band.mid + jitter(id) * band.half }))
       .sort((a, b) => a.x - b.x);
     return items.map((it) => {
