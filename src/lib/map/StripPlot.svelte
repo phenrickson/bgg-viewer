@@ -47,17 +47,18 @@
   let height = $state(0);
   let theme: MapTheme | null = $state(null);
 
-  const PAD = { l: 24, r: 24, t: 56, b: 64 };
+  const PAD = { l: 24, r: 24, t: 48, b: 40 };
   const LABEL_H = 18;
 
   const xs = $derived(coords.pcs[pc - 1]);
 
-  /** Symmetric domain around 0 clipped to the 0.1–99.9 percentile so a few outliers don't
-   * squash the strip; the poles are what we want to read. */
+  /** Full min–max with a little padding. The tails are the point of a strip — clipping to a
+   * percentile (an earlier cut) pinned exactly the games worth labelling to the edge. */
   const domain = $derived.by(() => {
-    const v = Array.from(xs).filter(Number.isFinite).sort((a, b) => a - b);
-    const lo = v[Math.floor(v.length * 0.001)], hi = v[Math.floor(v.length * 0.999)];
-    return [lo, hi] as [number, number];
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < xs.length; i++) { const v = xs[i]; if (!Number.isFinite(v)) continue; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const pad = (hi - lo) * 0.03;
+    return [lo - pad, hi + pad] as [number, number];
   });
   const sx = $derived((v: number) => PAD.l + ((v - domain[0]) / (domain[1] - domain[0])) * (width - PAD.l - PAD.r));
 
@@ -109,46 +110,54 @@
       ctx.fillRect(x - 1, y - 1, 2, 2);
     }
     ctx.globalAlpha = 1;
-    // labelled games on top, in the accent, with a halo
+    // Labelled games sit on the axis line itself — vertical position carries nothing, so
+    // pinning them makes the x reading exact and lets the label attach right beside them.
     for (const id of labels) {
       const i = coords.index.get(id);
       if (i === undefined || !Number.isFinite(xs[i])) continue;
-      const x = sx(xs[i]), y = band.mid + jitter(id) * band.half;
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+      const x = sx(xs[i]), y = band.mid;
+      ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2);
       ctx.fillStyle = theme.background; ctx.fill();
-      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fillStyle = theme.accent; ctx.fill();
     }
   }
 
   /**
-   * Label layout: sort by x, alternate above/below the band, and within a side take the
-   * lowest lane whose last label ends before this one starts. Leader lines join label to
-   * dot. Good enough for a few dozen labels; not a general solver.
+   * Label layout, annotated-timeline style: labels sit just outside the band, alternating
+   * above and below their dot, and step out to the next row only when the row nearest the
+   * band is taken at that x. A label is never far from its dot; a short vertical leader
+   * joins them. Good enough for a few dozen labels; not a general solver.
    */
   const placed = $derived.by(() => {
     if (width === 0) return [];
-    const ctxW = (s: string) => Math.min(s.length * 6.4 + 8, 200);
+    const ctxW = (s: string) => Math.min(s.length * 6.4 + 8, 220);
     const items = labels
       .map((id) => ({ id, i: coords.index.get(id) }))
       .filter((r): r is { id: number; i: number } => r.i !== undefined && Number.isFinite(xs[r.i]))
-      .map(({ id, i }) => ({ id, name: facts.name(id), x: sx(xs[i]), y: band.mid + jitter(id) * band.half, w: 0 }))
+      .map(({ id, i }) => ({ id, name: facts.name(id), x: sx(xs[i]), y: band.mid, w: 0 }))
       .sort((a, b) => a.x - b.x);
     for (const it of items) it.w = ctxW(it.name);
-    const lanes: { above: number[]; below: number[] } = { above: [], below: [] };
+    const rows: { above: number[]; below: number[] } = { above: [], below: [] };
+    type Side = 'above' | 'below';
     return items.map((it, k) => {
-      const side = labelSide === 'above' || it.y < band.mid ? 'above' : 'below';
-      const ends = lanes[side];
-      // Keep the label inside the plot first, then find a lane for where it actually is.
       const lx = Math.max(PAD.l + it.w / 2, Math.min(width - PAD.r - it.w / 2, it.x));
-      const start = lx - it.w / 2;
-      let lane = ends.findIndex((e) => e + 6 < start);
-      if (lane === -1) { lane = ends.length; ends.push(0); }
-      ends[lane] = start + it.w;
+      const start = lx - it.w / 2, end = start + it.w;
+      // Alternate sides, but take whichever side has the nearer free row.
+      const prefer: Side[] = labelSide === 'above' ? ['above'] : k % 2 ? ['below', 'above'] : ['above', 'below'];
+      let side: Side = prefer[0], row = Infinity;
+      for (const sd of prefer) {
+        const ends = rows[sd];
+        let r = ends.findIndex((e) => e + 8 < start);
+        if (r === -1) r = ends.length;
+        if (r < row) { row = r; side = sd; }
+      }
+      while (rows[side].length <= row) rows[side].push(0);
+      rows[side][row] = end;
       const ly = side === 'above'
-        ? band.mid - band.half - 14 - lane * LABEL_H
-        : band.mid + band.half + 14 + lane * LABEL_H;
-      return { ...it, lx, ly, side, k };
+        ? band.mid - band.half - 12 - row * LABEL_H
+        : band.mid + band.half + 12 + row * LABEL_H;
+      return { ...it, lx, ly, side, row, k };
     });
   });
 
@@ -169,7 +178,7 @@
   <div class="pole hi">{poles[1]} →</div>
   <svg class="leaders" {width} {height} aria-hidden="true">
     {#each placed as p (p.id)}
-      <line x1={p.x} y1={p.y} x2={p.lx} y2={p.side === 'above' ? p.ly + 8 : p.ly - 8} />
+      <line x1={p.x} y1={p.y + (p.side === 'above' ? -6 : 6)} x2={p.lx} y2={p.side === 'above' ? p.ly + 8 : p.ly - 8} />
     {/each}
   </svg>
   {#each placed as p (p.id)}
@@ -180,15 +189,13 @@
 <style>
   .strip { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--background); }
   canvas, .leaders { position: absolute; inset: 0; pointer-events: none; }
-  .leaders line { stroke: var(--muted-foreground); stroke-opacity: 0.45; stroke-width: 1; }
+  .leaders line { stroke: var(--foreground); stroke-opacity: 0.35; stroke-width: 1; }
   .title {
     position: absolute; top: 0.75rem; left: 50%; transform: translateX(-50%);
     color: var(--foreground); font-weight: 650; font-size: 0.95rem; white-space: nowrap;
   }
-  .pole {
-    position: absolute; bottom: 2.6rem; color: var(--muted-foreground); font-size: 0.8rem;
-    max-width: 45%;
-  }
+  /* Pole labels share the title row: the title centred, an end label at each side. */
+  .pole { position: absolute; top: 0.85rem; color: var(--muted-foreground); font-size: 0.8rem; max-width: 30%; }
   .pole.lo { left: 1.5rem; }
   .pole.hi { right: 1.5rem; text-align: right; }
   .label {

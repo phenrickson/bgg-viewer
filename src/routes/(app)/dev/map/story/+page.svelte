@@ -138,8 +138,8 @@
           />
         </div>
         {#if step.strip}
-          <div class="layer">
-            <StripPlot {coords} {facts} pc={step.strip.pc} labels={step.strip.labels} title={step.strip.title} poles={step.strip.poles} labelSide="above" bandAt={0.42} />
+          <div class="layer strip-layer">
+            <StripPlot {coords} {facts} pc={step.strip.pc} labels={step.strip.labels} title={step.strip.title} poles={step.strip.poles} />
           </div>
         {/if}
       {/if}
@@ -225,6 +225,8 @@
   .map { flex: 1 1 auto; min-height: 0; position: relative; }
   .layer { position: absolute; inset: 0; }
   .layer.covered { visibility: hidden; }
+  /* A strip takes the top ~62% of the figure; the card on those steps sits in the rest. */
+  .layer.strip-layer { bottom: 34%; }
 
   .hud {
     position: absolute;
@@ -264,8 +266,9 @@
   .step.intro { flex-direction: column; text-align: center; }
   /* Strip steps: the strip's band sits in the upper part of the figure, so the card drops
    * below it instead of covering it. */
-  .step.low { align-items: flex-end; padding-bottom: 3.5rem; }
-  .step.low .card { width: min(100%, 56rem); }
+  .step.low { align-items: flex-end; padding-bottom: 2.5rem; }
+  /* Percentages don't resolve against a min-height flex parent; size against the figure. */
+  .step.low .card { width: min(100%, 56rem); max-height: calc(0.34 * var(--fig)); overflow: auto; }
   .intro > * { pointer-events: auto; }
   .card {
     pointer-events: auto;
