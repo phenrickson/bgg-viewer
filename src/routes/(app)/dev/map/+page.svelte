@@ -11,7 +11,7 @@
    *
    * All user-facing strings here are PLACEHOLDER — Phil writes the copy.
    */
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import { loadMap } from '$lib/map/load';
@@ -155,7 +155,9 @@
 
   // --- timeline ----------------------------------------------------------------------
   // Games appear as the clock passes their publication year; a filter, so nothing moves.
-  const TIMELINE_START = 1990, TIMELINE_END = new Date().getFullYear(), TICK_MS = 700;
+  const TIMELINE_START = 1990, TIMELINE_END = new Date().getFullYear();
+  const SPEEDS = [{ label: 'slow', ms: 700 }, { label: 'medium', ms: 350 }, { label: 'fast', ms: 150 }];
+  let tickMs = $state(350);
   let upTo = $state<number | null>(null);
   let playing = $state(false);
   let timer = 0;
@@ -166,8 +168,10 @@
     timer = window.setInterval(() => {
       if (upTo == null || upTo >= TIMELINE_END) { pause(); return; }
       upTo += 1;
-    }, TICK_MS);
+    }, tickMs);
   }
+  // A speed change mid-play restarts the interval at the new pace.
+  $effect(() => { void tickMs; if (untrack(() => playing)) play(); });
   function pause() { playing = false; clearInterval(timer); }
   function stopTimeline() { pause(); upTo = null; }
   $effect(() => () => clearInterval(timer));
@@ -270,6 +274,9 @@
         aria-label="Published up to"
       />
       <span class="year">{upTo ?? 'all years'}</span>
+      <select bind:value={tickMs} aria-label="Timeline speed">
+        {#each SPEEDS as sp (sp.ms)}<option value={sp.ms}>{sp.label}</option>{/each}
+      </select>
       {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
     </div>
   </div>
