@@ -156,7 +156,6 @@
   // --- timeline ----------------------------------------------------------------------
   // Games appear as the clock passes their publication year; a filter, so nothing moves.
   const TIMELINE_START = 1990, TIMELINE_END = new Date().getFullYear();
-  const SPEEDS = [{ label: 'slow', ms: 700 }, { label: 'medium', ms: 350 }, { label: 'fast', ms: 150 }];
   let tickMs = $state(350);
   let upTo = $state<number | null>(null);
   let playing = $state(false);
@@ -274,9 +273,7 @@
         aria-label="Published up to"
       />
       <span class="year">{upTo ?? 'all years'}</span>
-      <select bind:value={tickMs} aria-label="Timeline speed">
-        {#each SPEEDS as sp (sp.ms)}<option value={sp.ms}>{sp.label}</option>{/each}
-      </select>
+      <label class="tick"><input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" /> ms/yr</label>
       {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
     </div>
   </div>
@@ -405,6 +402,7 @@
   .controls select { color: var(--foreground); }
   .timeline { display: inline-flex; align-items: center; gap: 0.4rem; }
   .timeline input { width: 9rem; }
+  .timeline .tick input { width: 4.5rem; }
   .timeline .year { min-width: 4.5rem; font-variant-numeric: tabular-nums; color: var(--foreground); }
 
   .body {
