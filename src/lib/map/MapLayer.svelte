@@ -38,7 +38,11 @@
     focus?: number[] | null;
     /** Strip only: shift the band up (+) or down (−) in NDC, e.g. to leave room for a caption. */
     stripOffset?: number;
-    /** Only games published in or before this year (the timeline); null = all years. */
+    /**
+     * The timeline: only games published up to this point. Fractional — 1994.4 shows every
+     * game through 1994 plus 1995's at 40% size, so a year's games grow in over the tick
+     * instead of popping. null = all years.
+     */
     upTo?: number | null;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
@@ -109,6 +113,10 @@
     return { nx, ny };
   });
 
+  /** The year currently arriving and how far in it is (see `upTo`). */
+  const yearCut = $derived(upTo == null ? null : Math.ceil(upTo));
+  const yearFrac = $derived(upTo == null || yearCut == null ? 1 : 1 - (yearCut - upTo));
+
   const visible = $derived.by(() => {
     const n = coords.ids.length;
     const idx: number[] = [];
@@ -117,7 +125,7 @@
     for (let i = 0; i < n; i++) {
       const up = facts.upcoming[i] === 1;
       let show = up ? view.upcoming : facts.usersRated[i] >= view.minRatings;
-      if (show && upTo != null) show = facts.year[i] > 0 && facts.year[i] <= upTo;
+      if (show && yearCut != null) show = facts.year[i] > 0 && facts.year[i] <= yearCut;
       if (show && cats) show = cats.has(facts.category[i]);
       if (show && kept) show = kept.has(coords.ids[i]);
       if (show && Number.isFinite(xs[i]) && Number.isFinite(ys[i])) idx.push(i);
@@ -130,9 +138,11 @@
   const sizeBucket = $derived.by(() => {
     const n = coords.ids.length;
     const b = new Uint8Array(n);
+    const cut = yearCut, frac = yearFrac;
     for (let i = 0; i < n; i++) {
-      const d = Math.round(2 * radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform));
-      b[i] = Math.min(MAX_DIAMETER, Math.max(1, d));
+      let d = 2 * radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform);
+      if (cut != null && facts.year[i] === cut) d *= frac;
+      b[i] = Math.min(MAX_DIAMETER, Math.max(1, Math.round(d)));
     }
     return b;
   });
