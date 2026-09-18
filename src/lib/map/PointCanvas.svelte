@@ -303,8 +303,10 @@
       plot?.deselect({ preventEvent: true });
       driver?.onselect?.(points);
     });
-    plot.subscribe('view', scheduleOverlay);
-    plot.subscribe('draw', scheduleOverlay);
+    // Paint the overlay in the same frame regl paints the points: regl emits `draw` from
+    // inside its own animation frame, and deferring to the next one leaves rings and
+    // labels trailing the dots by a frame while panning — visible as a wobble.
+    plot.subscribe('draw', () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } drawOverlay(); });
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
 
