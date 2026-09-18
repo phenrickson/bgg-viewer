@@ -234,13 +234,23 @@ export const STEPS: StoryStep[] = [
 		interactive: true
 	},
 	{
+		id: 'umap-all',
+		title: 'The whole hobby, flattened',
+		body: [
+			'PLACEHOLDER — zoomed back out: the full UMAP layout, coloured by category. Wargames, party games and heavy euros each pull into their own region.'
+		],
+		view: { projection: 'umap', colour: 'category', size: 'uniform' }
+	},
+	{
 		id: 'upcoming',
 		title: 'New games land somewhere too',
 		body: [
 			'A game announced for next year already has a page, a description and a designer, so it already has a list of numbers — and a spot on the map, before anyone has rated it.',
 			'Which means you can ask: what’s coming that sits near Brass? These are the unreleased games nearest to it.'
 		],
-		view: { colour: 'upcoming', upcoming: true, size: 'uniform' },
+		// Stays in UMAP: the only change from the previous step is the upcoming games
+		// appearing, then the camera finding the ones near Brass.
+		view: { projection: 'umap', colour: 'upcoming', upcoming: true, size: 'uniform' },
 		neighboursOf: GAMES.brass,
 		n: 10,
 		upcomingOnly: true
