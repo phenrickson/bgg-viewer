@@ -77,7 +77,7 @@
   let oneWay = $state(false);
   // Same floor as the map, so the graph is built from the games the map shows.
   let minRatings = $state(MIN_RATINGS_FLOOR);
-  let showNetwork = $state(false);
+  let showNetwork = $state(true);
   let view = $state<ViewState>({ ...DEFAULT_VIEW, colour: 'category', size: 'uniform', selected: [] });
   $effect(() => { view.minRatings = minRatings; });
 
