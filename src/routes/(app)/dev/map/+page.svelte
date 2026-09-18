@@ -152,6 +152,25 @@
 
   // Min-ratings steps. A slider was tried and was hard to hit; a short list is enough.
   const MIN_RATINGS_STEPS = [MIN_RATINGS_FLOOR, 50, 100, 250, 500, 1000];
+
+  // --- timeline ----------------------------------------------------------------------
+  // Games appear as the clock passes their publication year; a filter, so nothing moves.
+  const TIMELINE_START = 1990, TIMELINE_END = new Date().getFullYear(), TICK_MS = 700;
+  let upTo = $state<number | null>(null);
+  let playing = $state(false);
+  let timer = 0;
+  function play() {
+    if (upTo == null || upTo >= TIMELINE_END) upTo = TIMELINE_START;
+    playing = true;
+    clearInterval(timer);
+    timer = window.setInterval(() => {
+      if (upTo == null || upTo >= TIMELINE_END) { pause(); return; }
+      upTo += 1;
+    }, TICK_MS);
+  }
+  function pause() { playing = false; clearInterval(timer); }
+  function stopTimeline() { pause(); upTo = null; }
+  $effect(() => () => clearInterval(timer));
 </script>
 
 <svelte:head>
@@ -240,6 +259,19 @@
         {/if}
       </select>
     </label>
+    <div class="timeline">
+      <button type="button" class="chip" onclick={playing ? pause : play} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
+      <input
+        type="range"
+        min={TIMELINE_START}
+        max={TIMELINE_END}
+        value={upTo ?? TIMELINE_END}
+        oninput={(e) => { pause(); upTo = +e.currentTarget.value; }}
+        aria-label="Published up to"
+      />
+      <span class="year">{upTo ?? 'all years'}</span>
+      {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
+    </div>
   </div>
 
   <div class="body">
@@ -254,6 +286,7 @@
           {facts}
           {view}
           anchors={ANCHORS}
+          {upTo}
           {mode}
           keep={keepOnly && view.selected.length ? view.selected : null}
           onselectionchange={setSelection}
@@ -363,6 +396,9 @@
   }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .controls select { color: var(--foreground); }
+  .timeline { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .timeline input { width: 9rem; }
+  .timeline .year { min-width: 4.5rem; font-variant-numeric: tabular-nums; color: var(--foreground); }
 
   .body {
     flex: 1 1 auto; min-height: 20rem;

@@ -83,6 +83,15 @@ export interface Colouring {
 	clamped?: boolean;
 }
 
+/**
+ * Viridis, sampled at RAMP_STEPS. For year: 35 years on the two-token blue ramp put a
+ * decade inside one shade; viridis spends its full lightness *and* hue range on the span,
+ * so the 90s, 2000s, 2010s and 2020s read as different colours. Perceptually uniform and
+ * colour-blind safe; the same on both themes, which is fine for a sequential ramp on a
+ * neutral background.
+ */
+const VIRIDIS = ['#440154', '#471365', '#482475', '#443983', '#3e4989', '#31688e', '#26828e', '#1f9e89', '#35b779', '#6ece58', '#b5de2b', '#fde725'];
+
 /** The map's own blue ramp from the two `--map-ramp-*` tokens (theme-aware). */
 function tokenRamp(palette: Palette): string[] {
 	return Array.from({ length: RAMP_STEPS }, (_, i) => oklchMix(palette.ramp[0], palette.ramp[1], i / (RAMP_STEPS - 1)));
@@ -135,7 +144,7 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 			// average's wider 5–9 band.
 			return continuous(facts.averageRating, 5, 9, sampledRamp((v) => ratingColor(5.5 + ((v - 5) / 4) * 3), 5, 9), palette);
 		case 'year':
-			return continuous(facts.year, currentYear - 35, currentYear, tokenRamp(palette), palette);
+			return continuous(facts.year, currentYear - 35, currentYear, VIRIDIS, palette);
 		case 'upcoming': {
 			for (let i = 0; i < n; i++) bucketOf[i] = facts.upcoming[i];
 			return {

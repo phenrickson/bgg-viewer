@@ -23,6 +23,7 @@
     keep = null,
     focus = null,
     stripOffset = 0,
+    upTo = null,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -37,6 +38,8 @@
     focus?: number[] | null;
     /** Strip only: shift the band up (+) or down (−) in NDC, e.g. to leave room for a caption. */
     stripOffset?: number;
+    /** Only games published in or before this year (the timeline); null = all years. */
+    upTo?: number | null;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
      * The page owns the list (it's `view.selected`); the map only proposes the next one.
@@ -114,6 +117,7 @@
     for (let i = 0; i < n; i++) {
       const up = facts.upcoming[i] === 1;
       let show = up ? view.upcoming : facts.usersRated[i] >= view.minRatings;
+      if (show && upTo != null) show = facts.year[i] > 0 && facts.year[i] <= upTo;
       if (show && cats) show = cats.has(facts.category[i]);
       if (show && kept) show = kept.has(coords.ids[i]);
       if (show && Number.isFinite(xs[i]) && Number.isFinite(ys[i])) idx.push(i);
