@@ -139,7 +139,9 @@
   const placed = $derived.by(() => {
     if (width === 0) return [];
     const H = 16;
-    const textW = (s: string) => Math.min(s.length * 6.4 + 8, 220);
+    // Must agree with `.label`'s max-width (11rem = 176px) plus its padding.
+    const MAX_W = 176 + 10;
+    const textW = (s: string) => Math.min(s.length * 6.6 + 10, MAX_W);
     type Box = { x0: number; y0: number; x1: number; y1: number };
     const overlaps = (a: Box, b: Box) => a.x0 < b.x1 + 3 && a.x1 + 3 > b.x0 && a.y0 < b.y1 + 2 && a.y1 + 2 > b.y0;
     const taken: Box[] = [];
@@ -152,7 +154,9 @@
       const w = textW(it.name);
       // Candidate label centres, nearest first. (dx, dy) in px from the point.
       const cands: [number, number][] = [];
-      for (const d of [9, 22, 38, 56, 78]) {
+      // Nearest offset clears the dot (r 5.5) plus a visible gap, so the point is never
+      // under its own label.
+      for (const d of [12, 26, 42, 60, 82]) {
         cands.push([d + w / 2, 0], [-(d + w / 2), 0], [0, -(d + H / 2)], [0, d + H / 2]);
         cands.push([d * 0.7 + w / 2, -(d * 0.7 + H / 2)], [d * 0.7 + w / 2, d * 0.7 + H / 2], [-(d * 0.7 + w / 2), -(d * 0.7 + H / 2)], [-(d * 0.7 + w / 2), d * 0.7 + H / 2]);
       }
@@ -219,6 +223,7 @@
   .label {
     position: absolute; transform: translate(-50%, -50%);
     font-size: 0.75rem; line-height: 1; color: var(--foreground); white-space: nowrap;
+    max-width: 11rem; overflow: hidden; text-overflow: ellipsis;
     padding: 0.1rem 0.3rem; border-radius: 3px;
     background: color-mix(in oklch, var(--background) 82%, transparent);
     pointer-events: none;
