@@ -68,6 +68,7 @@ export const GAMES = {
 	happySalmon: 194626,
 	campaignForNorthAfrica: 4815,
 	frosthaven: 295770,
+	combatCommander: 21050,
 	scythe: 169786
 } as const;
 
@@ -171,7 +172,7 @@ export const STEPS: StoryStep[] = [
 		strip: {
 			pc: 3,
 			labels: [
-				GAMES.werewolf, GAMES.stratego, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
+				GAMES.werewolf, GAMES.candyLand, GAMES.stratego, GAMES.combatCommander, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
 				GAMES.brass, GAMES.feastForOdin, GAMES.terraformingMars, GAMES.nemesis, GAMES.spiritIsland, GAMES.gloomhaven, GAMES.aeonsEnd
 			],
 			title: 'Direction 3 — classic form ↔ modern hobby design',
