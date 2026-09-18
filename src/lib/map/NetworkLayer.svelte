@@ -92,8 +92,10 @@
         if (!a || !b) continue;
         const lit = e.a === hovered || e.b === hovered;
         ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-        ctx.globalAlpha = lit ? 1 : e.mutual ? 0.15 + Math.max(0, e.sim - 0.5) * 0.9 : 0.08;
-        ctx.lineWidth = lit ? 2 : e.mutual ? 1.4 : 0.8;
+        // One-way edges are secondary, not invisible: same similarity ramp, lower ceiling.
+        const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
+        ctx.globalAlpha = lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12);
+        ctx.lineWidth = lit ? 2 : e.mutual ? 1.4 : 1;
         ctx.setLineDash(e.mutual ? [] : [3, 4]);
         ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
       }
