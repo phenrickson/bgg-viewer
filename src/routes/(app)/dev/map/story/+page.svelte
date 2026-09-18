@@ -130,7 +130,6 @@
           focus={resolved.focus}
           cameraFixed
           frame={false}
-          stripOffset={0.42}
           interactive={step.interactive ?? false}
           onselectionchange={(ids) => (view = { ...view, selected: ids })}
         />

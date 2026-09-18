@@ -13,6 +13,7 @@
    * page, the tour, a mini-map and a teaser all sit on the same component.
    */
   import { onMount } from 'svelte';
+  import { dev } from '$app/environment';
   import type createScatterplot from 'regl-scatterplot';
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
@@ -194,29 +195,73 @@
   $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
   $effect(() => { plot?.set({ cameraIsFixed: cameraFixed }); });
 
-  /** Positions + encodings. One `draw` per change of projection/axes/colour/size. */
+  /**
+   * Animation queue. regl can't overlap a transitioned `draw` with a camera transition:
+   * a draw started mid-zoom leaves regl's promise unresolved and its `isDrawing` flag
+   * stuck, after which every draw is rejected. So draws and zooms run one at a time,
+   * the newest request of each kind replacing any still waiting, and each is raced
+   * against its own duration so a lost regl promise can never stall the queue. This is
+   * what made "scroll back up" fail to undo the zoom in the tour.
+   */
+  let pendingDraw: (() => Promise<void>) | null = null;
+  let pendingZoom: (() => Promise<void>) | null = null;
+  let running = false;
+  const timeout = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  /** Await `p`, but never longer than `ms` — a safety net for a lost regl promise, sized
+   * well past the animation so it only fires when something has genuinely gone wrong. */
+  const settle = (p: Promise<unknown>, ms: number): Promise<void> => Promise.race([p.catch(() => {}), timeout(ms)]).then(() => {});
+  /** regl rejects a draw if it's still busy from the last one; back off briefly and retry. */
+  async function drawRetry(run: () => Promise<unknown>, ms: number) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try { await Promise.race([run(), timeout(ms)]); return; }
+      catch { await timeout(150); }
+    }
+  }
+  async function pump() {
+    if (running) return;
+    running = true;
+    try {
+      while (pendingDraw || pendingZoom) {
+        // A draw first: a zoom should frame the points where they'll end up.
+        const job = pendingDraw ?? pendingZoom;
+        if (pendingDraw) pendingDraw = null; else pendingZoom = null;
+        await job!();
+      }
+    } finally { running = false; }
+  }
+  function enqueueDraw(job: () => Promise<void>) { pendingDraw = job; void pump(); }
+  function enqueueZoom(job: () => Promise<void>) { pendingZoom = job; void pump(); }
+
+  /**
+   * Positions + encodings. One `draw` per change of projection/axes/colour/size.
+   * Positions animate: a projection switch shows each game travelling to its new spot;
+   * colour/size-only draws are instant. The very first draw starts everything at the
+   * centre so the opening is the cloud unfolding, not a lump already there.
+   */
   // Reactive so the filter and framing effects re-run once a fresh draw has landed.
   let drawn = $state(false);
+  let lastNdc: typeof ndc | null = null;
   $effect(() => {
     if (!plot || !colouring) return;
     const { nx, ny } = ndc;
-    // Capture before the await so a later change doesn't race in.
     const va = colouring.bucketOf, vb = sizeBucket;
-    drawn = false;
-    // Positions animate: a projection switch shows each game travelling to its new spot
-    // rather than the cloud snapping. The very first draw starts everything at the centre
-    // so the opening is the cloud unfolding, not a lump already there.
     const p = plot;
-    const first = !everDrawn;
-    everDrawn = true;
-    const settle = () =>
-      p.draw({ x: nx, y: ny, valueA: va, valueB: vb }, { preventFilterReset: true, transition: true, transitionDuration: first ? 1400 : 800 })
-        .then(() => { drawn = true; applyFilter(); scheduleOverlay(); });
-    if (first) {
-      p.draw({ x: new Float32Array(nx.length), y: new Float32Array(ny.length), valueA: va, valueB: vb }, { preventFilterReset: true }).then(settle);
-    } else settle();
+    const first = lastNdc === null;
+    const moved = ndc !== lastNdc;
+    lastNdc = ndc;
+    drawn = false;
+    const duration = first ? 1400 : 800;
+    enqueueDraw(async () => {
+      if (first) {
+        await drawRetry(() => p.draw({ x: new Float32Array(nx.length), y: new Float32Array(ny.length), valueA: va, valueB: vb }, { preventFilterReset: true }), 1500);
+      }
+      await drawRetry(
+        () => p.draw({ x: nx, y: ny, valueA: va, valueB: vb }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
+        moved ? duration * 2 + 500 : 1500
+      );
+      drawn = true; applyFilter(); scheduleOverlay();
+    });
   });
-  let everDrawn = false;
 
   function applyFilter() {
     if (!plot || !drawn) return;
@@ -233,25 +278,23 @@
    */
   // `focus` frames a set the same way but leaves the rest of the map drawn (the tour uses
   // it to zoom into a neighbourhood). `keep` wins when both are given.
+  // Queued behind any draw in flight, so the camera never chases points still moving.
   let lastFrame: number[] | null = null;
   $effect(() => {
     const k = keep ?? focus;
-    void ndc; // reframe after a projection change too — the points moved under the camera
-    if (!plot || !drawn) return;
+    if (!plot) return;
     const had = lastFrame;
     lastFrame = k;
     const p = plot;
-    setTimeout(() => {
-      if (k && k.length) {
-        const idx = k.map((id) => coords.index.get(id)).filter((i): i is number => i != null);
-        if (idx.length) p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 600 });
-      } else if (had) {
-        // Not `reset()`: that re-creates the camera with no transition (and doesn't take
-        // while the camera is fixed). Frame the whole data square the same way we framed
-        // the subset, so out mirrors in.
-        p.zoomToArea({ x: -1, y: -1, width: 2, height: 2 }, { transition: true, transitionDuration: 600 });
-      }
-    }, 60);
+    if (k && k.length) {
+      const idx = k.map((id) => coords.index.get(id)).filter((i): i is number => i != null);
+      if (idx.length) enqueueZoom(() => settle(p.zoomToPoints(idx, { padding: 0.25, transition: true, transitionDuration: 600 }), 1500));
+    } else if (had) {
+      // Not `reset()`: that re-creates the camera with no transition (and doesn't take
+      // while the camera is fixed). Frame the whole data square the same way we framed
+      // the subset, so out mirrors in.
+      enqueueZoom(() => settle(p.zoomToArea({ x: -1, y: -1, width: 2, height: 2 }, { transition: true, transitionDuration: 600 }), 1500));
+    }
   });
 
 
@@ -370,6 +413,8 @@
       lassoMinDist: 1,
       lassoLineWidth: 1.5
     } as Parameters<typeof createScatterplot>[0]);
+    // Dev-only handle for poking at the plot from the console / headless checks.
+    if (dev) (window as unknown as { __map: unknown }).__map = plot;
     plot.subscribe('pointOver', (i) => { hovered = i; onhover?.(coords.ids[i]); });
     plot.subscribe('pointOut', () => { hovered = -1; onhover?.(null); });
     // regl fires the same `select` for a click (one point) and a lasso (many). A click
