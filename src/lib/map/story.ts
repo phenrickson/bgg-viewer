@@ -43,7 +43,32 @@ export const GAMES = {
 	justOne: 254640,
 	wavelength: 262543,
 	kingdomino: 204583,
-	candyLand: 5228
+	candyLand: 5048,
+	nemesis: 167355,
+	rurik: 228328,
+	feastForOdin: 177736,
+	forbiddenIsland: 65244,
+	imperialAssault: 164153,
+	modernArt: 118,
+	ra: 12,
+	flammeRouge: 199478,
+	lordsOfVegas: 20437,
+	hotStreak: 446497,
+	puertoRico: 3076,
+	mexica: 2955,
+	skyTeam: 373106,
+	arcs: 359871,
+	slayTheSpire: 338960,
+	wyrmspan: 410201,
+	backgammon: 2397,
+	stratego: 1917,
+	aeonsEnd: 191189,
+	werewolf: 925,
+	mageKnight: 248562,
+	happySalmon: 194626,
+	campaignForNorthAfrica: 4815,
+	frosthaven: 295770,
+	scythe: 169786
 } as const;
 
 export interface StoryStep {
@@ -65,6 +90,8 @@ export interface StoryStep {
 	vectorOf?: number;
 	/** Let the reader hover/click the map on this step. Most steps are a picture. */
 	interactive?: boolean;
+	/** Show one component as a labelled strip instead of the map. */
+	strip?: { pc: number; labels: number[]; title: string; poles: [string, string] };
 }
 
 /** The view every step starts from; a step overrides what it needs to. */
@@ -117,6 +144,42 @@ export const STEPS: StoryStep[] = [
 			GAMES.twilightImperium4,
 			GAMES.asl
 		]
+	},
+	{
+		id: 'strip-weight',
+		title: 'One direction at a time',
+		body: [
+			'Take just that first direction and lay every game out along it. Games you know land where you’d expect: the party games at one end, the long wargames at the other, and the big Euros in between.',
+			'The map has many of these directions. Each is a line like this one; the map draws two of them at once.'
+		],
+		view: { colour: 'weight', size: 'uniform' },
+		strip: {
+			pc: 1,
+			labels: [GAMES.happySalmon, GAMES.uno, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.terraformingMars, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl, GAMES.campaignForNorthAfrica],
+			title: 'Direction 1 — weight',
+			poles: ['light, quick, big groups', 'heavy, long, grognard']
+		}
+	},
+	{
+		id: 'strip-modern',
+		title: 'A direction the map found on its own',
+		body: [
+			'The third direction has no obvious name. Laid out, one end is Backgammon, Stratego and Twilight Struggle; the other is Gloomhaven, Spirit Island, Slay the Spire. What it’s picking up is a way of building games — solo-playable, run on a hand of cards, asymmetric — that took over the hobby’s top shelf after about 2015.',
+			'It isn’t “old versus new”. Sky Team is from 2023 and sits with the classics: two players, dice, no cards. Modern Art is from 1992 and sits past the middle.'
+		],
+		view: { colour: 'weight', size: 'uniform' },
+		strip: {
+			pc: 3,
+			labels: [
+				GAMES.werewolf, GAMES.stratego, GAMES.backgammon, GAMES.asl, GAMES.happySalmon, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.twilightImperium4,
+				GAMES.monopoly, GAMES.puertoRico, GAMES.mexica, GAMES.hotStreak, GAMES.lordsOfVegas, GAMES.flammeRouge, GAMES.ra, GAMES.modernArt,
+				GAMES.pandemic, GAMES.arcs, GAMES.brass, GAMES.root, GAMES.imperialAssault, GAMES.codenames, GAMES.dominion, GAMES.forbiddenIsland,
+				GAMES.feastForOdin, GAMES.scythe, GAMES.rurik, GAMES.terraformingMars, GAMES.wingspan, GAMES.nemesis, GAMES.spiritIsland, GAMES.arkNova,
+				GAMES.wyrmspan, GAMES.frosthaven, GAMES.gloomhaven, GAMES.slayTheSpire, GAMES.mageKnight, GAMES.aeonsEnd
+			],
+			title: 'Direction 3 — classic form ↔ modern hobby design',
+			poles: ['classic form: fixed seats, dice, no cards', 'Kickstarter-era: solo-playable, card engine, asymmetric']
+		}
 	},
 	{
 		id: 'genres',

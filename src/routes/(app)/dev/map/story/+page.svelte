@@ -21,6 +21,7 @@
   import { STEPS, BASE_VIEW, resolveStep } from '$lib/map/story';
   import { fetchNeighbours, neighbourList, type NeighboursArtifact } from '$lib/map/neighbours';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
+  import StripPlot from '$lib/map/StripPlot.svelte';
   import { scrolly, type ScrollyOptions } from '$lib/scrolly';
   import { Container } from '$lib/components/ui/layout';
 
@@ -122,17 +123,25 @@
       {:else if !coords || !facts || !resolved}
         <div class="state">Loading {catalog.status === 'ready' ? 'coordinates' : 'catalog'}…</div>
       {:else}
-        <EmbeddingMap
-          {coords}
-          {facts}
-          {view}
-          anchors={resolved.anchors}
-          focus={resolved.focus}
-          cameraFixed
-          frame={false}
-          interactive={step.interactive ?? false}
-          onselectionchange={(ids) => (view = { ...view, selected: ids })}
-        />
+        <!-- The map stays mounted (WebGL state, camera) while a strip step covers it. -->
+        <div class="layer" class:covered={!!step.strip}>
+          <EmbeddingMap
+            {coords}
+            {facts}
+            {view}
+            anchors={resolved.anchors}
+            focus={resolved.focus}
+            cameraFixed
+            frame={false}
+            interactive={step.interactive ?? false}
+            onselectionchange={(ids) => (view = { ...view, selected: ids })}
+          />
+        </div>
+        {#if step.strip}
+          <div class="layer">
+            <StripPlot {coords} {facts} pc={step.strip.pc} labels={step.strip.labels} title={step.strip.title} poles={step.strip.poles} labelSide="above" bandAt={0.42} />
+          </div>
+        {/if}
       {/if}
     </div>
     <div class="hud">
@@ -142,7 +151,7 @@
         {/each}
       </div>
       <p class="caption">
-        {#if coords}{view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}{/if}
+        {#if step.strip}PC{step.strip.pc} as a strip · dots jittered vertically · {step.strip.labels.length} games labelled{:else if coords}{view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}{/if}
       </p>
     </div>
   </div>
@@ -155,7 +164,7 @@
     </header>
 
     {#each STEPS as s, i (s.id)}
-      <article class="step" class:active={i === active}>
+      <article class="step" class:active={i === active} class:low={!!s.strip}>
         <div class="card">
           <p class="count">{i + 1} / {STEPS.length}</p>
           <h2>{s.title}</h2>
@@ -213,7 +222,9 @@
     flex-direction: column;
     z-index: 0;
   }
-  .map { flex: 1 1 auto; min-height: 0; }
+  .map { flex: 1 1 auto; min-height: 0; position: relative; }
+  .layer { position: absolute; inset: 0; }
+  .layer.covered { visibility: hidden; }
 
   .hud {
     position: absolute;
@@ -251,6 +262,10 @@
     padding: 0 var(--space-lg);
   }
   .step.intro { flex-direction: column; text-align: center; }
+  /* Strip steps: the strip's band sits in the upper part of the figure, so the card drops
+   * below it instead of covering it. */
+  .step.low { align-items: flex-end; padding-bottom: 3.5rem; }
+  .step.low .card { width: min(100%, 56rem); }
   .intro > * { pointer-events: auto; }
   .card {
     pointer-events: auto;
