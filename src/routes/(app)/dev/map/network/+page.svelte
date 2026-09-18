@@ -78,7 +78,7 @@
   // Same floor as the map, so the graph is built from the games the map shows.
   let minRatings = $state(MIN_RATINGS_FLOOR);
   let showNetwork = $state(false);
-  let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform', selected: [] });
+  let view = $state<ViewState>({ ...DEFAULT_VIEW, colour: 'category', size: 'uniform', selected: [] });
   $effect(() => { view.minRatings = minRatings; });
 
   const source = $derived(coords?.index.get(sourceId) ?? null);
@@ -134,7 +134,7 @@
       <button type="button" class:on={showNetwork} onclick={() => (showNetwork = true)}>Network</button>
     </div>
     <label>Projection
-      <select bind:value={view.projection}><option value="umap">UMAP</option><option value="pca">PCA</option></select>
+      <select bind:value={view.projection}><option value="pca">PCA</option><option value="umap">UMAP</option></select>
     </label>
     <label>k <input type="range" min="4" max="25" bind:value={k} /> {k}</label>
     <label>Hops
