@@ -41,6 +41,9 @@ importers:
       d3-array:
         specifier: ^3.2.4
         version: 3.2.4
+      d3-force:
+        specifier: ^3.0.0
+        version: 3.0.0
       d3-quadtree:
         specifier: ^3.0.1
         version: 3.0.1
@@ -108,6 +111,9 @@ importers:
       '@types/d3-array':
         specifier: ^3.2.2
         version: 3.2.2
+      '@types/d3-force':
+        specifier: ^3.0.10
+        version: 3.0.10
       '@types/d3-quadtree':
         specifier: ^3.0.6
         version: 3.0.6
@@ -759,6 +765,9 @@ packages:
 
   '@types/d3-contour@3.0.6':
     resolution: {integrity: sha512-BjzLgXGnCWjUSYGfH1cpdo41/hgdWETu4YxpezoztawmqsvCeep+8QGfiY6YbDvfgHz/DkjeIkkZVJavB4a3rg==}
+
+  '@types/d3-force@3.0.10':
+    resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
 
   '@types/d3-path@3.1.1':
     resolution: {integrity: sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg==}
@@ -2740,6 +2749,8 @@ snapshots:
     dependencies:
       '@types/d3-array': 3.2.2
       '@types/geojson': 7946.0.16
+
+  '@types/d3-force@3.0.10': {}
 
   '@types/d3-path@3.1.1': {}
 

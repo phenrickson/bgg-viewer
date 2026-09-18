@@ -1,0 +1,340 @@
+<script lang="ts">
+  /**
+   * The WebGL substrate every point view shares: one regl-scatterplot (points, camera,
+   * hit-testing, lasso), a transparent canvas above it for whatever the library won't draw
+   * (rings, labels, edges) in the theme's own ink, and the plumbing that makes the two
+   * behave — a draw/zoom queue, filtering before transitions, framing, theme and resize
+   * observers. It draws what its current `Driver` says (see `surface.ts`) and nothing
+   * else: no projections, colourings or games here. Layers mounted inside provide the
+   * driver through context; swapping the layer animates the same points to the new
+   * arrangement.
+   *
+   * regl-scatterplot rather than a hand-drawn canvas: 36k `arc()` calls per wheel tick was
+   * the ceiling of the 2-D version; the GPU repaints in ~1ms.
+   */
+  import { onMount, untrack, type Snippet } from 'svelte';
+  import { dev } from '$app/environment';
+  import type createScatterplot from 'regl-scatterplot';
+  import { readTheme, toHex, type MapTheme } from './palette';
+  import { provideSurface, MAX_DIAMETER, type Driver, type Surface } from './surface';
+
+  let {
+    mode = 'pan',
+    cameraFixed = false,
+    interactive = true,
+    frame = true,
+    children
+  }: {
+    /** What a plain drag does. Shift+drag lassos in either mode. */
+    mode?: 'pan' | 'lasso';
+    /**
+     * No wheel-zoom or drag-pan: the camera only moves programmatically (`focus`). Hover
+     * and click still work. The tour sets this so the wheel scrolls the page instead of
+     * being swallowed by the canvas.
+     */
+    cameraFixed?: boolean;
+    /** Hover, click and drag at all. Off, the view is a picture. */
+    interactive?: boolean;
+    /** Draw the border/rounding around the canvas. */
+    frame?: boolean;
+    children?: Snippet;
+  } = $props();
+
+  const SIZE_TABLE = Array.from({ length: MAX_DIAMETER + 1 }, (_, i) => Math.max(i, 1));
+
+  let host: HTMLDivElement;
+  let glCanvas: HTMLCanvasElement;
+  let overlay: HTMLCanvasElement;
+  let plot = $state<ReturnType<typeof createScatterplot> | null>(null);
+  let theme = $state<MapTheme | null>(null);
+  let width = $state(0);
+  let height = $state(0);
+  let hovered = $state(-1);
+
+  // --- the driver ----------------------------------------------------------------------
+  // One layer drives at a time; the last to call `drive` wins, and a layer releasing a
+  // driver that has already been replaced is a no-op (a swap mounts the new before the
+  // old unmounts).
+  let driver = $state.raw<Driver | null>(null); // raw: the driver is a getters object, not data to proxy
+  const surface: Surface = {
+    drive: (d) => { driver = d; },
+    release: (d) => { if (driver === d) driver = null; },
+    get hovered() { return hovered; },
+    get theme() { return theme; },
+    get width() { return width; },
+    get height() { return height; },
+    repaint: () => scheduleOverlay()
+  };
+  provideSurface(surface);
+
+  // --- push state into the plot --------------------------------------------------------
+  /** Theme-dependent settings. Colours must be hex: the library reads them on the CPU. */
+  $effect(() => {
+    if (!plot || !theme || !driver) return;
+    plot.set({
+      backgroundColor: toHex(theme.background),
+      pointColor: driver.palette.map(toHex),
+      pointColorHover: toHex(theme.accent),
+      pointColorActive: toHex(theme.accent),
+      lassoColor: toHex(theme.accent),
+      opacity: driver.opacity ?? 0.5
+    });
+  });
+  $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
+  $effect(() => { plot?.set({ cameraIsFixed: cameraFixed }); });
+  /** A square data space by default; a driver may stretch it to the canvas width. */
+  $effect(() => {
+    if (!plot || width === 0 || height === 0) return;
+    plot.set({ aspectRatio: driver?.stretch ? width / height : 1 });
+  });
+
+  /**
+   * Animation queue. regl can't overlap a transitioned `draw` with a camera transition:
+   * a draw started mid-zoom leaves regl's promise unresolved and its `isDrawing` flag
+   * stuck, after which every draw is rejected. So draws and zooms run one at a time,
+   * the newest request of each kind replacing any still waiting, and each is raced
+   * against its own duration so a lost regl promise can never stall the queue.
+   */
+  let pendingDraw: (() => Promise<void>) | null = null;
+  let pendingZoom: (() => Promise<void>) | null = null;
+  let running = false;
+  const timeout = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  const settle = (p: Promise<unknown>, ms: number) => Promise.race([p.catch(() => {}), timeout(ms)]).then(() => {});
+  /** A draw regl rejects (it was mid-transition) is retried a few times before giving up. */
+  async function drawRetry(run: () => Promise<unknown>, ms: number) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try { await Promise.race([run(), timeout(ms)]); return; } catch { await timeout(150); }
+    }
+  }
+  async function pump() {
+    if (running) return;
+    running = true;
+    try {
+      while (pendingDraw || pendingZoom) {
+        // A draw first: a zoom should frame the points where they'll end up.
+        const job = pendingDraw ?? pendingZoom;
+        if (pendingDraw) pendingDraw = null; else pendingZoom = null;
+        await job!();
+      }
+    } finally { running = false; }
+  }
+  function enqueueDraw(job: () => Promise<void>) { pendingDraw = job; void pump(); }
+  function enqueueZoom(job: () => Promise<void>) { pendingZoom = job; void pump(); }
+
+  /**
+   * Positions + encodings. Positions animate (a projection switch, or a layer swap, shows
+   * each point travelling to its new spot); colour/size-only draws are instant. The very
+   * first draw starts everything at the centre so the opening is the cloud unfolding.
+   */
+  let drawn = $state(false);
+  let lastX: Float32Array | null = null;
+  /** Bumped to force a positional draw when the positions themselves didn't change. */
+  let redrawTick = $state(0);
+  /** What regl last drew. Hidden points keep these spots (see below). */
+  let shownX: Float32Array | null = null, shownY: Float32Array | null = null;
+  $effect(() => {
+    const d = driver;
+    if (!plot || !d) return;
+    const { colour, size } = d;
+    let { x, y } = d;
+    const p = plot;
+    void redrawTick;
+    const first = lastX === null;
+    const moved = x !== lastX;
+    lastX = x;
+    drawn = false;
+    const duration = first ? 1400 : 800;
+    const visible = untrack(() => d.visible);
+    // A hidden point stays where it was last drawn, so when a later layer shows it again
+    // it travels from there rather than from wherever this layer parked it. That's what
+    // keeps map → network → map a flight of the nodes only.
+    if (shownX && shownY && visible.length < x.length) {
+      const mx = shownX.slice(), my = shownY.slice();
+      for (const i of visible) { mx[i] = x[i]; my[i] = y[i]; }
+      x = mx; y = my;
+    }
+    shownX = x; shownY = y;
+    enqueueDraw(async () => {
+      if (first) {
+        await drawRetry(() => p.draw({ x: new Float32Array(x.length), y: new Float32Array(y.length), valueA: colour, valueB: size }, { preventFilterReset: true }), 1500);
+      }
+      // Filter before the points move, so hidden points never appear mid-transition and
+      // then blink out once it lands.
+      setFilter(visible, x.length);
+      await drawRetry(
+        () => p.draw({ x, y, valueA: colour, valueB: size }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
+        moved ? duration * 2 + 500 : 1500
+      );
+      drawn = true; applyFilter(); scheduleOverlay();
+    });
+  });
+
+  function setFilter(v: number[], n: number) {
+    if (!plot) return;
+    if (v.length === n) plot.unfilter({ preventEvent: true });
+    else plot.filter(v, { preventEvent: true });
+  }
+  function applyFilter() {
+    if (drawn && driver) setFilter(driver.visible, driver.x.length);
+  }
+  $effect(() => {
+    const d = driver;
+    if (!d) return;
+    const v = d.visible;
+    // A point coming back into view may be parked at a stale spot (it was hidden through
+    // a position change); then this is a draw, not just a filter, so it flies home.
+    const { x, y } = untrack(() => d);
+    const stale = !!shownX && !!shownY && v.some((i) => shownX![i] !== x[i] || shownY![i] !== y[i]);
+    if (stale) { lastX = new Float32Array(0); redrawTick++; } // ≠ x, so the draw transitions
+    else applyFilter();
+  });
+
+  /**
+   * Framing. `focus` zooms to a set of points; clearing it goes back to the whole data
+   * square, with a transition either way. Queued behind any draw in flight so the camera
+   * never chases points still moving.
+   */
+  let lastFrame: number[] | null = null;
+  $effect(() => {
+    const k = driver?.focus ?? null;
+    if (!plot || !driver) return;
+    const had = lastFrame;
+    lastFrame = k;
+    const p = plot;
+    if (k && k.length) {
+      enqueueZoom(() => settle(p.zoomToPoints(k, { padding: 0.25, transition: true, transitionDuration: 600 }), 1500));
+    } else if (had) {
+      // Not `reset()`: that re-creates the camera with no transition (and doesn't take
+      // while the camera is fixed). Frame the whole data square the same way we framed
+      // the subset, so out mirrors in.
+      enqueueZoom(() => settle(p.zoomToArea({ x: -1, y: -1, width: 2, height: 2 }, { transition: true, transitionDuration: 600 }), 1500));
+    }
+  });
+
+  // --- overlay -------------------------------------------------------------------------
+  let raf = 0;
+  function scheduleOverlay() {
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; drawOverlay(); });
+  }
+  $effect(() => { void hovered; void driver; void width; void height; scheduleOverlay(); });
+
+  function drawOverlay() {
+    if (!overlay || !plot || !theme || width === 0) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (overlay.width !== Math.round(width * dpr)) { overlay.width = Math.round(width * dpr); overlay.height = Math.round(height * dpr); }
+    const ctx = overlay.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.font = `600 12px ${theme.font}`;
+    ctx.textBaseline = 'middle';
+    const p = plot;
+    driver?.overlay?.(ctx, {
+      screen: (i) => { const s = p.getScreenPosition(i); return s ? [s[0], s[1]] : null; },
+      width, height, theme, hovered, drawn
+    });
+  }
+
+  onMount(() => {
+    theme = readTheme();
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+    // Browser-only library (WebGL, window): imported here rather than at module level so
+    // SSR never evaluates it.
+    import('regl-scatterplot').then(({ default: createScatterplot }) => {
+      if (disposed) return;
+      cleanup = init(createScatterplot);
+    });
+    return () => { disposed = true; cleanup?.(); };
+  });
+
+  function init(createScatterplot: typeof import('regl-scatterplot').default) {
+    // `pointSizeMouseDetection` is a real option (see `computePointSizeMouseDetection` in
+    // the library) that its typings omit. With a size *table*, regl's auto hit radius is
+    // the table's max (20px + 4): a 2px dot 24px from the cursor would be "hovered" and the
+    // ring would jump to it. A small fixed radius; regl still picks the nearest within it.
+    plot = createScatterplot({
+      pointSizeMouseDetection: 4,
+      canvas: glCanvas,
+      width: 'auto',
+      height: 'auto',
+      pointSize: SIZE_TABLE,
+      sizeBy: 'valueB',
+      colorBy: 'valueA',
+      opacity: 0.5,
+      pointOutlineWidth: 0,
+      deselectOnDblClick: false,
+      deselectOnEscape: true,
+      lassoOnLongPress: true,
+      // Sample the pointer every frame and every pixel — the defaults (10ms / 3px) drew a
+      // visibly jagged polygon.
+      lassoMinDelay: 0,
+      lassoMinDist: 1,
+      lassoLineWidth: 1.5
+    } as Parameters<typeof createScatterplot>[0]);
+    // Dev-only handle for poking at the plot from the console / headless checks.
+    if (dev) (window as unknown as { __map: unknown }).__map = plot;
+    plot.subscribe('pointOver', (i) => { hovered = i; driver?.onhover?.(i); });
+    plot.subscribe('pointOut', () => { hovered = -1; driver?.onhover?.(-1); });
+    // The highlight is ours (the overlay), so regl's own selection is dropped straight
+    // after — otherwise its tint would linger and its next click would replace, not toggle.
+    plot.subscribe('select', ({ points }) => {
+      plot?.deselect({ preventEvent: true });
+      driver?.onselect?.(points);
+    });
+    plot.subscribe('view', scheduleOverlay);
+    plot.subscribe('draw', scheduleOverlay);
+    const reset = () => plot?.reset();
+    glCanvas.addEventListener('dblclick', reset);
+
+    // Size is regl's job: with width/height 'auto' it observes its own canvas and keeps the
+    // camera, aspect ratio and pointer mapping in step. This observer only sizes the overlay.
+    const ro = new ResizeObserver(([entry]) => {
+      width = entry.contentRect.width; height = entry.contentRect.height;
+    });
+    ro.observe(host);
+    const mo = new MutationObserver(() => { theme = readTheme(); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      ro.disconnect(); mo.disconnect();
+      glCanvas.removeEventListener('dblclick', reset);
+      if (raf) cancelAnimationFrame(raf);
+      plot?.destroy(); plot = null;
+    };
+  }
+</script>
+
+<div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} class:inert={!interactive} class:frameless={!frame} bind:this={host}>
+  <canvas bind:this={glCanvas} class="gl"></canvas>
+  <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
+  {@render children?.()}
+</div>
+
+<style>
+  .host {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 0.5rem);
+    background: var(--background);
+  }
+  .gl {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .host.lasso .gl { cursor: cell; }
+  .host.fixed-camera .gl { cursor: default; }
+  .host.inert .gl { pointer-events: none; }
+  .host.frameless { border: 0; border-radius: 0; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+</style>
