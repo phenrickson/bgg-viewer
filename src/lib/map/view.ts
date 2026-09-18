@@ -17,7 +17,8 @@ export interface ViewState {
 	colour: ColourBy;
 	/** Dot radius: log(users_rated), or one size for every game. */
 	size: SizeBy;
-	/** Draw upcoming games at all. */
+	/** Draw upcoming games at all. Off by default: the map is read from rated games first,
+	 * and the unreleased ones are dropped in over them as a deliberate step. */
 	upcoming: boolean;
 	/** Hide established games rated by fewer people than this. */
 	minRatings: number;
@@ -36,7 +37,7 @@ export const DEFAULT_VIEW: ViewState = {
 	y: 2,
 	colour: 'weight',
 	size: 'popularity',
-	upcoming: true,
+	upcoming: false,
 	minRatings: MIN_RATINGS_FLOOR,
 	categories: null,
 	selected: []
@@ -78,7 +79,7 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 		y,
 		colour: oneOf(params.get('c'), COLOURS, DEFAULT_VIEW.colour),
 		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size),
-		upcoming: params.get('u') !== '0',
+		upcoming: params.get('u') === '1',
 		minRatings: int(params.get('r'), DEFAULT_VIEW.minRatings, MIN_RATINGS_FLOOR, 1_000_000),
 		categories: cats.length ? [...new Set(cats)].sort((a, b) => a - b) : null,
 		selected: [...new Set(sel)]
@@ -97,7 +98,7 @@ export function toParams(view: ViewState): URLSearchParams {
 	}
 	if (view.colour !== DEFAULT_VIEW.colour) p.set('c', view.colour);
 	if (view.size !== DEFAULT_VIEW.size) p.set('s', view.size);
-	if (!view.upcoming) p.set('u', '0');
+	if (view.upcoming) p.set('u', '1');
 	if (view.minRatings !== DEFAULT_VIEW.minRatings) p.set('r', String(view.minRatings));
 	if (view.categories?.length) p.set('cat', view.categories.join(','));
 	if (view.selected.length) p.set('g', view.selected.slice(0, MAX_URL_SELECTED).join(','));
