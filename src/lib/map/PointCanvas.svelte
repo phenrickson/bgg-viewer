@@ -57,6 +57,7 @@
   let width = $state(0);
   let height = $state(0);
   let hovered = $state(-1);
+  let dragging = false;
 
   // --- the driver ----------------------------------------------------------------------
   // One layer drives at a time; the last to call `drive` wins, and a layer releasing a
@@ -252,7 +253,7 @@
     const p = plot;
     driver?.overlay?.(ctx, {
       screen: (i) => { const s = p.getScreenPosition(i); return s ? [s[0], s[1]] : null; },
-      width, height, theme, hovered, drawn
+      width, height, theme, hovered, drawn, dragging
     });
   }
 
@@ -309,6 +310,12 @@
     plot.subscribe('draw', () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } drawOverlay(); });
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
+    // A drag, for layers that hide their markers while panning: down on the canvas, up
+    // anywhere (the pointer may leave the canvas mid-drag).
+    const down = () => { dragging = true; };
+    const up = () => { if (dragging) { dragging = false; scheduleOverlay(); } };
+    glCanvas.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', up);
 
     // Size is regl's job: with width/height 'auto' it observes its own canvas and keeps the
     // camera, aspect ratio and pointer mapping in step. This observer only sizes the overlay.
@@ -321,6 +328,8 @@
     return () => {
       ro.disconnect(); mo.disconnect();
       glCanvas.removeEventListener('dblclick', reset);
+      glCanvas.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointerup', up);
       if (raf) cancelAnimationFrame(raf);
       plot?.destroy(); plot = null;
     };

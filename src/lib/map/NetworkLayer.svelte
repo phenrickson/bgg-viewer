@@ -104,8 +104,10 @@
     overlay: (ctx, api) => {
       const { theme, hovered, screen } = api;
       // Nothing mid-flight: `screen()` already reports where a point is going, so markers
-      // would run ahead of the dots. The nodes arrive, then the structure appears.
-      if (!api.drawn) { tip = null; return; }
+      // would run ahead of the dots. The nodes arrive, then the structure appears. And
+      // nothing while panning: the 2-D canvas can't keep step with the GL one under a
+      // drag, so rings and labels lift off and land again on release.
+      if (!api.drawn || api.dragging) { tip = null; return; }
       const at = new Map<number, [number, number]>();
       for (const node of layout.graph.nodes) {
         const p = screen(node.i);

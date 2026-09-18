@@ -26,6 +26,8 @@ export interface OverlayApi {
 	hovered: number;
 	/** Whether the current positions have finished drawing (edges etc. wait for this). */
 	drawn: boolean;
+	/** The pointer is down and panning. A layer may skip its markers until release. */
+	dragging: boolean;
 }
 
 export interface Line {
