@@ -91,8 +91,8 @@ export interface StoryStep {
 	vectorOf?: number;
 	/** Let the reader hover/click the map on this step. Most steps are a picture. */
 	interactive?: boolean;
-	/** Show one component as a labelled strip instead of the map. */
-	strip?: { pc: number; labels: number[]; title: string; poles: [string, string] };
+	/** Caption for a strip step (`view.projection === 'strip'`): title and what the ends mean. */
+	strip?: { title: string; poles: [string, string] };
 }
 
 /** The view every step starts from; a step overrides what it needs to. */
@@ -153,10 +153,9 @@ export const STEPS: StoryStep[] = [
 			'Take just that first direction and lay every game out along it. Games you know land where you’d expect: the party games at one end, the long wargames at the other, and the big Euros in between.',
 			'The map has many of these directions. Each is a line like this one; the map draws two of them at once.'
 		],
-		view: { colour: 'weight', size: 'uniform' },
+		view: { projection: 'strip', x: 1, colour: 'weight', size: 'uniform', upcoming: false },
+		anchors: [GAMES.happySalmon, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl],
 		strip: {
-			pc: 1,
-			labels: [GAMES.happySalmon, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl],
 			title: 'Direction 1 — weight',
 			poles: ['light, quick, big groups', 'heavy, long, grognard']
 		}
@@ -168,13 +167,12 @@ export const STEPS: StoryStep[] = [
 			'The third direction has no obvious name. Laid out, one end is Backgammon, Stratego and Twilight Struggle; the other is Gloomhaven, Spirit Island, Slay the Spire. What it’s picking up is a way of building games — solo-playable, run on a hand of cards, asymmetric — that took over the hobby’s top shelf after about 2015.',
 			'It isn’t “old versus new”. Sky Team is from 2023 and sits with the classics: two players, dice, no cards. Modern Art is from 1992 and sits past the middle.'
 		],
-		view: { colour: 'weight', size: 'uniform' },
+		view: { projection: 'strip', x: 3, colour: 'weight', size: 'uniform', upcoming: false },
+		anchors: [
+			GAMES.campaignForNorthAfrica, GAMES.werewolf, GAMES.candyLand, GAMES.stratego, GAMES.combatCommander, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
+			GAMES.brass, GAMES.feastForOdin, GAMES.terraformingMars, GAMES.nemesis, GAMES.spiritIsland, GAMES.gloomhaven, GAMES.aeonsEnd
+		],
 		strip: {
-			pc: 3,
-			labels: [
-				GAMES.campaignForNorthAfrica, GAMES.werewolf, GAMES.candyLand, GAMES.stratego, GAMES.combatCommander, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
-				GAMES.brass, GAMES.feastForOdin, GAMES.terraformingMars, GAMES.nemesis, GAMES.spiritIsland, GAMES.gloomhaven, GAMES.aeonsEnd
-			],
 			title: 'Direction 3 — classic form ↔ modern hobby design',
 			poles: ['classic form: fixed seats, dice, no cards', 'Kickstarter-era: solo-playable, card engine, asymmetric']
 		}

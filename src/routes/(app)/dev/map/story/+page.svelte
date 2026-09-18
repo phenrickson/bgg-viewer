@@ -21,7 +21,6 @@
   import { STEPS, BASE_VIEW, resolveStep } from '$lib/map/story';
   import { fetchNeighbours, neighbourList, type NeighboursArtifact } from '$lib/map/neighbours';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
-  import StripPlot from '$lib/map/StripPlot.svelte';
   import { scrolly, type ScrollyOptions } from '$lib/scrolly';
   import { Container } from '$lib/components/ui/layout';
 
@@ -123,23 +122,23 @@
       {:else if !coords || !facts || !resolved}
         <div class="state">Loading {catalog.status === 'ready' ? 'coordinates' : 'catalog'}…</div>
       {:else}
-        <!-- The map stays mounted (WebGL state, camera) while a strip step covers it. -->
-        <div class="layer" class:covered={!!step.strip}>
-          <EmbeddingMap
-            {coords}
-            {facts}
-            {view}
-            anchors={resolved.anchors}
-            focus={resolved.focus}
-            cameraFixed
-            frame={false}
-            interactive={step.interactive ?? false}
-            onselectionchange={(ids) => (view = { ...view, selected: ids })}
-          />
-        </div>
+        <EmbeddingMap
+          {coords}
+          {facts}
+          {view}
+          anchors={resolved.anchors}
+          focus={resolved.focus}
+          cameraFixed
+          frame={false}
+          stripOffset={0.42}
+          interactive={step.interactive ?? false}
+          onselectionchange={(ids) => (view = { ...view, selected: ids })}
+        />
         {#if step.strip}
-          <div class="layer strip-layer">
-            <StripPlot {coords} {facts} pc={step.strip.pc} labels={step.strip.labels} title={step.strip.title} poles={step.strip.poles} />
+          <div class="strip-caption" aria-hidden="true">
+            <span class="pole">← {step.strip.poles[0]}</span>
+            <span class="strip-title">{step.strip.title}</span>
+            <span class="pole">{step.strip.poles[1]} →</span>
           </div>
         {/if}
       {/if}
@@ -151,7 +150,7 @@
         {/each}
       </div>
       <p class="caption">
-        {#if step.strip}PC{step.strip.pc} as a strip · dots jittered vertically · {step.strip.labels.length} games labelled{:else if coords}{view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}{/if}
+        {#if view.projection === 'strip'}PC{view.x} as a strip · dots jittered vertically · {resolved?.anchors.length ?? 0} games labelled{:else if coords}{view.projection === 'pca' ? `PC${view.x} × PC${view.y}` : 'UMAP'} · colour: {view.colour}{#if step.neighboursOf !== undefined} · neighbours by cosine on the full embedding{/if}{/if}
       </p>
     </div>
   </div>
@@ -223,10 +222,13 @@
     z-index: 0;
   }
   .map { flex: 1 1 auto; min-height: 0; position: relative; }
-  .layer { position: absolute; inset: 0; }
-  .layer.covered { visibility: hidden; }
-  /* A strip takes the top ~62% of the figure; the card on those steps sits in the rest. */
-  .layer.strip-layer { bottom: 34%; }
+  .strip-caption {
+    position: absolute; top: 0.75rem; left: 0; right: 0;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: 1rem;
+    padding: 0 1.25rem; pointer-events: none; font-size: 0.8rem; color: var(--muted-foreground);
+  }
+  .strip-title { color: var(--foreground); font-weight: 650; font-size: 0.95rem; white-space: nowrap; }
+  .strip-caption .pole:last-child { text-align: right; }
 
   .hud {
     position: absolute;

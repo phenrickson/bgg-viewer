@@ -187,14 +187,17 @@
       <select bind:value={view.projection}>
         <option value="pca">PCA</option>
         <option value="umap">UMAP</option>
+        <option value="strip">Strip</option>
       </select>
     </label>
-    {#if view.projection === 'pca'}
-      <label>X
+    {#if view.projection === 'pca' || view.projection === 'strip'}
+      <label>{view.projection === 'strip' ? 'PC' : 'X'}
         <select bind:value={view.x}>
-          {#each components as c (c)}<option value={c} disabled={c === view.y}>PC{c}</option>{/each}
+          {#each components as c (c)}<option value={c} disabled={view.projection === 'pca' && c === view.y}>PC{c}</option>{/each}
         </select>
       </label>
+    {/if}
+    {#if view.projection === 'pca'}
       <label>Y
         <select bind:value={view.y}>
           {#each components as c (c)}<option value={c} disabled={c === view.x}>PC{c}</option>{/each}

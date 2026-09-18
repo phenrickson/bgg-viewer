@@ -4,7 +4,8 @@
  * is deliberately *not* here — it's a transient gesture, not a view someone means to share.
  */
 
-export type Projection = 'pca' | 'umap';
+/** `strip`: one component on x (`x`), games jittered on y — a dimension read on its own. */
+export type Projection = 'pca' | 'umap' | 'strip';
 export type ColourBy = 'weight' | 'geek' | 'rating' | 'year' | 'upcoming' | 'category';
 export type SizeBy = 'popularity' | 'uniform';
 
@@ -44,7 +45,7 @@ export const DEFAULT_VIEW: ViewState = {
 /** A lasso can select thousands; the URL carries at most this many. */
 export const MAX_URL_SELECTED = 100;
 
-const PROJECTIONS: Projection[] = ['pca', 'umap'];
+const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip'];
 const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
 const SIZES: SizeBy[] = ['popularity', 'uniform'];
 
@@ -88,8 +89,10 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 export function toParams(view: ViewState): URLSearchParams {
 	const p = new URLSearchParams();
 	if (view.projection !== DEFAULT_VIEW.projection) p.set('p', view.projection);
-	if (view.projection === 'pca') {
+	if (view.projection === 'pca' || view.projection === 'strip') {
 		if (view.x !== DEFAULT_VIEW.x) p.set('x', String(view.x));
+	}
+	if (view.projection === 'pca') {
 		if (view.y !== DEFAULT_VIEW.y) p.set('y', String(view.y));
 	}
 	if (view.colour !== DEFAULT_VIEW.colour) p.set('c', view.colour);

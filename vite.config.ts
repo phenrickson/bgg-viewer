@@ -23,6 +23,14 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ['@duckdb/duckdb-wasm']
 	},
+	/**
+	 * d3fc-label-layout ships ESM in `.js` files without `"type": "module"`, so Node can't
+	 * load it when Vite externalises it for SSR (the map page renders on the server before
+	 * the client takes over). Bundle it into the SSR build instead.
+	 */
+	ssr: {
+		noExternal: ['@d3fc/d3fc-label-layout', '@d3fc/d3fc-data-join', '@d3fc/d3fc-rebind']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({

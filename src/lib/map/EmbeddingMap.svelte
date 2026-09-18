@@ -19,6 +19,7 @@
   import type { ViewState } from './view';
   import { buildColouring, radiusFor, type Colouring } from './scales';
   import { readTheme, toHex, type MapTheme } from './palette';
+  import { placeLabels, type LabelInput } from './labels';
 
   let {
     coords,
@@ -31,6 +32,7 @@
     cameraFixed = false,
     interactive = true,
     frame = true,
+    stripOffset = 0,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -56,6 +58,8 @@
     interactive?: boolean;
     /** Draw the border/rounding around the map. */
     frame?: boolean;
+    /** Strip only: shift the band up (+) or down (−) in NDC, e.g. to leave room for a caption. */
+    stripOffset?: number;
     /**
      * The selection changed: a click toggled one game, or a lasso added its enclosed games.
      * The page owns the list (it's `view.selected`); the map only proposes the next one.
@@ -95,22 +99,52 @@
 
   // --- projection → normalised device coords -------------------------------------------
   const uniform = $derived(view.size === 'uniform');
-  const xs = $derived(view.projection === 'pca' ? coords.pcs[view.x - 1] : coords.umap[0]);
-  const ys = $derived(view.projection === 'pca' ? coords.pcs[view.y - 1] : coords.umap[1]);
+  const strip = $derived(view.projection === 'strip');
+  const xs = $derived(view.projection === 'umap' ? coords.umap[0] : coords.pcs[view.x - 1]);
+  /** Strip: y is deterministic per-game jitter (hash of id, roughly normal) — vertical
+   * position carries nothing, it just lets the density read. */
+  const jitterY = $derived.by(() => {
+    const n = coords.ids.length, out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = jitter(coords.ids[i]);
+    return out;
+  });
+  const ys = $derived(strip ? jitterY : view.projection === 'pca' ? coords.pcs[view.y - 1] : coords.umap[1]);
+  function jitter(id: number): number {
+    let h = (id * 2654435761) >>> 0, s = 0;
+    for (let k = 0; k < 4; k++) { h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; s += (h & 0xffff) / 0xffff; }
+    return (s / 4 - 0.5) * 3.2; // sum of four uniforms ≈ normal; ±1 is ~2.5σ
+  }
 
-  /** Data → [-1, 1] on both axes with one shared scale, so distances aren't distorted. */
+  /**
+   * Data → [-1, 1]. Map: one shared scale on both axes so distances aren't distorted.
+   * Strip: x fills the range of the games currently shown (upcoming games can sit far
+   * outside the rated data's shape and would squash it), y is a narrow band.
+   */
   const ndc = $derived.by(() => {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    const shownOnly = strip;
     for (let i = 0; i < xs.length; i++) {
       const x = xs[i], y = ys[i];
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (shownOnly && !(facts.upcoming[i] === 1 ? view.upcoming : facts.usersRated[i] >= view.minRatings)) continue;
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
-    const s = 1.9 / Math.max(x1 - x0, y1 - y0, 1e-9);
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     const nx = new Float32Array(xs.length), ny = new Float32Array(xs.length);
-    for (let i = 0; i < xs.length; i++) { nx[i] = (xs[i] - cx) * s; ny[i] = (ys[i] - cy) * s; }
+    if (strip) {
+      const sx = 1.9 / Math.max(x1 - x0, 1e-9), cx = (x0 + x1) / 2;
+      for (let i = 0; i < xs.length; i++) { nx[i] = (xs[i] - cx) * sx; ny[i] = ys[i] * 0.22 + stripOffset; }
+    } else {
+      const s = 1.9 / Math.max(x1 - x0, y1 - y0, 1e-9);
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      for (let i = 0; i < xs.length; i++) { nx[i] = (xs[i] - cx) * s; ny[i] = (ys[i] - cy) * s; }
+    }
     return { nx, ny };
+  });
+
+  /** The map keeps a square data space; the strip stretches x to the canvas width. */
+  $effect(() => {
+    if (!plot || width === 0 || height === 0) return;
+    plot.set({ aspectRatio: strip ? width / height : 1 });
   });
 
   const visible = $derived.by(() => {
@@ -244,22 +278,31 @@
     const shown = new Set(visible);
     const r = (i: number) => radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform);
 
+    // Rings first, collecting the labels; then one placement pass so labels avoid each
+    // other and the edges (see labels.ts). Anchors are ringed in the foreground ink,
+    // selected games in the accent; labels for selections only while the set is readable.
+    const want: LabelInput[] = [];
     for (const i of anchorIdx) {
       if (!shown.has(i)) continue;
       const p = plot.getScreenPosition(i);
       if (!p) continue;
-      ring(ctx, p[0], p[1], r(i) + 2, theme.foreground, theme.background);
-      label(ctx, facts.name(coords.ids[i]), p[0], p[1], r(i), theme.foreground, theme.background);
+      dot(ctx, p[0], p[1], r(i) + 1.5, theme.accent, theme.background);
+      want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[i]), gap: r(i) + 4 });
     }
-    // Selected games: accent ring each; labels only while the set is small enough to read.
     const labelSelected = selectedIdx.length <= MAX_SELECTED_LABELS;
     for (const i of selectedIdx) {
       if (!shown.has(i)) continue;
       const p = plot.getScreenPosition(i);
       if (!p) continue;
       ring(ctx, p[0], p[1], r(i) + 3, theme.accent, theme.background, 2);
-      if (labelSelected) label(ctx, facts.name(coords.ids[i]), p[0], p[1], r(i) + 3, theme.foreground, theme.background);
+      if (labelSelected && !anchorIdx.includes(i)) want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[i]), gap: r(i) + 5 });
     }
+    const placed = placeLabels(
+      want,
+      { measure: (s) => ctx.measureText(s).width, lineHeight: 14, maxWidth: 150, padX: 4, padY: 2 },
+      { x: 0, y: 0, width, height }
+    );
+    for (const p of placed) labelBox(ctx, p.lines, p.bx, p.by, p.bw, p.bh, 14, 4, 2, theme.foreground, theme.background);
     if (hovered >= 0 && shown.has(hovered)) {
       const p = plot.getScreenPosition(hovered);
       if (p) ring(ctx, p[0], p[1], r(hovered) + 3, theme.accent, theme.background, 2);
@@ -270,17 +313,23 @@
     } else tip = null;
   }
 
+  /** A filled accent point with a background halo — how an anchor is drawn on top of the cloud. */
+  function dot(ctx: CanvasRenderingContext2D, x: number, y: number, rad: number, fill: string, halo: string) {
+    ctx.beginPath(); ctx.arc(x, y, rad + 1.5, 0, Math.PI * 2); ctx.fillStyle = halo; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
+  }
   function ring(ctx: CanvasRenderingContext2D, x: number, y: number, rad: number, stroke: string, halo: string, w = 1.5) {
     ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
     ctx.lineWidth = w + 2; ctx.strokeStyle = halo; ctx.stroke();
     ctx.lineWidth = w; ctx.strokeStyle = stroke; ctx.stroke();
   }
-  /** Text in the foreground ink with a background halo so it stays legible over dots. */
-  function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, rad: number, ink: string, halo: string) {
-    const lx = x + rad + 5;
-    ctx.lineWidth = 3; ctx.strokeStyle = halo; ctx.lineJoin = 'round';
-    ctx.strokeText(text, lx, y);
-    ctx.fillStyle = ink; ctx.fillText(text, lx, y);
+  /** Wrapped label in the foreground ink on a translucent background chip, so it stays
+   * legible over dots without hiding them entirely. */
+  function labelBox(ctx: CanvasRenderingContext2D, lines: string[], bx: number, by: number, bw: number, bh: number, lh: number, padX: number, padY: number, ink: string, halo: string) {
+    ctx.globalAlpha = 0.82; ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 3); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = ink; ctx.textBaseline = 'middle';
+    lines.forEach((t, k) => ctx.fillText(t, bx + padX, by + padY + lh * (k + 0.5)));
   }
 
   onMount(() => {
