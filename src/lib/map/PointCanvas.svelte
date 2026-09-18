@@ -166,15 +166,29 @@
         await drawRetry(() => p.draw({ x: new Float32Array(x.length), y: new Float32Array(y.length), valueA: colour, valueB: size }, { preventFilterReset: true }), 1500);
       }
       // Filter before the points move, so hidden points never appear mid-transition and
-      // then blink out once it lands.
+      // then blink out once it lands. Lines go too (they'd join the old spots); inside
+      // the queue, because an annotation draw overlapping a transition wedges regl.
       setFilter(visible, x.length);
+      if (linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
       await drawRetry(
         () => p.draw({ x, y, valueA: colour, valueB: size }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
         moved ? duration * 2 + 500 : 1500
       );
-      drawn = true; applyFilter(); scheduleOverlay();
+      drawn = true; applyFilter(); applyLines(); scheduleOverlay();
     });
   });
+
+  /** Driver lines → regl annotations, once the points are in place; cleared for a flight. */
+  let linesShown: unknown = null;
+  function applyLines() {
+    if (!plot) return;
+    const lines = drawn ? (driver?.lines ?? []) : [];
+    const key = drawn ? driver?.lines ?? null : null;
+    if (key === linesShown) return;
+    linesShown = key;
+    void plot.drawAnnotations(lines.map((l) => ({ vertices: [[l.x1, l.y1], [l.x2, l.y2]] as [number, number][], lineColor: l.color, lineWidth: l.width })));
+  }
+  $effect(() => { void driver?.lines; void drawn; applyLines(); });
 
   function setFilter(v: number[], n: number) {
     if (!plot) return;

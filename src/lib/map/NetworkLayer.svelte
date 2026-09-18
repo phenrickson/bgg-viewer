@@ -13,7 +13,8 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { NetworkLayout } from './network';
-  import { useSurface, type Driver } from './surface';
+  import { useSurface, type Driver, type Line } from './surface';
+  import { toRgb } from './palette';
   import { ring, labels } from './ink';
   import type { LabelInput } from './labels';
 
@@ -63,6 +64,27 @@
   const visible = $derived(layout.graph.nodes.map((x) => x.i));
   const edges = $derived(oneWay ? layout.graph.edges : layout.graph.edges.filter((e) => e.mutual));
 
+  /**
+   * Edges as regl line geometry in data space (see `Driver.lines`): ink follows similarity,
+   * mutual heavier than one-way; the hovered node's edges light up in the accent. Rebuilt
+   * on hover — a few hundred segments, cheap — rather than repainted every camera frame.
+   */
+  const hoveredNode = $derived(surface.hovered);
+  const lines = $derived.by<Line[]>(() => {
+    const t = surface.theme;
+    if (!t) return [];
+    const ink = toRgb(t.foreground).map((c) => c / 255) as [number, number, number];
+    const accent = toRgb(t.accent).map((c) => c / 255) as [number, number, number];
+    const out: Line[] = [];
+    for (const e of edges) {
+      const lit = e.a === hoveredNode || e.b === hoveredNode;
+      const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
+      const alpha = lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12);
+      out.push({ x1: pos.x[e.a], y1: pos.y[e.a], x2: pos.x[e.b], y2: pos.y[e.b], color: [...(lit ? accent : ink), alpha], width: lit ? 2 : e.mutual ? 1.4 : 1 });
+    }
+    return out;
+  });
+
   let tip = $state<{ x: number; y: number } | null>(null);
   const driver: Driver = {
     get x() { return pos.x; },
@@ -75,6 +97,7 @@
     // square, so the camera has to follow it or a zoomed-in view is left looking at
     // nothing.
     get focus() { return visible; },
+    get lines() { return lines; },
     opacity: 0.9,
     onhover: (i) => onhover?.(i >= 0 ? coords.ids[i] : null),
     onselect: (points) => { if (points.length === 1) onpick?.(coords.ids[points[0]]); },
@@ -88,21 +111,6 @@
         const p = screen(node.i);
         if (p) at.set(node.i, p);
       }
-      // Edges under everything. Ink follows similarity; the hovered node's edges light.
-      ctx.lineCap = 'round';
-      for (const e of edges) {
-        const a = at.get(e.a), b = at.get(e.b);
-        if (!a || !b) continue;
-        const lit = e.a === hovered || e.b === hovered;
-        ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-        // One-way edges are secondary, not invisible: same similarity ramp, lower ceiling.
-        const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
-        ctx.globalAlpha = lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12);
-        ctx.lineWidth = lit ? 2 : e.mutual ? 1.4 : 1;
-        ctx.setLineDash(e.mutual ? [] : [3, 4]);
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      }
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
       // Rings say "how far from the centre": the centre thick in the foreground ink,
       // neighbours thin; the outer ring bare. Labels: centre + neighbours, plus hover.
       const want: LabelInput[] = [];
@@ -126,7 +134,7 @@
     surface.drive(driver);
     return () => surface.release(driver);
   });
-  $effect(() => { void edges; surface.repaint(); });
+  $effect(() => { void lines; surface.repaint(); });
 
   const hovered = $derived(surface.hovered);
   const mutualCount = $derived(layout.graph.edges.filter((e) => e.mutual).length);

@@ -28,6 +28,12 @@ export interface OverlayApi {
 	drawn: boolean;
 }
 
+export interface Line {
+	x1: number; y1: number; x2: number; y2: number;
+	color: [number, number, number, number];
+	width: number;
+}
+
 export interface Driver {
 	/** Positions in NDC, [-1, 1]. Same array identity ⇒ no positional transition. */
 	x: Float32Array;
@@ -44,7 +50,13 @@ export interface Driver {
 	/** Stretch the data square to the canvas width (the strip) instead of keeping it square. */
 	stretch?: boolean;
 	opacity?: number;
-	/** Paint over the points — rings, labels, edges. Called on every camera change and draw. */
+	/**
+	 * Line segments in data space (NDC), drawn by regl beneath the points, so they pan and
+	 * zoom with the camera at no per-frame cost. Colour is RGBA 0–1. They appear once the
+	 * points have landed — mid-flight they'd join where the points are going.
+	 */
+	lines?: Line[];
+	/** Paint over the points — rings, labels. Called on every camera change and draw. */
 	overlay?: (ctx: CanvasRenderingContext2D, api: OverlayApi) => void;
 	onhover?: (i: number) => void;
 	/** regl's `select`: one point for a click, many for a lasso. */
