@@ -27,11 +27,12 @@ const LINE_HEIGHT = 14, PAD_X = 4, PAD_Y = 2, MAX_WIDTH = 150;
 /** Place `want` so labels avoid each other and the edges (see labels.ts), then paint each
  * as wrapped text: on a translucent chip (legible over dense dots without hiding them),
  * or, with `chip: false`, as bare text with a stroked halo. */
-export function labels(ctx: CanvasRenderingContext2D, want: LabelInput[], width: number, height: number, ink: string, halo: string, opts: { chip?: boolean } = {}): PlacedLabel[] {
+export function labels(ctx: CanvasRenderingContext2D, want: LabelInput[], width: number, height: number, ink: string, halo: string, opts: { chip?: boolean; drop?: boolean } = {}): PlacedLabel[] {
 	const placed = placeLabels(
 		want,
 		{ measure: (s) => ctx.measureText(s).width, lineHeight: LINE_HEIGHT, maxWidth: MAX_WIDTH, padX: PAD_X, padY: PAD_Y },
-		{ x: 0, y: 0, width, height }
+		{ x: 0, y: 0, width, height },
+		{ drop: opts.drop }
 	);
 	const chip = opts.chip ?? true;
 	for (const p of placed) {

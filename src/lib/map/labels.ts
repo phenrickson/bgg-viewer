@@ -53,10 +53,17 @@ export function wrap(text: string, measure: (s: string) => number, maxWidth: num
 
 type Rect = { x: number; y: number; width: number; height: number; hidden?: boolean };
 
+/**
+ * `drop`: place in input order (so put the important ones first), each label taking the
+ * first of its eight positions that is clear of every label already kept and inside the
+ * bounds; a label with no clear position is dropped. d3fc's greedy strategy minimises
+ * total overlap but never refuses a label, so in a knot of close points it stacks them.
+ */
 export function placeLabels(
 	items: LabelInput[],
 	m: LabelMetrics,
-	bounds: { x: number; y: number; width: number; height: number }
+	bounds: { x: number; y: number; width: number; height: number },
+	opts: { drop?: boolean } = {}
 ): PlacedLabel[] {
 	if (items.length === 0) return [];
 	const wrapped = items.map((it) => {
@@ -73,6 +80,7 @@ export function placeLabels(
 		width: bw + 2 * it.gap,
 		height: bh + 2 * it.gap
 	}));
+	if (opts.drop) return placeOrDrop(wrapped, rects, bounds);
 	const strategy = layoutGreedy().bounds(bounds);
 	const out = strategy(rects) as Rect[];
 	return wrapped.map(({ it, lines, bw, bh }, k) => ({
@@ -83,4 +91,35 @@ export function placeLabels(
 		bw,
 		bh
 	}));
+}
+
+/** Where a label may sit relative to its anchor: (x, y) offsets as fractions of its size. */
+const POSITIONS: [number, number][] = [
+	[0, -0.5], // right, centred
+	[-1, -0.5], // left, centred
+	[0, -1], [0, 0], // right, above / below
+	[-1, -1], [-1, 0], // left, above / below
+	[-0.5, -1], [-0.5, 0] // centred, above / below
+];
+
+function placeOrDrop(
+	wrapped: { it: LabelInput; lines: string[]; bw: number; bh: number }[],
+	rects: Rect[],
+	bounds: { x: number; y: number; width: number; height: number }
+): PlacedLabel[] {
+	const kept: Rect[] = [];
+	const out: PlacedLabel[] = [];
+	const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+	const inside = (r: Rect) => r.x >= bounds.x && r.y >= bounds.y && r.x + r.width <= bounds.x + bounds.width && r.y + r.height <= bounds.y + bounds.height;
+	wrapped.forEach(({ it, lines, bw, bh }, k) => {
+		const r = rects[k];
+		for (const [fx, fy] of POSITIONS) {
+			const cand: Rect = { x: it.x + fx * r.width, y: it.y + fy * r.height, width: r.width, height: r.height };
+			if (!inside(cand) || kept.some((q) => overlaps(cand, q))) continue;
+			kept.push(cand);
+			out.push({ ...it, lines, bx: cand.x + it.gap, by: cand.y + it.gap, bw, bh });
+			return;
+		}
+	});
+	return out;
 }

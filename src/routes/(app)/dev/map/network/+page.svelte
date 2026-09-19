@@ -75,6 +75,8 @@
   let hops = $state<1 | 2>(2);
   let mutual = $state(false);
   let oneWay = $state(false);
+  let curvature = $state(0.18);
+  let minSim = $state(0);
   // Same floor as the map, so the graph is built from the games the map shows.
   let minRatings = $state(MIN_RATINGS_FLOOR);
   let showNetwork = $state(true);
@@ -144,6 +146,8 @@
     </label>
     <label class="check"><input type="checkbox" bind:checked={mutual} /> Mutual neighbours only</label>
     <label class="check"><input type="checkbox" bind:checked={oneWay} /> Show one-way edges</label>
+    <label>Curve <input type="range" min="0" max="0.5" step="0.01" bind:value={curvature} /> {curvature.toFixed(2)}</label>
+    <label>Min similarity <input type="range" min="0" max="1" step="0.01" bind:value={minSim} /> {minSim.toFixed(2)}</label>
     <label>Min ratings <input type="range" min={MIN_RATINGS_FLOOR} max="2000" step="10" bind:value={minRatings} /> {minRatings}</label>
     {#if graph}
       <span class="muted">{graph.nodes.length} games · {graph.edges.length} edges · {graph.edges.filter((e) => e.mutual).length} mutual</span>
@@ -159,7 +163,7 @@
       {:else}
         <PointCanvas lasso={false}>
           {#if showNetwork}
-            <NetworkLayer {coords} {facts} {layout} {oneWay} onpick={pick} />
+            <NetworkLayer {coords} {facts} {layout} {oneWay} {curvature} {minSim} onpick={pick} />
           {:else}
             <MapLayer
               {coords}

@@ -23,6 +23,8 @@
     facts,
     layout,
     oneWay = false,
+    curvature = 0.18,
+    minSim = 0,
     onpick,
     onhover
   }: {
@@ -31,6 +33,14 @@
     layout: NetworkLayout;
     /** Also draw the one-way edges (faint, dashed). Off by default: the mutual ones carry the structure. */
     oneWay?: boolean;
+    /**
+     * How much an edge bows, as a fraction of its chord at full length; 0 = straight. Short
+     * edges bow less than this (a knot of close neighbours stays a knot, not a swirl), long
+     * spokes bow the full amount.
+     */
+    curvature?: number;
+    /** Draw only edges at or above this cosine similarity (the graph itself is unchanged). */
+    minSim?: number;
     /** A node was clicked — usually to make it the new centre. */
     onpick?: (id: number) => void;
     onhover?: (id: number | null) => void;
@@ -62,26 +72,40 @@
     return s;
   });
   const visible = $derived(layout.graph.nodes.map((x) => x.i));
-  const edges = $derived(oneWay ? layout.graph.edges : layout.graph.edges.filter((e) => e.mutual));
+  /** Hop-2 nodes worth naming: the hubs of the outer knots, by degree within the graph. */
+  const HUB_LABELS = 6;
+  const hubs = $derived.by(() => {
+    const deg = new Map<number, number>();
+    for (const e of layout.graph.edges) { if (e.mutual) { deg.set(e.a, (deg.get(e.a) ?? 0) + 1); deg.set(e.b, (deg.get(e.b) ?? 0) + 1); } }
+    return new Set(
+      layout.graph.nodes.filter((n) => n.hop === 2).sort((p, q) => (deg.get(q.i) ?? 0) - (deg.get(p.i) ?? 0)).slice(0, HUB_LABELS).map((n) => n.i)
+    );
+  });
+  const edges = $derived(layout.graph.edges.filter((e) => (oneWay || e.mutual) && e.sim >= minSim));
 
   /**
    * Edges as regl line geometry in data space (see `Driver.lines`). Each edge is a
    * quadratic curve bowed to one consistent side of its chord — a criss-cross of chords
    * reads as a wiring diagram; curves read as flow, and shallow-angle stair-stepping goes
-   * with them. Each is drawn twice: a wide, faint halo under a thin core, which softens
-   * the GL line's edge (no anti-aliasing of its own) and glows a little on the dark theme.
+   * with them. regl's line shader has no edge feathering (it relies on MSAA, which many
+   * GPUs decline), so each curve is drawn as three stacked passes — wide and faint, medium,
+   * thin core — whose edge falls off over ~2px the way an anti-aliased stroke would.
    * Ink follows similarity, mutual heavier than one-way; the hovered node's edges light up
    * in the accent. Rebuilt on hover — a few hundred curves, cheap — not per camera frame.
    */
   const hoveredNode = $derived(surface.hovered);
-  const CURVE_SEGMENTS = 14, BOW = 0.18;
+  const CURVE_SEGMENTS = 14;
+  /** Chord length (NDC) at which an edge bows the full `curvature`; shorter bow in proportion. */
+  const FULL_BOW_LENGTH = 0.5;
   function curve(a: number, b: number): [number, number][] {
     const x1 = pos.x[a], y1 = pos.y[a], x2 = pos.x[b], y2 = pos.y[b];
     const dx = x2 - x1, dy = y2 - y1;
+    const bow = curvature * Math.min(1, Math.hypot(dx, dy) / FULL_BOW_LENGTH);
+    if (bow < 0.005) return [[x1, y1], [x2, y2]];
     // Control point off the chord's midpoint, on the chord's left going from the lower
     // index to the higher, so an edge bows the same way whichever end it was found from.
     const s = a < b ? 1 : -1;
-    const cx = (x1 + x2) / 2 - dy * BOW * s, cy = (y1 + y2) / 2 + dx * BOW * s;
+    const cx = (x1 + x2) / 2 - dy * bow * s, cy = (y1 + y2) / 2 + dx * bow * s;
     const pts: [number, number][] = [];
     for (let k = 0; k <= CURVE_SEGMENTS; k++) {
       const t = k / CURVE_SEGMENTS, u = 1 - t;
@@ -94,18 +118,31 @@
     if (!t) return [];
     const ink = toRgb(t.foreground).map((c) => c / 255) as [number, number, number];
     const accent = toRgb(t.accent).map((c) => c / 255) as [number, number, number];
-    const halos: Line[] = [], cores: Line[] = [];
+    // Outer → inner: (width multiplier, alpha multiplier). The core carries the ink; the
+    // passes above it step the alpha down in small increments so no single pass has a
+    // visible edge of its own (two or three wide passes read as parallel strands).
+    const PASSES: [number, number][] = [[2.6, 0.05], [2.2, 0.08], [1.8, 0.13], [1.4, 0.28], [1, 1]];
+    const layers: Line[][] = PASSES.map(() => []);
+    let simLo = Infinity, simHi = -Infinity;
+    for (const e of edges) { if (e.sim < simLo) simLo = e.sim; if (e.sim > simHi) simHi = e.sim; }
     for (const e of edges) {
       const lit = e.a === hoveredNode || e.b === hoveredNode;
       const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
-      const alpha = lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12);
+      // Edges between two outer nodes are the knots' own wiring; they're kept lighter than
+      // the spokes into the centre so a dense family stays a texture, not a wash.
+      const outer = (hopOf.get(e.a) ?? 2) === 2 && (hopOf.get(e.b) ?? 2) === 2;
+      const alpha = (lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12)) * (outer && !lit ? 0.55 : 1);
       const rgb = lit ? accent : ink;
+      // Width follows similarity too: the strongest links are the heaviest strokes. The
+      // ramp spans the range the graph actually has, so it's read relative to this graph.
+      const t = simHi > simLo ? (e.sim - simLo) / (simHi - simLo) : 1;
+      // Floor at 1.2px: below that the core rasterises as broken sub-pixel runs.
+      const base = Math.max(1.2, (1.2 + t * 1.2) * (lit ? 1.4 : e.mutual ? 1 : 0.85));
       const points = curve(e.a, e.b);
-      halos.push({ points, color: [...rgb, alpha * 0.22], width: lit ? 6 : e.mutual ? 4 : 3 });
-      cores.push({ points, color: [...rgb, alpha], width: lit ? 1.6 : e.mutual ? 1.1 : 0.8 });
+      PASSES.forEach(([w, a], k) => layers[k].push({ points, color: [...rgb, alpha * a], width: base * w }));
     }
-    // Halos first so every core sits above every halo.
-    return [...halos, ...cores];
+    // Every outer pass under every inner one, so cores are never buried by a neighbour's feather.
+    return layers.flat();
   });
 
   let tip = $state<{ x: number; y: number } | null>(null);
@@ -154,9 +191,13 @@
         const r = DIAMETER[node.hop] / 2;
         if (node.hop === 0) ring(ctx, p[0], p[1], r + 2, theme.foreground, theme.background, 2.5);
         else if (node.hop === 1) ring(ctx, p[0], p[1], r + 1.5, theme.foreground, theme.background, 1.2);
-        if (node.hop <= 1 || node.i === hovered) want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[node.i]), gap: r + 4 });
+        if (node.hop <= 1 || hubs.has(node.i) || node.i === hovered) want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[node.i]), gap: r + 4 });
       }
-      labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false });
+      // Priority order: the hovered node, then centre, neighbours, hubs (the node order); a
+      // label that can't be placed clear of a higher one is dropped rather than stacked.
+      const hp = hovered >= 0 ? at.get(hovered) : undefined;
+      if (hp) want.sort((l, r) => (l.x === hp[0] && l.y === hp[1] ? -1 : 0) - (r.x === hp[0] && r.y === hp[1] ? -1 : 0));
+      labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true });
       if (hovered >= 0 && hopOf.has(hovered)) {
         const p = at.get(hovered);
         if (p) ring(ctx, p[0], p[1], DIAMETER[hopOf.get(hovered)!] / 2 + 3, theme.accent, theme.background, 2);
@@ -171,7 +212,7 @@
   $effect(() => { void lines; surface.repaint(); });
 
   const hovered = $derived(surface.hovered);
-  const mutualCount = $derived(layout.graph.edges.filter((e) => e.mutual).length);
+  const mutualCount = $derived(edges.filter((e) => e.mutual).length);
 </script>
 
 <div class="legend">
@@ -181,7 +222,8 @@
   {/each}
   <div class="legend-title rule">Edges</div>
   <div class="swatch-row"><b class="solid"></b> mutual ({mutualCount})</div>
-  {#if oneWay}<div class="swatch-row"><b class="dashed"></b> one-way ({layout.graph.edges.length - mutualCount})</div>{/if}
+  {#if oneWay}<div class="swatch-row"><b class="dashed"></b> one-way ({edges.length - mutualCount})</div>{/if}
+  {#if minSim > 0}<div class="swatch-row">similarity ≥ {minSim.toFixed(2)}</div>{/if}
 </div>
 {#if tip && hovered >= 0 && hopOf.has(hovered)}
   {@const id = coords.ids[hovered]}
