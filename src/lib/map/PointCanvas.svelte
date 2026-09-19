@@ -261,7 +261,10 @@
   }
 
   // --- export ----------------------------------------------------------------------------
-  const MAX_SIDE = 16384, MAX_PIXELS = 40e6;
+  // The hard limit is WebGL's framebuffer side (16384 px). Area is only a guard against
+  // the PNG encode, which runs on the main thread and takes seconds per 100 MP; it is set
+  // where that becomes a freeze rather than a wait.
+  const MAX_SIDE = 16384, MAX_PIXELS = 160e6;
   function maxExportScale(): number {
     const dpr = window.devicePixelRatio || 1;
     if (!width || !height) return 1;

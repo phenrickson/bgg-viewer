@@ -324,7 +324,7 @@
     <div class="export">
       <label>Scale
         <select bind:value={exportScale}>
-          {#each [1, 2, 3, 4, 6, 8] as s (s)}<option value={s} disabled={s > maxScale}>{s}×{s > maxScale ? ' — too big for this GPU' : ''}</option>{/each}
+          {#each [1, 2, 3, 4, 6, 8] as s (s)}<option value={s} disabled={s > maxScale}>{s}×{s > maxScale ? ' — over the WebGL size limit' : ''}</option>{/each}
         </select>
         <span class="muted">{exportPx.w} × {exportPx.h} px · {exportPx.mp} MP</span>
       </label>
