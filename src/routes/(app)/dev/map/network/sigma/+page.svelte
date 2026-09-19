@@ -1,12 +1,7 @@
 <script lang="ts">
   /**
-   * `/dev/map/network` — prototype: one game's ego network, and the flight between it and
-   * the map. Pick a game; its k nearest by cosine on the full 64-d vectors (the engine's
-   * own measure) are hop 1, optionally their k nearest are hop 2, and an edge exists
-   * wherever one lists another in its k. One `PointCanvas`, two layers: "Map" is the
-   * `MapLayer` framed on those games; "Network" swaps in the `NetworkLayer`, whose force
-   * layout places them by their edges only — mutual neighbours knot together, a neighbour
-   * that only links to the centre hangs off alone — and the points travel between the two.
+   * `/dev/map/network/sigma` — the same ego network drawn by Sigma.js, for comparison with
+   * the regl layer at `/dev/map/network`: same graph, same layout, different renderer.
    *
    * Vectors come from the dev similarity dataset (`/dev/similar/dataset`). All copy
    * PLACEHOLDER.
@@ -20,9 +15,7 @@
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkData } from '$lib/map/network';
   import { loadNetworkData } from '$lib/map/network-data';
   import { GAMES } from '$lib/map/story';
-  import PointCanvas from '$lib/map/PointCanvas.svelte';
-  import MapLayer from '$lib/map/MapLayer.svelte';
-  import NetworkLayer from '$lib/map/NetworkLayer.svelte';
+  import SigmaNetwork from '$lib/map/SigmaNetwork.svelte';
 
   // --- data ------------------------------------------------------------------------------
   let coords = $state<CoordinateSet | null>(null);
@@ -54,7 +47,6 @@
   let minSim = $state(0);
   // Same floor as the map, so the graph is built from the games the map shows.
   let minRatings = $state(MIN_RATINGS_FLOOR);
-  let showNetwork = $state(true);
   let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform', selected: [] });
   $effect(() => { view.minRatings = minRatings; });
 
@@ -67,8 +59,6 @@
     return buildEgoNetwork({ ...data, cache }, source, { k, hops, mutual });
   });
   const layout = $derived(graph ? layoutEgoNetwork(graph, (i) => (i === graph.source ? 8 : 5)) : null);
-  const nodeIds = $derived(graph && coords ? graph.nodes.map((n) => coords!.ids[n.i]) : []);
-  const near = $derived(graph && coords ? graph.nodes.filter((n) => n.hop <= 1).map((n) => coords!.ids[n.i]) : []);
 
   // --- search (same shape as /dev/map) ---------------------------------------------------
   let q = $state('');
@@ -92,8 +82,8 @@
   <header class="top">
     <div>
       <p class="eyebrow">Dev only — prototype</p>
-      <h1>Ego network</h1>
-      <p class="muted">Map tab: {view.projection === 'umap' ? 'UMAP' : `PC${view.x} × PC${view.y}`} · Network tab: force layout by edges</p>
+      <h1>Ego network — Sigma.js</h1>
+      <p class="muted">Same graph and layout as <a href="/dev/map/network">the regl version</a>; different renderer.</p>
     </div>
     <div class="search">
       <input type="search" placeholder="Centre on a game…" bind:value={q} oninput={onsearch} aria-label="Centre on a game" />
@@ -108,13 +98,6 @@
   </header>
 
   <div class="controls">
-    <div class="seg" role="group" aria-label="Arrangement">
-      <button type="button" class:on={!showNetwork} onclick={() => (showNetwork = false)}>Map</button>
-      <button type="button" class:on={showNetwork} onclick={() => (showNetwork = true)}>Network</button>
-    </div>
-    <label>Projection
-      <select bind:value={view.projection}><option value="umap">UMAP</option><option value="pca">PCA</option></select>
-    </label>
     <label>k <input type="range" min="4" max="25" bind:value={k} /> {k}</label>
     <label>Hops
       <select bind:value={hops}><option value={1}>1</option><option value={2}>2</option></select>
@@ -136,24 +119,11 @@
       {:else if !coords || !facts || !layout}
         <div class="state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
       {:else}
-        <PointCanvas lasso={false}>
-          {#if showNetwork}
-            <NetworkLayer {coords} {facts} {layout} {oneWay} {curvature} {minSim} onpick={pick} />
-          {:else}
-            <MapLayer
-              {coords}
-              {facts}
-              {view}
-              anchors={near}
-              focus={nodeIds}
-              onselectionchange={(ids) => { const id = ids.find((x) => !view.selected.includes(x)); if (id != null) pick(id); }}
-            />
-          {/if}
-        </PointCanvas>
+        <SigmaNetwork {coords} {facts} {layout} {oneWay} {curvature} {minSim} onpick={pick} />
       {/if}
     </div>
   </div>
-  <p class="muted foot">Map: the network's games framed where they sit on the map. Network: the same points arranged by their edges. Edge ink follows cosine similarity; solid = each lists the other, dashed = one-way. Click a game to centre on it. "Mutual neighbours only" changes the graph (one-way links are dropped before layout); "show one-way edges" only changes what's drawn.</p>
+  <p class="muted foot">Sigma.js renderer: anti-aliased curved edges, its own label grid (no overlaps by construction), hover dims the rest. Click a game to centre on it.</p>
 </div>
 
 <style>
@@ -173,9 +143,6 @@
   .controls { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; font-size: 0.9rem; }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .controls select { color: var(--foreground); }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .seg button { padding: 0.25rem 0.7rem; }
-  .seg button.on { background: var(--primary); color: var(--primary-foreground); }
   .muted { color: var(--muted-foreground); font-size: 0.85rem; }
   .foot { margin: 0; }
   .body { flex: 1 1 auto; min-height: 0; display: flex; }
