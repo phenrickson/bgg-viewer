@@ -190,7 +190,7 @@
     const key = drawn ? driver?.lines ?? null : null;
     if (key === linesShown) return;
     linesShown = key;
-    void plot.drawAnnotations(lines.map((l) => ({ vertices: [[l.x1, l.y1], [l.x2, l.y2]] as [number, number][], lineColor: l.color, lineWidth: l.width })));
+    void plot.drawAnnotations(lines.map((l) => ({ vertices: l.points, lineColor: l.color, lineWidth: l.width })));
   }
   $effect(() => { void driver?.lines; void drawn; applyLines(); });
 

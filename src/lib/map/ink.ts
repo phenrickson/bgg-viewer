@@ -7,6 +7,15 @@ export function dot(ctx: CanvasRenderingContext2D, x: number, y: number, rad: nu
 	ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
 }
 
+/** A radial fade in `colour` — a soft halo behind a point. */
+export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, rad: number, colour: string, alpha: number) {
+	const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+	g.addColorStop(0, colour); g.addColorStop(1, 'transparent');
+	ctx.globalAlpha = alpha; ctx.fillStyle = g;
+	ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+	ctx.globalAlpha = 1;
+}
+
 export function ring(ctx: CanvasRenderingContext2D, x: number, y: number, rad: number, stroke: string, halo: string, w = 1.5) {
 	ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
 	ctx.lineWidth = w + 2; ctx.strokeStyle = halo; ctx.stroke();
@@ -16,18 +25,28 @@ export function ring(ctx: CanvasRenderingContext2D, x: number, y: number, rad: n
 const LINE_HEIGHT = 14, PAD_X = 4, PAD_Y = 2, MAX_WIDTH = 150;
 
 /** Place `want` so labels avoid each other and the edges (see labels.ts), then paint each
- * as wrapped text on a translucent chip — legible over dots without hiding them. */
-export function labels(ctx: CanvasRenderingContext2D, want: LabelInput[], width: number, height: number, ink: string, halo: string): PlacedLabel[] {
+ * as wrapped text: on a translucent chip (legible over dense dots without hiding them),
+ * or, with `chip: false`, as bare text with a stroked halo. */
+export function labels(ctx: CanvasRenderingContext2D, want: LabelInput[], width: number, height: number, ink: string, halo: string, opts: { chip?: boolean } = {}): PlacedLabel[] {
 	const placed = placeLabels(
 		want,
 		{ measure: (s) => ctx.measureText(s).width, lineHeight: LINE_HEIGHT, maxWidth: MAX_WIDTH, padX: PAD_X, padY: PAD_Y },
 		{ x: 0, y: 0, width, height }
 	);
+	const chip = opts.chip ?? true;
 	for (const p of placed) {
-		ctx.globalAlpha = 0.82; ctx.fillStyle = halo;
-		ctx.beginPath(); ctx.roundRect(p.bx, p.by, p.bw, p.bh, 3); ctx.fill();
-		ctx.globalAlpha = 1; ctx.fillStyle = ink; ctx.textBaseline = 'middle';
-		p.lines.forEach((t, k) => ctx.fillText(t, p.bx + PAD_X, p.by + PAD_Y + LINE_HEIGHT * (k + 0.5)));
+		if (chip) {
+			ctx.globalAlpha = 0.82; ctx.fillStyle = halo;
+			ctx.beginPath(); ctx.roundRect(p.bx, p.by, p.bw, p.bh, 3); ctx.fill();
+			ctx.globalAlpha = 1;
+		}
+		ctx.fillStyle = ink; ctx.textBaseline = 'middle';
+		ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = halo;
+		p.lines.forEach((t, k) => {
+			const x = p.bx + PAD_X, y = p.by + PAD_Y + LINE_HEIGHT * (k + 0.5);
+			if (!chip) ctx.strokeText(t, x, y);
+			ctx.fillText(t, x, y);
+		});
 	}
 	return placed;
 }

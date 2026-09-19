@@ -15,7 +15,7 @@
   import type { NetworkLayout } from './network';
   import { useSurface, type Driver, type Line } from './surface';
   import { toRgb } from './palette';
-  import { ring, labels } from './ink';
+  import { ring, glow, labels } from './ink';
   import type { LabelInput } from './labels';
 
   let {
@@ -65,24 +65,47 @@
   const edges = $derived(oneWay ? layout.graph.edges : layout.graph.edges.filter((e) => e.mutual));
 
   /**
-   * Edges as regl line geometry in data space (see `Driver.lines`): ink follows similarity,
-   * mutual heavier than one-way; the hovered node's edges light up in the accent. Rebuilt
-   * on hover — a few hundred segments, cheap — rather than repainted every camera frame.
+   * Edges as regl line geometry in data space (see `Driver.lines`). Each edge is a
+   * quadratic curve bowed to one consistent side of its chord — a criss-cross of chords
+   * reads as a wiring diagram; curves read as flow, and shallow-angle stair-stepping goes
+   * with them. Each is drawn twice: a wide, faint halo under a thin core, which softens
+   * the GL line's edge (no anti-aliasing of its own) and glows a little on the dark theme.
+   * Ink follows similarity, mutual heavier than one-way; the hovered node's edges light up
+   * in the accent. Rebuilt on hover — a few hundred curves, cheap — not per camera frame.
    */
   const hoveredNode = $derived(surface.hovered);
+  const CURVE_SEGMENTS = 14, BOW = 0.18;
+  function curve(a: number, b: number): [number, number][] {
+    const x1 = pos.x[a], y1 = pos.y[a], x2 = pos.x[b], y2 = pos.y[b];
+    const dx = x2 - x1, dy = y2 - y1;
+    // Control point off the chord's midpoint, on the chord's left going from the lower
+    // index to the higher, so an edge bows the same way whichever end it was found from.
+    const s = a < b ? 1 : -1;
+    const cx = (x1 + x2) / 2 - dy * BOW * s, cy = (y1 + y2) / 2 + dx * BOW * s;
+    const pts: [number, number][] = [];
+    for (let k = 0; k <= CURVE_SEGMENTS; k++) {
+      const t = k / CURVE_SEGMENTS, u = 1 - t;
+      pts.push([u * u * x1 + 2 * u * t * cx + t * t * x2, u * u * y1 + 2 * u * t * cy + t * t * y2]);
+    }
+    return pts;
+  }
   const lines = $derived.by<Line[]>(() => {
     const t = surface.theme;
     if (!t) return [];
     const ink = toRgb(t.foreground).map((c) => c / 255) as [number, number, number];
     const accent = toRgb(t.accent).map((c) => c / 255) as [number, number, number];
-    const out: Line[] = [];
+    const halos: Line[] = [], cores: Line[] = [];
     for (const e of edges) {
       const lit = e.a === hoveredNode || e.b === hoveredNode;
       const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
       const alpha = lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12);
-      out.push({ x1: pos.x[e.a], y1: pos.y[e.a], x2: pos.x[e.b], y2: pos.y[e.b], color: [...(lit ? accent : ink), alpha], width: lit ? 2 : e.mutual ? 1.4 : 1 });
+      const rgb = lit ? accent : ink;
+      const points = curve(e.a, e.b);
+      halos.push({ points, color: [...rgb, alpha * 0.22], width: lit ? 6 : e.mutual ? 4 : 3 });
+      cores.push({ points, color: [...rgb, alpha], width: lit ? 1.6 : e.mutual ? 1.1 : 0.8 });
     }
-    return out;
+    // Halos first so every core sits above every halo.
+    return [...halos, ...cores];
   });
 
   let tip = $state<{ x: number; y: number } | null>(null);
@@ -113,8 +136,17 @@
         const p = screen(node.i);
         if (p) at.set(node.i, p);
       }
-      // Rings say "how far from the centre": the centre thick in the foreground ink,
-      // neighbours thin; the outer ring bare. Labels: centre + neighbours, plus hover.
+      // A soft halo in each node's own colour, wider and brighter the nearer the centre,
+      // gives the dots depth against the edges. Then rings for the centre and its
+      // neighbours; labels for those, plus the hovered node — plain haloed text, no chips
+      // (chips are for legibility over 30k dots; here they'd box every name).
+      const colourOf = (i: number) => palette[facts.category[i]] ?? theme.foreground;
+      for (const node of layout.graph.nodes) {
+        const p = at.get(node.i);
+        if (!p) continue;
+        const r = DIAMETER[node.hop] / 2;
+        glow(ctx, p[0], p[1], r * (node.hop === 0 ? 3.2 : 2.4), colourOf(node.i), node.hop === 0 ? 0.35 : node.hop === 1 ? 0.22 : 0.12);
+      }
       const want: LabelInput[] = [];
       for (const node of layout.graph.nodes) {
         const p = at.get(node.i);
@@ -124,7 +156,7 @@
         else if (node.hop === 1) ring(ctx, p[0], p[1], r + 1.5, theme.foreground, theme.background, 1.2);
         if (node.hop <= 1 || node.i === hovered) want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[node.i]), gap: r + 4 });
       }
-      labels(ctx, want, api.width, api.height, theme.foreground, theme.background);
+      labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false });
       if (hovered >= 0 && hopOf.has(hovered)) {
         const p = at.get(hovered);
         if (p) ring(ctx, p[0], p[1], DIAMETER[hopOf.get(hovered)!] / 2 + 3, theme.accent, theme.background, 2);

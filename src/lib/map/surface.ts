@@ -30,8 +30,9 @@ export interface OverlayApi {
 	dragging: boolean;
 }
 
+/** An open polyline in data space — two points for a straight edge, more for a curve. */
 export interface Line {
-	x1: number; y1: number; x2: number; y2: number;
+	points: [number, number][];
 	color: [number, number, number, number];
 	width: number;
 }
@@ -53,9 +54,9 @@ export interface Driver {
 	stretch?: boolean;
 	opacity?: number;
 	/**
-	 * Line segments in data space (NDC), drawn by regl beneath the points, so they pan and
-	 * zoom with the camera at no per-frame cost. Colour is RGBA 0–1. They appear once the
-	 * points have landed — mid-flight they'd join where the points are going.
+	 * Polylines in data space (NDC), drawn by regl beneath the points, so they pan and zoom
+	 * with the camera at no per-frame cost. Colour is RGBA 0–1. They appear once the points
+	 * have landed — mid-flight they'd join where the points are going.
 	 */
 	lines?: Line[];
 	/** Paint over the points — rings, labels. Called on every camera change and draw. */
