@@ -52,7 +52,7 @@
   let moved = false;
   let hovered = $state<string | null>(null);
 
-  const SIZE: Record<0 | 1 | 2, number> = { 0: 9, 1: 6, 2: 3.5 };
+  const SIZE: Record<0 | 1 | 2 | 3, number> = { 0: 9, 1: 6, 2: 3.5, 3: 2.5 };
   const colourOf = (t: MapTheme, i: number) => (facts.category[i] === 0 ? t.other : t.chart[facts.category[i] - 1]);
 
   /** The graphology graph for the current layout — nodes keyed by map index. */
@@ -75,7 +75,7 @@
     for (const e of layout.graph.edges) {
       if (!(oneWay || e.mutual) || e.sim < minSim) continue;
       const u = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-      const outer = (g.getNodeAttribute(String(e.a), 'hop') === 2) && (g.getNodeAttribute(String(e.b), 'hop') === 2);
+      const outer = (g.getNodeAttribute(String(e.a), 'hop') >= 2) && (g.getNodeAttribute(String(e.b), 'hop') >= 2);
       g.addEdge(String(e.a), String(e.b), {
         type: 'curved',
         curvature,
@@ -125,7 +125,7 @@
             ...data,
             highlighted: hovered === node,
             color: hovered != null && !lit ? rgba(data.color, 0.35) : data.color,
-            zIndex: data.hop === 0 ? 3 : data.hop === 1 ? 2 : 1,
+            zIndex: 3 - Math.min(data.hop, 2),
             forceLabel: data.hop <= 1
           };
         },

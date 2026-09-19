@@ -40,7 +40,7 @@
   // --- controls ----------------------------------------------------------------------------
   let sourceId = $state<number>(GAMES.brass);
   let k = $state(10);
-  let hops = $state<1 | 2>(2);
+  let hops = $state<1 | 2 | 3>(2);
   let mutual = $state(false);
   let oneWay = $state(false);
   let curvature = $state(0.18);
@@ -101,7 +101,7 @@
   <div class="controls">
     <label>k <input type="range" min="4" max="25" bind:value={k} /> {k}</label>
     <label>Hops
-      <select bind:value={hops}><option value={1}>1</option><option value={2}>2</option></select>
+      <select bind:value={hops}><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option></select>
     </label>
     <label class="check"><input type="checkbox" bind:checked={mutual} /> Mutual neighbours only</label>
     <label class="check"><input type="checkbox" bind:checked={oneWay} /> Show one-way edges</label>

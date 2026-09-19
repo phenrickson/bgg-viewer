@@ -49,7 +49,7 @@
   const surface = useSurface();
   if (!surface) throw new Error('NetworkLayer must be mounted inside a PointCanvas');
 
-  const DIAMETER: Record<0 | 1 | 2, number> = { 0: 16, 1: 11, 2: 7 };
+  const DIAMETER: Record<0 | 1 | 2 | 3, number> = { 0: 16, 1: 11, 2: 7, 3: 5 };
   const n = $derived(coords.ids.length);
   const hopOf = $derived(new Map(layout.graph.nodes.map((x) => [x.i, x.hop])));
   const simOf = $derived(new Map(layout.graph.nodes.map((x) => [x.i, x.sim])));
@@ -78,7 +78,7 @@
     const deg = new Map<number, number>();
     for (const e of layout.graph.edges) { if (e.mutual) { deg.set(e.a, (deg.get(e.a) ?? 0) + 1); deg.set(e.b, (deg.get(e.b) ?? 0) + 1); } }
     return new Set(
-      layout.graph.nodes.filter((n) => n.hop === 2).sort((p, q) => (deg.get(q.i) ?? 0) - (deg.get(p.i) ?? 0)).slice(0, HUB_LABELS).map((n) => n.i)
+      layout.graph.nodes.filter((n) => n.hop >= 2).sort((p, q) => (deg.get(q.i) ?? 0) - (deg.get(p.i) ?? 0)).slice(0, HUB_LABELS).map((n) => n.i)
     );
   });
   const edges = $derived(layout.graph.edges.filter((e) => (oneWay || e.mutual) && e.sim >= minSim));
@@ -130,7 +130,7 @@
       const ramp = 0.15 + Math.max(0, e.sim - 0.5) * 0.9;
       // Edges between two outer nodes are the knots' own wiring; they're kept lighter than
       // the spokes into the centre so a dense family stays a texture, not a wash.
-      const outer = (hopOf.get(e.a) ?? 2) === 2 && (hopOf.get(e.b) ?? 2) === 2;
+      const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
       const alpha = (lit ? 1 : e.mutual ? ramp : Math.min(0.45, ramp * 0.6 + 0.12)) * (outer && !lit ? 0.55 : 1);
       const rgb = lit ? accent : ink;
       // Width follows similarity too: the strongest links are the heaviest strokes. The

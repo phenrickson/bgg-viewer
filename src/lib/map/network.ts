@@ -29,8 +29,8 @@ export interface NetworkData {
 export interface NetworkOpts {
 	/** Neighbours per node. */
 	k: number;
-	/** 1 = the source and its neighbours; 2 = also the neighbours' neighbours. */
-	hops: 1 | 2;
+	/** 1 = the source and its neighbours; 2 = also the neighbours' neighbours; 3 = one more ring. */
+	hops: 1 | 2 | 3;
 	/** Keep an edge only when both ends list each other (drops one-way "hub" links). */
 	mutual: boolean;
 }
@@ -38,8 +38,8 @@ export interface NetworkOpts {
 export interface NetworkNode {
 	/** Dataset index. */
 	i: number;
-	/** 0 = source, 1 = its neighbour, 2 = neighbour's neighbour. */
-	hop: 0 | 1 | 2;
+	/** 0 = source, 1 = its neighbour, 2 = neighbour's neighbour, 3 = one further. */
+	hop: 0 | 1 | 2 | 3;
 	/** Cosine similarity to the source. */
 	sim: number;
 }
@@ -87,18 +87,17 @@ export function topK(d: NetworkData, from: number, k: number): { i: number; sim:
 
 export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts): EgoNetwork {
 	const lists = new Map<number, { i: number; sim: number }[]>();
-	const hopOf = new Map<number, 0 | 1 | 2>([[source, 0]]);
+	const hopOf = new Map<number, 0 | 1 | 2 | 3>([[source, 0]]);
 
+	// Ring by ring: the previous ring's lists name the next ring's nodes, and every node in
+	// the graph gets a list of its own so edges between them are found.
 	lists.set(source, topK(d, source, o.k));
-	for (const nb of lists.get(source)!) if (!hopOf.has(nb.i)) hopOf.set(nb.i, 1);
-	// Every node in the graph gets a list, so edges between neighbours are found; the
-	// second hop's lists are what bring hop-2 nodes in.
-	for (const nb of lists.get(source)!) lists.set(nb.i, topK(d, nb.i, o.k));
-	if (o.hops === 2) {
-		for (const nb of lists.get(source)!) {
-			for (const nb2 of lists.get(nb.i)!) if (!hopOf.has(nb2.i)) hopOf.set(nb2.i, 2);
-		}
-		for (const [i, hop] of hopOf) if (hop === 2) lists.set(i, topK(d, i, o.k));
+	let ring: number[] = [source];
+	for (let h = 1 as 1 | 2 | 3; h <= o.hops; h++) {
+		const next: number[] = [];
+		for (const i of ring) for (const nb of lists.get(i)!) if (!hopOf.has(nb.i)) { hopOf.set(nb.i, h); next.push(nb.i); }
+		for (const i of next) lists.set(i, topK(d, i, o.k));
+		ring = next;
 	}
 
 	const edges: NetworkEdge[] = [];
@@ -139,7 +138,7 @@ export interface NetworkLayout {
 	py: Float32Array;
 }
 
-export interface SimNode extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 }
+export interface SimNode extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 | 3 }
 export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mutual: boolean }
 
 /**
@@ -151,7 +150,7 @@ export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mut
 export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () => 5) {
 	const ns: SimNode[] = g.nodes.map((n, j) => {
 		// Hop rings as the seed so the first ticks don't start from a random burst.
-		const a = (j / g.nodes.length) * Math.PI * 2, r = n.hop === 0 ? 0 : n.hop === 1 ? 120 : 260;
+		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][n.hop];
 		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
 	});
 	const at = new Map(ns.map((n) => [n.i, n]));
