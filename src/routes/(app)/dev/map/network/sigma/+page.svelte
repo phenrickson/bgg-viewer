@@ -1,8 +1,7 @@
 <script lang="ts">
   /**
-   * `/dev/map/network/sigma` — the same ego network in a plain Sigma.js setup, for
-   * comparison with the regl layer at `/dev/map/network`: same graph, Sigma's defaults,
-   * ForceAtlas2 running live, draggable nodes. Only the graph controls here; no styling.
+   * `/dev/map/network/sigma` — the same ego network drawn by Sigma.js, for comparison with
+   * the regl layer at `/dev/map/network`: same graph, same layout, different renderer.
    *
    * Vectors come from the dev similarity dataset (`/dev/similar/dataset`). All copy
    * PLACEHOLDER.
@@ -43,6 +42,10 @@
   let k = $state(10);
   let hops = $state<1 | 2>(2);
   let mutual = $state(false);
+  let oneWay = $state(false);
+  let curvature = $state(0.18);
+  let minSim = $state(0);
+  let live = $state(true);
   // Same floor as the map, so the graph is built from the games the map shows.
   let minRatings = $state(MIN_RATINGS_FLOOR);
   let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform', selected: [] });
@@ -101,6 +104,10 @@
       <select bind:value={hops}><option value={1}>1</option><option value={2}>2</option></select>
     </label>
     <label class="check"><input type="checkbox" bind:checked={mutual} /> Mutual neighbours only</label>
+    <label class="check"><input type="checkbox" bind:checked={oneWay} /> Show one-way edges</label>
+    <label>Curve <input type="range" min="0" max="0.5" step="0.01" bind:value={curvature} /> {curvature.toFixed(2)}</label>
+    <label>Min similarity <input type="range" min="0" max="1" step="0.01" bind:value={minSim} /> {minSim.toFixed(2)}</label>
+    <label class="check"><input type="checkbox" bind:checked={live} /> Live layout (drag nodes)</label>
     <label>Min ratings <input type="range" min={MIN_RATINGS_FLOOR} max="2000" step="10" bind:value={minRatings} /> {minRatings}</label>
     {#if graph}
       <span class="muted">{graph.nodes.length} games · {graph.edges.length} edges · {graph.edges.filter((e) => e.mutual).length} mutual</span>
@@ -114,11 +121,11 @@
       {:else if !coords || !facts || !layout}
         <div class="state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
       {:else}
-        <SigmaNetwork {coords} {facts} {layout} onpick={pick} />
+        <SigmaNetwork {coords} {facts} {layout} {oneWay} {curvature} {minSim} {live} onpick={pick} />
       {/if}
     </div>
   </div>
-  <p class="muted foot">Plain Sigma.js: default node/edge/label rendering, ForceAtlas2 running live, drag a node to move it, click one to centre on it. Mutual edges only.</p>
+  <p class="muted foot">Sigma.js renderer: anti-aliased curved edges, its own label grid (no overlaps by construction), hover dims the rest. Click a game to centre on it.</p>
 </div>
 
 <style>
