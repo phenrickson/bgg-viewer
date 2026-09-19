@@ -132,11 +132,12 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 			// reads as "lighter/heavier" but on 36k dots reads as two populations with a seam.
 			return continuous(facts.weight, 1, 5, sampledRamp((v) => seq((v - 1) / 4), 1, 5), palette);
 		case 'geek': {
-			// Same scale as the About page's popularity-vs-rating cloud: the app's diverging ramp
-			// (rose below, blue above), clamped to 5–8 with the pivot at 6 — where a game stops
-			// being indifferent — rather than at the arithmetic middle. Half of all games sit in
-			// 5.49–5.54, so a sequential ramp painted the whole map one shade.
-			const c = continuous(facts.geekRating, 5, 8, sampledRamp((v) => divergingAt(v, 5, 6, 8), 5, 8), palette);
+			// The app's diverging ramp (rose below, blue above), clamped to 5–7 with the pivot at
+			// 6 — where a game stops being indifferent — rather than at the arithmetic middle.
+			// Half of all games sit in 5.49–5.54, so a sequential ramp painted the whole map one
+			// shade; and 7+ is already the top few hundred, so the blue end saturates there
+			// instead of being spent on the handful above it.
+			const c = continuous(facts.geekRating, 5, 7, sampledRamp((v) => divergingAt(v, 5, 6, 7), 5, 7), palette);
 			return { ...c, mid: 6, clamped: true };
 		}
 		case 'rating':
