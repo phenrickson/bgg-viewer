@@ -68,3 +68,15 @@ describe('factsSql', () => {
 		expect(CATEGORY_SLOTS).toBe(7);
 	});
 });
+
+describe('factsSql priority', () => {
+	it('tests tags in priority order but codes them by colour slot', () => {
+		const sql = factsSql(['Trains', 'Economic', 'Wargame'], ['Trains', 'Wargame', 'Economic']);
+		const cases = sql.match(/WHEN list_contains\(categories, '([^']+)'\) THEN (\d)/g)!;
+		expect(cases).toEqual([
+			"WHEN list_contains(categories, 'Trains') THEN 1",
+			"WHEN list_contains(categories, 'Wargame') THEN 3",
+			"WHEN list_contains(categories, 'Economic') THEN 2"
+		]);
+	});
+});

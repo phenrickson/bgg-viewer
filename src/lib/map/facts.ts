@@ -87,11 +87,13 @@ export function alignFacts(
  * `categories[1]` (BGG lists alphabetically, so that was arbitrary) and then the six most
  * frequent tags (format tags and catch-alls); a curated list is what makes the map legible.
  */
-export function factsSql(labels: string[]): string {
+export function factsSql(labels: string[], priority: string[] = labels): string {
 	const esc = (s: string) => s.replace(/'/g, "''");
-	const cases = labels
-		.slice(0, CATEGORY_SLOTS)
-		.map((l, i) => `WHEN list_contains(categories, '${esc(l)}') THEN ${i + 1}`)
+	const slots = labels.slice(0, CATEGORY_SLOTS);
+	// Tested in `priority` order, coded by position in `labels` (the colour slot).
+	const cases = priority
+		.filter((l) => slots.includes(l))
+		.map((l) => `WHEN list_contains(categories, '${esc(l)}') THEN ${slots.indexOf(l) + 1}`)
 		.join(' ');
 	const code = labels.length ? `CASE ${cases} ELSE 0 END` : '0';
 	return `SELECT game_id, average_weight, geek_rating, average_rating, year_published, users_rated, ${code} AS cat_code
