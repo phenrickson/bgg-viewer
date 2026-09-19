@@ -21,7 +21,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import { egoSimulation, type NetworkLayout, type SimNode } from './network';
-  import { readTheme, type MapTheme } from './palette';
+  import { readTheme, toHex, type MapTheme } from './palette';
 
   let {
     coords,
@@ -67,7 +67,8 @@
         x: layout.px[j], y: layout.py[j],
         size: SIZE[n.hop], hop: n.hop, sim: n.sim,
         label: facts.name(coords.ids[n.i]),
-        color: colourOf(t, n.i)
+        // Sigma parses hex/rgb only; the theme's oklch tokens would come out black.
+        color: toHex(colourOf(t, n.i))
       });
     });
     const sims = layout.graph.edges.map((e) => e.sim);
@@ -97,17 +98,46 @@
 
   onMount(() => {
     theme = readTheme();
+    // Watch for the theme class from the start: mode-watcher applies it after mount, and
+    // an observer installed only once Sigma has loaded misses that flip.
+    const mo = new MutationObserver(() => { theme = readTheme(); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     let disposed = false;
-    Promise.all([import('sigma'), import('@sigma/edge-curve')]).then(([{ default: Sigma }, { default: EdgeCurveProgram }]) => {
-      if (disposed || !theme) return;
-      const t = theme;
+    Promise.all([import('sigma'), import('sigma/rendering'), import('@sigma/edge-curve')]).then(([{ default: Sigma }, { drawDiscNodeLabel }, { default: EdgeCurveProgram }]) => {
+      if (disposed) return;
+      theme = readTheme();
+      // Read at draw time, not captured: mode-watcher applies the dark class after mount,
+      // and the theme can flip while the instance lives.
+      const t = () => theme!;
+      // Sigma's hover card is hard-coded white (#FFF); on the dark theme that's white text
+      // on a white pill. Same shape, in the theme's own surfaces.
+      const drawHover: import('sigma/rendering').NodeHoverDrawingFunction = (ctx, data, settings) => {
+        const size = settings.labelSize, font = settings.labelFont, weight = settings.labelWeight;
+        ctx.font = `${weight} ${size}px ${font}`;
+        ctx.fillStyle = t().background;
+        ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 8; ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        const PAD = 3;
+        if (data.label) {
+          const w = ctx.measureText(data.label).width, h = size, r = data.size + PAD;
+          const x = Math.round(data.x), y = Math.round(data.y), bw = Math.round(w + 6 + r + PAD), bh = h + 2 * PAD;
+          ctx.beginPath();
+          ctx.moveTo(x, y + bh / 2); ctx.lineTo(x + r + bw, y + bh / 2); ctx.lineTo(x + r + bw, y - bh / 2); ctx.lineTo(x, y - bh / 2);
+          ctx.arc(x, y, r, -Math.PI / 2, Math.PI / 2, true);
+          ctx.closePath(); ctx.fill();
+        } else {
+          ctx.beginPath(); ctx.arc(data.x, data.y, data.size + PAD, 0, Math.PI * 2); ctx.closePath(); ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        drawDiscNodeLabel(ctx, data, settings);
+      };
       sigma = new Sigma(graph, host, {
         edgeProgramClasses: { curved: EdgeCurveProgram },
         renderEdgeLabels: false,
-        labelFont: t.font,
+        labelFont: t().font,
         labelSize: 12,
         labelWeight: '600',
-        labelColor: { color: t.foreground },
+        labelColor: { color: toHex(t().foreground) },
+        defaultDrawNodeHover: drawHover,
         // Sigma's label grid: labels for the biggest nodes per cell, never overlapping.
         labelDensity: 1.2,
         labelGridCellSize: 90,
@@ -119,22 +149,28 @@
         // and a floor on thickness so no edge rasterises sub-pixel.
         antiAliasingFeather: 2.5,
         minEdgeThickness: 2.2,
+        // Hover: the node and its neighbours stay full strength and all get labels; the
+        // rest of the graph steps back. Lit edges take the foreground ink at full alpha
+        // (the accent is too dark against the dark theme).
         nodeReducer: (node, data) => {
-          const lit = hovered === node || (hovered != null && graph.areNeighbors(hovered, node));
+          const neighbour = hovered != null && hovered !== node && graph.areNeighbors(hovered, node);
+          const lit = hovered === node || neighbour;
           return {
             ...data,
             highlighted: hovered === node,
-            color: hovered != null && !lit ? rgba(data.color, 0.35) : data.color,
-            zIndex: 3 - Math.min(data.hop, 2),
-            forceLabel: data.hop <= 1
+            color: hovered != null && !lit ? rgba(data.color, 0.45) : data.color,
+            size: neighbour ? data.size * 1.25 : data.size,
+            zIndex: lit ? 4 : 3 - Math.min(data.hop, 2),
+            forceLabel: neighbour || (hovered == null && data.hop <= 1),
+            label: hovered != null && !lit ? '' : data.label
           };
         },
         edgeReducer: (edge, data) => {
           const lit = hovered != null && graph.hasExtremity(edge, hovered);
           return {
             ...data,
-            color: lit ? t.accent : rgba(t.foreground, data.alpha),
-            size: lit ? data.size * 1.4 : data.size,
+            color: lit ? toHex(t().foreground) : rgba(t().foreground, hovered != null ? data.alpha * 0.3 : data.alpha),
+            size: lit ? Math.max(data.size * 1.4, 1.6) : data.size,
             zIndex: lit ? 2 : 0
           };
         }
@@ -143,11 +179,16 @@
       sigma.on('leaveNode', () => { hovered = null; });
       sigma.on('clickNode', ({ node }) => { if (!moved) onpick?.(coords.ids[Number(node)]); });
       if (dev) (window as unknown as { __sigma: unknown }).__sigma = sigma;
-      const mo = new MutationObserver(() => { theme = readTheme(); });
-      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-      return () => mo.disconnect();
     });
-    return () => { disposed = true; sigma?.kill(); sigma = null; };
+    // Theme flips (or arrives late): Sigma's own label settings follow, and it repaints.
+    $effect(() => {
+      const t = theme, s = sigma;
+      if (!t || !s) return;
+      s.setSetting('labelColor', { color: toHex(t.foreground) });
+      s.setSetting('labelFont', t.font);
+      s.refresh();
+    });
+    return () => { disposed = true; mo.disconnect(); sigma?.kill(); sigma = null; };
   });
 
   // A new graph (recentre, filter, curvature) swaps the instance's graph in place.
