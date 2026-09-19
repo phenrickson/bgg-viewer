@@ -261,11 +261,26 @@
   }
 
   // --- export ----------------------------------------------------------------------------
+  const MAX_SIDE = 16384, MAX_PIXELS = 40e6;
+  function maxExportScale(): number {
+    const dpr = window.devicePixelRatio || 1;
+    if (!width || !height) return 1;
+    const bySide = MAX_SIDE / (Math.max(width, height) * dpr);
+    const byArea = Math.sqrt(MAX_PIXELS / (width * height * dpr * dpr));
+    return Math.max(1, Math.floor(Math.min(bySide, byArea)));
+  }
   async function exportPng({ scale, title, transparent }: ExportOptions): Promise<Blob> {
     if (!plot || !theme) throw new Error('canvas not ready');
+    const max = maxExportScale();
+    if (scale > max) throw new Error(`scale ${scale}× is beyond what this canvas can render (max ${max}×)`);
     // regl's off-screen render comes back on alpha whatever the background setting, so
     // the background is ours to lay down (or leave out, for print).
-    const img = await plot.export({ scale, antiAliasing: 0.5 * scale, pixelAligned: false });
+    // regl's export waits for a draw that never comes if the framebuffer fails, so it is
+    // raced against a deadline rather than trusted.
+    const img = await Promise.race([
+      plot.export({ scale, antiAliasing: 0.5 * scale, pixelAligned: false }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('export timed out — try a smaller scale')), 60_000))
+    ]);
     const pts = document.createElement('canvas');
     pts.width = img.width; pts.height = img.height;
     pts.getContext('2d')!.putImageData(img, 0, 0);
@@ -293,7 +308,7 @@
     }
     return new Promise((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
   }
-  $effect(() => { api = { exportPng }; return () => { api = null; }; });
+  $effect(() => { api = { exportPng, maxExportScale }; return () => { api = null; }; });
 
   onMount(() => {
     theme = readTheme();

@@ -191,9 +191,19 @@
   let exportTitle = $state('');
   let exportTransparent = $state(false);
   let exporting = $state(false);
+  let exportError = $state<string | null>(null);
+  // Re-read when the panel opens (it depends on the canvas size at that moment).
+  const maxScale = $derived(exportOpen && api ? api.maxExportScale() : 8);
+  const exportPx = $derived.by(() => {
+    if (!exportOpen || typeof document === 'undefined') return { w: 0, h: 0, mp: '0' };
+    const el = document.querySelector('.map .host');
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round((el?.clientWidth ?? 0) * exportScale * dpr), h = Math.round((el?.clientHeight ?? 0) * exportScale * dpr);
+    return { w, h, mp: ((w * h) / 1e6).toFixed(1) };
+  });
   async function exportPng() {
     if (!api) return;
-    exporting = true;
+    exporting = true; exportError = null;
     try {
       const blob = await api.exportPng({ scale: exportScale, title: exportTitle.trim() || undefined, transparent: exportTransparent });
       const a = document.createElement('a');
@@ -202,6 +212,8 @@
       a.download = `bgg-map-${where}-${view.colour}${upTo != null ? `-${shownYear}` : ''}@${exportScale}x.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    } catch (e) {
+      exportError = e instanceof Error ? e.message : String(e);
     } finally { exporting = false; }
   }
 </script>
@@ -312,13 +324,15 @@
     <div class="export">
       <label>Scale
         <select bind:value={exportScale}>
-          {#each [1, 2, 4, 8] as s (s)}<option value={s}>{s}×</option>{/each}
+          {#each [1, 2, 3, 4, 6, 8] as s (s)}<option value={s} disabled={s > maxScale}>{s}×{s > maxScale ? ' — too big for this GPU' : ''}</option>{/each}
         </select>
+        <span class="muted">{exportPx.w} × {exportPx.h} px · {exportPx.mp} MP</span>
       </label>
       <label class="check"><input type="checkbox" bind:checked={exportTransparent} /> Transparent background</label>
       <label>Title <input type="text" bind:value={exportTitle} placeholder="optional, bottom-left" /></label>
       <button type="button" class="chip on" disabled={!api || exporting} onclick={exportPng}>{exporting ? 'Rendering…' : 'Download PNG'}</button>
       <span class="muted">Frame the shot first: the export is the current view, with the selection’s rings and labels.</span>
+      {#if exportError}<span class="error">{exportError}</span>{/if}
     </div>
   {/if}
 
@@ -449,6 +463,7 @@
   .export label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .export input[type='text'] { width: 14rem; }
   .export .muted { color: var(--muted-foreground); font-size: 0.85rem; }
+  .export .error { color: var(--destructive, var(--foreground)); font-size: 0.85rem; }
   .timeline { display: inline-flex; align-items: center; gap: 0.4rem; }
   .timeline input { width: 9rem; }
   .timeline .tick input { width: 4.5rem; }

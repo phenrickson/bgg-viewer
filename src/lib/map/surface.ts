@@ -77,6 +77,12 @@ export interface ExportOptions {
 /** What a page gets from a canvas, for things a layer doesn't own. */
 export interface CanvasApi {
 	/**
+	 * The largest export scale this canvas can render: WebGL framebuffers top out at 16384
+	 * px a side (and the export is scale × CSS size × devicePixelRatio), and past ~40 MP
+	 * the PNG encode freezes the page for a long time. Depends on the canvas size.
+	 */
+	maxExportScale: () => number;
+	/**
 	 * The current view — regl's points re-rendered at `scale`, the layer's overlay painted
 	 * on top at the same scale (labels re-placed, so they stay crisp and uncluttered) — as
 	 * a PNG. What you see is what you get: frame the shot by zooming first.
