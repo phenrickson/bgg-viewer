@@ -16,7 +16,7 @@
   import { dev } from '$app/environment';
   import type createScatterplot from 'regl-scatterplot';
   import { readTheme, toHex, type MapTheme } from './palette';
-  import { provideSurface, MAX_DIAMETER, type Driver, type Surface } from './surface';
+  import { provideSurface, MAX_DIAMETER, type Driver, type Surface, type CanvasApi, type ExportOptions } from './surface';
 
   let {
     mode = 'pan',
@@ -24,6 +24,7 @@
     interactive = true,
     frame = true,
     lasso = true,
+    api = $bindable(null),
     children
   }: {
     /** What a plain drag does. Shift+drag lassos in either mode. */
@@ -44,6 +45,8 @@
      * 1px step a smooth lasso needs makes clicks nearly impossible to land.
      */
     lasso?: boolean;
+    /** Bound by the page for export. */
+    api?: CanvasApi | null;
     children?: Snippet;
   } = $props();
 
@@ -256,6 +259,41 @@
       width, height, theme, hovered, drawn, dragging
     });
   }
+
+  // --- export ----------------------------------------------------------------------------
+  async function exportPng({ scale, title, transparent }: ExportOptions): Promise<Blob> {
+    if (!plot || !theme) throw new Error('canvas not ready');
+    // regl's off-screen render comes back on alpha whatever the background setting, so
+    // the background is ours to lay down (or leave out, for print).
+    const img = await plot.export({ scale, antiAliasing: 0.5 * scale, pixelAligned: false });
+    const pts = document.createElement('canvas');
+    pts.width = img.width; pts.height = img.height;
+    pts.getContext('2d')!.putImageData(img, 0, 0);
+    const out = document.createElement('canvas');
+    out.width = img.width; out.height = img.height;
+    const ctx = out.getContext('2d')!;
+    if (!transparent) { ctx.fillStyle = theme.background; ctx.fillRect(0, 0, out.width, out.height); }
+    ctx.drawImage(pts, 0, 0);
+    // The overlay in on-screen coordinates under a uniform scale: the same placement the
+    // viewer sees, rendered at the export's resolution.
+    const s = img.width / width;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.font = `600 12px ${theme.font}`;
+    ctx.textBaseline = 'middle';
+    const p = plot;
+    driver?.overlay?.(ctx, {
+      screen: (i) => { const q = p.getScreenPosition(i); return q ? [q[0], q[1]] : null; },
+      width, height, theme, hovered: -1, drawn: true, dragging: false
+    });
+    if (title) {
+      ctx.font = `600 16px ${theme.font}`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = theme.foreground;
+      ctx.fillText(title, 14, height - 14);
+    }
+    return new Promise((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
+  }
+  $effect(() => { api = { exportPng }; return () => { api = null; }; });
 
   onMount(() => {
     theme = readTheme();

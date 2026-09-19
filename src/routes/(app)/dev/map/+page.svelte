@@ -20,6 +20,7 @@
   import { fromParams, toParams, DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
+  import type { CanvasApi } from '$lib/map/surface';
 
   let mode = $state<'pan' | 'lasso'>('pan');
 
@@ -180,6 +181,29 @@
   function stopTimeline() { pause(); upTo = null; }
   $effect(() => () => cancelAnimationFrame(raf));
   const shownYear = $derived(upTo == null ? null : Math.floor(upTo));
+
+  // --- export ------------------------------------------------------------------------
+  // What's on screen — camera, filters, selection rings and labels — as a PNG at a multiple
+  // of the canvas size. 8× of a ~1400px canvas is ~11k px wide: print size.
+  let api = $state<CanvasApi | null>(null);
+  let exportOpen = $state(false);
+  let exportScale = $state(4);
+  let exportTitle = $state('');
+  let exportTransparent = $state(false);
+  let exporting = $state(false);
+  async function exportPng() {
+    if (!api) return;
+    exporting = true;
+    try {
+      const blob = await api.exportPng({ scale: exportScale, title: exportTitle.trim() || undefined, transparent: exportTransparent });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const where = view.projection === 'pca' ? `pc${view.x}x${view.y}` : view.projection;
+      a.download = `bgg-map-${where}-${view.colour}${upTo != null ? `-${shownYear}` : ''}@${exportScale}x.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    } finally { exporting = false; }
+  }
 </script>
 
 <svelte:head>
@@ -282,7 +306,21 @@
       <label class="tick"><input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" /> ms/yr</label>
       {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
     </div>
+    <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
   </div>
+  {#if exportOpen}
+    <div class="export">
+      <label>Scale
+        <select bind:value={exportScale}>
+          {#each [1, 2, 4, 8] as s (s)}<option value={s}>{s}×</option>{/each}
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" bind:checked={exportTransparent} /> Transparent background</label>
+      <label>Title <input type="text" bind:value={exportTitle} placeholder="optional, bottom-left" /></label>
+      <button type="button" class="chip on" disabled={!api || exporting} onclick={exportPng}>{exporting ? 'Rendering…' : 'Download PNG'}</button>
+      <span class="muted">Frame the shot first: the export is the current view, with the selection’s rings and labels.</span>
+    </div>
+  {/if}
 
   <div class="body">
     <div class="map">
@@ -298,6 +336,7 @@
           anchors={ANCHORS}
           {upTo}
           {mode}
+          bind:api
           keep={keepOnly && view.selected.length ? view.selected : null}
           onselectionchange={setSelection}
           ontogglecategory={toggleCategory}
@@ -406,6 +445,10 @@
   }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .controls select { color: var(--foreground); }
+  .export { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); font-size: 0.9rem; }
+  .export label { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .export input[type='text'] { width: 14rem; }
+  .export .muted { color: var(--muted-foreground); font-size: 0.85rem; }
   .timeline { display: inline-flex; align-items: center; gap: 0.4rem; }
   .timeline input { width: 9rem; }
   .timeline .tick input { width: 4.5rem; }

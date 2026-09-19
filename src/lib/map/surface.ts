@@ -65,6 +65,25 @@ export interface Driver {
 	onselect?: (points: number[]) => void;
 }
 
+export interface ExportOptions {
+	/** Multiple of the on-screen size; 4 on a ~1400px canvas is a ~5600px image. */
+	scale: number;
+	/** Drawn in the bottom-left corner, in the theme's ink. */
+	title?: string;
+	/** No background: the points and overlay on alpha, for print. */
+	transparent?: boolean;
+}
+
+/** What a page gets from a canvas, for things a layer doesn't own. */
+export interface CanvasApi {
+	/**
+	 * The current view — regl's points re-rendered at `scale`, the layer's overlay painted
+	 * on top at the same scale (labels re-placed, so they stay crisp and uncluttered) — as
+	 * a PNG. What you see is what you get: frame the shot by zooming first.
+	 */
+	exportPng: (o: ExportOptions) => Promise<Blob>;
+}
+
 /** What a layer gets from the canvas it is mounted in. */
 export interface Surface {
 	drive: (d: Driver) => void;

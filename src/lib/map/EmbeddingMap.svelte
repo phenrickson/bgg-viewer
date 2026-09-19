@@ -14,10 +14,12 @@
     cameraFixed = false,
     interactive = true,
     frame = true,
+    lasso = true,
+    api = $bindable(null),
     ...layer
   }: ComponentProps<typeof PointCanvas> & ComponentProps<typeof MapLayer> = $props();
 </script>
 
-<PointCanvas {mode} {cameraFixed} {interactive} {frame}>
+<PointCanvas {mode} {cameraFixed} {interactive} {frame} {lasso} bind:api>
   <MapLayer {...layer} />
 </PointCanvas>
