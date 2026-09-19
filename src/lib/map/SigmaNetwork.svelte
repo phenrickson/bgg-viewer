@@ -114,6 +114,11 @@
         labelRenderedSizeThreshold: 5,
         defaultEdgeType: 'curved',
         zIndex: true,
+        // Sigma's contexts are created without MSAA; edges are anti-aliased by a shader
+        // feather whose default (1px) is too little for thin, faint lines. Wider feather,
+        // and a floor on thickness so no edge rasterises sub-pixel.
+        antiAliasingFeather: 2.5,
+        minEdgeThickness: 2.2,
         nodeReducer: (node, data) => {
           const lit = hovered === node || (hovered != null && graph.areNeighbors(hovered, node));
           return {
