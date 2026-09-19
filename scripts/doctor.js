@@ -38,10 +38,15 @@ const CATALOG_TABLES = [
 	'predictions.bgg_predictions'
 ];
 
+// Only exercised by the real login flow and the "My collection" toggle — a gap here is a
+// warning, not a blocker, when DEV_AUTH_EMAIL is set.
+const ACCOUNT_TABLES = ['core.users', 'collections.user_collections'];
+
 console.log('\ngcp credentials');
 let noCreds = false;
 let failed = false;
-for (const table of CATALOG_TABLES) {
+for (const table of [...CATALOG_TABLES, ...ACCOUNT_TABLES]) {
+	const optional = ACCOUNT_TABLES.includes(table) ? ' (login / collections only)' : '';
 	try {
 		const { BigQuery } = await import('@google-cloud/bigquery');
 		const bq = new BigQuery({ projectId: project });
@@ -49,16 +54,16 @@ for (const table of CATALOG_TABLES) {
 			query: `SELECT 1 FROM \`${project}.${table}\` LIMIT 1`,
 			dryRun: true
 		});
-		ok(`${table} readable`);
+		ok(`${table} readable${optional}`);
 	} catch (err) {
 		const msg = String(err?.message ?? err);
-		failed = true;
+		if (!optional) failed = true;
 		if (/Could not load the default credentials|Unable to detect|does not exist, or it is not a file|ENOENT/i.test(msg)) {
 			// Credentials are absent, not table-specific — report once and stop retrying.
 			warn('no ADC found — run `gcloud auth application-default login`');
 			noCreds = true;
 		} else if (/Permission denied|Access Denied|403/i.test(msg)) {
-			warn(`${table} — no read access`);
+			warn(`${table} — no read access${optional}`);
 		} else if (/Not found|404/i.test(msg)) {
 			warn(`${table} — not found`);
 		} else {
@@ -69,6 +74,24 @@ for (const table of CATALOG_TABLES) {
 }
 if (failed) {
 	console.log('    The catalog fails to load until this resolves; the rest of the app still runs.');
+}
+
+// Game detail pages call the gated warehouse API with a token from `gcloud auth login`
+// (a separate credential from ADC). Only worth checking when the URL is configured.
+console.log('\nwarehouse api');
+if (!value('WAREHOUSE_API_URL')) {
+	warn('WAREHOUSE_API_URL unset — game detail pages will fail; Explore still works');
+} else {
+	try {
+		const { execSync } = await import('node:child_process');
+		const token = execSync('gcloud auth print-identity-token', { stdio: ['ignore', 'pipe', 'ignore'] })
+			.toString()
+			.trim();
+		if (token) ok('gcloud identity token available');
+		else warn('gcloud returned no identity token — run `gcloud auth login`');
+	} catch {
+		warn('`gcloud auth print-identity-token` failed — run `gcloud auth login`');
+	}
 }
 
 console.log();
