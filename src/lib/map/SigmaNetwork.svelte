@@ -48,7 +48,8 @@
         color: facts.category[n.i] === 0 ? t.other : t.chart[facts.category[n.i] - 1]
       });
     });
-    for (const e of layout.graph.edges) if (e.mutual) g.addEdge(String(e.a), String(e.b));
+    // All edges: mutual-only leaves the graph in pieces, which ForceAtlas2 flings apart.
+    for (const e of layout.graph.edges) g.addEdge(String(e.a), String(e.b));
     return g;
   });
 
@@ -70,19 +71,28 @@
     sigma.getCamera().animatedReset({ duration: 400 });
   });
 
-  // ForceAtlas2 in a worker (graphology-layout-forceatlas2), started for each graph —
-  // Sigma's standard live layout. And the drag pattern from Sigma's docs: `downNode`
-  // fixes the node and disables the camera, `mousemovebody` moves it, `mouseup` releases.
+  // ForceAtlas2 in a worker (graphology-layout-forceatlas2) — Sigma's standard layout.
+  // It has no notion of rest, so it runs for a few seconds after each graph change and
+  // while a node is being dragged, then stops. And the drag pattern from Sigma's docs:
+  // `downNode` fixes the node and disables the camera, `mousemovebody` moves it, `mouseup`
+  // releases.
+  const SETTLE_MS = 4000;
   $effect(() => {
     const g = graph, s = sigma;
     if (!s || g.order === 0) return;
-    let stop = () => {};
+    let fa2: { start: () => void; stop: () => void; kill: () => void } | null = null;
     let disposed = false;
+    let settle = 0;
+    const run = () => {
+      if (!fa2) return;
+      fa2.start();
+      clearTimeout(settle);
+      settle = window.setTimeout(() => fa2?.stop(), SETTLE_MS);
+    };
     Promise.all([import('graphology-layout-forceatlas2/worker'), import('graphology-layout-forceatlas2')]).then(([{ default: FA2Layout }, { default: forceAtlas2 }]) => {
       if (disposed) return;
-      const fa2 = new FA2Layout(g, { settings: forceAtlas2.inferSettings(g) });
-      fa2.start();
-      stop = () => fa2.kill();
+      fa2 = new FA2Layout(g, { settings: forceAtlas2.inferSettings(g) });
+      run();
     });
 
     let dragged: string | null = null;
@@ -91,6 +101,7 @@
       dragged = node; moved = false;
       g.setNodeAttribute(node, 'fixed', true);
       s.getCamera().disable();
+      clearTimeout(settle); fa2?.start();
     };
     const onMove = (e: { x: number; y: number; original: Event; preventSigmaDefault: () => void }) => {
       if (!dragged) return;
@@ -105,6 +116,7 @@
       g.removeNodeAttribute(dragged, 'fixed');
       dragged = null;
       s.getCamera().enable();
+      run();
     };
     const onClick = ({ node }: { node: string }) => { if (!moved) onpick?.(coords.ids[Number(node)]); };
     s.on('downNode', onDown);
@@ -112,7 +124,7 @@
     s.getMouseCaptor().on('mousemovebody', onMove);
     s.getMouseCaptor().on('mouseup', onUp);
     return () => {
-      disposed = true; stop();
+      disposed = true; clearTimeout(settle); fa2?.kill();
       s.off('downNode', onDown);
       s.off('clickNode', onClick);
       s.getMouseCaptor().off('mousemovebody', onMove);
