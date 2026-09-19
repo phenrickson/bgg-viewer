@@ -133,10 +133,38 @@ export interface NetworkLayout {
 	/** Parallel to `graph.nodes`. */
 	x: Float32Array;
 	y: Float32Array;
+	/** The same positions in the simulation's own units (before the NDC fit), for a live
+	 * simulation to pick up where the static one stopped. */
+	px: Float32Array;
+	py: Float32Array;
 }
 
-interface N extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 }
-interface L extends SimulationLinkDatum<N> { sim: number; mutual: boolean }
+export interface SimNode extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 }
+export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mutual: boolean }
+
+/**
+ * The force model, shared by the static layout and a live one: link distance from
+ * similarity, repulsion and collision sized so a tight family (the 18xx games) spreads
+ * rather than piling up. Layout units are arbitrary; only the ratios matter. Returns the
+ * simulation stopped, with the centre pinned at the origin.
+ */
+export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () => 5) {
+	const ns: SimNode[] = g.nodes.map((n, j) => {
+		// Hop rings as the seed so the first ticks don't start from a random burst.
+		const a = (j / g.nodes.length) * Math.PI * 2, r = n.hop === 0 ? 0 : n.hop === 1 ? 120 : 260;
+		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
+	});
+	const at = new Map(ns.map((n) => [n.i, n]));
+	const ls: SimLink[] = g.edges.map((e) => ({ source: at.get(e.a)!, target: at.get(e.b)!, sim: e.sim, mutual: e.mutual }));
+	const sim = forceSimulation(ns)
+		.force('link', forceLink<SimNode, SimLink>(ls).distance((l) => 60 + (1 - l.sim) * 500).strength((l) => (l.mutual ? 0.7 : 0.25)))
+		.force('charge', forceManyBody().strength(-320))
+		.force('collide', forceCollide<SimNode>().radius((n) => radius(n.i) * 2 + 12))
+		.force('center', forceCenter(0, 0))
+		.stop();
+	ns[0].fx = 0; ns[0].fy = 0;
+	return { sim, nodes: ns, links: ls };
+}
 
 /**
  * Force-directed layout of an ego network, run to rest synchronously (a few hundred nodes,
@@ -145,29 +173,14 @@ interface L extends SimulationLinkDatum<N> { sim: number; mutual: boolean }
  * result is in NDC so `EmbeddingMap` can animate points from their map spots into it.
  */
 export function layoutEgoNetwork(g: EgoNetwork, radius: (i: number) => number = () => 5): NetworkLayout {
-	const ns: N[] = g.nodes.map((n, j) => {
-		// Hop rings as the seed so the first ticks don't start from a random burst.
-		const a = (j / g.nodes.length) * Math.PI * 2, r = n.hop === 0 ? 0 : n.hop === 1 ? 120 : 260;
-		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
-	});
-	const at = new Map(ns.map((n) => [n.i, n]));
-	const ls: L[] = g.edges.map((e) => ({ source: at.get(e.a)!, target: at.get(e.b)!, sim: e.sim, mutual: e.mutual }));
-	const sim = forceSimulation(ns)
-		// Layout units are arbitrary; the result is refitted to NDC, so only the ratios
-		// matter: link distances span ~60–260 across the similarity range, the repulsion and
-		// collision keep a tight family (the 18xx games) from piling onto one spot.
-		.force('link', forceLink<N, L>(ls).distance((l) => 60 + (1 - l.sim) * 500).strength((l) => (l.mutual ? 0.7 : 0.25)))
-		.force('charge', forceManyBody().strength(-320))
-		.force('collide', forceCollide<N>().radius((n) => radius(n.i) * 2 + 12))
-		.force('center', forceCenter(0, 0))
-		.stop();
-	ns[0].fx = 0; ns[0].fy = 0;
+	const { sim, nodes: ns } = egoSimulation(g, radius);
 	sim.tick(300);
 
 	let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
 	for (const n of ns) { x0 = Math.min(x0, n.x!); x1 = Math.max(x1, n.x!); y0 = Math.min(y0, n.y!); y1 = Math.max(y1, n.y!); }
 	const s = 1.8 / Math.max(x1 - x0, y1 - y0, 1e-9), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
 	const x = new Float32Array(ns.length), y = new Float32Array(ns.length);
-	ns.forEach((n, j) => { x[j] = (n.x! - cx) * s; y[j] = -(n.y! - cy) * s; });
-	return { graph: g, x, y };
+	const px = new Float32Array(ns.length), py = new Float32Array(ns.length);
+	ns.forEach((n, j) => { x[j] = (n.x! - cx) * s; y[j] = -(n.y! - cy) * s; px[j] = n.x!; py[j] = n.y!; });
+	return { graph: g, x, y, px, py };
 }

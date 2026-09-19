@@ -1,11 +1,12 @@
 <script lang="ts">
   /**
-   * The ego network drawn by Sigma.js — the comparison to `NetworkLayer` on the shared
-   * `PointCanvas`. Same graph (`buildEgoNetwork`) and same positions (`layoutEgoNetwork`),
-   * so what differs is purely the renderer: Sigma has a real edge shader (anti-aliased,
-   * curved via @sigma/edge-curve), its own label collision handling, hover reducers, and
-   * its own camera — which is also the cost: it can't share regl-scatterplot's points, so
-   * there is no flight from the map into this view.
+   * The ego network in Sigma.js, as plainly as Sigma does it — the comparison to
+   * `NetworkLayer` on the shared `PointCanvas`. Same graph (`buildEgoNetwork`), then:
+   * a graphology graph with x/y, size, color and label per node and nothing but endpoints
+   * per edge; `new Sigma(graph, container)` with default settings; ForceAtlas2 (Sigma's
+   * standard layout, in a web worker) running live; and the documented node-drag pattern.
+   * No custom encodings, reducers or programs, so what you see is Sigma's own rendering,
+   * labels, hover and camera.
    *
    * Dev-only comparison; all copy PLACEHOLDER.
    */
@@ -20,123 +21,104 @@
     coords,
     facts,
     layout,
-    oneWay = false,
-    curvature = 0.18,
-    minSim = 0,
     onpick
   }: {
     coords: CoordinateSet;
     facts: GameFacts;
     layout: NetworkLayout;
-    oneWay?: boolean;
-    curvature?: number;
-    minSim?: number;
     onpick?: (id: number) => void;
   } = $props();
 
   let host: HTMLDivElement;
   let theme = $state<MapTheme | null>(null);
-  let sigma: import('sigma').default | null = null;
-  let hovered = $state<string | null>(null);
+  let sigma = $state.raw<import('sigma').default | null>(null);
 
-  const SIZE: Record<0 | 1 | 2, number> = { 0: 9, 1: 6, 2: 3.5 };
-  const colourOf = (t: MapTheme, i: number) => (facts.category[i] === 0 ? t.other : t.chart[facts.category[i] - 1]);
+  const SIZE: Record<0 | 1 | 2, number> = { 0: 12, 1: 8, 2: 5 };
 
-  /** The graphology graph for the current layout — nodes keyed by map index. */
+  /** Nodes keyed by map index; seeded from the static layout so FA2 starts near rest. */
   const graph = $derived.by(() => {
-    const t = theme;
     const g = new Graph({ type: 'undirected', multi: false });
+    const t = theme;
     if (!t) return g;
     layout.graph.nodes.forEach((n, j) => {
       g.addNode(String(n.i), {
-        x: layout.x[j], y: layout.y[j],
-        size: SIZE[n.hop], hop: n.hop, sim: n.sim,
+        x: layout.px[j], y: layout.py[j],
+        size: SIZE[n.hop],
         label: facts.name(coords.ids[n.i]),
-        color: colourOf(t, n.i)
+        color: facts.category[n.i] === 0 ? t.other : t.chart[facts.category[n.i] - 1]
       });
     });
-    const sims = layout.graph.edges.map((e) => e.sim);
-    const lo = Math.min(...sims), hi = Math.max(...sims);
-    for (const e of layout.graph.edges) {
-      if (!(oneWay || e.mutual) || e.sim < minSim) continue;
-      const u = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-      const outer = (g.getNodeAttribute(String(e.a), 'hop') === 2) && (g.getNodeAttribute(String(e.b), 'hop') === 2);
-      g.addEdge(String(e.a), String(e.b), {
-        type: 'curved',
-        curvature,
-        size: 0.6 + u * 1.6,
-        sim: e.sim, mutual: e.mutual,
-        // Alpha as on the regl layer: similarity ramp, mutual over one-way, knots lighter.
-        alpha: (e.mutual ? 0.15 + Math.max(0, e.sim - 0.5) * 0.9 : Math.min(0.45, (0.15 + Math.max(0, e.sim - 0.5) * 0.9) * 0.6 + 0.12)) * (outer ? 0.55 : 1)
-      });
-    }
+    for (const e of layout.graph.edges) if (e.mutual) g.addEdge(String(e.a), String(e.b));
     return g;
   });
-
-  const rgba = (css: string, a: number) => {
-    const c = document.createElement('canvas').getContext('2d')!;
-    c.fillStyle = css; c.fillRect(0, 0, 1, 1);
-    const d = c.getImageData(0, 0, 1, 1).data;
-    return `rgba(${d[0]},${d[1]},${d[2]},${a.toFixed(3)})`;
-  };
 
   onMount(() => {
     theme = readTheme();
     let disposed = false;
-    Promise.all([import('sigma'), import('@sigma/edge-curve')]).then(([{ default: Sigma }, { default: EdgeCurveProgram }]) => {
-      if (disposed || !theme) return;
-      const t = theme;
-      sigma = new Sigma(graph, host, {
-        edgeProgramClasses: { curved: EdgeCurveProgram },
-        renderEdgeLabels: false,
-        labelFont: t.font,
-        labelSize: 12,
-        labelWeight: '600',
-        labelColor: { color: t.foreground },
-        // Sigma's label grid: labels for the biggest nodes per cell, never overlapping.
-        labelDensity: 1.2,
-        labelGridCellSize: 90,
-        labelRenderedSizeThreshold: 5,
-        defaultEdgeType: 'curved',
-        zIndex: true,
-        nodeReducer: (node, data) => {
-          const lit = hovered === node || (hovered != null && graph.areNeighbors(hovered, node));
-          return {
-            ...data,
-            highlighted: hovered === node,
-            color: hovered != null && !lit ? rgba(data.color, 0.35) : data.color,
-            zIndex: data.hop === 0 ? 3 : data.hop === 1 ? 2 : 1,
-            forceLabel: data.hop <= 1
-          };
-        },
-        edgeReducer: (edge, data) => {
-          const lit = hovered != null && graph.hasExtremity(edge, hovered);
-          return {
-            ...data,
-            color: lit ? t.accent : rgba(t.foreground, data.alpha),
-            size: lit ? data.size * 1.4 : data.size,
-            zIndex: lit ? 2 : 0
-          };
-        }
-      });
-      sigma.on('enterNode', ({ node }) => { hovered = node; });
-      sigma.on('leaveNode', () => { hovered = null; });
-      sigma.on('clickNode', ({ node }) => onpick?.(coords.ids[Number(node)]));
-      const mo = new MutationObserver(() => { theme = readTheme(); });
-      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-      return () => mo.disconnect();
+    import('sigma').then(({ default: Sigma }) => {
+      if (disposed) return;
+      sigma = new Sigma(graph, host);
     });
     return () => { disposed = true; sigma?.kill(); sigma = null; };
   });
 
-  // A new graph (recentre, filter, curvature) swaps the instance's graph in place.
+  // A new graph (recentre) replaces the instance's graph.
   $effect(() => {
     const g = graph;
     if (!sigma) return;
     sigma.setGraph(g);
     sigma.getCamera().animatedReset({ duration: 400 });
   });
-  $effect(() => { void hovered; sigma?.refresh({ skipIndexation: true }); });
+
+  // ForceAtlas2 in a worker (graphology-layout-forceatlas2), started for each graph —
+  // Sigma's standard live layout. And the drag pattern from Sigma's docs: `downNode`
+  // fixes the node and disables the camera, `mousemovebody` moves it, `mouseup` releases.
+  $effect(() => {
+    const g = graph, s = sigma;
+    if (!s || g.order === 0) return;
+    let stop = () => {};
+    let disposed = false;
+    Promise.all([import('graphology-layout-forceatlas2/worker'), import('graphology-layout-forceatlas2')]).then(([{ default: FA2Layout }, { default: forceAtlas2 }]) => {
+      if (disposed) return;
+      const fa2 = new FA2Layout(g, { settings: forceAtlas2.inferSettings(g) });
+      fa2.start();
+      stop = () => fa2.kill();
+    });
+
+    let dragged: string | null = null;
+    let moved = false;
+    const onDown = ({ node }: { node: string }) => {
+      dragged = node; moved = false;
+      g.setNodeAttribute(node, 'fixed', true);
+      s.getCamera().disable();
+    };
+    const onMove = (e: { x: number; y: number; original: Event; preventSigmaDefault: () => void }) => {
+      if (!dragged) return;
+      const p = s.viewportToGraph({ x: e.x, y: e.y });
+      g.mergeNodeAttributes(dragged, { x: p.x, y: p.y });
+      moved = true;
+      e.preventSigmaDefault();
+      e.original.preventDefault();
+    };
+    const onUp = () => {
+      if (!dragged) return;
+      g.removeNodeAttribute(dragged, 'fixed');
+      dragged = null;
+      s.getCamera().enable();
+    };
+    const onClick = ({ node }: { node: string }) => { if (!moved) onpick?.(coords.ids[Number(node)]); };
+    s.on('downNode', onDown);
+    s.on('clickNode', onClick);
+    s.getMouseCaptor().on('mousemovebody', onMove);
+    s.getMouseCaptor().on('mouseup', onUp);
+    return () => {
+      disposed = true; stop();
+      s.off('downNode', onDown);
+      s.off('clickNode', onClick);
+      s.getMouseCaptor().off('mousemovebody', onMove);
+      s.getMouseCaptor().off('mouseup', onUp);
+    };
+  });
 </script>
 
 <div class="host" bind:this={host}></div>
