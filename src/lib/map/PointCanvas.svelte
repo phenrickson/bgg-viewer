@@ -244,6 +244,23 @@
   }
   $effect(() => { void hovered; void driver; void width; void height; scheduleOverlay(); });
 
+  /**
+   * regl's own point scale (`pointScaleMode: 'asinh'`, its default — we never set it), from
+   * `getAsinhPointScale`. It multiplies in `devicePixelRatio`, which is right for the GL
+   * buffer but not for the overlay: `getScreenPosition` hands back CSS pixels and the 2d
+   * context is already transformed by dpr. So take the camera part only.
+   */
+  function pointScale(): number {
+    const scaling = (plot?.get('camera') as { scaling?: number[] } | undefined)?.scaling?.[0];
+    if (!scaling || !Number.isFinite(scaling)) return 1;
+    // Zoomed out, regl floors the scale at MIN_POINT_SIZE / pointSize[0] — 1/1 for our
+    // size table, whose first entry is 1px.
+    const minScale = 1 / SIZE_TABLE[0];
+    return scaling > 1
+      ? Math.asinh(Math.max(1, scaling)) / Math.asinh(1)
+      : Math.max(minScale, scaling);
+  }
+
   function drawOverlay() {
     if (!overlay || !plot || !theme || width === 0) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -256,7 +273,7 @@
     const p = plot;
     driver?.overlay?.(ctx, {
       screen: (i) => { const s = p.getScreenPosition(i); return s ? [s[0], s[1]] : null; },
-      width, height, theme, hovered, drawn, dragging
+      width, height, theme, hovered, drawn, dragging, pointScale: pointScale()
     });
   }
 
@@ -301,7 +318,9 @@
     const p = plot;
     driver?.overlay?.(ctx, {
       screen: (i) => { const q = p.getScreenPosition(i); return q ? [q[0], q[1]] : null; },
-      width, height, theme, hovered: -1, drawn: true, dragging: false
+      // On-screen scale, not the export's: the uniform transform above already carries the
+      // resolution multiple, so markers match what the viewer saw.
+      width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
     });
     if (title) {
       ctx.font = `600 16px ${theme.font}`;

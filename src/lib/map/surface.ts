@@ -28,6 +28,13 @@ export interface OverlayApi {
 	drawn: boolean;
 	/** The pointer is down and panning. A layer may skip its markers until release. */
 	dragging: boolean;
+	/**
+	 * What regl is currently multiplying point sizes by. Its default `pointScaleMode: 'asinh'`
+	 * grows points with the camera, so a marker drawn at a constant radius drifts away from
+	 * the dot it marks as you zoom — worst on large dots, which start closest to their ring.
+	 * Multiply the unzoomed radius by this to track the drawn size.
+	 */
+	pointScale: number;
 }
 
 /** An open polyline in data space — two points for a straight edge, more for a curve. */

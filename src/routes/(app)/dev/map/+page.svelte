@@ -356,6 +356,46 @@
           ontogglecategory={toggleCategory}
         />
       {/if}
+      {#if rows.length}
+        <section class="lasso">
+          <header>
+            <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
+            <span class="actions">
+              <button type="button" class="chip" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
+                {keepOnly ? 'Showing only these' : 'Show only these'}
+              </button>
+              <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
+            </span>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {#each [['name', 'Game'], ['year', 'Year'], ['weight', 'Weight'], ['geek', 'Geek'], ['ratings', 'Ratings'], ['category', 'Category']] as [k, label] (k)}
+                    <th class:active={sortKey === k} onclick={() => sortBy(k as SortKey)}>
+                      {label}{sortKey === k ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
+                    </th>
+                  {/each}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each rows as r (r.id)}
+                  <tr>
+                    <td><a href="/games/{r.id}">{r.name}</a></td>
+                    <td>{r.year ?? '—'}</td>
+                    <td>{r.weight?.toFixed(2) ?? '—'}</td>
+                    <td>{r.geek?.toFixed(2) ?? '—'}</td>
+                    <td>{r.ratings.toLocaleString()}</td>
+                    <td>{r.category}</td>
+                    <td><button type="button" class="remove" onclick={() => removeFromSelection(r.id)} aria-label="Remove from selection">×</button></td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {/if}
     </div>
   </div>
 
@@ -367,46 +407,6 @@
     </p>
   {/if}
 
-  {#if rows.length}
-    <section class="lasso">
-      <header>
-        <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
-        <span class="actions">
-          <button type="button" class="chip" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
-            {keepOnly ? 'Showing only these' : 'Show only these'}
-          </button>
-          <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
-        </span>
-      </header>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              {#each [['name', 'Game'], ['year', 'Year'], ['weight', 'Weight'], ['geek', 'Geek'], ['ratings', 'Ratings'], ['category', 'Category']] as [k, label] (k)}
-                <th class:active={sortKey === k} onclick={() => sortBy(k as SortKey)}>
-                  {label}{sortKey === k ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
-                </th>
-              {/each}
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each rows as r (r.id)}
-              <tr>
-                <td><a href="/games/{r.id}">{r.name}</a></td>
-                <td>{r.year ?? '—'}</td>
-                <td>{r.weight?.toFixed(2) ?? '—'}</td>
-                <td>{r.geek?.toFixed(2) ?? '—'}</td>
-                <td>{r.ratings.toLocaleString()}</td>
-                <td>{r.category}</td>
-                <td><button type="button" class="remove" onclick={() => removeFromSelection(r.id)} aria-label="Remove from selection">×</button></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  {/if}
 
   <footer class="foot">
     {#if coords && facts}
@@ -499,10 +499,22 @@
     border-radius: 999px; padding: 0.15rem 0.6rem; font: inherit; font-size: 0.8rem; cursor: pointer;
   }
 
+  /**
+   * Docked inside the canvas frame rather than stacked under it. As a sibling below the map
+   * it mounted from zero and resized the canvas under the point you had just clicked, which
+   * desynced regl's `getScreenPosition` (it scales by regl's own `currentWidth/Height`, and
+   * our ResizeObserver repaints the overlay before regl's has updated them) — rings and
+   * labels landed off their points. An overlay keeps the canvas a constant size, so the
+   * resize, and the race, never happen.
+   */
   .lasso {
-    flex: 0 0 auto; max-height: 40%; min-height: 0;
+    position: absolute; top: var(--space-sm); right: var(--space-sm);
+    width: max-content; max-width: min(36rem, 48%);
+    max-height: calc(100% - 2 * var(--space-sm));
+    z-index: 2;
     display: flex; flex-direction: column; gap: var(--space-sm);
     border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.3);
     padding: var(--space-sm) var(--space-md);
   }
   .lasso header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }

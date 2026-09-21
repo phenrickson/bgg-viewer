@@ -188,9 +188,13 @@
       }
     },
     overlay: (ctx, api) => {
-      const { theme, hovered, screen } = api;
+      const { theme, hovered, screen, pointScale } = api;
       const shown = new Set(visible);
-      const r = (i: number) => radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform);
+      // The drawn dot is the unzoomed radius times regl's point scale; markers have to track
+      // it or they drift as you zoom — most visibly on large dots, which sit closest to their
+      // ring to begin with.
+      const r = (i: number) =>
+        radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform) * pointScale;
 
       // Markers first, collecting the labels; then one placement pass so labels avoid each
       // other and the edges. Anchors are accent dots, selected games accent rings; labels
