@@ -150,11 +150,18 @@
   const selectedIdx = $derived(view.selected.map((id) => coords.index.get(id) ?? -1).filter((i) => i >= 0));
   const anchorIdx = $derived(anchors.map((id) => coords.index.get(id) ?? -1).filter((i) => i >= 0));
   /**
-   * A lasso set arriving usually also shrinks the map (the table opens below it), and regl
-   * keeps its camera, so the kept cluster would sit small in the middle. Frame it instead;
-   * clearing the set goes back to the whole map. `focus` frames a set the same way but
-   * leaves the rest of the map drawn (the tour uses it to zoom into a neighbourhood).
-   * `keep` wins when both are given.
+   * Framing follows the filter. `keep` is the lasso's kept set — the map's one set-shaped
+   * filter, shown in the rail's Filters group — and it is only non-null once you have
+   * applied it; a lasso on its own just highlights. Applying a filter that leaves 40 games
+   * scattered across the map should frame them, the same way any filter changes what you
+   * are looking at, and clearing it goes back to the whole map.
+   *
+   * `focus` frames a set the same way but leaves the rest of the map drawn (the tour uses it
+   * to zoom into a neighbourhood). `keep` wins when both are given.
+   *
+   * (An earlier version of this comment justified the framing by the map shrinking when the
+   * selection table opened below it. The table overlays the canvas now, so nothing resizes —
+   * the framing stands on its own as filter behaviour.)
    */
   const frameIdx = $derived.by(() => {
     const k = keep ?? focus;

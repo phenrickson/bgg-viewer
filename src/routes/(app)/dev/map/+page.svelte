@@ -1,9 +1,13 @@
 <script lang="ts">
   /**
-   * `/dev/map` — the free-exploration embedding map. Controls strip, the map, a table of the
-   * selected games below it, a footer with what's plotted and which model it is. Everything
-   * in the controls (and the selection, capped) is mirrored to the URL so a view can be
-   * shared and reopened.
+   * `/dev/map` — the free-exploration embedding map. A scope rail, the map, a table of the
+   * selected games overlaying it, a count line above. Everything in the controls (and the
+   * selection, capped) is mirrored to the URL so a view can be shared and reopened.
+   *
+   * Laid out like `/games`: `Container size="wide" fill` > `.workspace` > `.sidebar` +
+   * `.canvas`, with the rail moving into a bottom sheet on narrow. A second full-page data
+   * view that invented its own chrome was the inconsistency; see
+   * docs/superpowers/plans/2026-09-21-embedding-map-site-integration.md.
    *
    * One selection model: a list of games, built by clicking points (toggle), lassoing
    * (adds), or searching (adds). Selected games are ringed on the map and listed in the
@@ -20,7 +24,30 @@
   import { fromParams, toParams, DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
+  import MapRail from '$lib/map/MapRail.svelte';
+  import { Container } from '$lib/components/ui/layout';
+  import * as Sheet from '$lib/components/ui/sheet';
+  import { Button } from '$lib/components/ui/button';
   import type { CanvasApi } from '$lib/map/surface';
+
+  /**
+   * `matchMedia` rather than CSS: the rail has to be the SAME component instance whether it
+   * is inline or in the sheet — the same reason `/games` does it this way.
+   */
+  let narrow = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 60rem)');
+    const sync = () => (narrow = mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  });
+
+  let filtersOpen = $state(false);
+  // Leaving narrow with the sheet open would strand a modal over a desktop layout.
+  $effect(() => {
+    if (!narrow) filtersOpen = false;
+  });
 
   let mode = $state<'pan' | 'lasso'>('pan');
 
@@ -29,6 +56,11 @@
   let loadError = $state<string | null>(null);
   let view = $state<ViewState>({ ...DEFAULT_VIEW });
   let hydrated = $state(false);
+
+  /** What the narrow Filters trigger shows; mirrors MapRail's own badge. */
+  const activeFilterCount = $derived(
+    (view.minRatings > MIN_RATINGS_FLOOR ? 1 : 0) + (view.upcoming ? 1 : 0) + (view.categories ? 1 : 0)
+  );
 
   onMount(async () => {
     try {
@@ -222,123 +254,96 @@
   <title>Embedding map — dev only</title>
 </svelte:head>
 
-<div class="page">
-  <header class="top">
-    <div>
-      <p class="eyebrow">Dev only — never built into production</p>
-      <h1>Embedding map</h1>
-    </div>
-    <div class="search">
-      <input
-        type="search"
-        placeholder="Find a game…"
-        bind:value={q}
-        oninput={onsearch}
-        aria-label="Find a game"
-      />
-      {#if hits.length}
-        <ul class="hits" role="listbox">
-          {#each hits as h (h.game_id)}
-            <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-          {/each}
-        </ul>
-      {/if}
-    </div>
-  </header>
+<Container size="wide" fill>
+  <div class="workspace" class:narrow>
+    {#if !narrow}
+      <aside class="sidebar">
+        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} />
+      </aside>
+    {/if}
 
-  <div class="controls">
-    <label>Projection
-      <select bind:value={view.projection}>
-        <option value="pca">PCA</option>
-        <option value="umap">UMAP</option>
-        <option value="strip">Strip</option>
-      </select>
-    </label>
-    {#if view.projection === 'pca' || view.projection === 'strip'}
-      <label>{view.projection === 'strip' ? 'PC' : 'X'}
-        <select bind:value={view.x}>
-          {#each components as c (c)}<option value={c} disabled={view.projection === 'pca' && c === view.y}>PC{c}</option>{/each}
-        </select>
-      </label>
-    {/if}
-    {#if view.projection === 'pca'}
-      <label>Y
-        <select bind:value={view.y}>
-          {#each components as c (c)}<option value={c} disabled={c === view.x}>PC{c}</option>{/each}
-        </select>
-      </label>
-    {/if}
-    <label>Colour
-      <select bind:value={view.colour}>
-        <option value="weight">Weight</option>
-        <option value="geek">Geek rating</option>
-        <option value="rating">Average rating</option>
-        <option value="year">Year</option>
-        <option value="upcoming">Upcoming</option>
-        <option value="category">Category</option>
-      </select>
-    </label>
-    <label>Size
-      <select bind:value={view.size}>
-        <option value="popularity">Popularity</option>
-        <option value="uniform">Uniform</option>
-      </select>
-    </label>
-    <label class="check">
-      <input type="checkbox" bind:checked={view.upcoming} /> Upcoming
-    </label>
-    <div class="seg" role="group" aria-label="Drag mode">
-      <button type="button" class:on={mode === 'pan'} onclick={() => (mode = 'pan')}>Pan</button>
-      <button type="button" class:on={mode === 'lasso'} onclick={() => (mode = 'lasso')}>Lasso</button>
-    </div>
-    {#if view.categories}
-      <button type="button" class="chip" onclick={() => (view = { ...view, categories: null })}>
-        {view.categories.length} {view.categories.length === 1 ? 'category' : 'categories'} kept ×
-      </button>
-    {/if}
-    <label>Min ratings
-      <select bind:value={view.minRatings}>
-        {#each MIN_RATINGS_STEPS as r (r)}<option value={r}>{r.toLocaleString()}</option>{/each}
-        {#if !MIN_RATINGS_STEPS.includes(view.minRatings)}
-          <option value={view.minRatings}>{view.minRatings.toLocaleString()}</option>
+    <div class="canvas">
+      <!-- The count in house style, then the view actions: search, mode, timeline, export.
+           These act on the current view rather than on its scope, which is why they are here
+           and not in the rail. -->
+      <div class="chead">
+        <p class="count">
+          {#if coords && facts}
+            <b class="tnum">{plotted.toLocaleString()}</b>
+            <span>{plotted === 1 ? 'game' : 'games'}</span>
+            {#if coords.ids.length - plotted > 0}
+              <span class="dim">· <span class="tnum">{(coords.ids.length - plotted).toLocaleString()}</span> hidden by filters</span>
+            {/if}
+          {/if}
+        </p>
+
+        <div class="actions">
+      <div class="search">
+        <input
+          type="search"
+          placeholder="Find a game…"
+          bind:value={q}
+          oninput={onsearch}
+          aria-label="Find a game"
+        />
+        {#if hits.length}
+          <ul class="hits" role="listbox">
+            {#each hits as h (h.game_id)}
+              <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+            {/each}
+          </ul>
         {/if}
-      </select>
-    </label>
-    <div class="timeline">
-      <button type="button" class="chip" onclick={playing ? pause : play} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
-      <input
-        type="range"
-        min={TIMELINE_START}
-        max={TIMELINE_END}
-        value={shownYear ?? TIMELINE_END}
-        oninput={(e) => { pause(); upTo = +e.currentTarget.value; }}
-        aria-label="Published up to"
-      />
-      <span class="year">{shownYear ?? 'all years'}</span>
-      <label class="tick"><input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" /> ms/yr</label>
-      {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
-    </div>
-    <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
-  </div>
-  {#if exportOpen}
-    <div class="export">
-      <label>Scale
-        <select bind:value={exportScale}>
-          {#each [1, 2, 3, 4, 6, 8] as s (s)}<option value={s} disabled={s > maxScale}>{s}×{s > maxScale ? ' — over the WebGL size limit' : ''}</option>{/each}
-        </select>
-        <span class="muted">{exportPx.w} × {exportPx.h} px · {exportPx.mp} MP</span>
-      </label>
-      <label class="check"><input type="checkbox" bind:checked={exportTransparent} /> Transparent background</label>
-      <label>Title <input type="text" bind:value={exportTitle} placeholder="optional, bottom-left" /></label>
-      <button type="button" class="chip on" disabled={!api || exporting} onclick={exportPng}>{exporting ? 'Rendering…' : 'Download PNG'}</button>
-      <span class="muted">Frame the shot first: the export is the current view, with the selection’s rings and labels.</span>
-      {#if exportError}<span class="error">{exportError}</span>{/if}
-    </div>
-  {/if}
+      </div>
 
-  <div class="body">
-    <div class="map">
-      {#if loadError}
+          {#if narrow}
+            <Button size="sm" variant="outline" onclick={() => (filtersOpen = true)}>
+              Filters{#if activeFilterCount}&nbsp;·&nbsp;{activeFilterCount}{/if}
+            </Button>
+          {/if}
+
+          <div class="seg" role="group" aria-label="Drag mode">
+            <button type="button" class:on={mode === 'pan'} onclick={() => (mode = 'pan')}>Pan</button>
+            <button type="button" class:on={mode === 'lasso'} onclick={() => (mode = 'lasso')}>Lasso</button>
+          </div>
+
+      <div class="timeline">
+        <button type="button" class="chip" onclick={playing ? pause : play} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
+        <input
+          type="range"
+          min={TIMELINE_START}
+          max={TIMELINE_END}
+          value={shownYear ?? TIMELINE_END}
+          oninput={(e) => { pause(); upTo = +e.currentTarget.value; }}
+          aria-label="Published up to"
+        />
+        <span class="year">{shownYear ?? 'all years'}</span>
+        <label class="tick"><input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" /> ms/yr</label>
+        {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
+      </div>
+
+          <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+          <span class="devbadge" title="This route is dev-only and 404s in production">dev</span>
+        </div>
+      </div>
+
+  {#if exportOpen}
+      <div class="export">
+        <label>Scale
+          <select bind:value={exportScale}>
+            {#each [1, 2, 3, 4, 6, 8] as s (s)}<option value={s} disabled={s > maxScale}>{s}×{s > maxScale ? ' — over the WebGL size limit' : ''}</option>{/each}
+          </select>
+          <span class="muted">{exportPx.w} × {exportPx.h} px · {exportPx.mp} MP</span>
+        </label>
+        <label class="check"><input type="checkbox" bind:checked={exportTransparent} /> Transparent background</label>
+        <label>Title <input type="text" bind:value={exportTitle} placeholder="optional, bottom-left" /></label>
+        <button type="button" class="chip on" disabled={!api || exporting} onclick={exportPng}>{exporting ? 'Rendering…' : 'Download PNG'}</button>
+        <span class="muted">Frame the shot first: the export is the current view, with the selection’s rings and labels.</span>
+        {#if exportError}<span class="error">{exportError}</span>{/if}
+      </div>
+    {/if}
+
+      <div class="map">
+        {#if loadError}
         <div class="state error">Couldn’t load the map: {loadError}</div>
       {:else if !coords || !facts}
         <div class="state">Loading {catalog.status === 'ready' ? 'coordinates' : 'catalog'}…</div>
@@ -361,8 +366,10 @@
           <header>
             <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
             <span class="actions">
-              <button type="button" class="chip" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
-                {keepOnly ? 'Showing only these' : 'Show only these'}
+              <!-- The lasso is a filter, so applying it gets the /games sheet's live-count
+                   treatment rather than a chip that is easy to set and easy to forget. -->
+              <button type="button" class="apply" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
+                {keepOnly ? 'Showing these only' : `Show ${rows.length.toLocaleString()} only`}
               </button>
               <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
             </span>
@@ -396,48 +403,87 @@
           </div>
         </section>
       {/if}
+      </div>
+
+      {#if unplaced}
+        <p class="notice">
+          <strong>{unplaced.name}</strong> isn’t placed yet — no coordinates in the current embedding.
+          <a href="/games/{unplaced.id}">Open game page →</a>
+          <button type="button" class="chip" onclick={() => (unplaced = null)}>×</button>
+        </p>
+      {/if}
+
+      <!-- Provenance, not body copy: the model and the unplaced count are worth keeping and
+           not worth a line of their own. The debug dump this replaced ("245 without
+           coordinates · 6 components · anchors: 0") was written for one reader. -->
+      {#if coords && facts}
+        <p class="prov" title="model {coords.model} v{coords.version} · {coords.k} components · {facts.missing.toLocaleString()} games without coordinates · anchors: {ANCHORS.length}">
+          {coords.model} v{coords.version}
+        </p>
+      {/if}
     </div>
   </div>
+</Container>
 
-  {#if unplaced}
-    <p class="notice">
-      <strong>{unplaced.name}</strong> isn’t placed yet — no coordinates in the current embedding.
-      <a href="/games/{unplaced.id}">Open game page →</a>
-      <button type="button" class="chip" onclick={() => (unplaced = null)}>×</button>
-    </p>
-  {/if}
-
-
-  <footer class="foot">
-    {#if coords && facts}
-      {plotted.toLocaleString()} games plotted
-      · {(coords.ids.length - plotted).toLocaleString()} hidden by filters
-      · {facts.missing.toLocaleString()} without coordinates
-      · model {coords.model} v{coords.version} · {coords.k} components
-      · anchors: {ANCHORS.length}
-    {/if}
-  </footer>
-</div>
+<!-- Narrow: the rail becomes a bottom sheet you deliberately enter, the same call /games
+     made and for the same reason. Left short of full height so a sliver of the map stays
+     visible behind it. -->
+<Sheet.Root bind:open={filtersOpen}>
+  <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
+    <Sheet.Header class="border-b border-border">
+      <Sheet.Title>Display</Sheet.Title>
+    </Sheet.Header>
+    <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
+      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} />
+    </div>
+    <Sheet.Footer class="border-t border-border">
+      <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
+        Show {plotted.toLocaleString()} games
+      </Button>
+    </Sheet.Footer>
+  </Sheet.Content>
+</Sheet.Root>
 
 <style>
-  .page {
+  /* Width and fill-height belong to <Container size="wide" fill> — see layout/tokens.ts.
+     Same grid as /games: a fixed rail and a canvas that takes what is left. */
+  .workspace {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: var(--space-lg);
     height: 100%;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
   }
-  .top {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-md);
-    flex-wrap: wrap;
+  .workspace.narrow { grid-template-columns: 1fr; }
+  .sidebar { display: flex; flex-direction: column; min-height: 0; }
+  .canvas {
+    display: flex; flex-direction: column; gap: var(--space-sm);
+    min-width: 0; min-height: 0;
   }
-  .eyebrow { color: var(--muted-foreground); font-size: 0.8rem; margin: 0; }
-  h1 { margin: 0; }
 
-  .search { position: relative; min-width: min(20rem, 100%); }
+  /* Count left, view actions right. Wraps as one row of controls, not fifteen. */
+  .chead {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-md); flex-wrap: wrap;
+    color: var(--muted-foreground); font-size: 0.85rem;
+  }
+  .count { margin: 0; display: inline-flex; align-items: baseline; gap: 0.35rem; }
+  .count b { font-size: 1.1rem; color: var(--foreground); font-weight: 700; }
+  .count .dim { color: var(--muted-foreground); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .actions { display: inline-flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+
+  /* A build-state fact, not a page title — it earns a badge, not a heading. */
+  .devbadge {
+    font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    border: 1px solid var(--border); border-radius: 999px; padding: 0.02rem 0.4rem;
+  }
+
+  /* Provenance under the map, quiet; the full detail is in its title attribute. */
+  .prov { margin: 0; color: var(--muted-foreground); font-size: 0.75rem; }
+
+  .search { position: relative; min-width: min(16rem, 100%); }
   .search input { width: 100%; }
   .hits {
     position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 0.25rem);
@@ -453,12 +499,6 @@
   .hits button:hover, .hits button:focus-visible { background: var(--muted); }
   .hits span { color: var(--muted-foreground); }
 
-  .controls {
-    display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center;
-    color: var(--muted-foreground); font-size: 0.85rem;
-  }
-  .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .controls select { color: var(--foreground); }
   .export { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); font-size: 0.9rem; }
   .export label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .export input[type='text'] { width: 14rem; }
@@ -469,10 +509,6 @@
   .timeline .tick input { width: 4.5rem; }
   .timeline .year { min-width: 4.5rem; font-variant-numeric: tabular-nums; color: var(--foreground); }
 
-  .body {
-    flex: 1 1 auto; min-height: 20rem;
-    display: flex; gap: var(--space-md);
-  }
   .map { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
   .state {
     position: absolute; inset: 0; display: grid; place-items: center;
@@ -527,17 +563,18 @@
   .lasso th.active { color: var(--foreground); }
   .lasso td { padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); white-space: nowrap; }
   .lasso td:first-child { white-space: normal; }
-  .lasso .actions { display: inline-flex; gap: 0.4rem; }
-  .lasso .chip.on { background: color-mix(in oklch, var(--primary) 18%, var(--muted)); }
+  .lasso .actions { display: inline-flex; gap: 0.4rem; align-items: center; }
+  .apply {
+    border: 1px solid var(--primary); border-radius: var(--radius);
+    background: var(--primary); color: var(--primary-foreground);
+    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .apply.on { background: transparent; color: var(--primary); }
   .lasso tbody tr:hover { background: var(--muted); }
   .remove { border: 0; background: none; color: var(--muted-foreground); cursor: pointer; font-size: 1rem; line-height: 1; }
   .remove:hover { color: var(--foreground); }
   .lasso a { color: var(--primary); text-decoration: none; }
   .lasso a:hover { text-decoration: underline; }
 
-  .foot { color: var(--muted-foreground); font-size: 0.8rem; min-height: 1.2em; }
 
-  @container (max-width: 44rem) {
-    .body { flex-direction: column; }
-  }
 </style>

@@ -47,7 +47,8 @@ already built (commit `0cbde4c`).
 ## Affected surfaces
 
 - `src/routes/(app)/dev/map/+page.svelte` — layout, header, controls, footer
-- `src/routes/(app)/dev/map/+page.server.ts` — breadcrumbs/subtitle for the layout header
+- `src/routes/(app)/dev/map/+page.server.ts` — unchanged (dev gate only); listed so the
+  earlier draft's "returns breadcrumbs" note is not acted on
 - **new** `src/lib/map/MapRail.svelte` — the map's rail, built to the `Rail.svelte` doctrine
 - `src/lib/map/MapLayer.svelte` — comment fix only (see step 5)
 
@@ -65,8 +66,10 @@ module. No new dependencies.
   collapsed-and-counted / moved-elsewhere, ranked by how often you reach for a control, not
   by what category it belongs to. `<details>` does the collapsing natively.
 - **`.chead` count line** from `games/+page.svelte:289-300` — house style for "N games".
-- **Layout header via server load** — `breadcrumbs` + `subtitle`, per the frontend-patterns
-  skill; replaces the page's own `<h1>` and eyebrow.
+- **`Container size="wide" fill`** (`games/+page.svelte:219`) — the house primitive for a
+  full-page workspace. `fill` gives the region the shell's definite height and makes it a
+  flex column so a child owns its own scroll, which is what the rail and the canvas both
+  need.
 
 ## Control triage
 
@@ -118,24 +121,31 @@ changes where the state is shown and how it is confirmed.
 
 ## Steps
 
-### 1. Header via the layout
+### 1. Page header, house style
 
-`+page.server.ts` returns `breadcrumbs` and `subtitle`; delete the page's `<header class="top">`
-(`+page.svelte:225-231`), its `<h1>`, and the "Dev only" eyebrow. The dev-only status is
-better carried by a badge in the breadcrumb area than by body copy.
+**Correction to an earlier draft of this plan:** there is no breadcrumbs/subtitle system in
+this repo. The frontend-patterns skill describes one, but it does not apply here — the root
+layout (`routes/+layout.svelte`) is nav + `Container` + content, and `/games` titles itself
+with `<svelte:head><title>Explore · bgg-viewer</title>` and renders no `<h1>` at all. The nav
+carries page identity.
 
-The page's own search input (`+page.svelte:232-243`) moves into the canvas toolbar rather
-than the header — it locates a game on the map, which is a view action, and it sits directly
-beside the nav's global "Jump to a game…" today, where two search boxes read as a mistake.
-Give it the same visual treatment as the nav input (border, icon); it currently renders as
-unframed placeholder text.
+So: drop the page's `<header class="top">` (`+page.svelte:225-231`) — the `<h1>` and the
+"Dev only" eyebrow both go. Set `<svelte:head><title>` to match the house form. The dev-only
+status becomes a small badge in the canvas toolbar rather than a line of body copy; it is a
+build-state fact, not a page title.
 
-**Verify:** breadcrumbs render, no duplicate title, search still selects and centres a game.
+The page's own search input (`+page.svelte:232-243`) moves into the canvas toolbar — it
+locates a game on the map, which is a view action, and today it sits directly beside the
+nav's global "Jump to a game…", where two search boxes read as a mistake. Give it the same
+visual treatment as the nav input (border, icon); it currently renders as unframed
+placeholder text floating in space.
+
+**Verify:** one title, no duplicate heading, search still selects and centres a game.
 
 ### 2. Workspace layout
 
-Replace `.page` / `.body` / `.map` with the `/games` grid: `.workspace` > `.sidebar` +
-`.canvas`. Copy the `narrow` media-query state (`games/+page.svelte:101-120`), including the
+Wrap the page in `Container size="wide" fill` and replace `.page` / `.body` / `.map` with
+the `/games` grid: `.workspace` > `.sidebar` + `.canvas`. Copy the `narrow` media-query state (`games/+page.svelte:101-120`), including the
 effect that closes the sheet when leaving narrow — "leaving narrow with the sheet open would
 strand a modal over a desktop layout."
 
