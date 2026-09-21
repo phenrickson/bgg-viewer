@@ -75,9 +75,14 @@
 
   // The step's view is the starting point; clicks on the map layer a selection on top of it
   // until the next step takes over.
-  let view = $state<ViewState>({ ...BASE_VIEW, selected: [] });
+  let view = $state<ViewState>({ ...BASE_VIEW });
+  /** The step's selection, layered over with clicks until the next step takes over. */
+  let selected = $state<number[]>([]);
   $effect(() => {
-    if (resolved) view = resolved.view;
+    if (resolved) {
+      view = resolved.view;
+      selected = resolved.selected;
+    }
   });
 
   // --- the vector figure ---------------------------------------------------------------
@@ -126,12 +131,13 @@
           {coords}
           {facts}
           {view}
+          {selected}
           anchors={resolved.anchors}
           focus={resolved.focus}
           cameraFixed
           frame={false}
           interactive={step.interactive ?? false}
-          onselectionchange={(ids) => (view = { ...view, selected: ids })}
+          onselectionchange={(ids) => (selected = ids)}
         />
         {#if step.strip}
           <div class="strip-caption" aria-hidden="true">

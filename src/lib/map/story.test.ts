@@ -28,24 +28,24 @@ const neighbours: NeighboursArtifact = {
 describe('resolveStep', () => {
 	it('selects and frames a neighbourhood, anchoring the source game', () => {
 		const r = resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 1, n: 2 }, coords, neighbours);
-		expect(r.view.selected).toEqual([5, 2]);
+		expect(r.selected).toEqual([5, 2]);
 		expect(r.focus).toEqual([1, 5, 2]);
 		expect(r.anchors).toEqual([1]);
 	});
 	it('drops neighbours the artifact lacks and honours upcomingOnly', () => {
-		expect(resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 1, n: 3 }, coords, neighbours).view.selected).toEqual([5, 2]);
-		expect(resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 1, upcomingOnly: true }, coords, neighbours).view.selected).toEqual([3]);
+		expect(resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 1, n: 3 }, coords, neighbours).selected).toEqual([5, 2]);
+		expect(resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 1, upcomingOnly: true }, coords, neighbours).selected).toEqual([3]);
 	});
 	it('is empty for a source with no precomputed neighbours', () => {
 		const r = resolveStep({ id: 'x', title: '', body: [], view: {}, neighboursOf: 4 }, coords, neighbours);
-		expect(r.view.selected).toEqual([]);
+		expect(r.selected).toEqual([]);
 		expect(r.focus).toEqual([4]);
 	});
 	it('drops anchors the artifact lacks and falls back to the base view', () => {
 		const r = resolveStep({ id: 'x', title: '', body: [], view: { colour: 'geek' }, anchors: [2, 99] }, coords, neighbours);
 		expect(r.anchors).toEqual([2]);
 		expect(r.focus).toBeNull();
-		expect(r.view).toEqual({ ...BASE_VIEW, colour: 'geek', selected: [] });
+		expect(r.view).toEqual({ ...BASE_VIEW, colour: 'geek' });
 	});
 	it('every shipped step has unique ids and non-empty prose', () => {
 		expect(new Set(STEPS.map((s) => s.id)).size).toBe(STEPS.length);

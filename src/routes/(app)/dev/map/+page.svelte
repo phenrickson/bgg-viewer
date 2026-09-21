@@ -1,30 +1,49 @@
 <script lang="ts">
   /**
-   * `/dev/map` — the free-exploration embedding map. A scope rail, the map, a table of the
-   * selected games overlaying it, a count line above. Everything in the controls (and the
-   * selection, capped) is mirrored to the URL so a view can be shared and reopened.
+   * `/dev/map` — the board game landscape.
+   *
+   * Every game the embedding places is drawn, always. Filtering does not remove points, it
+   * **lights** them: the games in scope keep their colour and the rest fade toward the
+   * background. That is the one thing this page can say that Explore's list and shape strip
+   * cannot — not "here are 200 heavy wargames" but *where those 200 sit in the whole of
+   * board games*. Hiding the other 35,800 would leave a scatter of dots in a void, which is
+   * strictly less than the list already told you.
+   *
+   * The filter language is `Scope` — the same object Explore's rail writes and the same
+   * querystring. Not a similar one: the same. So "See on the map" carries your filters here
+   * intact, the chips above the canvas read exactly as they do on `/games`, and coming back
+   * lands you on the set you left. The map's own rail is encodings only (colour, size,
+   * projection); nothing in that column decides which games are in view.
+   *
+   * A lasso is a filter too. It writes `Scope.lasso` — an explicit id set, the one filter
+   * with no semantic form — and shows as one removable chip beside the rest. It can only
+   * catch lit points, so a gesture can narrow the set but never silently widen it.
    *
    * Laid out like `/games`: `Container size="wide" fill` > `.workspace` > `.sidebar` +
-   * `.canvas`, with the rail moving into a bottom sheet on narrow. A second full-page data
-   * view that invented its own chrome was the inconsistency; see
-   * docs/superpowers/plans/2026-09-21-embedding-map-site-integration.md.
-   *
-   * One selection model: a list of games, built by clicking points (toggle), lassoing
-   * (adds), or searching (adds). Selected games are ringed on the map and listed in the
-   * table — the table is the only place a selected game's details appear.
-   *
-   * All user-facing strings here are PLACEHOLDER — Phil writes the copy.
+   * `.canvas`, with the rail moving into a bottom sheet on narrow.
    */
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
-  import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
+  import { browser } from '$app/environment';
+  import { initCatalog, catalog, query, appendCollectionFilter } from '$lib/catalog/catalog.svelte';
+  import {
+    DEFAULT_SCOPE,
+    toWhere,
+    scopeFromParams,
+    activeFilters,
+    type Scope
+  } from '$lib/catalog/scope';
+  import { CATEGORIES, CATEGORY_LABELS } from '$lib/catalog/primary-category';
   import { loadMap } from '$lib/map/load';
   import type { CoordinateSet } from '$lib/map/coordinates';
   import type { GameFacts } from '$lib/map/facts';
-  import { fromParams, toParams, DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
+  import { DEFAULT_VIEW, fromParams as viewFromParams, type ViewState } from '$lib/map/view';
+  import { writeMapUrl, exploreHref } from '$lib/map/route';
+  import { scopeMask, allLit, type ScopeMask } from '$lib/map/scope-mask';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import MapRail from '$lib/map/MapRail.svelte';
+  import FilterChips from '$lib/catalog/FilterChips.svelte';
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import { Container } from '$lib/components/ui/layout';
   import * as Sheet from '$lib/components/ui/sheet';
@@ -44,10 +63,10 @@
     return () => mq.removeEventListener('change', sync);
   });
 
-  let filtersOpen = $state(false);
+  let railOpen = $state(false);
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
-    if (!narrow) filtersOpen = false;
+    if (!narrow) railOpen = false;
   });
 
   let mode = $state<'pan' | 'lasso'>('pan');
@@ -55,13 +74,20 @@
   let coords = $state<CoordinateSet | null>(null);
   let facts = $state<GameFacts | null>(null);
   let loadError = $state<string | null>(null);
-  let view = $state<ViewState>({ ...DEFAULT_VIEW });
-  let hydrated = $state(false);
 
-  /** What the narrow Filters trigger shows; mirrors MapRail's own badge. */
-  const activeFilterCount = $derived(
-    (view.minRatings > MIN_RATINGS_FLOOR ? 1 : 0) + (view.upcoming ? 1 : 0) + (view.categories ? 1 : 0)
+  /**
+   * Seeded synchronously at component creation, like `/games` — arriving from Explore with a
+   * warm catalog, the scope->URL mirror below could otherwise run before `afterNavigate`
+   * parsed the querystring and write an empty scope back, wiping the filters you arrived
+   * with.
+   */
+  let scope = $state<Scope>(
+    browser ? scopeFromParams(new URLSearchParams(location.search)) : { ...DEFAULT_SCOPE }
   );
+  let view = $state<ViewState>(
+    browser ? viewFromParams(new URLSearchParams(location.search), 6) : { ...DEFAULT_VIEW }
+  );
+  let hydrated = $state(browser);
 
   onMount(async () => {
     try {
@@ -75,74 +101,111 @@
     }
   });
 
-  // Same shape as /games: read the URL on every navigation that lands here, mirror the view
-  // back with replaceState (no navigation, no history spam).
+  // Same shape as /games: read the URL on every navigation that lands here (including a
+  // querystring-only change, which SvelteKit doesn't remount for), mirror it back with
+  // replaceState — no navigation, no history spam, no feedback loop.
   afterNavigate(() => {
-    view = fromParams(new URLSearchParams(location.search), coords?.k ?? 6);
+    const params = new URLSearchParams(location.search);
+    scope = scopeFromParams(params);
+    view = viewFromParams(params, coords?.k ?? 6);
     hydrated = true;
   });
   $effect(() => {
     if (!hydrated) return;
-    const qs = toParams(view).toString();
+    const qs = writeMapUrl(scope, view);
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
 
   const k = $derived(coords?.k ?? 6);
   const components = $derived(Array.from({ length: k }, (_, i) => i + 1));
 
+  // --- the lit set ---------------------------------------------------------------------
+  /**
+   * Which games the scope keeps, as a flag per point. Every point is still drawn; this only
+   * decides which ones keep their colour.
+   *
+   * Recomputed on every scope change by one DuckDB query — the same query `/games` runs for
+   * its list, against the same in-browser catalog, so the two can't disagree about what is
+   * in scope. Token-guarded so a slow query can't overwrite a newer one.
+   */
+  let mask = $state<ScopeMask | null>(null);
+  let maskToken = 0;
+  const where = $derived(
+    coords && catalog.status === 'ready' ? appendCollectionFilter(toWhere(scope)) : null
+  );
+  const filtered = $derived(activeFilters(scope).length > 0);
+  $effect(() => {
+    const c = coords;
+    const w = where;
+    if (!c || w == null) return;
+    // No filters: everything is lit, and there is nothing to ask the database.
+    if (!filtered) {
+      mask = allLit(c);
+      return;
+    }
+    const mine = ++maskToken;
+    scopeMask(c, w)
+      .then((m) => mine === maskToken && (mask = m))
+      .catch((e) => console.error('scope mask failed', e));
+  });
+
+  const lit = $derived(mask?.lit ?? null);
+  const inScope = $derived(mask?.inScope ?? coords?.ids.length ?? 0);
+  const placed = $derived(coords?.ids.length ?? 0);
+
   // --- selection -----------------------------------------------------------------------
   /** A searched-for game the catalog knows but the artifact lacks — "not yet placed". */
   let unplaced = $state<{ id: number; name: string } | null>(null);
-  /** Opt-in: hide everything but the selection. Off by default — selecting highlights. */
-  let keepOnly = $state(false);
-
-  /**
-   * Collapsing the panel is not the same as clearing the selection. Applying a lasso zooms
-   * to the kept games and then covers half of them with the list — and `Clear ×` drops the
-   * filter along with the selection, so there was no way to keep the set and look at it.
-   * Collapsed keeps the filter, the rings and the count, and gives the canvas back.
-   */
+  /** Games picked out by clicking. Highlight, not filter — the lasso is the filter. */
+  let selected = $state<number[]>([]);
   let panelOpen = $state(true);
-  /**
-   * A lasso does NOT open the list. It filters and frames — the answer is the map you are
-   * now looking at, and throwing a table over it is the opposite of what you asked for. The
-   * count in the collapsed header says how many you caught; open it if you want the names.
-   *
-   * A click selection still opens: you picked out specific games, so their details are the
-   * point. `setSelection` decides which happened, since only it knows the gesture.
-   */
 
-  /** Clearing the selection releases the filter too — `keepOnly` with nothing selected would
-      strand you zoomed into an empty map. */
-  function setSelection(ids: number[]) {
-    const lassoed = ids.length > 1 && mode === 'lasso';
-    const had = view.selected.length > 0;
-    view = { ...view, selected: ids };
-    if (ids.length === 0) {
-      keepOnly = false;
-    } else if (lassoed) {
-      // A lasso is a filter, not a highlight: narrow to it, let the map frame it once the
-      // set has settled, and leave the list shut.
-      keepOnly = true;
-      panelOpen = false;
-    } else if (!had) {
-      // First click of a new selection — show its details.
-      panelOpen = true;
+  /**
+   * A click toggles a game into the highlighted set; a lasso writes `Scope.lasso`.
+   *
+   * These used to be one list with a `keepOnly` flag deciding, per gesture, whether it had
+   * been a filter or a highlight — which is why the interaction felt arbitrary. Now the
+   * gesture picks the target: pointing at a game highlights it, drawing around a region
+   * filters to it. The map layer only proposes; this decides.
+   */
+  function onSelectionChange(ids: number[]) {
+    if (mode === 'lasso' && ids.length !== 1) {
+      scope = { ...scope, lasso: ids };
+      selected = [];
+      return;
     }
+    selected = ids;
+    if (ids.length) panelOpen = true;
   }
   function removeFromSelection(id: number) {
-    setSelection(view.selected.filter((x) => x !== id));
+    selected = selected.filter((x) => x !== id);
   }
 
   // --- legend filter -------------------------------------------------------------------
-  /** Click a swatch: keep only it; click more to add; click the last one standing to release. */
+  /**
+   * The legend's palette codes and `Scope.categories`' tag names are the same column read
+   * two ways, so a swatch click can write the real filter rather than a map-only one.
+   *
+   * Clicking "Wargame" selects every game TAGGED Wargame, which is a slightly larger set
+   * than the points PAINTED Wargame — an 18xx game carries both and is painted Trains. That
+   * is the honest reading of the filter, and one filter language is worth more than a
+   * swatch that selects exactly its own pixels.
+   */
+  const activeCategories = $derived.by(() => {
+    if (!scope.categories.length) return null;
+    const codes = scope.categories
+      .map((name) => CATEGORIES.indexOf(name) + 1)
+      .filter((c) => c > 0);
+    return codes.length ? codes : null;
+  });
   function toggleCategory(code: number) {
-    const cur = view.categories;
-    let next: number[] | null;
-    if (cur == null) next = [code];
-    else if (cur.includes(code)) next = cur.length === 1 ? null : cur.filter((c) => c !== code);
-    else next = [...cur, code].sort((a, b) => a - b);
-    view = { ...view, categories: next };
+    const name = CATEGORY_LABELS[code];
+    if (!name || code === 0) return; // "Other" is a fallthrough, not a filter
+    const cur = scope.categories;
+    scope = {
+      ...scope,
+      categories: cur.includes(name) ? cur.filter((c) => c !== name) : [...cur, name]
+    };
   }
 
   // --- selection table -----------------------------------------------------------------
@@ -156,7 +219,7 @@
   const rows = $derived.by(() => {
     if (!coords || !facts) return [];
     const c = coords, f = facts;
-    const rows = view.selected
+    const rows = selected
       .map((id) => c.index.get(id))
       .filter((i): i is number => i != null)
       .map((i) => ({
@@ -200,22 +263,9 @@
     hits = [];
     if (coords?.index.has(hit.game_id)) {
       unplaced = null;
-      if (!view.selected.includes(hit.game_id)) setSelection([...view.selected, hit.game_id]);
+      if (!selected.includes(hit.game_id)) { selected = [...selected, hit.game_id]; panelOpen = true; }
     } else unplaced = { id: hit.game_id, name: hit.name };
   }
-
-  const plotted = $derived.by(() => {
-    if (!coords || !facts) return 0;
-    let n = 0;
-    for (let i = 0; i < coords.ids.length; i++) {
-      const up = facts.upcoming[i] === 1;
-      if (up ? view.upcoming : facts.usersRated[i] >= view.minRatings) n++;
-    }
-    return n;
-  });
-
-  // Min-ratings steps. A slider was tried and was hard to hit; a short list is enough.
-  const MIN_RATINGS_STEPS = [MIN_RATINGS_FLOOR, 50, 100, 250, 500, 1000];
 
   // --- timeline ----------------------------------------------------------------------
   // Games appear as the clock passes their publication year. The clock is continuous
@@ -282,7 +332,7 @@
 </script>
 
 <svelte:head>
-  <title>Embedding map — dev only</title>
+  <title>The map — board game landscape</title>
 </svelte:head>
 
 {#snippet timelineControls()}
@@ -311,7 +361,7 @@
   <div class="workspace" class:narrow>
     {#if !narrow}
       <aside class="sidebar">
-        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} yearActive={upTo != null} />
+        <MapRail bind:view {components} timeline={timelineControls} />
       </aside>
     {/if}
 
@@ -323,10 +373,25 @@
       <div class="chead">
         <p class="count">
           {#if coords && facts}
-            <b class="tnum">{plotted.toLocaleString()}</b>
-            <span>{plotted === 1 ? 'game' : 'games'}</span>
-            {#if coords.ids.length - plotted > 0}
-              <span class="dim">· <span class="tnum">{(coords.ids.length - plotted).toLocaleString()}</span> hidden by filters</span>
+            {#if filtered}
+              <!-- The count says the same thing the plot does: a lit set, read against a
+                   whole. "of 36,001" is not decoration — it is the denominator that makes
+                   the dimmed points mean something. -->
+              <b class="tnum">{inScope.toLocaleString()}</b>
+              <span>{inScope === 1 ? 'game' : 'games'}</span>
+              <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
+            {:else}
+              <b class="tnum">{placed.toLocaleString()}</b>
+              <span>games</span>
+            {/if}
+            {#if mask && mask.unplaced > 0}
+              <!-- Only when it would actually mislead. ~245 games site-wide carry no
+                   coordinates — folk games and bookkeeping entries with too little text to
+                   embed ("Go Fish", "Unpublished Prototype") — so this is silent until
+                   someone has filtered down to where they matter. -->
+              <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
+                · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
+              </span>
             {/if}
           {/if}
         </p>
@@ -348,13 +413,25 @@
               </ul>
             {/if}
           </div>
+          <!-- The way back. The same scope, rendered as a list — so the map is a view of
+               your set rather than a place you end up. -->
+          <a class="cross" href={exploreHref(scope)}>
+            {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
+          </a>
           {#if narrow}
-            <Button size="sm" variant="outline" onclick={() => (filtersOpen = true)}>
-              Display{#if activeFilterCount}&nbsp;·&nbsp;{activeFilterCount}{/if}
-            </Button>
+            <Button size="sm" variant="outline" onclick={() => (railOpen = true)}>Display</Button>
           {/if}
         </div>
       </div>
+
+      <!-- Exactly the chips /games shows, from exactly the same `Scope`. A lasso appears
+           here as "on the map · 412 selected", removable like any other filter — which is
+           what makes a gesture over the canvas part of the same language as the rail. -->
+      {#if filtered}
+        <div class="chiprow">
+          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+        </div>
+      {/if}
 
   {#if exportOpen}
       <div class="export">
@@ -400,12 +477,14 @@
           {coords}
           {facts}
           {view}
+          {lit}
+          {selected}
+          {activeCategories}
           anchors={ANCHORS}
           {upTo}
           {mode}
           bind:api
-          keep={keepOnly && view.selected.length ? view.selected : null}
-          onselectionchange={setSelection}
+          onselectionchange={onSelectionChange}
           ontogglecategory={toggleCategory}
         />
       {/if}
@@ -420,15 +499,13 @@
               title={panelOpen ? 'Collapse the list — keeps the selection' : 'Show the list'}
             >
               <span class="caret" aria-hidden="true">{panelOpen ? '▾' : '▸'}</span>
-              <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
+              <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} picked</strong>
             </button>
             <span class="actions">
-              <!-- The lasso is a filter, so applying it gets the /games sheet's live-count
-                   treatment rather than a chip that is easy to set and easy to forget. -->
-              <button type="button" class="apply" class:on={keepOnly} onclick={() => (keepOnly = !keepOnly)}>
-                {keepOnly ? 'Showing these only' : `Show ${rows.length.toLocaleString()} only`}
-              </button>
-              <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
+              <!-- No "show these only" any more: a lasso already IS the filter, and it shows
+                   as a chip above the canvas. This panel is what you pointed at, which is a
+                   highlight — so the only action it needs is to stop highlighting. -->
+              <button type="button" class="chip" onclick={() => (selected = [])}>Clear ×</button>
             </span>
           </header>
           <div class="table-wrap" hidden={!panelOpen}>
@@ -485,17 +562,17 @@
 <!-- Narrow: the rail becomes a bottom sheet you deliberately enter, the same call /games
      made and for the same reason. Left short of full height so a sliver of the map stays
      visible behind it. -->
-<Sheet.Root bind:open={filtersOpen}>
+<Sheet.Root bind:open={railOpen}>
   <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
     <Sheet.Header class="border-b border-border">
       <Sheet.Title>Display</Sheet.Title>
     </Sheet.Header>
     <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} yearActive={upTo != null} />
+      <MapRail bind:view {components} timeline={timelineControls} />
     </div>
     <Sheet.Footer class="border-t border-border">
-      <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
-        Show {plotted.toLocaleString()} games
+      <Button size="lg" class="w-full" onclick={() => (railOpen = false)}>
+        Show the map
       </Button>
     </Sheet.Footer>
   </Sheet.Content>

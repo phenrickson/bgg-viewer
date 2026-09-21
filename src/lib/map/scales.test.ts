@@ -4,6 +4,9 @@ import {
 	parseOklch,
 	oklchMix,
 	buildColouring,
+	withDimmed,
+	mixToward,
+	DIM_MIX,
 	RADIUS_MIN,
 	RADIUS_MAX,
 	RADIUS_UPCOMING,
@@ -112,5 +115,96 @@ describe('buildColouring', () => {
 		expect(Array.from(c.bucketOf)).toEqual([1, 6, 0, 0]);
 		expect(c.legend.at(-1)).toEqual({ label: 'Other', bucket: 0 });
 		expect(c.legend[0]).toEqual({ label: 'Economic', bucket: 1 });
+	});
+});
+
+describe('withDimmed — lighting the scope without a second draw call', () => {
+	const colouring = () => ({
+		bucketOf: Uint8Array.from([0, 1, 2, 1]),
+		colours: ['oklch(0.5 0.1 250)', 'oklch(0.7 0.15 45)', 'oklch(0.6 0.12 150)'],
+		legend: [
+			{ label: 'a', bucket: 0 },
+			{ label: 'b', bucket: 1 }
+		]
+	});
+	const BG = 'oklch(0.99 0.004 80)';
+
+	it('moves unlit points into a dimmed copy of the palette', () => {
+		const c = withDimmed(colouring(), Uint8Array.from([1, 0, 1, 0]), BG);
+		// Lit points keep their bucket; unlit shift by the palette length.
+		expect(Array.from(c.bucketOf)).toEqual([0, 1 + 3, 2, 1 + 3]);
+		expect(c.colours).toHaveLength(6);
+	});
+
+	it('leaves the lit half of the palette byte-identical', () => {
+		const base = colouring();
+		const c = withDimmed(base, Uint8Array.from([1, 0, 1, 0]), BG);
+		expect(c.colours.slice(0, 3)).toEqual(base.colours);
+	});
+
+	it('every dimmed bucket resolves to a real colour — no index past the palette', () => {
+		const c = withDimmed(colouring(), Uint8Array.from([0, 0, 0, 0]), BG);
+		for (const b of c.bucketOf) {
+			expect(c.colours[b]).toBeDefined();
+		}
+	});
+
+	it('costs nothing when everything is lit — the map’s resting state', () => {
+		const base = colouring();
+		const c = withDimmed(base, Uint8Array.from([1, 1, 1, 1]), BG);
+		expect(c).toBe(base);
+	});
+
+	it('is a no-op without a mask', () => {
+		const base = colouring();
+		expect(withDimmed(base, null, BG)).toBe(base);
+	});
+
+	it('keeps the legend describing the LIT colours only', () => {
+		// A dimmed bucket is never a legend entry — the legend says what a colour means, and
+		// "dimmed blue" is not a category.
+		const base = colouring();
+		const c = withDimmed(base, Uint8Array.from([1, 0, 1, 0]), BG);
+		expect(c.legend).toEqual(base.legend);
+		for (const { bucket } of c.legend) expect(bucket).toBeLessThan(base.colours.length);
+	});
+});
+
+describe('mixToward', () => {
+	const BG_LIGHT = 'oklch(0.99 0.004 80)';
+	const BG_DARK = 'oklch(0.19 0.02 260)';
+
+	it('t=1 leaves a colour unchanged', () => {
+		const c = parseOklch(mixToward('oklch(0.62 0.14 250)', BG_LIGHT, 1))!;
+		expect(c[0]).toBeCloseTo(0.62, 2);
+		expect(c[1]).toBeCloseTo(0.14, 2);
+	});
+
+	it('drops chroma toward the background as it fades', () => {
+		const c = parseOklch(mixToward('oklch(0.62 0.14 250)', BG_LIGHT, DIM_MIX))!;
+		expect(c[1]).toBeLessThan(0.14 * 0.2);
+	});
+
+	it('fades toward the background in BOTH themes, not just light', () => {
+		// The lightness has to move toward the surface it sits on, or dimming in dark mode
+		// makes points brighter than the ones it is meant to recede behind.
+		const onLight = parseOklch(mixToward('oklch(0.62 0.14 250)', BG_LIGHT, DIM_MIX))!;
+		expect(onLight[0]).toBeGreaterThan(0.62);
+		const onDark = parseOklch(mixToward('oklch(0.62 0.14 250)', BG_DARK, DIM_MIX))!;
+		expect(onDark[0]).toBeLessThan(0.62);
+	});
+
+	it('fades two different hues by the same visual amount', () => {
+		// Perceptual evenness is the point of mixing in oklch: a dimmed blue and a dimmed
+		// orange must recede together, or one reads as still-selected.
+		const blue = parseOklch(mixToward('oklch(0.62 0.14 250)', BG_LIGHT, DIM_MIX))!;
+		const amber = parseOklch(mixToward('oklch(0.62 0.14 75)', BG_LIGHT, DIM_MIX))!;
+		expect(Math.abs(blue[0] - amber[0])).toBeLessThan(0.01);
+	});
+
+	it('falls back to color-mix for a non-oklch colour (the --map-cat hexes)', () => {
+		const out = mixToward('#0072b2', BG_LIGHT, DIM_MIX);
+		expect(out).toContain('color-mix(in oklch');
+		expect(out).toContain('#0072b2');
 	});
 });

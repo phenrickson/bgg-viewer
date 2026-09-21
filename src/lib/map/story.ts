@@ -79,7 +79,14 @@ export interface StoryStep {
 	/** PLACEHOLDER copy — one paragraph per entry. */
 	body: string[];
 	/** What changes on the map for this step; unspecified fields fall back to the tour's base view. */
-	view: Partial<Omit<ViewState, 'selected'>>;
+	view: Partial<ViewState>;
+	/**
+	 * Draw the unreleased games too. Not part of `view` any more: `ViewState` is encodings
+	 * only, and "which games are on the map" is a scope question. The story is a fixed
+	 * sequence rather than something you filter, so it states the flag and the page turns it
+	 * into a lit mask — no `Scope` round-trip for a tour nobody can steer.
+	 */
+	upcoming?: boolean;
 	/** Games drawn with a label. */
 	anchors?: number[];
 	/** Ring + label the `n` nearest games to this one (engine cosine, precomputed), and frame them. */
@@ -96,15 +103,12 @@ export interface StoryStep {
 }
 
 /** The view every step starts from; a step overrides what it needs to. */
-export const BASE_VIEW: Omit<ViewState, 'selected'> = {
+export const BASE_VIEW: ViewState = {
 	projection: 'pca',
 	x: 1,
 	y: 2,
 	colour: 'weight',
-	size: 'uniform',
-	upcoming: false,
-	minRatings: 30,
-	categories: null
+	size: 'uniform'
 };
 
 export const STEPS: StoryStep[] = [
@@ -115,7 +119,8 @@ export const STEPS: StoryStep[] = [
 			'Each dot is a game with at least thirty ratings on BoardGameGeek — thirty-odd thousand of them. Two dots close together are games the model thinks are alike; far apart, unalike.',
 			'Nothing here was placed by hand. The layout falls out of the numbers that describe each game.'
 		],
-		view: { colour: 'upcoming', upcoming: false, size: 'uniform' }
+		view: { colour: 'upcoming', size: 'uniform' },
+		upcoming: false
 	},
 	{
 		id: 'vector',
@@ -124,7 +129,8 @@ export const STEPS: StoryStep[] = [
 			'Before it can be drawn, every game is turned into a fixed-length list of numbers — an embedding. The list is built from what BGG knows about the game: its mechanics, categories, designers, weight, player counts, and the text on its page.',
 			'Games that share a lot end up with similar lists. Brass: Birmingham’s list looks like this once it’s been squeezed down to the handful of dimensions the map is drawn from.'
 		],
-		view: { colour: 'upcoming', upcoming: false, size: 'uniform' },
+		view: { colour: 'upcoming', size: 'uniform' },
+		upcoming: false,
 		anchors: [GAMES.brass],
 		vectorOf: GAMES.brass
 	},
@@ -153,7 +159,8 @@ export const STEPS: StoryStep[] = [
 			'Take just that first direction and lay every game out along it. Games you know land where you’d expect: the party games at one end, the long wargames at the other, and the big Euros in between.',
 			'The map has many of these directions. Each is a line like this one; the map draws two of them at once.'
 		],
-		view: { projection: 'strip', x: 1, colour: 'weight', size: 'uniform', upcoming: false },
+		view: { projection: 'strip', x: 1, colour: 'weight', size: 'uniform' },
+		upcoming: false,
 		anchors: [GAMES.happySalmon, GAMES.codenames, GAMES.catan, GAMES.pandemic, GAMES.wingspan, GAMES.brass, GAMES.gloomhaven, GAMES.twilightImperium4, GAMES.asl],
 		strip: {
 			title: 'Direction 1 — weight',
@@ -167,7 +174,8 @@ export const STEPS: StoryStep[] = [
 			'The third direction has no obvious name. Laid out, one end is Backgammon, Stratego and Twilight Struggle; the other is Gloomhaven, Spirit Island, Slay the Spire. What it’s picking up is a way of building games — solo-playable, run on a hand of cards, asymmetric — that took over the hobby’s top shelf after about 2015.',
 			'It isn’t “old versus new”. Sky Team is from 2023 and sits with the classics: two players, dice, no cards. Modern Art is from 1992 and sits past the middle.'
 		],
-		view: { projection: 'strip', x: 3, colour: 'weight', size: 'uniform', upcoming: false },
+		view: { projection: 'strip', x: 3, colour: 'weight', size: 'uniform' },
+		upcoming: false,
 		anchors: [
 			GAMES.campaignForNorthAfrica, GAMES.werewolf, GAMES.candyLand, GAMES.stratego, GAMES.combatCommander, GAMES.twilightStruggle, GAMES.skyTeam, GAMES.puertoRico, GAMES.modernArt, GAMES.pandemic,
 			GAMES.brass, GAMES.feastForOdin, GAMES.terraformingMars, GAMES.nemesis, GAMES.spiritIsland, GAMES.gloomhaven, GAMES.aeonsEnd
@@ -250,7 +258,8 @@ export const STEPS: StoryStep[] = [
 		],
 		// Stays in UMAP: the only change from the previous step is the upcoming games
 		// appearing, then the camera finding the ones near Brass.
-		view: { projection: 'umap', colour: 'upcoming', upcoming: true, size: 'uniform' },
+		view: { projection: 'umap', colour: 'upcoming', size: 'uniform' },
+		upcoming: true,
 		neighboursOf: GAMES.brass,
 		n: 10,
 		upcomingOnly: true
@@ -261,7 +270,8 @@ export const STEPS: StoryStep[] = [
 		body: [
 			'That’s the whole idea. The full map lets you pick the axes, colour by whatever you like, find any game and see what surrounds it.'
 		],
-		view: { colour: 'weight', size: 'popularity', upcoming: true },
+		view: { colour: 'weight', size: 'popularity' },
+		upcoming: true,
 		interactive: true
 	}
 ];
@@ -271,7 +281,7 @@ export function resolveStep(
 	step: StoryStep,
 	coords: CoordinateSet,
 	neighbours: NeighboursArtifact
-): { view: ViewState; anchors: number[]; focus: number[] | null } {
+): { view: ViewState; anchors: number[]; focus: number[] | null; selected: number[]; upcoming: boolean } {
 	const has = (id: number) => coords.index.has(id);
 	let selected: number[] = [];
 	let focus: number[] | null = null;
@@ -283,5 +293,11 @@ export function resolveStep(
 		...(step.anchors ?? []),
 		...(step.neighboursOf !== undefined ? [step.neighboursOf] : [])
 	].filter(has);
-	return { view: { ...BASE_VIEW, ...step.view, selected }, anchors, focus };
+	return {
+		view: { ...BASE_VIEW, ...step.view },
+		anchors,
+		focus,
+		selected,
+		upcoming: step.upcoming ?? false
+	};
 }

@@ -13,6 +13,8 @@ import {
 	setPlayerCount,
 	playerCountModeFor,
 	stepYear,
+	MAX_LASSO,
+	lassoTruncated,
 	type Scope
 } from './scope';
 import {
@@ -485,7 +487,8 @@ describe('URL round-trip', () => {
 			publishers: ['Hans im Glück, GmbH'], // comma in name — round-trips via repeated params
 			families: ['Mechanism: Legacy'],
 			universe: 'rated',
-			hurdleMin: null
+			hurdleMin: null,
+			lasso: [822, 13, 174430]
 		};
 		expect(scopeFromParams(scopeToParams(scope))).toEqual(scope);
 	});
@@ -609,5 +612,76 @@ describe('a Discover-shaped scope', () => {
 	it('compiles best-at to a list_contains predicate', () => {
 		const where = toWhere({ ...DEFAULT_SCOPE, bestAt: 3 });
 		expect(where).toContain('list_contains(best_player_counts, 3)');
+	});
+});
+
+describe('the lasso — an id set as a first-class filter', () => {
+	const withLasso = (lasso: number[] | null): Scope => ({ ...DEFAULT_SCOPE, lasso });
+
+	it('compiles to an IN list, ANDed with every other constraint', () => {
+		const w = toWhere({ ...withLasso([10, 20, 30]), categories: ['Wargame'] });
+		expect(w).toContain('game_id IN (10,20,30)');
+		expect(w).toContain("list_contains(categories, 'Wargame')");
+		expect(w).toContain(' AND ');
+	});
+
+	it('is absent from the SQL when there is no lasso', () => {
+		expect(toWhere(withLasso(null))).not.toContain('game_id IN');
+	});
+
+	it('a lasso that caught nothing shows nothing, rather than being silently dropped', () => {
+		// [] and null are different states: one is "I drew a loop around empty space".
+		expect(toWhere(withLasso([]))).toContain('FALSE');
+	});
+
+	it('drops non-integer members, so a hand-edited URL cannot inject SQL', () => {
+		const w = toWhere(withLasso([10, NaN, -5, 1.5, 20] as number[]));
+		expect(w).toContain('game_id IN (10,20)');
+	});
+
+	it('never lets the universe clause be dropped by the lasso', () => {
+		expect(toWhere(withLasso([1]))).toContain('users_rated >= 30');
+	});
+
+	it('round-trips through the URL, keeping null and [] distinct', () => {
+		for (const lasso of [null, [], [7, 8, 9]]) {
+			const back = scopeFromParams(scopeToParams(withLasso(lasso)));
+			expect(back.lasso).toEqual(lasso);
+		}
+	});
+
+	it('dedupes and caps what the URL carries, so a link stays pasteable', () => {
+		const many = Array.from({ length: MAX_LASSO + 250 }, (_, i) => i + 1);
+		const back = scopeFromParams(scopeToParams(withLasso(many)));
+		expect(back.lasso).toHaveLength(MAX_LASSO);
+		expect(lassoTruncated(withLasso(many))).toBe(true);
+		expect(lassoTruncated(withLasso([1, 2]))).toBe(false);
+	});
+
+	it('discards junk members when parsing rather than admitting them', () => {
+		const back = scopeFromParams(new URLSearchParams('lasso=10,abc,-4,0,20,10'));
+		expect(back.lasso).toEqual([10, 20]);
+	});
+
+	it('shows as exactly one removable chip, not one per game', () => {
+		const chips = activeFilters(withLasso([1, 2, 3]));
+		const lassoChips = chips.filter((c) => c.id === 'lasso');
+		expect(lassoChips).toHaveLength(1);
+		expect(lassoChips[0].label).toBe('3 selected');
+		expect(lassoChips[0].patch).toEqual({ lasso: null });
+	});
+
+	it('has no chip when no lasso is set', () => {
+		expect(activeFilters(withLasso(null)).some((c) => c.id === 'lasso')).toBe(false);
+	});
+
+	it('is not carried into the backdrop the shape strip compares against', () => {
+		// universeWhere is the "what did I start from" population; a lasso is a filter.
+		expect(universeWhere(withLasso([1, 2, 3]))).not.toContain('game_id IN');
+	});
+
+	it('is off by default', () => {
+		expect(DEFAULT_SCOPE.lasso).toBeNull();
+		expect(scopeToParams(DEFAULT_SCOPE).has('lasso')).toBe(false);
 	});
 });

@@ -167,3 +167,76 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 		}
 	}
 }
+
+/**
+ * How far an out-of-scope point fades toward the background.
+ *
+ * The map's job is to show where a set sits in the whole landscape, so the context has to
+ * stay *legible as shape* while never competing with the answer. Too faint and the filtered
+ * view is a scatter of points in a void — which is strictly less than the list already told
+ * you. Too strong and there is no figure/ground at all.
+ *
+ * 0.14 keeps the continents readable at a glance and puts roughly a 6:1 luminance gap
+ * between a lit point and its neighbours in both themes.
+ */
+export const DIM_MIX = 0.14;
+
+/**
+ * Split a colouring in two: the same colours, plus a dimmed copy of each, with unlit points
+ * moved into the dimmed half.
+ *
+ * This is why lighting a scope costs nothing per frame. regl-scatterplot picks a point's
+ * colour by indexing a palette array with its bucket, so "dim this point" is just `bucket +
+ * n` — no second draw call, no per-point alpha, no shader change. The renderer never learns
+ * that dimming exists.
+ *
+ * `null`/all-lit masks return the colouring untouched, so the resting map pays nothing.
+ */
+export function withDimmed(
+	colouring: Colouring,
+	lit: Uint8Array | null,
+	background: string
+): Colouring {
+	if (!lit) return colouring;
+	const n = colouring.colours.length;
+	const bucketOf = new Uint8Array(colouring.bucketOf.length);
+	let anyDim = false;
+	for (let i = 0; i < bucketOf.length; i++) {
+		if (lit[i]) {
+			bucketOf[i] = colouring.bucketOf[i];
+		} else {
+			bucketOf[i] = colouring.bucketOf[i] + n;
+			anyDim = true;
+		}
+	}
+	if (!anyDim) return colouring;
+	// Mixed toward the background rather than given an alpha: regl's opacity is global, and
+	// overlapping translucent points would pile up into a darker blob exactly where the map
+	// is densest — reading as data that isn't there.
+	const dimmed = colouring.colours.map((c) => mixToward(c, background, DIM_MIX));
+	// Legend and domain describe the LIT half only; dimmed buckets are never legend entries.
+	return { ...colouring, bucketOf, colours: [...colouring.colours, ...dimmed] };
+}
+
+/**
+ * Mix a colour toward another by `t` (0 = unchanged, 1 = fully the target), in oklch where
+ * both parse — perceptually even fading, so a dimmed blue and a dimmed orange recede by the
+ * same visual amount rather than one going muddy first.
+ *
+ * Falls back to `color-mix()` for anything that isn't oklch (the `--map-cat-*` hexes), which
+ * the browser resolves the same way at paint time.
+ */
+export function mixToward(colour: string, target: string, t: number): string {
+	const a = parseOklch(colour);
+	const b = parseOklch(target);
+	if (a && b) {
+		let dh = b[2] - a[2];
+		if (dh > 180) dh -= 360;
+		if (dh < -180) dh += 360;
+		const l = a[0] + (b[0] - a[0]) * (1 - t);
+		const c = a[1] * t;
+		const h = (a[2] + dh * (1 - t) + 360) % 360;
+		return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
+	}
+	return `color-mix(in oklch, ${colour} ${Math.round(t * 100)}%, ${target})`;
+}

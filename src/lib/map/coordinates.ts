@@ -49,8 +49,28 @@ export function parseCoordinates(buf: Uint8Array): CoordinateSet {
 	};
 }
 
-export async function fetchCoordinates(): Promise<CoordinateSet> {
-	const res = await fetch('/api/coordinates');
-	if (!res.ok) throw new Error(`coordinates fetch failed (${res.status})`);
-	return parseCoordinates(new Uint8Array(await res.arrayBuffer()));
+/**
+ * The artifact is ~1 MB and behind auth, so it is fetched lazily — only by a page that
+ * actually draws points, never as part of catalog warm-up. Memoised as a promise (the same
+ * shape `initCatalog` uses) so that toggling between the list and the plot, or moving
+ * between Explore and the map, costs one fetch per session rather than one per mount.
+ *
+ * A failed fetch clears the memo, so a network blip doesn't poison the rest of the session.
+ */
+let pending: Promise<CoordinateSet> | null = null;
+
+export function fetchCoordinates(): Promise<CoordinateSet> {
+	return (pending ??= (async () => {
+		const res = await fetch('/api/coordinates');
+		if (!res.ok) throw new Error(`coordinates fetch failed (${res.status})`);
+		return parseCoordinates(new Uint8Array(await res.arrayBuffer()));
+	})().catch((e) => {
+		pending = null;
+		throw e;
+	}));
+}
+
+/** Test seam / sign-out: drop the memo so the next call refetches. */
+export function _resetCoordinates(): void {
+	pending = null;
 }

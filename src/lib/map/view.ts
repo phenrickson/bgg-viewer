@@ -1,10 +1,25 @@
 /**
- * The map's view state and its URL form. Everything a person can change with the controls
- * lives here so a view can be shared as a link and comes back the same on reload. Zoom/pan
- * is deliberately *not* here — it's a transient gesture, not a view someone means to share.
+ * How the map DRAWS — and nothing about which games it draws.
+ *
+ * `ViewState` used to carry three filters of its own (`minRatings`, `upcoming`,
+ * `categories`) plus a selection, which meant the site had two filter languages for the same
+ * 36k games and no way to carry a set from Explore to the map. All four moved to `Scope`,
+ * which already expressed every one of them:
+ *
+ *   minRatings  -> usersRatedMin      (a window, rather than a floor)
+ *   upcoming    -> universe
+ *   categories  -> categories          (the real BGG tags, not palette codes)
+ *   selected    -> lasso               (an explicit id set)
+ *
+ * What is left is exactly the encodings: where points go, what colour they are, how big.
+ * Those are orthogonal to which games are in view, and the separation is what lets one
+ * `Scope` drive a list and a plot at once.
+ *
+ * Zoom/pan is deliberately still absent — a transient gesture, not a view someone means to
+ * share.
  */
 
-/** `strip`: one component on x (`x`), games jittered on y — a dimension read on its own. */
+/** `strip`: one component on x, games jittered on y — a dimension read on its own. */
 export type Projection = 'pca' | 'umap' | 'strip';
 export type ColourBy = 'weight' | 'geek' | 'rating' | 'year' | 'upcoming' | 'category';
 export type SizeBy = 'popularity' | 'uniform';
@@ -17,34 +32,15 @@ export interface ViewState {
 	colour: ColourBy;
 	/** Dot radius: log(users_rated), or one size for every game. */
 	size: SizeBy;
-	/** Draw upcoming games at all. Off by default: the map is read from rated games first,
-	 * and the unreleased ones are dropped in over them as a deliberate step. */
-	upcoming: boolean;
-	/** Hide established games rated by fewer people than this. */
-	minRatings: number;
-	/** Category codes (1..k) to keep; null = all. Set by clicking legend swatches. */
-	categories: number[] | null;
-	/** Selected game ids — clicked or lassoed. Capped in the URL (see MAX_URL_SELECTED). */
-	selected: number[];
 }
-
-/** The working set's own floor; the slider can only raise it. */
-export const MIN_RATINGS_FLOOR = 30;
 
 export const DEFAULT_VIEW: ViewState = {
 	projection: 'pca',
 	x: 1,
 	y: 2,
 	colour: 'weight',
-	size: 'popularity',
-	upcoming: false,
-	minRatings: MIN_RATINGS_FLOOR,
-	categories: null,
-	selected: []
+	size: 'popularity'
 };
-
-/** A lasso can select thousands; the URL carries at most this many. */
-export const MAX_URL_SELECTED = 100;
 
 const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip'];
 const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
@@ -59,34 +55,21 @@ function int(v: string | null, fallback: number, lo: number, hi: number): number
 	return Number.isInteger(n) && n >= lo && n <= hi ? n : fallback;
 }
 
-/** Parse a view from URL params. `k` bounds the axis pickers; bad values fall back. */
+/** Parse the encodings from URL params. `k` bounds the axis pickers; bad values fall back. */
 export function fromParams(params: URLSearchParams, k: number): ViewState {
 	const x = int(params.get('x'), DEFAULT_VIEW.x, 1, k);
 	let y = int(params.get('y'), DEFAULT_VIEW.y, 1, k);
 	if (y === x) y = x === 1 ? 2 : 1; // never plot a component against itself
-	const sel = (params.get('g') ?? '')
-		.split(',')
-		.map((v) => int(v, 0, 1, Number.MAX_SAFE_INTEGER))
-		.filter((v) => v > 0)
-		.slice(0, MAX_URL_SELECTED);
-	const cats = (params.get('cat') ?? '')
-		.split(',')
-		.map((c) => int(c, 0, 1, 7))
-		.filter((c) => c > 0);
 	return {
 		projection: oneOf(params.get('p'), PROJECTIONS, DEFAULT_VIEW.projection),
 		x,
 		y,
 		colour: oneOf(params.get('c'), COLOURS, DEFAULT_VIEW.colour),
-		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size),
-		upcoming: params.get('u') === '1',
-		minRatings: int(params.get('r'), DEFAULT_VIEW.minRatings, MIN_RATINGS_FLOOR, 1_000_000),
-		categories: cats.length ? [...new Set(cats)].sort((a, b) => a - b) : null,
-		selected: [...new Set(sel)]
+		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size)
 	};
 }
 
-/** Serialize a view, omitting anything at its default so a fresh view has a clean URL. */
+/** Serialize, omitting anything at its default so a fresh view has a clean URL. */
 export function toParams(view: ViewState): URLSearchParams {
 	const p = new URLSearchParams();
 	if (view.projection !== DEFAULT_VIEW.projection) p.set('p', view.projection);
@@ -98,9 +81,5 @@ export function toParams(view: ViewState): URLSearchParams {
 	}
 	if (view.colour !== DEFAULT_VIEW.colour) p.set('c', view.colour);
 	if (view.size !== DEFAULT_VIEW.size) p.set('s', view.size);
-	if (view.upcoming) p.set('u', '1');
-	if (view.minRatings !== DEFAULT_VIEW.minRatings) p.set('r', String(view.minRatings));
-	if (view.categories?.length) p.set('cat', view.categories.join(','));
-	if (view.selected.length) p.set('g', view.selected.slice(0, MAX_URL_SELECTED).join(','));
 	return p;
 }

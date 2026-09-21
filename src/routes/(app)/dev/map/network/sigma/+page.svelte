@@ -11,7 +11,7 @@
   import { loadMap } from '$lib/map/load';
   import type { CoordinateSet } from '$lib/map/coordinates';
   import type { GameFacts } from '$lib/map/facts';
-  import { DEFAULT_VIEW, MIN_RATINGS_FLOOR, type ViewState } from '$lib/map/view';
+  import { DEFAULT_VIEW, type ViewState } from '$lib/map/view';
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkData } from '$lib/map/network';
   import { loadNetworkData } from '$lib/map/network-data';
   import { GAMES } from '$lib/map/story';
@@ -46,10 +46,16 @@
   let curvature = $state(0.18);
   let minSim = $state(0);
   let live = $state(true);
-  // Same floor as the map, so the graph is built from the games the map shows.
+  /**
+   * The working set's own floor — the graph is built from the games the map draws. Stated
+   * here rather than imported from `view.ts`: `ViewState` is encodings only now, and this
+   * is a question about which games exist, not how they look.
+   */
+  const MIN_RATINGS_FLOOR = 30;
   let minRatings = $state(MIN_RATINGS_FLOOR);
-  let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform', selected: [] });
-  $effect(() => { view.minRatings = minRatings; });
+  let view = $state<ViewState>({ ...DEFAULT_VIEW, projection: 'umap', colour: 'category', size: 'uniform' });
+  /** Clicked games — a highlight the layer rings. Local: the network bench has no scope. */
+  let selected = $state<number[]>([]);
 
   const source = $derived(coords?.index.get(sourceId) ?? null);
   // Neighbour lists are memoised across re-centres; the memo is only valid for one
