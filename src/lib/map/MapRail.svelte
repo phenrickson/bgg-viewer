@@ -1,184 +1,234 @@
 <script lang="ts">
   /**
-   * The map's scope rail — the same doctrine as the catalog's `Rail.svelte`, applied to
-   * `ViewState`.
+   * The map's scope rail — the catalog rail's doctrine and its components, over `ViewState`.
    *
    * The map's controls used to be fifteen items in one flex-wrap strip, every one at equal
    * weight. That is right for a bench with one user who wants everything a click away, and
    * wrong for a feature: it wraps unpredictably, affords no grouping, and tells a first-time
    * visitor that choosing a principal component is as ordinary as choosing a colour. The fix
-   * is the one Rail already found — priority, not fewer capabilities:
+   * is the one `Rail.svelte` already found — priority, not fewer capabilities:
    *
    *   1. **Always open** — Colour and Size. What you reach for first, and what changes what
    *      you are looking at rather than which games are in view.
-   *   2. **Collapsed, counted** — Projection (with its axis pair) and Filters. A shut
-   *      `<details>` with a badge is one line and still says what it is set to, so PC3–PC6
-   *      stop shouting at a general visitor while staying one click away.
-   *   3. **Moved to the canvas toolbar** — Pan/Lasso, Export, the timeline, search. Those act
-   *      on the current view, not on its scope, and the timeline needs more width than a
-   *      16rem rail has.
+   *   2. **Collapsed, counted** — Projection (with its axis pair) and Filters. A shut group
+   *      with a badge is one line and still says what it is set to, so PC3–PC6 stay one
+   *      click from Phil without shouting at everyone else.
+   *   3. **Moved out of the rail** — Pan/Lasso and Export float on the canvas; search sits
+   *      above it. Those act on the current view rather than on its scope, so they belong
+   *      where you are looking rather than in a column of settings.
    *
-   * This deliberately does NOT reuse `Rail.svelte` or `Scope`. `Scope` compiles to a SQL
-   * WHERE clause the in-browser DuckDB runs; `ViewState` is mostly rendering instructions —
-   * `projection`, `x`, `y`, `colour` and `size` have no SQL meaning at all. Only `minRatings`
-   * and `upcoming` are scope-shaped, and `Scope` already carries richer equivalents. The map
-   * also reads its points from the coordinates artifact rather than from the catalog query
-   * `toWhere()` targets. What the two rails share is the doctrine and the chrome, not a state
-   * model.
+   * The timeline is the exception to (3): it was briefly a full-width row under the map, on
+   * the reasoning that a scrubber wants room, but that spent the whole bottom edge on one
+   * control and left the rail bottom-heavy. Stacked in 16rem it fits, and the rail is where
+   * you look for "which games am I seeing".
    *
-   * `<details>` does the collapsing natively, so it is keyboard- and screen-reader-correct
-   * with no JS.
+   * Chrome comes from `catalog/rail/*` — the same `RailGroup` and `SegGroup` the catalog rail
+   * uses, so the two rails are one thing rather than two that resemble each other. An earlier
+   * version of this file copied Rail's CSS instead and drifted immediately: native selects
+   * where the house uses segmented buttons, no section headings, no accent on the active
+   * state.
+   *
+   * What is deliberately NOT shared is the state model. `Scope` compiles to a SQL WHERE
+   * clause the in-browser DuckDB runs; `ViewState` is mostly rendering instructions —
+   * `projection`, `x`, `y`, `colour` and `size` have no SQL meaning at all. The map also
+   * reads its points from the coordinates artifact rather than from the catalog query
+   * `toWhere()` targets. Share presentation, not state.
    */
-  import { MIN_RATINGS_FLOOR, type ViewState } from './view';
+  import type { Snippet } from 'svelte';
+  import RailGroup from '$lib/catalog/rail/RailGroup.svelte';
+  import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
+  import { MIN_RATINGS_FLOOR, type ColourBy, type Projection, type SizeBy, type ViewState } from './view';
 
   let {
     view = $bindable(),
     /** Ratings thresholds the select offers, from the page (it owns the working-set floor). */
     minRatingsSteps,
     /** Components the artifact actually carries — 1..k. */
-    components
-  }: { view: ViewState; minRatingsSteps: number[]; components: number[] } = $props();
+    components,
+    /**
+     * The publish-year scrubber. Its state (play/pause loop, `upTo`, tick speed) belongs to
+     * the page — the map layer reads `upTo` too — so the rail takes it as a snippet and only
+     * decides where it sits. Always open rather than in a `RailGroup`: it is something you
+     * scrub and watch, and collapsing it would hide the affordance that makes it
+     * discoverable at all.
+     */
+    timeline
+  }: {
+    view: ViewState;
+    minRatingsSteps: number[];
+    components: number[];
+    timeline?: Snippet;
+  } = $props();
 
-  /**
-   * `bind:open`, never `<details {open}>`. The latter compiles to `details.open = open()`
-   * inside the render effect, which re-asserts the prop every time that effect reruns and
-   * slams the group shut as you interact with anything it reads. Rail.svelte hit this exact
-   * bug; see its note.
-   */
   const groupOpen = $state({ projection: false, filters: false });
 
-  const axisLabel = $derived(
+  const axisBadge = $derived(
     view.projection === 'pca'
-      ? `PCA · PC${view.x}×PC${view.y}`
+      ? `PC${view.x}×PC${view.y}`
       : view.projection === 'strip'
-        ? `Strip · PC${view.x}`
+        ? `PC${view.x}`
         : 'UMAP'
   );
 
   /**
    * What a shut Filters row has to account for. The lasso's kept set counts here too — it is
-   * a filter like any other, and the whole point of moving it into the rail is that you can
-   * see it is on without remembering you drew it.
+   * a filter like any other, and the point of moving it into the rail is that you can see it
+   * is on without remembering you drew it.
    */
   const filterCount = $derived(
     (view.minRatings > MIN_RATINGS_FLOOR ? 1 : 0) +
       (view.upcoming ? 1 : 0) +
       (view.categories ? 1 : 0)
   );
+
+  const COLOURS: { value: ColourBy; label: string }[] = [
+    { value: 'weight', label: 'Weight' },
+    { value: 'geek', label: 'Geek' },
+    { value: 'rating', label: 'Rating' },
+    { value: 'year', label: 'Year' },
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'category', label: 'Category' }
+  ];
 </script>
 
-<div class="rail">
-  <label class="field">
-    <span class="lbl">Colour</span>
-    <select bind:value={view.colour}>
-      <option value="weight">Weight</option>
-      <option value="geek">Geek rating</option>
-      <option value="rating">Average rating</option>
-      <option value="year">Year</option>
-      <option value="upcoming">Upcoming</option>
-      <option value="category">Category</option>
-    </select>
-  </label>
+<aside class="rail">
+  <div class="grp top">
+    <!-- Six options is past what a segmented row holds at 16rem, so this one keeps a select —
+         the house uses segments for small sets, not for every set. -->
+    <label class="field">
+      <span class="lbl">Colour</span>
+      <select bind:value={view.colour}>
+        {#each COLOURS as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+      </select>
+    </label>
+  </div>
 
-  <label class="field">
-    <span class="lbl">Size</span>
-    <select bind:value={view.size}>
-      <option value="popularity">Popularity</option>
-      <option value="uniform">Uniform</option>
-    </select>
-  </label>
+  <div class="grp">
+    <SegGroup
+      label="Size"
+      options={[
+        { value: 'popularity' as SizeBy, label: 'Popularity' },
+        { value: 'uniform' as SizeBy, label: 'Uniform' }
+      ]}
+      value={view.size}
+      onchange={(v) => (view = { ...view, size: v })}
+    />
+    <p class="note">
+      {view.size === 'popularity'
+        ? 'Dot size is how many people have rated it.'
+        : 'One size for every game — colour is the only encoding left to read.'}
+    </p>
+  </div>
 
-  <details class="grp" bind:open={groupOpen.projection}>
-    <summary>
-      <span class="lbl">Projection</span>
-      <span class="badge">{axisLabel}</span>
-      <span class="chev" aria-hidden="true">›</span>
-    </summary>
-    <div class="dbody">
+  <RailGroup title="Projection" badge={axisBadge} bind:open={groupOpen.projection}>
+    <SegGroup
+      two
+      ariaLabel="Projection"
+      options={[
+        { value: 'pca' as Projection, label: 'PCA' },
+        { value: 'umap' as Projection, label: 'UMAP' },
+        { value: 'strip' as Projection, label: 'Strip' }
+      ]}
+      value={view.projection}
+      onchange={(v) => (view = { ...view, projection: v })}
+    />
+    {#if view.projection === 'pca' || view.projection === 'strip'}
       <label class="field">
-        <span class="lbl">Projection</span>
-        <select bind:value={view.projection}>
-          <option value="pca">PCA</option>
-          <option value="umap">UMAP</option>
-          <option value="strip">Strip</option>
+        <span class="lbl sm">{view.projection === 'strip' ? 'Component' : 'X axis'}</span>
+        <select bind:value={view.x}>
+          {#each components as c (c)}
+            <option value={c} disabled={view.projection === 'pca' && c === view.y}>PC{c}</option>
+          {/each}
         </select>
       </label>
-      {#if view.projection === 'pca' || view.projection === 'strip'}
-        <label class="field">
-          <span class="lbl">{view.projection === 'strip' ? 'Component' : 'X axis'}</span>
-          <select bind:value={view.x}>
-            {#each components as c (c)}
-              <option value={c} disabled={view.projection === 'pca' && c === view.y}>PC{c}</option>
-            {/each}
-          </select>
-        </label>
-      {/if}
-      {#if view.projection === 'pca'}
-        <label class="field">
-          <span class="lbl">Y axis</span>
-          <select bind:value={view.y}>
-            {#each components as c (c)}
-              <option value={c} disabled={c === view.x}>PC{c}</option>
-            {/each}
-          </select>
-        </label>
-      {/if}
-    </div>
-  </details>
-
-  <details class="grp" bind:open={groupOpen.filters}>
-    <summary>
-      <span class="lbl">Filters</span>
-      {#if filterCount}<span class="badge tnum">{filterCount}</span>{/if}
-      <span class="chev" aria-hidden="true">›</span>
-    </summary>
-    <div class="dbody">
+    {/if}
+    {#if view.projection === 'pca'}
       <label class="field">
-        <span class="lbl">Min ratings</span>
-        <select bind:value={view.minRatings}>
-          {#each minRatingsSteps as r (r)}<option value={r}>{r.toLocaleString()}</option>{/each}
-          {#if !minRatingsSteps.includes(view.minRatings)}
-            <option value={view.minRatings}>{view.minRatings.toLocaleString()}</option>
-          {/if}
+        <span class="lbl sm">Y axis</span>
+        <select bind:value={view.y}>
+          {#each components as c (c)}
+            <option value={c} disabled={c === view.x}>PC{c}</option>
+          {/each}
         </select>
       </label>
+    {/if}
+    <p class="note">
+      {view.projection === 'pca'
+        ? 'Two components of the embedding, plotted against each other. PC1 tracks complexity.'
+        : view.projection === 'umap'
+          ? 'A 2-D layout of the full 64-d space — neighbourhoods, not axes.'
+          : 'One component on x, games jittered on y — a dimension read on its own.'}
+    </p>
+  </RailGroup>
 
-      <label class="check">
-        <input type="checkbox" bind:checked={view.upcoming} />
-        Show upcoming games
-      </label>
-
-      {#if view.categories}
-        <button
-          type="button"
-          class="chip"
-          onclick={() => (view = { ...view, categories: null })}
-        >
-          {view.categories.length}
-          {view.categories.length === 1 ? 'category' : 'categories'} kept ×
-        </button>
-      {/if}
+  {#if timeline}
+    <div class="grp">
+      <span class="lbl">Published up to</span>
+      {@render timeline()}
     </div>
-  </details>
-</div>
+  {/if}
+
+  <RailGroup title="Filters" badge={filterCount} bind:open={groupOpen.filters}>
+    <label class="field">
+      <span class="lbl sm">Min ratings</span>
+      <select bind:value={view.minRatings}>
+        {#each minRatingsSteps as r (r)}<option value={r}>{r.toLocaleString()}</option>{/each}
+        {#if !minRatingsSteps.includes(view.minRatings)}
+          <option value={view.minRatings}>{view.minRatings.toLocaleString()}</option>
+        {/if}
+      </select>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" bind:checked={view.upcoming} />
+      Show upcoming games
+    </label>
+
+    {#if view.categories}
+      <button type="button" class="chip" onclick={() => (view = { ...view, categories: null })}>
+        {view.categories.length}
+        {view.categories.length === 1 ? 'category' : 'categories'} kept ×
+      </button>
+    {/if}
+  </RailGroup>
+</aside>
 
 <style>
-  /* Chrome matched to catalog/Rail.svelte so the two rails read as one component. */
+  /* No card chrome: the rail is a column of controls, not content — the section rules carry
+     the structure. Matches catalog/Rail.svelte, whose comment explains the reasoning. */
   .rail {
-    display: flex;
-    flex-direction: column;
     padding-right: var(--space-sm);
     font-size: 0.85rem;
-    /* Its own scroll region: the rail must never stretch the workspace. */
     overflow-y: auto;
     min-height: 0;
+  }
+
+  .grp {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .grp.top {
+    border-top: none;
+  }
+
+  .lbl {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+    font-weight: 600;
+  }
+  .lbl.sm {
+    font-size: 0.68rem;
   }
 
   .field {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    padding: 0.5rem 0;
   }
   .field select {
     width: 100%;
@@ -187,20 +237,30 @@
     border-radius: 7px;
     background: var(--background);
     color: var(--foreground);
-    padding: 0.3rem 0.4rem;
+    padding: 0.35rem 0.5rem;
     font: inherit;
     font-size: 0.85rem;
   }
+  /* iOS Safari zooms the page when a focused input computes under 16px and does not zoom back
+     out on blur. The rail's density is a desktop affordance, so the floor only applies where
+     the problem exists. */
+  @media (max-width: 40rem) {
+    .field select {
+      font-size: var(--input-font-min);
+    }
+  }
 
-  .lbl {
+  .note {
+    margin: 0;
+    font-size: 0.7rem;
     color: var(--muted-foreground);
+    line-height: 1.35;
   }
 
   .check {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.35rem 0;
   }
 
   .chip {
@@ -213,55 +273,5 @@
     font: inherit;
     font-size: 0.8rem;
     cursor: pointer;
-  }
-
-  details.grp {
-    gap: 0;
-    padding: 0;
-  }
-  details.grp summary {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0;
-    cursor: pointer;
-    list-style: none;
-  }
-  details.grp summary::-webkit-details-marker {
-    display: none;
-  }
-  details.grp summary:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-  details.grp summary:hover .lbl {
-    color: var(--foreground);
-  }
-  .badge {
-    font-size: 0.66rem;
-    font-weight: 700;
-    color: var(--primary);
-    background: color-mix(in oklch, var(--primary) 15%, transparent);
-    border-radius: 999px;
-    padding: 0.02rem 0.35rem;
-  }
-  .chev {
-    margin-left: auto;
-    color: var(--muted-foreground);
-    transition: transform 0.12s ease;
-  }
-  details.grp[open] .chev {
-    transform: rotate(90deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
-    }
-  }
-  .dbody {
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 0.4rem;
   }
 </style>

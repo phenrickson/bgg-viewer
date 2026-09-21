@@ -25,6 +25,7 @@
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import MapRail from '$lib/map/MapRail.svelte';
+  import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import { Container } from '$lib/components/ui/layout';
   import * as Sheet from '$lib/components/ui/sheet';
   import { Button } from '$lib/components/ui/button';
@@ -95,9 +96,39 @@
   /** Opt-in: hide everything but the selection. Off by default — selecting highlights. */
   let keepOnly = $state(false);
 
+  /**
+   * Collapsing the panel is not the same as clearing the selection. Applying a lasso zooms
+   * to the kept games and then covers half of them with the list — and `Clear ×` drops the
+   * filter along with the selection, so there was no way to keep the set and look at it.
+   * Collapsed keeps the filter, the rings and the count, and gives the canvas back.
+   */
+  let panelOpen = $state(true);
+  /**
+   * A lasso does NOT open the list. It filters and frames — the answer is the map you are
+   * now looking at, and throwing a table over it is the opposite of what you asked for. The
+   * count in the collapsed header says how many you caught; open it if you want the names.
+   *
+   * A click selection still opens: you picked out specific games, so their details are the
+   * point. `setSelection` decides which happened, since only it knows the gesture.
+   */
+
+  /** Clearing the selection releases the filter too — `keepOnly` with nothing selected would
+      strand you zoomed into an empty map. */
   function setSelection(ids: number[]) {
+    const lassoed = ids.length > 1 && mode === 'lasso';
+    const had = view.selected.length > 0;
     view = { ...view, selected: ids };
-    if (ids.length === 0) keepOnly = false;
+    if (ids.length === 0) {
+      keepOnly = false;
+    } else if (lassoed) {
+      // A lasso is a filter, not a highlight: narrow to it, let the map frame it once the
+      // set has settled, and leave the list shut.
+      keepOnly = true;
+      panelOpen = false;
+    } else if (!had) {
+      // First click of a new selection — show its details.
+      panelOpen = true;
+    }
   }
   function removeFromSelection(id: number) {
     setSelection(view.selected.filter((x) => x !== id));
@@ -254,18 +285,41 @@
   <title>Embedding map — dev only</title>
 </svelte:head>
 
+{#snippet timelineControls()}
+  <div class="timeline">
+    <div class="tl-row">
+      <button type="button" class="chip" onclick={playing ? pause : play} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
+      <span class="year">{shownYear ?? 'all years'}</span>
+      {#if upTo != null}<button type="button" class="chip clear" onclick={stopTimeline} aria-label="Clear year filter">×</button>{/if}
+    </div>
+    <input
+      type="range"
+      min={TIMELINE_START}
+      max={TIMELINE_END}
+      value={shownYear ?? TIMELINE_END}
+      oninput={(e) => { pause(); upTo = +e.currentTarget.value; }}
+      aria-label="Published up to"
+    />
+    <label class="tick">
+      <input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" />
+      <span>ms per year</span>
+    </label>
+  </div>
+{/snippet}
+
 <Container size="wide" fill>
   <div class="workspace" class:narrow>
     {#if !narrow}
       <aside class="sidebar">
-        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} />
+        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} />
       </aside>
     {/if}
 
     <div class="canvas">
-      <!-- The count in house style, then the view actions: search, mode, timeline, export.
-           These act on the current view rather than on its scope, which is why they are here
-           and not in the rail. -->
+      <!-- Above the map: the count and the one control that is a question about the data
+           (search). Everything else that acts on the view lives ON the canvas or under it —
+           a bar of tools above the graph was the old control strip in miniature, and it
+           wrapped the same way. Explore puts only its count here too. -->
       <div class="chead">
         <p class="count">
           {#if coords && facts}
@@ -277,52 +331,28 @@
           {/if}
         </p>
 
-        <div class="actions">
-      <div class="search">
-        <input
-          type="search"
-          placeholder="Find a game…"
-          bind:value={q}
-          oninput={onsearch}
-          aria-label="Find a game"
-        />
-        {#if hits.length}
-          <ul class="hits" role="listbox">
-            {#each hits as h (h.game_id)}
-              <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-
+        <div class="head-right">
+          <div class="search">
+            <input
+              type="search"
+              placeholder="Find a game…"
+              bind:value={q}
+              oninput={onsearch}
+              aria-label="Find a game"
+            />
+            {#if hits.length}
+              <ul class="hits" role="listbox">
+                {#each hits as h (h.game_id)}
+                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
           {#if narrow}
             <Button size="sm" variant="outline" onclick={() => (filtersOpen = true)}>
-              Filters{#if activeFilterCount}&nbsp;·&nbsp;{activeFilterCount}{/if}
+              Display{#if activeFilterCount}&nbsp;·&nbsp;{activeFilterCount}{/if}
             </Button>
           {/if}
-
-          <div class="seg" role="group" aria-label="Drag mode">
-            <button type="button" class:on={mode === 'pan'} onclick={() => (mode = 'pan')}>Pan</button>
-            <button type="button" class:on={mode === 'lasso'} onclick={() => (mode = 'lasso')}>Lasso</button>
-          </div>
-
-      <div class="timeline">
-        <button type="button" class="chip" onclick={playing ? pause : play} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
-        <input
-          type="range"
-          min={TIMELINE_START}
-          max={TIMELINE_END}
-          value={shownYear ?? TIMELINE_END}
-          oninput={(e) => { pause(); upTo = +e.currentTarget.value; }}
-          aria-label="Published up to"
-        />
-        <span class="year">{shownYear ?? 'all years'}</span>
-        <label class="tick"><input type="number" min="20" max="5000" step="10" bind:value={tickMs} aria-label="Tick speed, milliseconds per year" /> ms/yr</label>
-        {#if upTo != null}<button type="button" class="chip" onclick={stopTimeline}>×</button>{/if}
-      </div>
-
-          <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
-          <span class="devbadge" title="This route is dev-only and 404s in production">dev</span>
         </div>
       </div>
 
@@ -343,6 +373,24 @@
     {/if}
 
       <div class="map">
+        <!-- On the canvas, not above it: these act on what you are looking at, so they sit
+             where you are looking. Top-left is the corner the plot leaves emptiest, and the
+             selection panel docks top-right. -->
+        <div class="tools">
+          <div class="mode">
+            <SegGroup
+              ariaLabel="Drag mode"
+              options={[
+                { value: 'pan' as const, label: 'Pan' },
+                { value: 'lasso' as const, label: 'Lasso' }
+              ]}
+              value={mode}
+              onchange={(v) => (mode = v)}
+            />
+          </div>
+          <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+        </div>
+
         {#if loadError}
         <div class="state error">Couldn’t load the map: {loadError}</div>
       {:else if !coords || !facts}
@@ -362,9 +410,18 @@
         />
       {/if}
       {#if rows.length}
-        <section class="lasso">
+        <section class="lasso" class:shut={!panelOpen}>
           <header>
-            <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
+            <button
+              type="button"
+              class="panel-toggle"
+              aria-expanded={panelOpen}
+              onclick={() => (panelOpen = !panelOpen)}
+              title={panelOpen ? 'Collapse the list — keeps the selection' : 'Show the list'}
+            >
+              <span class="caret" aria-hidden="true">{panelOpen ? '▾' : '▸'}</span>
+              <strong>{rows.length.toLocaleString()} {rows.length === 1 ? 'game' : 'games'} selected</strong>
+            </button>
             <span class="actions">
               <!-- The lasso is a filter, so applying it gets the /games sheet's live-count
                    treatment rather than a chip that is easy to set and easy to forget. -->
@@ -374,7 +431,7 @@
               <button type="button" class="chip" onclick={() => setSelection([])}>Clear ×</button>
             </span>
           </header>
-          <div class="table-wrap">
+          <div class="table-wrap" hidden={!panelOpen}>
             <table>
               <thead>
                 <tr>
@@ -418,7 +475,7 @@
            coordinates · 6 components · anchors: 0") was written for one reader. -->
       {#if coords && facts}
         <p class="prov" title="model {coords.model} v{coords.version} · {coords.k} components · {facts.missing.toLocaleString()} games without coordinates · anchors: {ANCHORS.length}">
-          {coords.model} v{coords.version}
+          {coords.model} v{coords.version} · dev only
         </p>
       {/if}
     </div>
@@ -434,7 +491,7 @@
       <Sheet.Title>Display</Sheet.Title>
     </Sheet.Header>
     <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} />
+      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} />
     </div>
     <Sheet.Footer class="border-t border-border">
       <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
@@ -471,20 +528,35 @@
   .count b { font-size: 1.1rem; color: var(--foreground); font-weight: 700; }
   .count .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
-  .actions { display: inline-flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+  .head-right { display: inline-flex; align-items: center; gap: var(--space-md); }
 
-  /* A build-state fact, not a page title — it earns a badge, not a heading. */
-  .devbadge {
-    font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-    color: var(--muted-foreground);
-    border: 1px solid var(--border); border-radius: 999px; padding: 0.02rem 0.4rem;
+  /* Floating over the plot's emptiest corner. The selection panel docks top-right, so these
+     take top-left; both sit above the overlay canvas. */
+  .tools {
+    position: absolute; top: var(--space-sm); left: var(--space-sm); z-index: 2;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem; border-radius: var(--radius);
+    background: color-mix(in oklch, var(--card) 88%, transparent);
+    border: 1px solid var(--border);
   }
+  .mode { width: 9rem; }
+
 
   /* Provenance under the map, quiet; the full detail is in its title attribute. */
   .prov { margin: 0; color: var(--muted-foreground); font-size: 0.75rem; }
 
   .search { position: relative; min-width: min(16rem, 100%); }
-  .search input { width: 100%; }
+  .search input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--background);
+    color: var(--foreground);
+    padding: 0.35rem 0.6rem;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  .search input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   .hits {
     position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 0.25rem);
     margin: 0; padding: 0.25rem; list-style: none;
@@ -504,8 +576,20 @@
   .export input[type='text'] { width: 14rem; }
   .export .muted { color: var(--muted-foreground); font-size: 0.85rem; }
   .export .error { color: var(--destructive, var(--foreground)); font-size: 0.85rem; }
-  .timeline { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .timeline input { width: 9rem; }
+  /* Stacked for the rail's 16rem: controls and the year on one row, the scrubber full
+     width beneath, tick speed last. */
+  .timeline { display: flex; flex-direction: column; gap: 0.35rem; }
+  .tl-row { display: flex; align-items: center; gap: 0.4rem; }
+  .timeline input[type='range'] { width: 100%; min-width: 0; }
+  .timeline .year {
+    font-variant-numeric: tabular-nums; color: var(--foreground); font-size: 0.85rem;
+  }
+  .timeline .clear { margin-left: auto; }
+  .timeline .tick {
+    display: flex; align-items: center; gap: 0.35rem;
+    color: var(--muted-foreground); font-size: 0.7rem;
+  }
+  .timeline .tick input { width: 4rem; }
   .timeline .tick input { width: 4.5rem; }
   .timeline .year { min-width: 4.5rem; font-variant-numeric: tabular-nums; color: var(--foreground); }
 
@@ -522,13 +606,6 @@
   }
   .notice a { color: var(--primary); }
 
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .seg button {
-    border: 0; background: var(--background); color: var(--muted-foreground);
-    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; cursor: pointer;
-  }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--muted); color: var(--foreground); }
 
   .chip {
     border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
@@ -554,6 +631,29 @@
     padding: var(--space-sm) var(--space-md);
   }
   .lasso header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+  /* Shut: the header alone, so the set stays visible on the map with its count and controls
+     still to hand. */
+  .lasso.shut { max-height: none; }
+  /* NOT `.collapse`: that is a Tailwind utility (`visibility: collapse`), and the global
+     utility layer beats a component's scoped rule — the button rendered at full width with
+     its text intact and simply could not be seen. Rail.svelte carries the same warning about
+     `.fixed` / `.grow`. */
+  .panel-toggle {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    border: 1px solid transparent; border-radius: var(--radius);
+    background: none; cursor: pointer;
+    padding: 0.2rem 0.5rem; margin-left: -0.5rem;
+    font: inherit; color: var(--foreground);
+  }
+  .panel-toggle:hover { background: var(--muted); border-color: var(--border); }
+  /* Same weight as the count it sits beside — a 0.75rem muted glyph was technically present
+     and practically invisible, which is how the control went unfound. */
+  .panel-toggle .caret {
+    color: var(--foreground); font-size: 0.8rem; line-height: 1;
+    transition: transform 0.12s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .panel-toggle .caret { transition: none; } }
+  .panel-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .table-wrap { overflow: auto; min-height: 0; }
   .lasso table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
   .lasso th {

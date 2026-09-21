@@ -190,8 +190,9 @@
         const id = coords.ids[points[0]];
         onselectionchange?.(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
       } else {
-        const add = points.map((i) => coords.ids[i]).filter((id) => !cur.includes(id));
-        onselectionchange?.([...cur, ...add]);
+        // A lasso replaces rather than adds: each draw is a new question, not another
+        // clause on the last one. The page turns this into a filter.
+        onselectionchange?.(points.map((i) => coords.ids[i]));
       }
     },
     overlay: (ctx, api) => {
@@ -214,8 +215,14 @@
         dot(ctx, p[0], p[1], r(i) + 1.5, theme.accent, theme.background);
         want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[i]), gap: r(i) + 4 });
       }
-      const labelSelected = selectedIdx.length <= MAX_SELECTED_LABELS;
-      for (const i of selectedIdx) {
+      /**
+       * While `keep` is on, every point drawn IS the kept set — ringing and labelling all of
+       * them says nothing and buries the map under accent ink. The filter itself is the
+       * highlight. Rings come back when the filter is released and the selection is once
+       * again a few games among many.
+       */
+      const labelSelected = !keep && selectedIdx.length <= MAX_SELECTED_LABELS;
+      for (const i of keep ? [] : selectedIdx) {
         if (!shown.has(i)) continue;
         const p = screen(i);
         if (!p) continue;

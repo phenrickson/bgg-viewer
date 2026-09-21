@@ -223,6 +223,16 @@
   $effect(() => {
     const k = driver?.focus ?? null;
     if (!plot || !driver) return;
+    /**
+     * Wait for the set to settle before framing it. A filter change (a lasso being applied)
+     * shrinks `visible`, which can force a full positional redraw of every point — framing
+     * in the same tick put a camera transition on top of that draw, and on a large lasso the
+     * two together locked the page up. `drawn` goes false while a positional draw is in
+     * flight and true when it lands, so reading it here defers the zoom to the frame after
+     * the points have stopped moving. It is also what we want visually: the camera should
+     * chase a settled set, not one mid-flight.
+     */
+    if (!drawn) return;
     const had = lastFrame;
     lastFrame = k;
     const p = plot;
