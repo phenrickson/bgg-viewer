@@ -10,6 +10,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { ViewState } from './view';
+  import { projectionFor, toNdc, type Projection } from './projection';
   import { buildColouring, radiusFor, type Colouring } from './scales';
   import { useSurface, MAX_DIAMETER, type Driver } from './surface';
   import { dot, ring, labels } from './ink';
@@ -24,6 +25,7 @@
     focus = null,
     stripOffset = 0,
     upTo = null,
+    projection = null,
     onselectionchange,
     onhover,
     ontogglecategory
@@ -36,8 +38,14 @@
     keep?: number[] | null;
     /** Game ids to frame (zoom to) without hiding anything else; null = the whole map. */
     focus?: number[] | null;
-    /** Strip only: shift the band up (+) or down (−) in NDC, e.g. to leave room for a caption. */
+    /** Band only: shift it up (+) or down (−) in NDC, e.g. to leave room for a caption. */
     stripOffset?: number;
+    /**
+     * Where the points go. Defaults to the embedding projection `view` names; pass one to
+     * draw the same games arranged by anything else (see `projection.ts`). This is the seam
+     * that stops the layer being an embedding-only component.
+     */
+    projection?: Projection | null;
     /**
      * The timeline: only games published up to this point. Fractional — 1994.4 shows every
      * game through 1994 plus 1995's at 40% size, so a year's games grow in over the tick
@@ -72,46 +80,23 @@
 
   // --- projection → normalised device coords -------------------------------------------
   const uniform = $derived(view.size === 'uniform');
-  const strip = $derived(view.projection === 'strip');
-  const xs = $derived(view.projection === 'umap' ? coords.umap[0] : coords.pcs[view.x - 1]);
-  /** Strip: y is deterministic per-game jitter (hash of id, roughly normal) — vertical
-   * position carries nothing, it just lets the density read. */
-  const jitterY = $derived.by(() => {
-    const n = coords.ids.length, out = new Float32Array(n);
-    for (let i = 0; i < n; i++) out[i] = jitter(coords.ids[i]);
-    return out;
-  });
-  const ys = $derived(strip ? jitterY : view.projection === 'pca' ? coords.pcs[view.y - 1] : coords.umap[1]);
-  function jitter(id: number): number {
-    let h = (id * 2654435761) >>> 0, s = 0;
-    for (let k = 0; k < 4; k++) { h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; s += (h & 0xffff) / 0xffff; }
-    return (s / 4 - 0.5) * 3.2; // sum of four uniforms ≈ normal; ±1 is ~2.5σ
-  }
+  /** The arrangement: whatever the caller passed, else the one `view` names. */
+  const proj = $derived(projection ?? projectionFor(coords, view));
+  const strip = $derived(proj.band);
 
   /**
-   * Data → [-1, 1]. Map: one shared scale on both axes so distances aren't distorted.
-   * Strip: x fills the range of the games currently shown (upcoming games can sit far
-   * outside the rated data's shape and would squash it), y is a narrow band.
+   * Data → [-1, 1]. A band measures its extent over only the games currently shown:
+   * upcoming games can sit far outside the rated data's shape and would squash it.
    */
-  const ndc = $derived.by(() => {
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (let i = 0; i < xs.length; i++) {
-      const x = xs[i], y = ys[i];
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      if (strip && !(facts.upcoming[i] === 1 ? view.upcoming : facts.usersRated[i] >= view.minRatings)) continue;
-      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-    }
-    const nx = new Float32Array(xs.length), ny = new Float32Array(xs.length);
-    if (strip) {
-      const sx = 1.9 / Math.max(x1 - x0, 1e-9), cx = (x0 + x1) / 2;
-      for (let i = 0; i < xs.length; i++) { nx[i] = (xs[i] - cx) * sx; ny[i] = ys[i] * 0.22 + stripOffset; }
-    } else {
-      const s = 1.9 / Math.max(x1 - x0, y1 - y0, 1e-9);
-      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      for (let i = 0; i < xs.length; i++) { nx[i] = (xs[i] - cx) * s; ny[i] = (ys[i] - cy) * s; }
-    }
-    return { nx, ny };
-  });
+  const ndc = $derived.by(() =>
+    toNdc(
+      proj,
+      proj.band
+        ? (i) => (facts.upcoming[i] === 1 ? view.upcoming : facts.usersRated[i] >= view.minRatings)
+        : undefined,
+      stripOffset
+    )
+  );
 
   /** The year currently arriving and how far in it is (see `upTo`). */
   const yearCut = $derived(upTo == null ? null : Math.ceil(upTo));
@@ -128,7 +113,7 @@
       if (show && yearCut != null) show = facts.year[i] > 0 && facts.year[i] <= yearCut;
       if (show && cats) show = cats.has(facts.category[i]);
       if (show && kept) show = kept.has(coords.ids[i]);
-      if (show && Number.isFinite(xs[i]) && Number.isFinite(ys[i])) idx.push(i);
+      if (show && Number.isFinite(proj.x[i]) && Number.isFinite(proj.y[i])) idx.push(i);
     }
     return idx;
   });

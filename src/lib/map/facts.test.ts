@@ -80,3 +80,49 @@ describe('factsSql priority', () => {
 		]);
 	});
 });
+
+describe('year clamping', () => {
+	const build = (years: number[], currentYear = 2026) =>
+		alignFacts(
+			coords(years.map((_, i) => i + 1)),
+			{
+				game_id: years.map((_, i) => i + 1),
+				average_weight: years.map(() => 2),
+				geek_rating: years.map(() => 6),
+				average_rating: years.map(() => 7),
+				year_published: years,
+				users_rated: years.map(() => 100),
+				cat_code: years.map(() => 0)
+			},
+			['Other'],
+			currentYear,
+			(id) => `game ${id}`
+		);
+
+	it('drops a four-digit typo to 0 rather than stretching every year scale to it', () => {
+		// A real working-set game carries year_published = 20026. Left alone it makes the
+		// year ramp and the timeline span twenty millennia, collapsing real history to a pixel.
+		const facts = build([1995, 20026, 2020]);
+		expect(Array.from(facts.year)).toEqual([1995, 0, 2020]);
+	});
+
+	it('does not count an out-of-range year as upcoming', () => {
+		// 20026 >= 2026 arithmetically — the clamp has to happen before the comparison, or a
+		// typo becomes a permanently "upcoming" game.
+		const facts = build([20026]);
+		expect(Array.from(facts.upcoming)).toEqual([0]);
+	});
+
+	it('keeps genuinely old games and near-future announcements', () => {
+		const facts = build([-2500, 1995, 2030]);
+		expect(Array.from(facts.year)).toEqual([-2500, 1995, 2030]);
+		expect(Array.from(facts.upcoming)).toEqual([0, 0, 1]);
+	});
+
+	it('leaves a missing year as 0, which is not upcoming', () => {
+		// The 244 folk games ("Go Fish", "Crazy Eights") carry no year at all.
+		const facts = build([0]);
+		expect(Array.from(facts.year)).toEqual([0]);
+		expect(Array.from(facts.upcoming)).toEqual([0]);
+	});
+});

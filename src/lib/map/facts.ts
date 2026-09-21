@@ -5,13 +5,24 @@
  * metadata, same rule the similar-explorer bench follows.
  *
  * Column-oriented (typed arrays indexed like `CoordinateSet.ids`) because the renderer
- * touches every row per frame. Category is an int code into `categoryLabels` rather than a
- * string per row: the palette has seven slots, so the curated categories get codes 1..7
- * and everything else is 0 ("other").
+ * touches every row per frame. Category is an int code rather than a string per row — the
+ * *primary category*, which is a catalog concept and lives in
+ * `$lib/catalog/primary-category`, not here: a list row and a point should be able to say
+ * the same thing about the same game.
  */
+import { CATEGORY_SLOTS, primaryCategorySql } from '$lib/catalog/primary-category';
 import type { CoordinateSet } from './coordinates';
 
-export const CATEGORY_SLOTS = 7;
+export { CATEGORY_SLOTS };
+
+/**
+ * Bad `year_published` values exist in the source data (one working-set game carries 20026).
+ * Left alone, a four-digit typo stretches every year-based colour ramp and the timeline to
+ * cover twenty thousand years, so a real century collapses to a pixel. Clamped to a range
+ * that admits the oldest real board games and a decade of announcements.
+ */
+export const YEAR_MIN = -4000;
+export const YEAR_MAX = new Date().getFullYear() + 10;
 
 export interface GameFacts {
 	weight: Float32Array;
@@ -71,10 +82,11 @@ export function alignFacts(
 		geekRating[i] = Number.isFinite(g) ? g : 0;
 		const a = Number(cols.average_rating[r]);
 		averageRating[i] = Number.isFinite(a) ? a : 0;
-		const y = Number(cols.year_published[r]);
-		year[i] = Number.isFinite(y) ? y : 0;
+		const raw = Number(cols.year_published[r]);
+		const y = Number.isFinite(raw) && raw >= YEAR_MIN && raw <= YEAR_MAX ? raw : 0;
+		year[i] = y;
 		usersRated[i] = Number(cols.users_rated[r]) || 0;
-		upcoming[i] = Number.isFinite(y) && y >= currentYear ? 1 : 0;
+		upcoming[i] = y > 0 && y >= currentYear ? 1 : 0;
 		const c = Number(cols.cat_code[r]) || 0;
 		category[i] = c > 0 && c <= CATEGORY_SLOTS ? c : 0;
 	}
@@ -82,20 +94,12 @@ export function alignFacts(
 }
 
 /**
- * A game takes the first of `labels` (see `categories.ts` — order is priority) that it
- * carries anywhere in its category list; none of them → 0 (Other). Earlier cuts used
- * `categories[1]` (BGG lists alphabetically, so that was arbitrary) and then the six most
- * frequent tags (format tags and catch-alls); a curated list is what makes the map legible.
+ * The facts query. The category code is the *primary category* — see
+ * `$lib/catalog/primary-category`, which owns the curated list, the priority order and the
+ * `CASE` that derives the code. This function only decides which columns the map wants.
  */
-export function factsSql(labels: string[], priority: string[] = labels): string {
-	const esc = (s: string) => s.replace(/'/g, "''");
-	const slots = labels.slice(0, CATEGORY_SLOTS);
-	// Tested in `priority` order, coded by position in `labels` (the colour slot).
-	const cases = priority
-		.filter((l) => slots.includes(l))
-		.map((l) => `WHEN list_contains(categories, '${esc(l)}') THEN ${slots.indexOf(l) + 1}`)
-		.join(' ');
-	const code = labels.length ? `CASE ${cases} ELSE 0 END` : '0';
+export function factsSql(labels?: string[], priority?: string[]): string {
+	const code = primaryCategorySql(labels, priority);
 	return `SELECT game_id, average_weight, geek_rating, average_rating, year_published, users_rated, ${code} AS cat_code
 		FROM catalog`;
 }
