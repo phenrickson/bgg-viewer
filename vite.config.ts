@@ -11,6 +11,11 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
+	// Dev server port. The justfile passes `--port` explicitly; this keeps a bare
+	// `pnpm dev` on the same port rather than Vite's default 5173.
+	server: {
+		port: 4300
+	},
 	/**
 	 * duckdb-wasm ships prebuilt workers whose sourcemaps point into `@duckdb/apache-arrow`,
 	 * outside their own package. Pre-bundling them makes esbuild warn once per referenced file
