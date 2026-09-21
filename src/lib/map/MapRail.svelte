@@ -52,12 +52,15 @@
      * scrub and watch, and collapsing it would hide the affordance that makes it
      * discoverable at all.
      */
-    timeline
+    timeline,
+    /** Whether the year scrubber is narrowing the set — it counts toward the Filters badge. */
+    yearActive = false
   }: {
     view: ViewState;
     minRatingsSteps: number[];
     components: number[];
     timeline?: Snippet;
+    yearActive?: boolean;
   } = $props();
 
   const groupOpen = $state({ projection: false, filters: false });
@@ -78,7 +81,8 @@
   const filterCount = $derived(
     (view.minRatings > MIN_RATINGS_FLOOR ? 1 : 0) +
       (view.upcoming ? 1 : 0) +
-      (view.categories ? 1 : 0)
+      (view.categories ? 1 : 0) +
+      (yearActive ? 1 : 0)
   );
 
   const COLOURS: { value: ColourBy; label: string }[] = [
@@ -92,6 +96,12 @@
 </script>
 
 <aside class="rail">
+  <!-- Order carries the grouping, not headings. How the map is drawn comes first (Colour,
+       Size, Projection), then a rule, then which games are on it (the year scrubber, the
+       rest of the filters). A DISPLAY heading in the rail's own label style sat directly
+       above COLOUR in that same style and read as a second control rather than a section;
+       making it louder instead made it foreign to the rail. The break is structural, so it
+       is drawn structurally. -->
   <div class="grp top">
     <!-- Six options is past what a segmented row holds at 16rem, so this one keeps a select —
          the house uses segments for small sets, not for every set. -->
@@ -162,7 +172,7 @@
   </RailGroup>
 
   {#if timeline}
-    <div class="grp">
+    <div class="grp break">
       <span class="lbl">Published up to</span>
       {@render timeline()}
     </div>
@@ -212,6 +222,13 @@
   }
   .grp.top {
     border-top: none;
+  }
+
+  /* The seam between how-it-is-drawn and which-games-are-on-it: more air than the rules
+     between groups, so the rail reads as two runs without either one needing a name. */
+  .grp.break {
+    margin-top: var(--space-md);
+    border-top-width: 2px;
   }
 
   .lbl {

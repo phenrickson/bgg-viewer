@@ -311,7 +311,7 @@
   <div class="workspace" class:narrow>
     {#if !narrow}
       <aside class="sidebar">
-        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} />
+        <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} yearActive={upTo != null} />
       </aside>
     {/if}
 
@@ -491,7 +491,7 @@
       <Sheet.Title>Display</Sheet.Title>
     </Sheet.Header>
     <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} />
+      <MapRail bind:view minRatingsSteps={MIN_RATINGS_STEPS} {components} timeline={timelineControls} yearActive={upTo != null} />
     </div>
     <Sheet.Footer class="border-t border-border">
       <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
