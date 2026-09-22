@@ -70,7 +70,7 @@ export const DEFAULT_VIEW: ViewState = {
 	size: 'popularity',
 	xFact: 'weight',
 	yFact: 'rating',
-	context: 'dim'
+	context: 'hide'
 };
 
 const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip', 'facts'];

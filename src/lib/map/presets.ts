@@ -88,7 +88,7 @@ export const PRESETS: Preset[] = [
 		// Axes flipped: rating on x, how many rated it on y. The question is which games earn a
 		// high geek rating, so rating is the quantity being read along, not the one read up.
 		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
-		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform', context: 'hide' }
+		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' }
 	}
 ];
 

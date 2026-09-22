@@ -5,9 +5,10 @@
  * point, aligned to `CoordinateSet.ids`, at 36k points a frame. This module is the join:
  * run the scope's query once, get back a `Uint8Array` the layer can read without a lookup.
  *
- * Why a mask rather than a filtered list: the map draws **the whole landscape** and lights
- * the games in scope. Every point still gets drawn, so what the renderer needs is not "which
- * games survive" but "is this one lit" — a question asked per point, per frame.
+ * Why a mask rather than a filtered list: the renderer needs a per-point answer either way.
+ * With `view.context === 'dim'` every point is drawn and the mask decides which keep their
+ * colour; with `hide` the mask is what the kept set is built from. One flag per point serves
+ * both, and neither wants a list of surviving ids.
  */
 import { queryColumns } from '$lib/catalog/catalog.svelte';
 import type { CoordinateSet } from './coordinates';

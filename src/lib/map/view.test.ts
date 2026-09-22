@@ -18,7 +18,7 @@ describe('view ⇄ params', () => {
 			size: 'uniform',
 			xFact: 'weight',
 			yFact: 'rating',
-			context: 'hide'
+			context: 'dim'
 		};
 		expect(fromParams(toParams(view), K)).toEqual(view);
 	});
