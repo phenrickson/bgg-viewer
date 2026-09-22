@@ -741,12 +741,6 @@
   .lasso td { padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); white-space: nowrap; }
   .lasso td:first-child { white-space: normal; }
   .lasso .actions { display: inline-flex; gap: 0.4rem; align-items: center; }
-  .apply {
-    border: 1px solid var(--primary); border-radius: var(--radius);
-    background: var(--primary); color: var(--primary-foreground);
-    padding: 0.2rem 0.7rem; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
-  }
-  .apply.on { background: transparent; color: var(--primary); }
   .lasso tbody tr:hover { background: var(--muted); }
   .remove { border: 0; background: none; color: var(--muted-foreground); cursor: pointer; font-size: 1rem; line-height: 1; }
   .remove:hover { color: var(--foreground); }

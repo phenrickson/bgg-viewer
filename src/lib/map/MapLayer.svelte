@@ -154,7 +154,7 @@
   /** The drawn colouring: the same encoding, with out-of-scope points faded into a dimmed
    * copy of the palette. See `withDimmed` — it costs no extra draw call. */
   const colouring: Colouring | null = $derived(
-    baseColouring && surface.theme ? withDimmed(baseColouring, lit, surface.theme.background) : baseColouring
+    baseColouring && surface.theme ? withDimmed(baseColouring, lit, surface.theme.context) : baseColouring
   );
 
   const sizeBucket = $derived.by(() => {

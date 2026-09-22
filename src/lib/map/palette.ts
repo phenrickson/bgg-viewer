@@ -8,6 +8,8 @@ import type { Palette } from './scales';
 export interface MapTheme extends Palette {
 	background: string;
 	foreground: string;
+	/** `--map-context` — the tone out-of-scope points are drawn in. See `toContext`. */
+	context: string;
 	font: string;
 }
 
@@ -22,6 +24,7 @@ export function readTheme(el: Element = document.documentElement): MapTheme {
 		accent: v('--primary'),
 		background: v('--background'),
 		foreground: v('--foreground'),
+		context: v('--map-context'),
 		font: cs.fontFamily || 'system-ui, sans-serif'
 	};
 }

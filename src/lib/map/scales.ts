@@ -169,21 +169,17 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 }
 
 /**
- * How far an out-of-scope point fades toward the background.
+ * How much of its own hue a dimmed point keeps.
  *
- * The map's job is to show where a set sits in the whole landscape, so the context has to
- * stay *legible as shape* while never competing with the answer. Too faint and the filtered
- * view is a scatter of points in a void — which is strictly less than the list already told
- * you. Too strong and there is no figure/ground at all.
- *
- * 0.14 keeps the continents readable at a glance and puts roughly a 6:1 luminance gap
- * between a lit point and its neighbours in both themes.
+ * Not zero: a faint tint lets the continents still read as continents rather than as one
+ * grey fog, and it keeps a dimmed point recognisably the same *kind* of thing it was. Low
+ * enough that chroma is what separates figure from ground — coloured dots, grey scenery.
  */
-export const DIM_MIX = 0.14;
+export const DIM_CHROMA = 0.15;
 
 /**
- * Split a colouring in two: the same colours, plus a dimmed copy of each, with unlit points
- * moved into the dimmed half.
+ * Split a colouring in two: the lit colours, plus a context copy of each, with out-of-scope
+ * points moved into the context half.
  *
  * This is why lighting a scope costs nothing per frame. regl-scatterplot picks a point's
  * colour by indexing a palette array with its bucket, so "dim this point" is just `bucket +
@@ -195,7 +191,7 @@ export const DIM_MIX = 0.14;
 export function withDimmed(
 	colouring: Colouring,
 	lit: Uint8Array | null,
-	background: string
+	context: string
 ): Colouring {
 	if (!lit) return colouring;
 	const n = colouring.colours.length;
@@ -210,33 +206,30 @@ export function withDimmed(
 		}
 	}
 	if (!anyDim) return colouring;
-	// Mixed toward the background rather than given an alpha: regl's opacity is global, and
-	// overlapping translucent points would pile up into a darker blob exactly where the map
-	// is densest — reading as data that isn't there.
-	const dimmed = colouring.colours.map((c) => mixToward(c, background, DIM_MIX));
-	// Legend and domain describe the LIT half only; dimmed buckets are never legend entries.
+	const dimmed = colouring.colours.map((c) => toContext(c, context));
+	// Legend and domain describe the LIT half only; context buckets are never legend entries.
 	return { ...colouring, bucketOf, colours: [...colouring.colours, ...dimmed] };
 }
 
 /**
- * Mix a colour toward another by `t` (0 = unchanged, 1 = fully the target), in oklch where
- * both parse — perceptually even fading, so a dimmed blue and a dimmed orange recede by the
- * same visual amount rather than one going muddy first.
+ * A colour as context: the context tone's lightness, a trace of the original's hue.
  *
- * Falls back to `color-mix()` for anything that isn't oklch (the `--map-cat-*` hexes), which
- * the browser resolves the same way at paint time.
+ * Takes the context tone's LIGHTNESS rather than mixing toward the background, which is the
+ * correction that made this work at all. Mixing a fraction of the way to the page fades a
+ * colour that already sits near the page into nothing — `--map-ramp-lo`, the pale end of the
+ * default weight ramp, dimmed to ΔE 0.013 from the background in light mode, so every light
+ * game silently dropped out of the landscape. One shared lightness for all scenery cannot do
+ * that to any colour, however pale it started.
+ *
+ * Non-oklch inputs (the `--map-cat-*` hexes) fall back to `color-mix`, which the browser
+ * resolves the same way at paint time.
  */
-export function mixToward(colour: string, target: string, t: number): string {
+export function toContext(colour: string, context: string): string {
 	const a = parseOklch(colour);
-	const b = parseOklch(target);
+	const b = parseOklch(context);
 	if (a && b) {
-		let dh = b[2] - a[2];
-		if (dh > 180) dh -= 360;
-		if (dh < -180) dh += 360;
-		const l = a[0] + (b[0] - a[0]) * (1 - t);
-		const c = a[1] * t;
-		const h = (a[2] + dh * (1 - t) + 360) % 360;
-		return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
+		// b[0] is the context lightness; the hue is the point's own, at a fraction of its chroma.
+		return `oklch(${b[0].toFixed(3)} ${(a[1] * DIM_CHROMA).toFixed(3)} ${a[2].toFixed(1)})`;
 	}
-	return `color-mix(in oklch, ${colour} ${Math.round(t * 100)}%, ${target})`;
+	return `color-mix(in oklch, ${colour} ${Math.round(DIM_CHROMA * 100)}%, ${context})`;
 }
