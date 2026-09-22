@@ -451,81 +451,6 @@
     {/if}
 
     <div class="canvas">
-      <!-- Above the map: the count and the one control that is a question about the data
-           (search). Everything else that acts on the view lives ON the canvas or under it —
-           a bar of tools above the graph was the old control strip in miniature, and it
-           wrapped the same way. Explore puts only its count here too. -->
-      <div class="chead">
-        <p class="count">
-          {#if coords && facts && mask}
-            <!-- The count says the same thing the plot does: a lit set read against a whole.
-                 "of 36,001" is not decoration — it is the denominator that makes the dimmed
-                 points mean something.
-
-                 Both branches read the LIT count, including at the default scope. The
-                 unfiltered branch used to print the artifact's row count instead, on the
-                 assumption that no filters means every game — but the artifact also carries
-                 ~5,250 thinly-rated upcoming games the default scope excludes, so it claimed
-                 36,001 when the answer was 30,748. -->
-            <b class="tnum">{inScope.toLocaleString()}</b>
-            <span>{inScope === 1 ? 'game' : 'games'}</span>
-            {#if inScope !== placed}
-              <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
-            {/if}
-            {#if mask && mask.unplaced > 0}
-              <!-- Only when it would actually mislead. ~245 games site-wide carry no
-                   coordinates — folk games and bookkeeping entries with too little text to
-                   embed ("Go Fish", "Unpublished Prototype") — so this is silent until
-                   someone has filtered down to where they matter. -->
-              <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
-                · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
-              </span>
-            {/if}
-          {/if}
-        </p>
-
-        <div class="head-right">
-          <div class="search">
-            <input
-              type="search"
-              placeholder="Find a game…"
-              bind:value={q}
-              oninput={onsearch}
-              aria-label="Find a game"
-            />
-            {#if hits.length}
-              <ul class="hits" role="listbox">
-                {#each hits as h (h.game_id)}
-                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-          <!-- The way back. The same scope, rendered as a list — so the map is a view of
-               your set rather than a place you end up. -->
-          <a class="cross" href={exploreHref(scope)}>
-            {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
-          </a>
-          {#if narrow}
-            <!-- PLACEHOLDER COPY (Phil): this sheet now holds the scope rail as well as the
-                 encodings, so "Display" undersells it. Carries /games' active-filter count,
-                 from the same `activeFilters` call, so narrow still says what is applied. -->
-            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
-              Filters &amp; display
-              {#if activeCount}
-                <span
-                  class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
-                  >{activeCount}</span
-                >
-              {/if}
-            </Button>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Exactly the chips /games shows, from exactly the same `Scope`. A lasso appears
-           here as "on the map · 412 selected", removable like any other filter — which is
-           what makes a gesture over the canvas part of the same language as the rail. -->
       {#if filtered}
         <div class="chiprow">
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
@@ -552,7 +477,7 @@
         <!-- On the canvas, not above it: these act on what you are looking at, so they sit
              where you are looking. Top-left is the corner the plot leaves emptiest, and the
              selection panel docks top-right. -->
-        <div class="tools">
+        <div class="hud tools">
           <div class="mode">
             <SegGroup
               ariaLabel="Drag mode"
@@ -564,7 +489,78 @@
               onchange={(v) => (mode = v)}
             />
           </div>
-          <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+          <!-- Find-a-game sits IN the tools cluster rather than beside it: a sibling would
+               need a hard-coded left offset the width of this cluster, which is exactly the
+               kind of number that goes stale the next time a control is added here. -->
+          <div class="search">
+            <input
+              type="search"
+              placeholder="Find a game…"
+              bind:value={q}
+              oninput={onsearch}
+              aria-label="Find a game"
+            />
+            {#if hits.length}
+              <ul class="hits" role="listbox">
+                {#each hits as h (h.game_id)}
+                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+                {/each}
+              </ul>
+            {/if}
+            <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+          {#if narrow}
+            <!-- The ONLY way into filters and encodings on narrow: the sidebar is not
+                 rendered there at all, so losing this button strands the page with no way
+                 to change anything. It lived in the strip above the canvas until that went.
+                 PLACEHOLDER COPY (Phil): the sheet holds the scope rail as well as the
+                 encodings, so "Display" undersold it. Count is /games' own `activeFilters`. -->
+            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
+              Filters &amp; display
+              {#if activeCount}
+                <span
+                  class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                  >{activeCount}</span
+                >
+              {/if}
+            </Button>
+          {/if}
+        </div>
+
+        </div>
+
+        <!-- The readout, bottom-left: what you are looking at, and the way back to seeing it
+             as a list. Separated from the tools at top-left because it is something you
+             glance at rather than something you operate, and kept clear of the selection
+             panel's corner. -->
+        <div class="hud readout">
+          <p class="count">
+            {#if coords && facts && mask}
+              <!-- Both branches read the LIT count, including at the default scope. The
+                   unfiltered branch used to print the artifact's row count instead, on the
+                   assumption that no filters means every game — but the artifact also
+                   carries ~5,250 thinly-rated upcoming games the default scope excludes, so
+                   it claimed 36,001 when the answer was 30,748. -->
+              <b class="tnum">{inScope.toLocaleString()}</b>
+              <span>{inScope === 1 ? 'game' : 'games'}</span>
+              {#if inScope !== placed}
+                <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
+              {/if}
+              {#if mask && mask.unplaced > 0}
+                <!-- Only when it would actually mislead. ~245 games site-wide carry no
+                     coordinates — folk games and bookkeeping entries with too little text
+                     to embed — so this is silent until someone has filtered down to where
+                     they matter. -->
+                <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
+                  · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
+                </span>
+              {/if}
+            {/if}
+          </p>
+          <!-- The way back. The same scope, rendered as a list — so the map is a view of
+               your set rather than a place you end up. -->
+          <a class="cross" href={exploreHref(scope)}>
+            {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
+          </a>
         </div>
 
         {#if loadError}
@@ -699,26 +695,39 @@
     min-width: 0; min-height: 0;
   }
 
-  /* Count left, view actions right. Wraps as one row of controls, not fifteen. */
-  .chead {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: var(--space-md); flex-wrap: wrap;
-    color: var(--muted-foreground); font-size: 0.85rem;
-  }
   .count { margin: 0; display: inline-flex; align-items: baseline; gap: 0.35rem; }
   .count b { font-size: 1.1rem; color: var(--foreground); font-weight: 700; }
   .count .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
-  .head-right { display: inline-flex; align-items: center; gap: var(--space-md); }
 
-  /* Floating over the plot's emptiest corner. The selection panel docks top-right, so these
-     take top-left; both sit above the overlay canvas. */
-  .tools {
-    position: absolute; top: var(--space-sm); left: var(--space-sm); z-index: 2;
+  /*
+   * Everything that floats over the plot shares one chrome.
+   *
+   * There were two of these written out (the tools cluster, then the selection panel) before
+   * the count and the search joined them, and a third copy of the same four declarations is
+   * how a page starts drifting from itself. Corners are set per element; the surface is set
+   * once here.
+   */
+  .hud {
+    position: absolute; z-index: 2;
     display: inline-flex; align-items: center; gap: 0.4rem;
     padding: 0.3rem; border-radius: var(--radius);
     background: color-mix(in oklch, var(--card) 88%, transparent);
     border: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Top-left is the corner the plot leaves emptiest, and the selection panel docks
+     top-right. Tools first, then the find box beside them: both act on what you are
+     looking at. */
+  .tools { top: var(--space-sm); left: var(--space-sm); }
+
+  /* A readout, not a control — so it sits away from the tools, in the corner nothing else
+     wants. */
+  .readout {
+    bottom: var(--space-sm); left: var(--space-sm);
+    gap: var(--space-md); font-size: 0.85rem; color: var(--muted-foreground);
+    padding: 0.3rem 0.6rem;
   }
   .mode { width: 9rem; }
 
