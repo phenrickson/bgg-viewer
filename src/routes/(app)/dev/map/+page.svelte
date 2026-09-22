@@ -477,91 +477,64 @@
         <!-- On the canvas, not above it: these act on what you are looking at, so they sit
              where you are looking. Top-left is the corner the plot leaves emptiest, and the
              selection panel docks top-right. -->
-        <div class="hud tools">
-          <div class="mode">
-            <SegGroup
-              ariaLabel="Drag mode"
-              options={[
-                { value: 'pan' as const, label: 'Pan' },
-                { value: 'lasso' as const, label: 'Lasso' }
-              ]}
-              value={mode}
-              onchange={(v) => (mode = v)}
-            />
+        <!-- Bottom-right, out of the way: an export is something you do once, at the end,
+             not something you reach for while reading the map. -->
+        <button type="button" class="hud export-toggle" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+
+        <!-- Top-left: what you are looking at, and how to find one thing in it. -->
+        <div class="stack left">
+          <div class="hud readout">
+            <p class="count">
+              {#if coords && facts && mask}
+                <!-- Both branches read the LIT count, including at the default scope. The
+                     unfiltered branch used to print the artifact's row count instead, on the
+                     assumption that no filters means every game — but the artifact also
+                     carries ~5,250 thinly-rated upcoming games the default scope excludes,
+                     so it claimed 36,001 when the answer was 30,748. -->
+                <b class="tnum">{inScope.toLocaleString()}</b>
+                <span>{inScope === 1 ? 'game' : 'games'}</span>
+                {#if inScope !== placed}
+                  <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
+                {/if}
+                {#if mask && mask.unplaced > 0}
+                  <!-- Only when it would actually mislead. ~245 games site-wide carry no
+                       coordinates — folk games and bookkeeping entries with too little
+                       text to embed — so this stays silent until someone has filtered down
+                       to where they matter. -->
+                  <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
+                    · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
+                  </span>
+                {/if}
+              {/if}
+            </p>
+            <!-- The way back. The same scope, rendered as a list — so the map is a view of
+                 your set rather than a place you end up. -->
+            <a class="cross" href={exploreHref(scope)}>
+              {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
+            </a>
           </div>
-          <!-- Find-a-game sits IN the tools cluster rather than beside it: a sibling would
-               need a hard-coded left offset the width of this cluster, which is exactly the
-               kind of number that goes stale the next time a control is added here. -->
-          <div class="search">
-            <input
-              type="search"
-              placeholder="Find a game…"
-              bind:value={q}
-              oninput={onsearch}
-              aria-label="Find a game"
-            />
-            {#if hits.length}
-              <ul class="hits" role="listbox">
-                {#each hits as h (h.game_id)}
-                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-                {/each}
-              </ul>
-            {/if}
-            <button type="button" class="chip" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
-          {#if narrow}
-            <!-- The ONLY way into filters and encodings on narrow: the sidebar is not
-                 rendered there at all, so losing this button strands the page with no way
-                 to change anything. It lived in the strip above the canvas until that went.
-                 PLACEHOLDER COPY (Phil): the sheet holds the scope rail as well as the
-                 encodings, so "Display" undersold it. Count is /games' own `activeFilters`. -->
-            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
-              Filters &amp; display
-              {#if activeCount}
-                <span
-                  class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
-                  >{activeCount}</span
-                >
+
+          <div class="hud">
+            <div class="search">
+              <input
+                type="search"
+                placeholder="Find a game…"
+                bind:value={q}
+                oninput={onsearch}
+                aria-label="Find a game"
+              />
+              {#if hits.length}
+                <ul class="hits" role="listbox">
+                  {#each hits as h (h.game_id)}
+                    <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+                  {/each}
+                </ul>
               {/if}
-            </Button>
-          {/if}
+            </div>
+          </div>
         </div>
 
-        </div>
 
-        <!-- The readout, bottom-left: what you are looking at, and the way back to seeing it
-             as a list. Separated from the tools at top-left because it is something you
-             glance at rather than something you operate, and kept clear of the selection
-             panel's corner. -->
-        <div class="hud readout">
-          <p class="count">
-            {#if coords && facts && mask}
-              <!-- Both branches read the LIT count, including at the default scope. The
-                   unfiltered branch used to print the artifact's row count instead, on the
-                   assumption that no filters means every game — but the artifact also
-                   carries ~5,250 thinly-rated upcoming games the default scope excludes, so
-                   it claimed 36,001 when the answer was 30,748. -->
-              <b class="tnum">{inScope.toLocaleString()}</b>
-              <span>{inScope === 1 ? 'game' : 'games'}</span>
-              {#if inScope !== placed}
-                <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
-              {/if}
-              {#if mask && mask.unplaced > 0}
-                <!-- Only when it would actually mislead. ~245 games site-wide carry no
-                     coordinates — folk games and bookkeeping entries with too little text
-                     to embed — so this is silent until someone has filtered down to where
-                     they matter. -->
-                <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
-                  · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
-                </span>
-              {/if}
-            {/if}
-          </p>
-          <!-- The way back. The same scope, rendered as a list — so the map is a view of
-               your set rather than a place you end up. -->
-          <a class="cross" href={exploreHref(scope)}>
-            {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
-          </a>
-        </div>
 
         {#if loadError}
         <div class="state error">Couldn’t load the map: {loadError}</div>
@@ -584,6 +557,38 @@
           ontogglecategory={toggleCategory}
         />
       {/if}
+      <!-- Top-right: the tools that act on the view, and beneath them the panel for what
+           you picked. ONE column, so the panel can never land under the tools - both used
+           to dock to this corner independently and overlapped the moment a selection
+           existed. -->
+      <div class="stack right">
+        <div class="hud tools">
+          <div class="mode">
+            <SegGroup
+              ariaLabel="Drag mode"
+              options={[
+                { value: 'pan' as const, label: 'Pan' },
+                { value: 'lasso' as const, label: 'Lasso' }
+              ]}
+              value={mode}
+              onchange={(v) => (mode = v)}
+            />
+          </div>
+          {#if narrow}
+            <!-- The ONLY way into filters and encodings on narrow: the sidebar is not
+                 rendered at that width, so losing this strands the page.
+                 PLACEHOLDER COPY (Phil). -->
+            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
+              Filters &amp; display
+              {#if activeCount}
+                <span
+                  class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                  >{activeCount}</span
+                >
+              {/if}
+            </Button>
+          {/if}
+        </div>
       {#if rows.length}
         <section class="lasso" class:shut={!panelOpen}>
           <header>
@@ -633,6 +638,7 @@
           </div>
         </section>
       {/if}
+      </div>
       </div>
 
       {#if unplaced}
@@ -717,18 +723,39 @@
     backdrop-filter: blur(6px);
   }
 
-  /* Top-left is the corner the plot leaves emptiest, and the selection panel docks
-     top-right. Tools first, then the find box beside them: both act on what you are
-     looking at. */
-  .tools { top: var(--space-sm); left: var(--space-sm); }
+  /*
+   * Two columns over the plot: what you are looking at on the left, what acts on it on the
+   * right. Members stack rather than each docking to the corner independently, which is what
+   * let the tools and the selection panel occupy the same spot.
+   *
+   * `align-items` keeps each child its own width instead of stretching to the widest, so the
+   * count does not inherit the search box's width.
+   */
+  .stack {
+    position: absolute; top: var(--space-sm); z-index: 2;
+    display: flex; flex-direction: column; gap: var(--space-sm);
+    max-height: calc(100% - 2 * var(--space-sm));
+    pointer-events: none;
+  }
+  .stack > :global(*) { pointer-events: auto; }
+  .stack.left { left: var(--space-sm); align-items: flex-start; }
+  .stack.right { right: var(--space-sm); align-items: flex-end; min-height: 0; }
 
-  /* A readout, not a control — so it sits away from the tools, in the corner nothing else
-     wants. */
+  /* Inside a stack the chrome is positioned by the stack, not by itself. */
+  .stack .hud { position: static; }
+
   .readout {
-    bottom: var(--space-sm); left: var(--space-sm);
     gap: var(--space-md); font-size: 0.85rem; color: var(--muted-foreground);
     padding: 0.3rem 0.6rem;
   }
+
+  /* Done once, at the end — not something you reach for while reading the map. */
+  .export-toggle {
+    bottom: var(--space-sm); right: var(--space-sm);
+    font: inherit; font-size: 0.8rem; color: var(--muted-foreground); cursor: pointer;
+    padding: 0.25rem 0.6rem;
+  }
+  .export-toggle.on { color: var(--foreground); border-color: var(--primary); }
   .mode { width: 9rem; }
 
 
@@ -811,10 +838,9 @@
    * resize, and the race, never happen.
    */
   .lasso {
-    position: absolute; top: var(--space-sm); right: var(--space-sm);
+    /* Positioned by `.stack.right`, not by itself — see that rule. */
     width: max-content; max-width: min(36rem, 48%);
-    max-height: calc(100% - 2 * var(--space-sm));
-    z-index: 2;
+    min-height: 0;
     display: flex; flex-direction: column; gap: var(--space-sm);
     border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
     box-shadow: 0 2px 12px rgb(0 0 0 / 0.3);
