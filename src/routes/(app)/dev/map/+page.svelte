@@ -105,7 +105,13 @@
     scope = next.scope;
     view = next.view;
     selected = [];
+    // Reset on every preset, not just set on the ones that ask: leaving it on would frame
+    // the next preset too, and framing an embedding plot hides the landscape that is the
+    // whole reason it is drawn.
+    framePreset = p.frame === true;
   }
+  /** A preset asked for the camera to sit on the scope rather than on the whole plot. */
+  let framePreset = $state(false);
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
     if (!narrow) railOpen = false;
@@ -260,8 +266,22 @@
    */
   const FRAME_MAX = 600;
   const frame = $derived.by(() => {
-    if (!coords || !mask || !filtered) return null;
-    if (inScope === 0 || inScope > FRAME_MAX) return null;
+    if (!coords || !mask) return null;
+    /**
+     * A preset's `frame` overrides both guards.
+     *
+     * `filtered` is skipped because a preset can ask for the camera without narrowing
+     * anything — "all rated games" IS the default scope, so `filtered` is false, and the
+     * thing it needs framing away from is the artifact's own upcoming games, which are
+     * context rather than a filter. `FRAME_MAX` is skipped because that cap exists to avoid
+     * queueing a camera move behind a large positional redraw, and the effect that consumes
+     * this already waits for `drawn` before moving.
+     */
+    if (!framePreset) {
+      if (!filtered) return null;
+      if (inScope > FRAME_MAX) return null;
+    }
+    if (inScope === 0) return null;
     const ids: number[] = [];
     for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) ids.push(coords.ids[i]);
     return ids;

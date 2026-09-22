@@ -32,6 +32,18 @@ export interface Preset {
 	scope?: Partial<Scope>;
 	/** Encodings. Omitted fields keep `DEFAULT_VIEW`. */
 	view?: Partial<ViewState>;
+	/**
+	 * Frame the games in scope rather than the whole data square.
+	 *
+	 * The map always DRAWS every game the artifact carries and lights the ones in scope, so
+	 * the plot's extent is the artifact's, not the scope's. On an embedding projection that is
+	 * the point — you are looking at where a set sits in the whole. On a plot of catalog
+	 * quantities it is not: the artifact carries ~5,250 upcoming games with fewer than 30
+	 * ratings, whose average rating is three people's opinion, and they stretch the axes for a
+	 * question that was never about them. Framing leaves them drawn and puts the camera on the
+	 * set that was asked for.
+	 */
+	frame?: boolean;
 }
 
 /**
@@ -62,22 +74,25 @@ export const PRESETS: Preset[] = [
 		view: { projection: 'umap', colour: 'geek', size: 'popularity' }
 	},
 	{
-		id: 'pca-weight',
-		name: 'Light to heavy',
-		blurb: 'PC1 x PC2, sized by popularity, coloured by weight.',
-		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'popularity' }
-	},
-	{
 		id: 'pca-geek',
 		name: 'The landscape by rating',
 		blurb: 'PC1 x PC2, sized by popularity, coloured by geek rating.',
 		view: { projection: 'pca', x: 1, y: 2, colour: 'geek', size: 'popularity' }
 	},
 	{
+		id: 'pca-weight',
+		name: 'Light to heavy',
+		// PLACEHOLDER (Phil): what PC1 and PC2 actually separate is yours to say — I can
+		// describe the encoding but not what the axes mean.
+		blurb: 'PC1 x PC2, sized by popularity, coloured by weight.',
+		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'popularity' }
+	},
+	{
 		id: 'rating-weight',
 		name: 'Does heavier mean better?',
 		blurb: 'Average rating against complexity, sized by popularity.',
-		view: { projection: 'facts', xFact: 'weight', yFact: 'rating', size: 'popularity' }
+		view: { projection: 'facts', xFact: 'weight', yFact: 'rating', size: 'popularity' },
+		frame: true
 	},
 	{
 		id: 'rating-popularity',
@@ -85,7 +100,8 @@ export const PRESETS: Preset[] = [
 		// Axes flipped: rating on x, how many rated it on y. The question is which games earn a
 		// high geek rating, so rating is the quantity being read along, not the one read up.
 		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
-		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' }
+		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' },
+		frame: true
 	}
 ];
 
