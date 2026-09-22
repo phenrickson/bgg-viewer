@@ -57,7 +57,15 @@
   let scope = $state<Scope>(
     browser ? scopeFromParams(new URLSearchParams(location.search)) : { ...DEFAULT_SCOPE }
   );
-  let ready = $state(false);
+  /**
+   * Derived, not a local `$state` set in `onMount`. As component state it reset to `false` on
+   * every mount, so arriving from the landing page — which has already warmed the catalog —
+   * flashed "Loading the catalog into your browser" at someone whose catalog was sitting in
+   * memory, because awaiting the memoised `initCatalog()` still costs a tick. Reading the
+   * shared status means the page is ready exactly when the catalog is, and it recovers if
+   * the catalog errors and is retried.
+   */
+  const ready = $derived(catalog.status === 'ready');
   /**
    * Belt-and-suspenders for the mirror effect: never write the URL until the scope has been
    * read from it at least once. True from the start on the client (seeded above); only
@@ -120,9 +128,9 @@
     if (!narrow) filtersOpen = false;
   });
 
-  onMount(async () => {
-    await initCatalog();
-    ready = catalog.status === 'ready';
+  // Still needed for a direct load of /games; `ready` follows `catalog.status` on its own.
+  onMount(() => {
+    initCatalog();
   });
 
   /**
