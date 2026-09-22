@@ -6,13 +6,11 @@
  * no `catalog`/`thumbnails` tables, no WASM engine — just a plain JS Map.
  */
 import { tableFromIPC } from 'apache-arrow';
+import { fetchArtifactBytes } from './artifact-fetch';
 
 /** Fetch and parse `/api/thumbnails` into a `game_id → thumbnail` map. */
 export async function fetchThumbnailMap(): Promise<Map<number, string>> {
-	const res = await fetch('/api/thumbnails');
-	if (!res.ok) throw new Error(`thumbnails fetch failed (${res.status})`);
-	const buf = new Uint8Array(await res.arrayBuffer());
-	const table = tableFromIPC(buf);
+	const table = tableFromIPC(await fetchArtifactBytes('/api/thumbnails'));
 
 	const ids = table.getChild('game_id');
 	const thumbs = table.getChild('thumbnail');

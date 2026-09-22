@@ -4,6 +4,7 @@
  * 36k points per frame and wants column access, not 36k boxed row objects.
  */
 import { tableFromIPC, type Table } from 'apache-arrow';
+import { fetchArtifactBytes } from '$lib/catalog/artifact-fetch';
 
 export interface CoordinateSet {
 	/** Game ids, artifact order (ascending). */
@@ -61,9 +62,10 @@ let pending: Promise<CoordinateSet> | null = null;
 
 export function fetchCoordinates(): Promise<CoordinateSet> {
 	return (pending ??= (async () => {
-		const res = await fetch('/api/coordinates');
-		if (!res.ok) throw new Error(`coordinates fetch failed (${res.status})`);
-		return parseCoordinates(new Uint8Array(await res.arrayBuffer()));
+		// `/api/coordinates` answers either with a signed GCS URL or with the bytes; the
+		// shared reader handles both, so the artifact can move to and from the GCS rail
+		// without this module knowing.
+		return parseCoordinates(await fetchArtifactBytes('/api/coordinates'));
 	})().catch((e) => {
 		pending = null;
 		throw e;

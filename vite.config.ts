@@ -59,7 +59,10 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}'],
+					// `scripts/` as well as `src/`: the artifact publish helper lives there, and its
+					// pointer-last ordering is the one property in the rail that fails as an
+					// outage rather than a degradation.
+					include: ['src/**/*.{test,spec}.{js,ts}', 'scripts/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
 			}

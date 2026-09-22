@@ -12,6 +12,7 @@ import wasmEh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 import { recordLoad } from '$lib/landing/estimate';
+import { fetchArtifactBytes } from './artifact-fetch';
 
 export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -57,34 +58,6 @@ let initPromise: Promise<void> | null = null;
 /** id → name, built once at load so per-filter plot queries can return numbers only. */
 let nameById = new Map<number, string>();
 
-/**
- * Fetch the catalog bytes, whichever shape the server answers in.
- *
- * `/api/catalog` now returns a signed GCS URL as JSON, so the ~5.25 MB travels from GCS to
- * the browser without passing through Cloud Run. It still falls back to streaming the Arrow
- * itself — a fresh bucket before the first pipeline run, GCS unreachable, or the
- * `CATALOG_SOURCE=bigquery` escape hatch — so both shapes are handled here rather than
- * assuming one. That also means a client and server can be deployed in either order.
- *
- * The gzipped object is served with `content-encoding: gzip`, which the browser decompresses
- * transparently, so `arrayBuffer()` yields plain Arrow IPC either way.
- */
-async function fetchCatalogBytes(): Promise<Uint8Array> {
-	const res = await fetch('/api/catalog');
-	if (!res.ok) throw new Error(`catalog fetch failed (${res.status})`);
-
-	if (!res.headers.get('content-type')?.includes('application/json')) {
-		return new Uint8Array(await res.arrayBuffer());
-	}
-
-	const { url } = (await res.json()) as { url: string };
-	// No credentials: the signature IS the authorisation, and sending cookies cross-origin
-	// to storage.googleapis.com would only invite a CORS preflight failure.
-	const bytes = await fetch(url);
-	if (!bytes.ok) throw new Error(`catalog artifact fetch failed (${bytes.status})`);
-	return new Uint8Array(await bytes.arrayBuffer());
-}
-
 async function doInit(): Promise<void> {
 	status = 'loading';
 	// What the landing page's "about N seconds" is built from. Measured here rather than
@@ -102,7 +75,7 @@ async function doInit(): Promise<void> {
 		await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 		conn = await db.connect();
 
-		const buf = await fetchCatalogBytes();
+		const buf = await fetchArtifactBytes('/api/catalog');
 		// Load into a native table so queries don't re-parse the artifact each time.
 		await conn.insertArrowFromIPCStream(buf, { name: 'catalog', create: true });
 
@@ -147,9 +120,7 @@ async function doInit(): Promise<void> {
 async function loadThumbnails(): Promise<void> {
 	if (!conn) return;
 	try {
-		const res = await fetch('/api/thumbnails');
-		if (!res.ok) throw new Error(`thumbnails fetch failed (${res.status})`);
-		const buf = new Uint8Array(await res.arrayBuffer());
+		const buf = await fetchArtifactBytes('/api/thumbnails');
 		// `create: false` — the table already exists (empty) from doInit, so this inserts
 		// rather than replacing it.
 		await conn.insertArrowFromIPCStream(buf, { name: 'thumbnails', create: false });
