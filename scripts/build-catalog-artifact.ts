@@ -1,7 +1,7 @@
 /**
  * Build the in-browser catalog artifact and upload it to GCS.
  *
- * This runs in CI (`.github/workflows/catalog-artifact.yml`), triggered when the warehouse
+ * This runs in CI (`.github/workflows/viewer-artifacts.yml`), triggered when the warehouse
  * pipeline finishes — NOT at request time, which is the whole point. The artifact was
  * previously built inside the Cloud Run process on a 6h TTL; because that cache is
  * in-process and the service scales to zero, every cold container rebuilt it on its first

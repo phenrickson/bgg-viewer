@@ -1,12 +1,19 @@
-name: catalog artifact
+name: viewer artifacts
 
-# Rebuild the in-browser catalog artifact and publish it to GCS.
+# Rebuild the in-browser artifacts and publish them to GCS.
+#
+# Both artifacts come from the same warehouse tables and change on the same cadence, so they
+# share one run: one checkout, one auth, one install, a build step each.
 #
 # Triggered by the warehouse pipeline finishing (bgg-data-warehouse's dataform.yml dispatches
 # `catalog_refresh` from its terminal `embeddings_complete` branch), because that is when the
 # data actually changes — once a day, not every six hours as the old in-process TTL guessed.
 #
-# `workflow_dispatch` is here so the artifact can be rebuilt by hand: useful for the first
+# The dispatch type stays `catalog_refresh` even though this now publishes more than the
+# catalog: it is sent from another repo, so renaming it would need a coordinated merge on
+# both sides to buy nothing.
+#
+# `workflow_dispatch` is here so the artifacts can be rebuilt by hand: useful for the first
 # run, when the bucket is empty and nothing has dispatched yet, and for recovering from a
 # missed pipeline run without waiting a day.
 on:
@@ -18,7 +25,7 @@ on:
 # Not cancel-in-progress: a half-finished run has already uploaded an artifact, and letting
 # it finish writing its pointer is harmless (the object is content-hashed either way).
 concurrency:
-  group: catalog-artifact
+  group: viewer-artifacts
   cancel-in-progress: false
 
 env:
@@ -26,7 +33,7 @@ env:
 
 jobs:
   build:
-    name: Build and upload catalog artifact
+    name: Build and upload viewer artifacts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +62,15 @@ jobs:
       # and the Dockerfile's `pnpm install --frozen-lockfile --prod` then fails — so the image
       # never builds and the deploy dies. This is CI-only tooling; it has no business in the
       # runtime dependency graph.
-      - name: Build and upload
+      # Catalog first: it is the one artifact in the user's critical path. A thumbnails
+      # failure then fails the run *after* the catalog pointer has already landed, and it
+      # fails loudly rather than being swallowed by continue-on-error.
+      - name: Build and upload catalog
         env:
           GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
         run: pnpm dlx tsx@4 scripts/build-catalog-artifact.ts
+
+      - name: Build and upload thumbnails
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: pnpm dlx tsx@4 scripts/build-thumbnails-artifact.ts
