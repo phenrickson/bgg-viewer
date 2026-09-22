@@ -261,9 +261,14 @@ describe('per-bucket alpha — colour alone could not carry the highlight', () =
 		const n = 3;
 		expect(c.alpha!.slice(0, n).every((a) => a === LIT_ALPHA)).toBe(true);
 		expect(c.alpha!.slice(n).every((a) => a === CONTEXT_ALPHA)).toBe(true);
-		// The ratio is what stops thousands of overlapping context dots reading as a surface
-		// drawn over the lit set — which is what the flat 0.5 global alpha did.
-		expect(LIT_ALPHA / CONTEXT_ALPHA).toBeGreaterThanOrEqual(6);
+		// A clear gap, but deliberately NOT an extreme one. An earlier cut used 0.1 and the
+		// landscape became invisible — which loses the point of drawing it, since "where does
+		// my set sit in the whole of board games" is the question only this map answers.
+		// Keeping the lit set in front is `PointCanvas`'s draw order (context first, lit
+		// last), not a bigger alpha ratio; alpha only has to make the two groups legible.
+		expect(LIT_ALPHA - CONTEXT_ALPHA).toBeGreaterThan(0.4);
+		// Context must stay genuinely visible: a single dot, and a pile of them, both readable.
+		expect(CONTEXT_ALPHA).toBeGreaterThanOrEqual(0.2);
 	});
 
 	it('every point indexes an alpha that exists', () => {
