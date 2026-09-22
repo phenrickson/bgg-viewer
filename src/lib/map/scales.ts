@@ -190,11 +190,16 @@ export const DIM_CHROMA = 0.15;
  *
  * So the separation is carried by alpha as well as colour. Lit points go nearly solid,
  * which also stops the lit set self-veiling where it is dense; context drops far enough
- * that a pile of overlapping dots reads as texture rather than as a surface. The ratio
- * matters more than either number: ~9x.
+ * that a pile of overlapping dots reads as texture rather than as a surface.
+ *
+ * Context is 0.28, not the 0.1 tried first. At 0.1 — compounded with a size cut that has
+ * since been dropped — the landscape was technically drawn and practically invisible, which
+ * loses the whole point: the context is the SUBJECT of this map as much as the lit set is,
+ * because "where does my set sit in the whole of board games" is the question only this
+ * page can answer. It has to recede, not disappear.
  */
 export const LIT_ALPHA = 0.9;
-export const CONTEXT_ALPHA = 0.1;
+export const CONTEXT_ALPHA = 0.28;
 /** The map's alpha when nothing is filtered — every point is equally the subject. */
 export const PLAIN_ALPHA = 0.5;
 

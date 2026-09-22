@@ -141,6 +141,59 @@
    * each point travelling to its new spot); colour/size-only draws are instant. The very
    * first draw starts everything at the centre so the opening is the cloud unfolding.
    */
+  /**
+   * Draw order.
+   *
+   * regl draws points in array order and every dot is semi-transparent, so the points handed
+   * over last end up on top. With a scope lit, that meant a great many *context* dots drew
+   * over the lit set — the highlight sitting behind its own backdrop. Fading the context
+   * helped but could not fix it: no alpha makes a dot that is drawn later stop covering the
+   * one underneath.
+   *
+   * So the points are permuted before they go to regl — context first, lit last — and this
+   * is the ONLY place that knows. `order[k]` is the layer index drawn k-th; `slot[i]` is
+   * where layer index `i` ended up. Everything crossing the boundary (positions, encodings,
+   * the filter, `screen(i)`, hover and selection events) is mapped through one of the two,
+   * so a layer keeps talking in its own stable indices and never learns this happened.
+   *
+   * Identity when nothing is dimmed, which is the resting map — no permutation, no cost.
+   */
+  let order: Int32Array | null = null;
+  let slot: Int32Array | null = null;
+  /** Layer index -> the index regl knows it by. */
+  const toSlot = (i: number) => (slot && i >= 0 ? slot[i] : i);
+  /** regl index -> the layer's index. */
+  const toLayer = (k: number) => (order && k >= 0 ? order[k] : k);
+
+  /**
+   * Build the permutation from the driver's per-point alpha, which is what distinguishes
+   * context from lit (see `withDimmed`). Stable within each group, so the relative order of
+   * the landscape — and of the lit set — is unchanged; only the two groups move apart.
+   */
+  function buildOrder(d: Driver): void {
+    const alpha = d.opacity;
+    if (!Array.isArray(alpha)) { order = null; slot = null; return; }
+    // The lit half of the palette comes first, so a bucket in the back half is context.
+    const half = alpha.length / 2;
+    const n = d.colour.length;
+    const o = new Int32Array(n);
+    let k = 0;
+    for (let i = 0; i < n; i++) if (d.colour[i] >= half) o[k++] = i; // context, drawn under
+    for (let i = 0; i < n; i++) if (d.colour[i] < half) o[k++] = i;  // lit, drawn on top
+    const sl = new Int32Array(n);
+    for (let j = 0; j < n; j++) sl[o[j]] = j;
+    order = o;
+    slot = sl;
+  }
+
+  /** Reorder a per-point array into draw order. */
+  function permute<T extends Float32Array | Uint8Array>(src: T): T {
+    if (!order) return src;
+    const out = new (src.constructor as new (n: number) => T)(src.length);
+    for (let k = 0; k < order.length; k++) out[k] = src[order[k]];
+    return out;
+  }
+
   let drawn = $state(false);
   let lastX: Float32Array | null = null;
   /** Bumped to force a positional draw when the positions themselves didn't change. */
@@ -168,18 +221,25 @@
       for (const i of visible) { mx[i] = x[i]; my[i] = y[i]; }
       x = mx; y = my;
     }
+    // `shownX`/`shownY` stay in LAYER order — they are compared against the driver's own
+    // arrays next time round. The permutation is applied only on the way into regl.
     shownX = x; shownY = y;
+    // Rebuild before drawing: the draw, the filter and every event mapping must agree on
+    // one permutation, and the encodings that define it are the ones being drawn now.
+    buildOrder(d);
+    const px = permute(x), py = permute(y);
+    const pc = permute(colour), ps = permute(size);
     enqueueDraw(async () => {
       if (first) {
-        await drawRetry(() => p.draw({ x: new Float32Array(x.length), y: new Float32Array(y.length), valueA: colour, valueB: size }, { preventFilterReset: true }), 1500);
+        await drawRetry(() => p.draw({ x: new Float32Array(px.length), y: new Float32Array(py.length), valueA: pc, valueB: ps }, { preventFilterReset: true }), 1500);
       }
       // Filter before the points move, so hidden points never appear mid-transition and
       // then blink out once it lands. Lines go too (they'd join the old spots); inside
       // the queue, because an annotation draw overlapping a transition wedges regl.
-      setFilter(visible, x.length);
+      setFilter(visible, px.length);
       if (linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
       await drawRetry(
-        () => p.draw({ x, y, valueA: colour, valueB: size }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
+        () => p.draw({ x: px, y: py, valueA: pc, valueB: ps }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
         moved ? duration * 2 + 500 : 1500
       );
       drawn = true; applyFilter(); applyLines(); scheduleOverlay();
@@ -198,10 +258,11 @@
   }
   $effect(() => { void driver?.lines; void drawn; applyLines(); });
 
+  /** `v` is in layer indices; regl only knows draw slots. */
   function setFilter(v: number[], n: number) {
     if (!plot) return;
     if (v.length === n) plot.unfilter({ preventEvent: true });
-    else plot.filter(v, { preventEvent: true });
+    else plot.filter(slot ? v.map(toSlot) : v, { preventEvent: true });
   }
   function applyFilter() {
     if (drawn && driver) setFilter(driver.visible, driver.x.length);
@@ -286,7 +347,7 @@
     ctx.textBaseline = 'middle';
     const p = plot;
     driver?.overlay?.(ctx, {
-      screen: (i) => { const s = p.getScreenPosition(i); return s ? [s[0], s[1]] : null; },
+      screen: (i) => { const s = p.getScreenPosition(toSlot(i)); return s ? [s[0], s[1]] : null; },
       width, height, theme, hovered, drawn, dragging, pointScale: pointScale()
     });
   }
@@ -331,7 +392,7 @@
     ctx.textBaseline = 'middle';
     const p = plot;
     driver?.overlay?.(ctx, {
-      screen: (i) => { const q = p.getScreenPosition(i); return q ? [q[0], q[1]] : null; },
+      screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
       // On-screen scale, not the export's: the uniform transform above already carries the
       // resolution multiple, so markers match what the viewer saw.
       width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
@@ -385,13 +446,14 @@
     } as Parameters<typeof createScatterplot>[0]);
     // Dev-only handle for poking at the plot from the console / headless checks.
     if (dev) (window as unknown as { __map: unknown }).__map = plot;
-    plot.subscribe('pointOver', (i) => { hovered = i; driver?.onhover?.(i); });
+    // regl reports DRAW SLOTS; `hovered` and every layer callback speak layer indices.
+    plot.subscribe('pointOver', (k) => { const i = toLayer(k); hovered = i; driver?.onhover?.(i); });
     plot.subscribe('pointOut', () => { hovered = -1; driver?.onhover?.(-1); });
     // The highlight is ours (the overlay), so regl's own selection is dropped straight
     // after — otherwise its tint would linger and its next click would replace, not toggle.
     plot.subscribe('select', ({ points }) => {
       plot?.deselect({ preventEvent: true });
-      driver?.onselect?.(points);
+      driver?.onselect?.(points.map(toLayer));
     });
     // Paint the overlay in the same frame regl paints the points: regl emits `draw` from
     // inside its own animation frame, and deferring to the next one leaves rings and
