@@ -458,9 +458,11 @@
 <Container size="wide" fill>
   <div class="workspace" class:narrow>
     {#if !narrow}
-      <!-- The sidebar collapsed to what it actually needs to be: two buttons. Whichever
-           panel they open floats over the plot, so the map keeps its full width either way
-           and never resizes. -->
+      <!-- The sidebar collapsed to two buttons, with whichever panel they open sliding in
+           beside them. The panel is part of the COLUMN, not an overlay on the plot: floating
+           it kept the map a constant width but read as something landing on top of the map
+           rather than as the sidebar opening, which is what it is. -->
+      <div class="side">
       <aside class="strip">
         <button
           type="button"
@@ -483,6 +485,28 @@
           <span>Controls</span>
         </button>
       </aside>
+        {#if panel !== null}
+        <!-- One scrolling column docked to the map's left edge. `Rail` is the same
+             component /games uses, so the filters here and the filters there cannot
+             drift; `MapRail` carries the encodings and the timeline. -->
+        <div class="panel">
+          <header>
+            <!-- PLACEHOLDER COPY (Phil): panel headings. -->
+            <h2>{panel === 'filters' ? 'Filters' : 'Controls'}</h2>
+            <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
+          </header>
+          <div class="panel-body">
+            {#if panel === 'filters'}
+              {#if where != null}
+                <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+              {/if}
+            {:else}
+              <MapRail bind:view {components} timeline={timelineControls} />
+            {/if}
+          </div>
+        </div>
+      {/if}
+      </div>
     {/if}
 
     <div class="canvas">
@@ -517,30 +541,8 @@
              is removing. The panel and `exportPng` are untouched below, so restoring it is
              one button. -->
 
-        {#if panel !== null}
-          <!-- One scrolling column docked to the map's left edge. `Rail` is the same
-               component /games uses, so the filters here and the filters there cannot
-               drift; `MapRail` carries the encodings and the timeline. -->
-          <div class="panel">
-            <header>
-              <!-- PLACEHOLDER COPY (Phil): panel headings. -->
-              <h2>{panel === 'filters' ? 'Filters' : 'Controls'}</h2>
-              <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
-            </header>
-            <div class="panel-body">
-              {#if panel === 'filters'}
-                {#if where != null}
-                  <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-                {/if}
-              {:else}
-                <MapRail bind:view {components} timeline={timelineControls} />
-              {/if}
-            </div>
-          </div>
-        {/if}
-
         <!-- Top-left: what you are looking at, and how to find one thing in it. -->
-        <div class="stack left" class:shifted={panel !== null}>
+        <div class="stack left">
           <div class="hud readout">
             <p class="count">
               {#if coords && facts && mask}
@@ -775,19 +777,29 @@
     font-size: 0.65rem; font-weight: 700;
   }
 
+  /* Strip and panel share one grid cell, so the cell's `auto` width grows when the panel
+     opens and the canvas gives up the space. */
+  .side { display: flex; gap: var(--space-sm); min-height: 0; }
+
   /*
-   * The panel: docked to the map's left edge, full height, its own scroll.
+   * The panel is part of the sidebar, not an overlay on the plot.
    *
-   * `position: absolute` inside `.map` rather than a grid column, so opening it does not
-   * change the canvas's size — see the `panel` state for why a resize here is not cosmetic.
+   * It floated over the canvas first, which kept the map a constant width — worth having,
+   * because a canvas resize is what put the selection rings off their points originally
+   * (regl's ResizeObserver races ours). But it read as something landing ON the map rather
+   * than as the sidebar opening. The resize is survivable and the confusion was not: that
+   * bug was a panel mounting *underneath* the map mid-interaction, where nobody asked for a
+   * size change. This one is a deliberate toggle, and the overlay redraws on regl's own
+   * `draw` event after it settles.
+   *
+   * Not animated, deliberately. A width transition resizes the canvas every frame it runs,
+   * and each resize is a full repaint of 36k points.
    */
   .panel {
-    position: absolute; top: 0; bottom: 0; left: 0; z-index: 3;
-    width: min(18rem, 80%);
+    width: 17rem;
     display: flex; flex-direction: column; min-height: 0;
     border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--card);
-    box-shadow: 0 2px 16px rgb(0 0 0 / 0.28);
   }
   .panel header {
     display: flex; align-items: center; justify-content: space-between;
@@ -805,8 +817,6 @@
   .panel .close:hover { color: var(--foreground); }
   .panel-body { overflow-y: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); }
 
-  /* Out from under an open panel. The readout is the one overlay the panel would cover. */
-  .stack.left.shifted { left: calc(min(18rem, 80%) + 2 * var(--space-sm)); }
   .canvas {
     display: flex; flex-direction: column; gap: var(--space-sm);
     min-width: 0; min-height: 0;
