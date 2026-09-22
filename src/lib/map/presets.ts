@@ -33,17 +33,15 @@ export interface Preset {
 	/** Encodings. Omitted fields keep `DEFAULT_VIEW`. */
 	view?: Partial<ViewState>;
 	/**
-	 * Frame the games in scope rather than the whole data square.
+	 * Draw ONLY the games in scope, and frame them.
 	 *
-	 * The map always DRAWS every game the artifact carries and lights the ones in scope, so
-	 * the plot's extent is the artifact's, not the scope's. On an embedding projection that is
-	 * the point — you are looking at where a set sits in the whole. On a plot of catalog
-	 * quantities it is not: the artifact carries ~5,250 upcoming games with fewer than 30
-	 * ratings, whose average rating is three people's opinion, and they stretch the axes for a
-	 * question that was never about them. Framing leaves them drawn and puts the camera on the
-	 * set that was asked for.
+	 * Normally the map draws every game the artifact carries and dims the ones out of scope,
+	 * so you can see where a set sits in the whole. That is wrong for a plot of catalog
+	 * quantities: the artifact carries ~5,250 upcoming games with fewer than 30 ratings, whose
+	 * average rating is three people's opinion, and they sit in the middle of a rating plot
+	 * looking like data.
 	 */
-	frame?: boolean;
+	onlyInScope?: boolean;
 }
 
 /**
@@ -92,7 +90,7 @@ export const PRESETS: Preset[] = [
 		name: 'Does heavier mean better?',
 		blurb: 'Average rating against complexity, sized by popularity.',
 		view: { projection: 'facts', xFact: 'weight', yFact: 'rating', size: 'popularity' },
-		frame: true
+		onlyInScope: true
 	},
 	{
 		id: 'rating-popularity',
@@ -101,7 +99,7 @@ export const PRESETS: Preset[] = [
 		// high geek rating, so rating is the quantity being read along, not the one read up.
 		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
 		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' },
-		frame: true
+		onlyInScope: true
 	}
 ];
 

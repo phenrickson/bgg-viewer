@@ -108,10 +108,21 @@
     // Reset on every preset, not just set on the ones that ask: leaving it on would frame
     // the next preset too, and framing an embedding plot hides the landscape that is the
     // whole reason it is drawn.
-    framePreset = p.frame === true;
+    onlyInScope = p.onlyInScope === true;
   }
-  /** A preset asked for the camera to sit on the scope rather than on the whole plot. */
-  let framePreset = $state(false);
+  /** A preset asked for out-of-scope games not to be drawn at all. */
+  let onlyInScope = $state(false);
+
+  /**
+   * The ids to draw, when a preset asked for only the scope. `MapLayer.keep` removes the
+   * rest rather than dimming them, and frames what is left.
+   */
+  const keepIds = $derived.by(() => {
+    if (!onlyInScope || !coords || !mask) return null;
+    const out: number[] = [];
+    for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) out.push(coords.ids[i]);
+    return out;
+  });
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
     if (!narrow) railOpen = false;
@@ -277,11 +288,11 @@
      * queueing a camera move behind a large positional redraw, and the effect that consumes
      * this already waits for `drawn` before moving.
      */
-    if (!framePreset) {
-      if (!filtered) return null;
-      if (inScope > FRAME_MAX) return null;
-    }
-    if (inScope === 0) return null;
+    // `keep` frames what it keeps, so a preset that restricts the drawn set needs nothing
+    // here.
+    if (onlyInScope) return null;
+    if (!filtered) return null;
+    if (inScope === 0 || inScope > FRAME_MAX) return null;
     const ids: number[] = [];
     for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) ids.push(coords.ids[i]);
     return ids;
@@ -659,6 +670,7 @@
           {selected}
           {activeCategories}
           focus={frame}
+          keep={keepIds}
           anchors={ANCHORS}
           {upTo}
           {mode}
