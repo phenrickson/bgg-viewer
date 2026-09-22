@@ -775,7 +775,7 @@
            coordinates · 6 components · anchors: 0") was written for one reader. -->
       {#if coords && facts}
         <p class="prov" title="model {coords.model} v{coords.version} · {coords.k} components · {facts.missing.toLocaleString()} games without coordinates · anchors: {ANCHORS.length}">
-          {coords.model} v{coords.version} · dev only
+          {coords.model} v{coords.version}
         </p>
       {/if}
     </div>
