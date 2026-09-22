@@ -235,3 +235,35 @@ describe('factProjection jitter', () => {
 		expect(new Set(Array.from(p.x)).size).toBe(1);
 	});
 });
+
+describe('toNdc extent scoping', () => {
+	/** Three games in 2000-2010, and one ancient one the scope excludes. */
+	const p = {
+		x: Float32Array.from([2000, 2005, 2010, -2200]),
+		y: Float32Array.from([6, 7, 8, 5]),
+		xLabel: 'Year published',
+		yLabel: 'Geek rating',
+		isometric: false,
+		band: false,
+		scopedExtent: true
+	};
+
+	it('an out-of-scope outlier does not set the scale', () => {
+		const inScope = (i: number) => i < 3;
+		const { nx } = toNdc(p, inScope);
+		// The three in-scope years should span nearly the full width. Measured over all four
+		// they covered 10 years out of 4210 — a vertical line, which is what shipped.
+		expect(Math.abs(nx[2] - nx[0])).toBeGreaterThan(1.5);
+	});
+
+	it('without scoping, the outlier collapses everything else', () => {
+		const { nx } = toNdc(p);
+		expect(Math.abs(nx[2] - nx[0])).toBeLessThan(0.02);
+	});
+
+	it('the outlier is still positioned, just off to one side', () => {
+		const { nx } = toNdc(p, (i) => i < 3);
+		expect(Number.isFinite(nx[3])).toBe(true);
+		expect(nx[3]).toBeLessThan(-1);
+	});
+});

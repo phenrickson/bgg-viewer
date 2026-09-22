@@ -119,7 +119,7 @@
    * the scale.
    */
   const ndc = $derived.by(() =>
-    toNdc(proj, proj.band && lit ? (i) => lit[i] === 1 : undefined, stripOffset)
+    toNdc(proj, (proj.band || proj.scopedExtent) && lit ? (i) => lit[i] === 1 : undefined, stripOffset)
   );
 
   /** The year currently arriving and how far in it is (see `upTo`). */

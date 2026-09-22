@@ -39,6 +39,16 @@ export interface Projection {
 	 * canvas width. The strip.
 	 */
 	band: boolean;
+	/**
+	 * Measure the extent over the games in SCOPE, not over every point drawn.
+	 *
+	 * The embedding projections want the opposite: the whole artifact sets the scale, because
+	 * the point is where a set sits in the whole. A plot of catalog quantities does not — its
+	 * axes are the quantities, and a game outside the scope has no business setting them.
+	 * Year is the case that makes it obvious: the artifact carries games published in 2000 BC,
+	 * so a plot of 2000 onward measured over everything squeezes 26 years into a vertical line.
+	 */
+	scopedExtent?: boolean;
 }
 
 /**
@@ -251,6 +261,7 @@ export function factProjection(
 		yLabel: AXIS_LABEL[y],
 		// Two different quantities with different units — a shared scale would be meaningless.
 		isometric: false,
-		band: false
+		band: false,
+		scopedExtent: true
 	};
 }
