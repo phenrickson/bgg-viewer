@@ -39,6 +39,7 @@
   import { DEFAULT_VIEW, fromParams as viewFromParams, type ViewState } from '$lib/map/view';
   import { writeMapUrl, exploreHref } from '$lib/map/route';
   import { scopeMask, type ScopeMask } from '$lib/map/scope-mask';
+  import { debounce, SCOPE_DEBOUNCE_MS } from '$lib/catalog/debounce';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import MapRail from '$lib/map/MapRail.svelte';
@@ -142,28 +143,39 @@
    */
   const baseWhere = $derived(appendCollectionFilter(toWhere({ ...DEFAULT_SCOPE })));
   const filtered = $derived(where != null && where !== baseWhere);
+  /**
+   * Ask the database for the lit set — debounced, and never skipped.
+   *
+   * **Never skipped.** There used to be a "no filters, so light everything" shortcut here,
+   * and it was wrong for a reason worth keeping written down: the artifact's population is
+   * not the default scope's. Coordinates are built over `users_rated >= 30 OR year_published
+   * >= <this year>`, while the default scope is `users_rated >= 30` alone — so the artifact
+   * carries ~5,250 upcoming games with too few ratings that the default deliberately
+   * excludes. Lighting "everything in the artifact" drew all 36,001 at full strength when
+   * the honest answer was 30,748. The compiled WHERE is the only authority on what a scope
+   * means, so every scope goes through it.
+   *
+   * **Debounced**, because this is the site's one genuinely expensive per-scope query. The
+   * list's equivalent is a `COUNT(*)` — one row, affordable on every keystroke. This one
+   * reads a ~30k-row id column and walks it into a per-point mask. With the scope rail on
+   * this page `scope.q` changes once per character, and undebounced that is a full-catalog
+   * query per letter, each landing on a canvas mid-transition.
+   *
+   * Token-guarded as well as debounced: debouncing bounds how many queries start, the token
+   * decides which result is allowed to win.
+   */
+  const runMask = debounce((c: CoordinateSet, w: string, mine: number) => {
+    scopeMask(c, w)
+      .then((m) => mine === maskToken && (mask = m))
+      .catch((e) => console.error('scope mask failed', e));
+  }, SCOPE_DEBOUNCE_MS);
   $effect(() => {
     const c = coords;
     const w = where;
     if (!c || w == null) return;
-    /**
-     * ALWAYS ask the database, even at the default scope.
-     *
-     * There used to be an "no filters, so light everything" shortcut here, and it was wrong
-     * for a reason worth keeping written down: the artifact's population is not the default
-     * scope's. Coordinates are built over `users_rated >= 30 OR year_published >= <this
-     * year>`, while the default scope is `users_rated >= 30` alone — so the artifact carries
-     * ~5,250 upcoming games with too few ratings that the default deliberately excludes.
-     * Lighting "everything in the artifact" drew all 36,001 at full strength when the honest
-     * answer was 30,748.
-     *
-     * The query is the only thing that knows what the scope means. One DuckDB count against
-     * an in-browser table is cheap; being wrong about what the map is showing is not.
-     */
     const mine = ++maskToken;
-    scopeMask(c, w)
-      .then((m) => mine === maskToken && (mask = m))
-      .catch((e) => console.error('scope mask failed', e));
+    runMask(c, w, mine);
+    return () => runMask.cancel();
   });
 
   const lit = $derived(mask?.lit ?? null);

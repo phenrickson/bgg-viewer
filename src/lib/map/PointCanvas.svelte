@@ -186,10 +186,33 @@
     slot = sl;
   }
 
-  /** Reorder a per-point array into draw order. */
-  function permute<T extends Float32Array | Uint8Array>(src: T): T {
+  /**
+   * Scratch buffers for the permuted arrays, double-buffered.
+   *
+   * Four arrays (x, y, colour, size) were freshly allocated on every draw, so every scope
+   * change threw ~290 KB of typed arrays at the collector — landing, by construction, in the
+   * same tick a transition starts. The point count never changes within a session, so the
+   * buffers can be kept.
+   *
+   * TWO generations, not one: the arrays are handed to regl inside `enqueueDraw` and it may
+   * still be transitioning with them when the next draw is prepared. The queue is serial, so
+   * alternating generations guarantees the set being written is one whose draw has already
+   * completed. Overwriting a single set in place would corrupt an in-flight transition.
+   */
+  const scratch: Array<Map<string, Float32Array | Uint8Array>> = [new Map(), new Map()];
+  let gen = 0;
+  /** Call once per draw, before the four `permute` calls that belong to it. */
+  function flipScratch(): void { gen ^= 1; }
+
+  /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
+  function permute<T extends Float32Array | Uint8Array>(src: T, key: string): T {
     if (!order) return src;
-    const out = new (src.constructor as new (n: number) => T)(src.length);
+    const bank = scratch[gen];
+    let out = bank.get(key) as T | undefined;
+    if (!out || out.length !== src.length || out.constructor !== src.constructor) {
+      out = new (src.constructor as new (n: number) => T)(src.length);
+      bank.set(key, out);
+    }
     for (let k = 0; k < order.length; k++) out[k] = src[order[k]];
     return out;
   }
@@ -227,8 +250,9 @@
     // Rebuild before drawing: the draw, the filter and every event mapping must agree on
     // one permutation, and the encodings that define it are the ones being drawn now.
     buildOrder(d);
-    const px = permute(x), py = permute(y);
-    const pc = permute(colour), ps = permute(size);
+    flipScratch();
+    const px = permute(x, 'x'), py = permute(y, 'y');
+    const pc = permute(colour, 'c'), ps = permute(size, 's');
     enqueueDraw(async () => {
       if (first) {
         await drawRetry(() => p.draw({ x: new Float32Array(px.length), y: new Float32Array(py.length), valueA: pc, valueB: ps }, { preventFilterReset: true }), 1500);

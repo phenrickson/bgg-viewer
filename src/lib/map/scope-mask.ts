@@ -9,7 +9,7 @@
  * the games in scope. Every point still gets drawn, so what the renderer needs is not "which
  * games survive" but "is this one lit" — a question asked per point, per frame.
  */
-import { query } from '$lib/catalog/catalog.svelte';
+import { queryColumns } from '$lib/catalog/catalog.svelte';
 import type { CoordinateSet } from './coordinates';
 
 /**
@@ -42,16 +42,23 @@ export interface ScopeMask {
  *
  * Returns ids only — the map already holds every fact it draws with, so pulling rows here
  * would be a second copy of the same data with a chance to disagree with the first.
+ *
+ * **Column-oriented, deliberately.** This ran on `query()` — `toArray().map(toJSON)` — which
+ * materialises one Arrow row proxy and one JS object per result row. At a default scope that
+ * is ~30k objects built and discarded to read a single integer from each, on every scope
+ * change, and it is the exact workload `queryColumns` was added for (see its docstring: "a
+ * 30k-point scatter pays that on every filter change"). One `Int32Array`, no per-row objects.
  */
 export async function scopeMask(coords: CoordinateSet, where: string): Promise<ScopeMask> {
-	const rows = await query<{ game_id: number }>(
-		`SELECT game_id FROM catalog WHERE ${where}`
-	);
+	const cols = await queryColumns(`SELECT game_id FROM catalog WHERE ${where}`, ['game_id']);
+	const ids = cols.game_id;
 	const lit = new Uint8Array(coords.ids.length);
 	let inScope = 0;
 	let unplaced = 0;
-	for (const r of rows) {
-		const i = coords.index.get(Number(r.game_id));
+	// `Number()` like `alignFacts` does: the column comes back as whichever typed array Arrow
+	// chose for the id's integer width, and a BigInt key would miss the number-keyed index.
+	for (let n = 0; n < ids.length; n++) {
+		const i = coords.index.get(Number(ids[n]));
 		if (i === undefined) {
 			unplaced++;
 			continue;

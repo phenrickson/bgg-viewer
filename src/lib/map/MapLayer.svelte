@@ -135,18 +135,31 @@
    * year yet, which is a different kind of statement (this game does not exist yet) than a
    * filter (this game is not what you asked for).
    */
-  const visible = $derived.by(() => {
+  /**
+   * Built as an index list AND a flag array in one pass.
+   *
+   * The list is what regl's filter wants; the flag is what the overlay wants. The overlay
+   * used to build `new Set(visible)` inside itself — but it runs on every regl `draw`, i.e.
+   * every frame of a pan or zoom, so at a resting map that was a 36k-element Set hashed into
+   * existence 60 times a second to answer three `has()` calls about the hovered and selected
+   * points. A flag indexed by point costs one byte each, is built only when visibility
+   * actually changes, and answers the same question without hashing.
+   */
+  const visibility = $derived.by(() => {
     const n = coords.ids.length;
     const idx: number[] = [];
+    const flag = new Uint8Array(n);
     const kept = keep ? new Set(keep) : null;
     for (let i = 0; i < n; i++) {
       if (!Number.isFinite(proj.x[i]) || !Number.isFinite(proj.y[i])) continue;
       if (yearCut != null && !(facts.year[i] > 0 && facts.year[i] <= yearCut)) continue;
       if (kept && !kept.has(coords.ids[i])) continue;
       idx.push(i);
+      flag[i] = 1;
     }
-    return idx;
+    return { idx, flag };
   });
+  const visible = $derived(visibility.idx);
 
   const baseColouring: Colouring | null = $derived(
     surface.theme ? buildColouring(view.colour, facts, surface.theme, CURRENT_YEAR) : null
@@ -227,7 +240,8 @@
     },
     overlay: (ctx, api) => {
       const { theme, hovered, screen, pointScale } = api;
-      const shown = new Set(visible);
+      // Flag lookup, not a per-frame Set — see `visibility`.
+      const shown = visibility.flag;
       // The drawn dot is the unzoomed radius times regl's point scale; markers have to track
       // it or they drift as you zoom — most visibly on large dots, which sit closest to their
       // ring to begin with.
@@ -239,7 +253,7 @@
       // for selections only while the set is readable.
       const want: LabelInput[] = [];
       for (const i of anchorIdx) {
-        if (!shown.has(i)) continue;
+        if (!shown[i]) continue;
         const p = screen(i);
         if (!p) continue;
         dot(ctx, p[0], p[1], r(i) + 1.5, theme.accent, theme.background);
@@ -253,14 +267,14 @@
        */
       const labelSelected = !keep && selectedIdx.length <= MAX_SELECTED_LABELS;
       for (const i of keep ? [] : selectedIdx) {
-        if (!shown.has(i)) continue;
+        if (!shown[i]) continue;
         const p = screen(i);
         if (!p) continue;
         ring(ctx, p[0], p[1], r(i) + 3, theme.accent, theme.background, 2);
         if (labelSelected && !anchorIdx.includes(i)) want.push({ x: p[0], y: p[1], text: facts.name(coords.ids[i]), gap: r(i) + 5 });
       }
       labels(ctx, want, api.width, api.height, theme.foreground, theme.background);
-      if (hovered >= 0 && shown.has(hovered)) {
+      if (hovered >= 0 && shown[hovered]) {
         const p = screen(hovered);
         if (p) ring(ctx, p[0], p[1], r(hovered) + 3, theme.accent, theme.background, 2);
       }
