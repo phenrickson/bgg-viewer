@@ -477,9 +477,10 @@
         <!-- On the canvas, not above it: these act on what you are looking at, so they sit
              where you are looking. Top-left is the corner the plot leaves emptiest, and the
              selection panel docks top-right. -->
-        <!-- Bottom-right, out of the way: an export is something you do once, at the end,
-             not something you reach for while reading the map. -->
-        <button type="button" class="hud export-toggle" class:on={exportOpen} onclick={() => (exportOpen = !exportOpen)}>Export</button>
+        <!-- No export trigger on the canvas for now: where it belongs is unsettled, and a
+             button parked in a corner to be decided later is exactly the clutter this pass
+             is removing. The panel and `exportPng` are untouched below, so restoring it is
+             one button. -->
 
         <!-- Top-left: what you are looking at, and how to find one thing in it. -->
         <div class="stack left">
@@ -749,13 +750,6 @@
     padding: 0.3rem 0.6rem;
   }
 
-  /* Done once, at the end — not something you reach for while reading the map. */
-  .export-toggle {
-    bottom: var(--space-sm); right: var(--space-sm);
-    font: inherit; font-size: 0.8rem; color: var(--muted-foreground); cursor: pointer;
-    padding: 0.25rem 0.6rem;
-  }
-  .export-toggle.on { color: var(--foreground); border-color: var(--primary); }
   .mode { width: 9rem; }
 
 
