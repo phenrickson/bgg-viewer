@@ -458,43 +458,41 @@
 <Container size="wide" fill>
   <div class="workspace" class:narrow>
     {#if !narrow}
-      <!-- The sidebar collapsed to two buttons, with whichever panel they open sliding in
-           beside them. The panel is part of the COLUMN, not an overlay on the plot: floating
-           it kept the map a constant width but read as something landing on top of the map
-           rather than as the sidebar opening, which is what it is. -->
-      <div class="side">
-      <aside class="strip">
-        <button
-          type="button"
-          class="tab"
-          class:on={panel === 'filters'}
-          aria-expanded={panel === 'filters'}
-          onclick={() => togglePanel('filters')}
-        >
-          <!-- PLACEHOLDER COPY (Phil): button labels. -->
-          <span>Filters</span>
-          {#if activeCount}<span class="badge">{activeCount}</span>{/if}
-        </button>
-        <button
-          type="button"
-          class="tab"
-          class:on={panel === 'controls'}
-          aria-expanded={panel === 'controls'}
-          onclick={() => togglePanel('controls')}
-        >
-          <span>Controls</span>
-        </button>
-      </aside>
-        {#if panel !== null}
-        <!-- One scrolling column docked to the map's left edge. `Rail` is the same
-             component /games uses, so the filters here and the filters there cannot
-             drift; `MapRail` carries the encodings and the timeline. -->
-        <div class="panel">
-          <header>
-            <!-- PLACEHOLDER COPY (Phil): panel headings. -->
-            <h2>{panel === 'filters' ? 'Filters' : 'Controls'}</h2>
+      <!-- ONE sidebar, not a strip plus a panel beside it.
+           Two detached pills with an empty column under them read as debris rather than as a
+           sidebar, and the panel then repeated the label you had just clicked. The tabs ARE
+           the sidebar: stacked while it is shut, a row along the top of the content once it
+           is open, so the open panel is titled by the tab that is lit. -->
+      <aside class="side" class:open={panel !== null}>
+        <div class="tabs">
+          <!-- PLACEHOLDER COPY (Phil): tab labels. -->
+          <button
+            type="button"
+            class="tab"
+            class:on={panel === 'filters'}
+            aria-expanded={panel === 'filters'}
+            onclick={() => togglePanel('filters')}
+          >
+            <span>Filters</span>
+            {#if activeCount}<span class="badge">{activeCount}</span>{/if}
+          </button>
+          <button
+            type="button"
+            class="tab"
+            class:on={panel === 'controls'}
+            aria-expanded={panel === 'controls'}
+            onclick={() => togglePanel('controls')}
+          >
+            <span>Controls</span>
+          </button>
+          {#if panel !== null}
             <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
-          </header>
+          {/if}
+        </div>
+
+        {#if panel !== null}
+          <!-- `Rail` is the same component /games uses, so the filters here and the filters
+               there cannot drift; `MapRail` carries the encodings and the timeline. -->
           <div class="panel-body">
             {#if panel === 'filters'}
               {#if where != null}
@@ -504,9 +502,8 @@
               <MapRail bind:view {components} timeline={timelineControls} />
             {/if}
           </div>
-        </div>
-      {/if}
-      </div>
+        {/if}
+      </aside>
     {/if}
 
     <div class="canvas">
@@ -759,10 +756,37 @@
   }
   .workspace.narrow { grid-template-columns: 1fr; }
 
-  .strip { display: flex; flex-direction: column; gap: 0.4rem; min-height: 0; }
+  /*
+   * One sidebar with two states.
+   *
+   * Shut, it is just its tabs, stacked — a few rem of width, which is the collapsed state
+   * rather than a separate thing to collapse into. Open, the tabs become a row along the top
+   * of the content, so the lit tab titles the panel and nothing repeats itself.
+   *
+   * Not animated: a width transition resizes the canvas on every frame it runs, and each
+   * resize is a full repaint of 36k points.
+   */
+  .side {
+    display: flex; flex-direction: column; gap: var(--space-sm);
+    min-height: 0; width: max-content;
+  }
+  .side.open {
+    width: 17rem;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--card);
+    gap: 0;
+  }
+
+  .tabs { display: flex; flex-direction: column; gap: 0.4rem; }
+  .side.open .tabs {
+    flex-direction: row; align-items: center; gap: 0.35rem;
+    padding: 0.4rem; border-bottom: 1px solid var(--border);
+  }
+  .side.open .tab { flex: 1 1 auto; justify-content: center; }
+
   .tab {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-    width: 100%; padding: 0.45rem 0.7rem;
+    padding: 0.45rem 0.7rem;
     border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--card); color: var(--muted-foreground);
     font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer;
@@ -770,6 +794,7 @@
   .tab:hover { color: var(--foreground); }
   .tab.on { color: var(--foreground); border-color: var(--primary); background: var(--muted); }
   .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
   .badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 1rem; height: 1rem; padding: 0 0.25rem; border-radius: 999px;
@@ -777,44 +802,12 @@
     font-size: 0.65rem; font-weight: 700;
   }
 
-  /* Strip and panel share one grid cell, so the cell's `auto` width grows when the panel
-     opens and the canvas gives up the space. */
-  .side { display: flex; gap: var(--space-sm); min-height: 0; }
-
-  /*
-   * The panel is part of the sidebar, not an overlay on the plot.
-   *
-   * It floated over the canvas first, which kept the map a constant width — worth having,
-   * because a canvas resize is what put the selection rings off their points originally
-   * (regl's ResizeObserver races ours). But it read as something landing ON the map rather
-   * than as the sidebar opening. The resize is survivable and the confusion was not: that
-   * bug was a panel mounting *underneath* the map mid-interaction, where nobody asked for a
-   * size change. This one is a deliberate toggle, and the overlay redraws on regl's own
-   * `draw` event after it settles.
-   *
-   * Not animated, deliberately. A width transition resizes the canvas every frame it runs,
-   * and each resize is a full repaint of 36k points.
-   */
-  .panel {
-    width: 17rem;
-    display: flex; flex-direction: column; min-height: 0;
-    border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--card);
-  }
-  .panel header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.5rem var(--space-md);
-    border-bottom: 1px solid var(--border);
-  }
-  .panel h2 {
-    margin: 0; font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground);
-  }
-  .panel .close {
-    border: 0; background: none; padding: 0 0.25rem; cursor: pointer;
+  .side .close {
+    border: 0; background: none; padding: 0 0.3rem; cursor: pointer;
     color: var(--muted-foreground); font-size: 1rem; line-height: 1;
   }
-  .panel .close:hover { color: var(--foreground); }
+  .side .close:hover { color: var(--foreground); }
+
   .panel-body { overflow-y: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); }
 
   .canvas {
