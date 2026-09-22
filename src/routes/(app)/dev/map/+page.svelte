@@ -136,16 +136,18 @@
   let mask = $state<ScopeMask | null>(null);
   let maskToken = 0;
   /**
-   * The scope's compiled WHERE, always available — the rail's facet counts are scoped to the
-   * set you've built and want it from the first render.
+   * The scope's compiled WHERE, or `null` while there is nothing to run it against.
+   *
+   * The null is the readiness signal, and everything that queries is gated on it — including
+   * the rail, which must not be rendered until it is a string. `Rail`'s facet lists fetch
+   * their counts in an effect keyed on `where`/`column`/`term` and nothing else, so a list
+   * mounted before the catalog exists fires one query, fails, and never retries: an empty
+   * rail until some unrelated filter change happens to re-trigger it. `/games` avoids this
+   * by not drawing its rail until the catalog is ready, and so does this page.
    */
-  const scopeWhere = $derived(appendCollectionFilter(toWhere(scope)));
-  /**
-   * The same string, gated on there being something to run it against. `null` here means
-   * "don't query yet", which is a statement about readiness, not about the scope — keeping
-   * the two apart is why the rail can render before the artifact lands.
-   */
-  const where = $derived(coords && catalog.status === 'ready' ? scopeWhere : null);
+  const where = $derived(
+    coords && catalog.status === 'ready' ? appendCollectionFilter(toWhere(scope)) : null
+  );
   /**
    * Is the scope narrowing anything *beyond the default*? Only used to decide whether to
    * show chips and frame the camera — never to skip the query.
@@ -441,8 +443,10 @@
              inherit one from Explore and remove chips from it — which is what made going
              back to /games to change a filter the only way to change a filter. Same
              component, same `Scope`, so there is nothing to keep in step. -->
-        <Rail bind:scope where={scopeWhere} bggUsername={data.user?.bgg_username ?? null} />
-        <MapRail seam bind:view {components} timeline={timelineControls} />
+        {#if where != null}
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+        {/if}
+        <MapRail seam={where != null} bind:view {components} timeline={timelineControls} />
       </aside>
     {/if}
 
@@ -665,8 +669,10 @@
       <Sheet.Title>Filters &amp; display</Sheet.Title>
     </Sheet.Header>
     <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-        <Rail bind:scope where={scopeWhere} bggUsername={data.user?.bgg_username ?? null} />
-        <MapRail seam bind:view {components} timeline={timelineControls} />
+        {#if where != null}
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+        {/if}
+        <MapRail seam={where != null} bind:view {components} timeline={timelineControls} />
     </div>
     <Sheet.Footer class="border-t border-border">
       <Button size="lg" class="w-full" onclick={() => (railOpen = false)}>
