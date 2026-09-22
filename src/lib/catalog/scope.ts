@@ -147,6 +147,37 @@ export interface Scope {
 	 * have already cleared it), and ignored by `toWhere` outside it.
 	 */
 	hurdleMin: number | null;
+
+	/**
+	 * Games caught by a lasso on the map — the one filter that has no semantic form.
+	 *
+	 * Every other field here says something about a game ("Wargame", "best at 2", "published
+	 * 2015-2024") and a reader can reason about it after the fact. A lasso says "these
+	 * ones", pointed at rather than described, and that is exactly what makes it worth
+	 * having: the interesting regions of the embedding space have no names, so the gesture
+	 * is the only way to ask for one.
+	 *
+	 * It lives in `Scope` rather than beside it so there is ONE filter language. A lasso
+	 * narrows the set the way the rail does, shows up as a removable chip like everything
+	 * else, and the list and the plot cannot disagree about what is in view.
+	 *
+	 * `null` = no lasso (not the same as an empty array, which is a lasso that caught
+	 * nothing and correctly shows you nothing). Capped at `MAX_LASSO` in the URL.
+	 */
+	lasso: number[] | null;
+}
+
+/**
+ * How many lassoed ids the URL will carry. A lasso can catch thousands of games; past a few
+ * hundred the querystring stops being a link anyone can paste. Beyond the cap the filter
+ * still works in the session — only its shareability is truncated, and `lassoTruncated`
+ * says so rather than letting a shared link quietly mean something narrower.
+ */
+export const MAX_LASSO = 400;
+
+/** Whether sharing this scope's URL would silently narrow its lasso. */
+export function lassoTruncated(scope: Scope): boolean {
+	return scope.lasso != null && scope.lasso.length > MAX_LASSO;
 }
 
 /**
@@ -210,7 +241,8 @@ export const DEFAULT_SCOPE: Scope = {
 	families: [],
 	universe: 'rated',
 	rankedOnly: false,
-	hurdleMin: null
+	hurdleMin: null,
+	lasso: null
 };
 
 const esc = (s: string) => s.replace(/'/g, "''");
@@ -372,6 +404,14 @@ export function toWhere(scope: Scope): string {
 	entity('families', scope.families);
 	const q = scope.q.trim().toLowerCase();
 	if (q.length >= 2) parts.push(`lower(name) LIKE '%${esc(q)}%'`);
+	// The lasso: an explicit id set, ANDed like any other constraint. Ids are coerced to
+	// finite integers rather than escaped — they come from the map's own coordinate artifact,
+	// but a hand-edited URL reaches this too, and a list is only safe if every member is.
+	if (scope.lasso != null) {
+		const ids = scope.lasso.filter((n) => Number.isInteger(n) && n > 0);
+		// A lasso that caught nothing is a real answer — show nothing, don't silently drop it.
+		parts.push(ids.length ? `game_id IN (${ids.join(',')})` : 'FALSE');
+	}
 	return parts.length ? parts.join(' AND ') : 'TRUE';
 }
 
@@ -534,6 +574,15 @@ export function activeFilters(scope: Scope): FilterChip[] {
 				patch: { [key]: scope[key].filter((x) => x !== v) } as Partial<Scope>
 			});
 	};
+	// One chip for the whole lasso: its members are not individually meaningful, so offering
+	// 400 removable chips would be noise. Removing it releases the whole gesture.
+	if (scope.lasso != null)
+		chips.push({
+			id: 'lasso',
+			kind: 'on the map',
+			label: `${scope.lasso.length.toLocaleString()} selected`,
+			patch: { lasso: null }
+		});
 	values('categories', 'category');
 	values('mechanics', 'mechanic');
 	values('designers', 'designer');
@@ -575,6 +624,9 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	// against the universe's default rather than testing truthiness.
 	if (scope.hurdleMin !== defaultHurdleFor(scope.universe))
 		p.set('h', String(scope.hurdleMin ?? 0));
+	// An empty lasso still serializes — `lasso=` round-trips to `[]` (caught nothing), which
+	// is a different state from no lasso at all.
+	if (scope.lasso != null) p.set('lasso', scope.lasso.slice(0, MAX_LASSO).join(','));
 	return p;
 }
 
@@ -636,6 +688,24 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		}
 		return [...seen].sort();
 	};
+	/**
+	 * Lassoed ids. A missing param is "no lasso" (null); a present-but-empty one is a lasso
+	 * that caught nothing (`[]`), which filters to nothing — two different states that must
+	 * round-trip separately. Junk members are dropped and the list is capped, so a
+	 * hand-written URL can't push a 50,000-id `IN` list into DuckDB.
+	 */
+	const lassoParam = params.get('lasso');
+	const lasso =
+		lassoParam == null
+			? null
+			: [
+					...new Set(
+						lassoParam
+							.split(',')
+							.map((v) => Number(v.trim()))
+							.filter((n) => Number.isInteger(n) && n > 0)
+					)
+				].slice(0, MAX_LASSO);
 	const u = params.get('u');
 	const h = params.get('h');
 	return {
@@ -665,6 +735,7 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		// shared URLs, bookmarks, the app's own history — so it keeps working, translated into
 		// the flag it always was: the rated catalog with the ranked filter on.
 		rankedOnly: params.get('ranked') === '1' || u === 'top10k',
-		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'rated') : finite(h)
+		hurdleMin: h == null ? defaultHurdleFor(u === 'upcoming' ? 'upcoming' : 'rated') : finite(h),
+		lasso
 	};
 }

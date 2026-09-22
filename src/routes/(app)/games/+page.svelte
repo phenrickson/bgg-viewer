@@ -36,6 +36,7 @@
   import GameList from '$lib/catalog/views/GameList.svelte';
   import AnalysisPanel from '$lib/catalog/AnalysisPanel.svelte';
   import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
+  import { mapHref } from '$lib/map/route';
   import { Container } from '$lib/components/ui/layout';
   import * as Sheet from '$lib/components/ui/sheet';
   import { Button } from '$lib/components/ui/button';
@@ -56,7 +57,15 @@
   let scope = $state<Scope>(
     browser ? scopeFromParams(new URLSearchParams(location.search)) : { ...DEFAULT_SCOPE }
   );
-  let ready = $state(false);
+  /**
+   * Derived, not a local `$state` set in `onMount`. As component state it reset to `false` on
+   * every mount, so arriving from the landing page — which has already warmed the catalog —
+   * flashed "Loading the catalog into your browser" at someone whose catalog was sitting in
+   * memory, because awaiting the memoised `initCatalog()` still costs a tick. Reading the
+   * shared status means the page is ready exactly when the catalog is, and it recovers if
+   * the catalog errors and is retried.
+   */
+  const ready = $derived(catalog.status === 'ready');
   /**
    * Belt-and-suspenders for the mirror effect: never write the URL until the scope has been
    * read from it at least once. True from the start on the client (seeded above); only
@@ -119,9 +128,9 @@
     if (!narrow) filtersOpen = false;
   });
 
-  onMount(async () => {
-    await initCatalog();
-    ready = catalog.status === 'ready';
+  // Still needed for a direct load of /games; `ready` follows `catalog.status` on its own.
+  onMount(() => {
+    initCatalog();
   });
 
   /**
@@ -323,6 +332,18 @@
             <button type="button" class:on={view === 'visualize'} onclick={() => (view = 'visualize')}
               >Visualize</button
             >
+            <!--
+              A LINK, not a third tab. List and Visualize are two readings of this set inside
+              this page; the map is a different surface — full-bleed canvas, its own encodings
+              rail — and dressing it as a tab would promise it swaps into the slot below.
+
+              It carries the scope, so the map opens on the set you built here, lit against
+              every game the embedding places. That is the whole integration: same `Scope`,
+              same querystring, two views of it.
+            -->
+            <a class="tomap" href={mapHref(scope)} data-sveltekit-preload-data="off">
+              Map<span class="arr" aria-hidden="true">→</span>
+            </a>
           </span>
         </div>
 
@@ -468,9 +489,37 @@
     background: color-mix(in oklch, var(--primary) 10%, transparent);
     font-weight: 650;
   }
-  .viewtoggle button:focus-visible {
+  .viewtoggle button:focus-visible,
+  .tomap:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
+  }
+  /* Related to the toggle it sits beside, but deliberately not one of it: no border box, so
+     it reads as "go somewhere" rather than "a third state of this control". */
+  .tomap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem 0.4rem 0.75rem;
+    border-radius: 6px;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-weight: 550;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .tomap:hover {
+    color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 8%, transparent);
+  }
+  .tomap .arr {
+    transition: transform 0.12s ease;
+  }
+  .tomap:hover .arr {
+    transform: translateX(2px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tomap .arr { transition: none; }
   }
   /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
      gave tall boxes with tiny text floating in them — a desktop control in a bigger box.

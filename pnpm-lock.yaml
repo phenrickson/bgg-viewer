@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@d3fc/d3fc-label-layout':
+        specifier: ^7.0.4
+        version: 7.0.4(d3-array@3.2.4)(d3-scale@4.0.2)(d3-selection@3.0.0)
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
@@ -20,6 +23,9 @@ importers:
       '@lucide/svelte':
         specifier: ^1.43.0
         version: 1.43.0(svelte@5.56.7)
+      '@sigma/edge-curve':
+        specifier: ^3.1.0
+        version: 3.1.0(sigma@3.0.3(graphology-types@0.24.8))
       '@types/bcryptjs':
         specifier: ^3.0.0
         version: 3.0.0
@@ -38,6 +44,12 @@ importers:
       d3-array:
         specifier: ^3.2.4
         version: 3.2.4
+      d3-force:
+        specifier: ^3.0.0
+        version: 3.0.0
+      d3-quadtree:
+        specifier: ^3.0.1
+        version: 3.0.1
       d3-scale:
         specifier: ^4.0.2
         version: 4.0.2
@@ -50,12 +62,24 @@ importers:
       google-auth-library:
         specifier: ^10.9.0
         version: 10.9.0(supports-color@7.2.0)
+      graphology:
+        specifier: ^0.26.0
+        version: 0.26.0(graphology-types@0.24.8)
       layerchart:
         specifier: ^2.0.2
         version: 2.0.2(@sveltejs/kit@2.70.1(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(zod@4.4.3)
       mode-watcher:
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.56.7)
+      regl-scatterplot:
+        specifier: ^1.16.0
+        version: 1.16.0(pub-sub-es@3.0.0)(regl@2.1.1)
+      scrollama:
+        specifier: ^3.2.0
+        version: 3.2.0
+      sigma:
+        specifier: ^3.0.3
+        version: 3.0.3(graphology-types@0.24.8)
       sveltekit-superforms:
         specifier: ^2.30.2
         version: 2.30.2(@sveltejs/kit@2.70.1(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7)(typescript@6.0.3)
@@ -96,6 +120,12 @@ importers:
       '@types/d3-array':
         specifier: ^3.2.2
         version: 3.2.2
+      '@types/d3-force':
+        specifier: ^3.0.10
+        version: 3.0.10
+      '@types/d3-quadtree':
+        specifier: ^3.0.6
+        version: 3.0.6
       '@types/d3-scale':
         specifier: ^4.0.9
         version: 4.0.9
@@ -105,6 +135,9 @@ importers:
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
+      graphology-types:
+        specifier: ^0.24.8
+        version: 0.24.8
       svelte:
         specifier: ^5.56.1
         version: 5.56.7
@@ -136,6 +169,21 @@ packages:
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
+  '@d3fc/d3fc-data-join@6.0.3':
+    resolution: {integrity: sha512-fd1D2Cl4YGjzl3gBhcrvTl/VxaSncY0ZcokWsN8ahtmk9DZK4DnAgHGrdecnXVLkOx+ANDcqxqscYz6MWXLbcA==}
+    peerDependencies:
+      d3-selection: '*'
+
+  '@d3fc/d3fc-label-layout@7.0.4':
+    resolution: {integrity: sha512-4CCyOx6uQA/Eq1VHnNy9dpI5QE2sDd1EP4W0Nw2rwnhFtlQqv37V38b9y5zT4YcdFrEgJqSB81fXIt3ZK1yxSg==}
+    peerDependencies:
+      d3-array: '*'
+      d3-scale: '*'
+      d3-selection: '*'
+
+  '@d3fc/d3fc-rebind@6.0.1':
+    resolution: {integrity: sha512-+ryBZ53ALMffbADwnFAtTYQJcT7PE5BwpducGYS0X6Jux6ESnp+fP+cDQvBGbDBOVqaziGnfeLeJXjtMnZujmQ==}
+
   '@dagrejs/dagre@2.0.4':
     resolution: {integrity: sha512-J6vCWTNpicHF4zFlZG1cS5DkGzMr9941gddYkakjrg3ZNev4bbqEgLHFTWiFrcJm7UCRu7olO3K6IRDd9gSGhA==}
 
@@ -156,6 +204,9 @@ packages:
 
   '@exodus/schemasafe@1.3.0':
     resolution: {integrity: sha512-5Aap/GaRupgNx/feGBwLLTVv8OQFfv3pq2lPRzPg9R+IOBnDgghTGW7l7EuVXOvg5cc/xSAlRW8rBrjIC3Nvqw==}
+
+  '@flekschas/utils@0.33.0':
+    resolution: {integrity: sha512-THnZZqtQ5me5kgF9xzI0oYJ8D+524kKXKCUJErAmlT8pfw2iTwiyPDS8f3SqrY9Y7M8zNY2dGME+JBUpKypEqg==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -560,6 +611,11 @@ packages:
   '@sideway/pinpoint@2.0.0':
     resolution: {integrity: sha512-RNiOoTPkptFtSVzQevY/yWtZwf/RxyVnPy/OcA9HBM3MlGDnBEYL5B41H0MTn0Uec8Hi+2qUtTfG2WWZBmMejQ==}
 
+  '@sigma/edge-curve@3.1.0':
+    resolution: {integrity: sha512-OFWkfAXEsm+X8l1K4K49cC0psB0gQ+gqxKA08HG5piNPdzrDZ5gG9Gza6htZ5AirOVwd/4/uq/gPpD5En+H+3Q==}
+    peerDependencies:
+      sigma: '>=3.0.0-beta.10'
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -727,8 +783,14 @@ packages:
   '@types/d3-contour@3.0.6':
     resolution: {integrity: sha512-BjzLgXGnCWjUSYGfH1cpdo41/hgdWETu4YxpezoztawmqsvCeep+8QGfiY6YbDvfgHz/DkjeIkkZVJavB4a3rg==}
 
+  '@types/d3-force@3.0.10':
+    resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
+
   '@types/d3-path@3.1.1':
     resolution: {integrity: sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg==}
+
+  '@types/d3-quadtree@3.0.6':
+    resolution: {integrity: sha512-oUzyO1/Zm6rsxKRHA1vH0NEDG58HrT5icx/azi9MF1TWdtttWl0UIUsjEQBBh+SIkrpd21ZjEv7ptxWys1ncsg==}
 
   '@types/d3-scale@4.0.9':
     resolution: {integrity: sha512-dLmtwB8zkAeO/juAMfnV+sItKjlsw2lKdZVVy6LRr0cBmegxSABiLEpGVmSJJ8O08i4+sGR6qQtb6WtuwJdvVw==}
@@ -924,6 +986,11 @@ packages:
     resolution: {integrity: sha512-8WB3Jcas3swSvjIeA2yvCJ+Miyz5l1ZmB6HFb9R1317dt9LCQoswg/BGrmAmkWVEszSrrg4RwmO46qIm2OEnSA==}
     engines: {node: '>=16'}
 
+  camera-2d-simple@3.0.0:
+    resolution: {integrity: sha512-hBeuUeerQ2Repi/61PGyFkuJ9jt6IKAny7pjQo2w8/8uZh+RKvNLZQy4xbQeDH8FrlnFxAJDjyM4/yuLdOV5vQ==}
+    peerDependencies:
+      gl-matrix: ~3.3.0
+
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
@@ -1066,6 +1133,10 @@ packages:
     resolution: {integrity: sha512-GZW464g1SH7ag3Y7hXjf8RoUuAFIqklOAq3MRl4OaWabTFJY9PN/E1YklhXLh+OQ3fM9yS2nOkCoS+WLZ6kvxQ==}
     engines: {node: '>=12'}
 
+  d3-selection@3.0.0:
+    resolution: {integrity: sha512-fmTRWbNMmsmWq6xJV8D19U/gw/bwrHfNXxrIN+HfZgnzqTHp9jOmKMhsTUjXOJnZOdZY9Q28y4yebKzqDKlxlQ==}
+    engines: {node: '>=12'}
+
   d3-shape@1.3.7:
     resolution: {integrity: sha512-EUkvKjqPFUAZyOlhY5gzCxCeI0Aep04LwIRpsZ/mLFelJiUfnK56jo5JMDSE7yyP2kLSb6LtF+S5chMk7uqPqw==}
 
@@ -1129,12 +1200,20 @@ packages:
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
 
+  dom-2d-camera@2.2.6:
+    resolution: {integrity: sha512-HWfV26qjCfpOHa6X0PI1ZyZDhowk6skEs5f7aOwgewuJSP6IgPcK694ImYIOMGnDYK4vC4/Etsi26WpbJtS2vQ==}
+    peerDependencies:
+      gl-matrix: ^3.3.0
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
   duplexify@4.1.3:
     resolution: {integrity: sha512-M3BmBhwJRZsSx38lZyhE53Csddgzl5R7xGJNk7CVddZD6CcmwMCH8J+7AprIrQKH7TonKxaCjcv27Qmf+sQ+oA==}
+
+  earcut@3.2.3:
+    resolution: {integrity: sha512-vnS4AVwp1KHAF13i1vp1/2D5evWy3k5u/iW/B81QVsUZtV8cv2tU0b2VNFlqvh4kYwrFMDdjPCfAmfyJW9y14Q==}
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -1184,6 +1263,10 @@ packages:
   event-target-shim@5.0.1:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
+
+  events@3.3.0:
+    resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
+    engines: {node: '>=0.8.x'}
 
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
@@ -1269,6 +1352,9 @@ packages:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
 
+  gl-matrix@3.4.4:
+    resolution: {integrity: sha512-latSnyDNt/8zYUB6VIJ6PCh2jBjJX6gnDsoCZ7LyW7GkqrD51EWwa9qCoGixj8YqBtETQK/xY7OmpTF8xz1DdQ==}
+
   google-auth-library@10.9.0:
     resolution: {integrity: sha512-xtvUqvINPhTaBm7nXqlYPcrMHJPm1lCNdSovxnKKhTm+4JsvQ+KGVYJViLoH9Yxu8w+T0Qv5HubzYT9BLrppJg==}
     engines: {node: '>=18'}
@@ -1291,6 +1377,19 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  graphology-types@0.24.8:
+    resolution: {integrity: sha512-hDRKYXa8TsoZHjgEaysSRyPdT6uB78Ci8WnjgbStlQysz7xR52PInxNsmnB7IBOM1BhikxkNyCVEFgmPKnpx3Q==}
+
+  graphology-utils@2.5.2:
+    resolution: {integrity: sha512-ckHg8MXrXJkOARk56ZaSCM1g1Wihe2d6iTmz1enGOz4W/l831MBCKSayeFQfowgF8wd+PQ4rlch/56Vs/VZLDQ==}
+    peerDependencies:
+      graphology-types: '>=0.23.0'
+
+  graphology@0.26.0:
+    resolution: {integrity: sha512-8SSImzgUUYC89Z042s+0r/vMibY7GX/Emz4LDO5e7jYXhuoWfHISPFJYjpRLUSJGq6UQ6xlenvX1p/hJdfXuXg==}
+    peerDependencies:
+      graphology-types: '>=0.24.0'
 
   gtoken@7.1.0:
     resolution: {integrity: sha512-pCcEwRi+TKpMlxAQObHDQ56KawURgyAf6jtIY046fJ5tIv3zDe/LEIubckAO8fj6JnAxLdmWkUfNyulQ2iKdEw==}
@@ -1662,6 +1761,9 @@ packages:
   property-expr@2.0.6:
     resolution: {integrity: sha512-SVtmxhRE/CGkn3eZY1T6pC8Nln6Fr/lu1mKSgRud0eC73whjGfoAogbn78LkD8aFL0zz3bAFerKSnOl7NlErBA==}
 
+  pub-sub-es@3.0.0:
+    resolution: {integrity: sha512-pf+6yCPsOfvDMru2LnsqdKSN8XQyF5HZzmEoKBvjMk4TILMUQiq1vxI6rC92T9ErY06sLXBmC1p7JGNFVB1pUQ==}
+
   pure-rand@6.1.0:
     resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
@@ -1676,6 +1778,21 @@ packages:
   readdirp@4.1.2:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
     engines: {node: '>= 14.18.0'}
+
+  regl-line@1.1.1:
+    resolution: {integrity: sha512-IKcyiZq+nQg7x3mEmxf9kImM9CzmEyZDhCCfas2xVpsoiDJFEyILsuocD1G4dSXA/nC39za9OBw4FzYEgWNiUg==}
+    peerDependencies:
+      regl: ^2.1.0
+
+  regl-scatterplot@1.16.0:
+    resolution: {integrity: sha512-LSNRzihkLgaSEALZv95+w02nX1c6slJJahqHqMNY0YOkE3L6Bk1e38GJaGatW2w8PlB1tOdvq3Cj0tPPrBhpsA==}
+    engines: {node: '>=20.0.0', npm: '>=7.0.0'}
+    peerDependencies:
+      pub-sub-es: ~3.0.0
+      regl: ~2.1.1
+
+  regl@2.1.1:
+    resolution: {integrity: sha512-+IOGrxl3FZ8ZM9ixCWQZzFRiRn7Rzn9bu3iFHwg/yz4tlOUQgbO4PHLgG+1ZT60zcIV8tief6Qrmyl8qcoJP0g==}
 
   resolve@1.22.12:
     resolution: {integrity: sha512-TyeJ1zif53BPfHootBGwPRYT1RUt6oGWsaQr8UyZW/eAm9bKoijtvruSDEmZHm92CwS9nj7/fWttqPCgzep8CA==}
@@ -1751,6 +1868,9 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
+  scrollama@3.2.0:
+    resolution: {integrity: sha512-PIPwB1kYBnbw/ezvPBJa5dCN5qEwokfpAkI3BmpZWAwcVID4nDf1qH6WV16A2fQaJmsKx0un5S/zhxN+PQeKDQ==}
+
   set-cookie-parser@3.1.2:
     resolution: {integrity: sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw==}
 
@@ -1772,6 +1892,9 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
+
+  sigma@3.0.3:
+    resolution: {integrity: sha512-5H0zFlx6/NTQpqBg4Rm569ZOpnBOXMaS25UQThIWMU3XyzI5AhmorK/gnl87BvJBLhQd0tW4C0LIp3enWzMoNw==}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -2134,6 +2257,20 @@ snapshots:
   '@babel/runtime@7.29.7':
     optional: true
 
+  '@d3fc/d3fc-data-join@6.0.3(d3-selection@3.0.0)':
+    dependencies:
+      d3-selection: 3.0.0
+
+  '@d3fc/d3fc-label-layout@7.0.4(d3-array@3.2.4)(d3-scale@4.0.2)(d3-selection@3.0.0)':
+    dependencies:
+      '@d3fc/d3fc-data-join': 6.0.3(d3-selection@3.0.0)
+      '@d3fc/d3fc-rebind': 6.0.1
+      d3-array: 3.2.4
+      d3-scale: 4.0.2
+      d3-selection: 3.0.0
+
+  '@d3fc/d3fc-rebind@6.0.1': {}
+
   '@dagrejs/dagre@2.0.4':
     dependencies:
       '@dagrejs/graphlib': 3.0.4
@@ -2163,6 +2300,8 @@ snapshots:
 
   '@exodus/schemasafe@1.3.0':
     optional: true
+
+  '@flekschas/utils@0.33.0': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:
@@ -2498,6 +2637,10 @@ snapshots:
   '@sideway/pinpoint@2.0.0':
     optional: true
 
+  '@sigma/edge-curve@3.1.0(sigma@3.0.3(graphology-types@0.24.8))':
+    dependencies:
+      sigma: 3.0.3(graphology-types@0.24.8)
+
   '@standard-schema/spec@1.1.0': {}
 
   '@sveltejs/acorn-typescript@1.0.11(acorn@8.17.0)':
@@ -2648,7 +2791,11 @@ snapshots:
       '@types/d3-array': 3.2.2
       '@types/geojson': 7946.0.16
 
+  '@types/d3-force@3.0.10': {}
+
   '@types/d3-path@3.1.1': {}
+
+  '@types/d3-quadtree@3.0.6': {}
 
   '@types/d3-scale@4.0.9':
     dependencies:
@@ -2857,6 +3004,10 @@ snapshots:
   camelcase@8.0.0:
     optional: true
 
+  camera-2d-simple@3.0.0(gl-matrix@3.4.4):
+    dependencies:
+      gl-matrix: 3.4.4
+
   chai@6.2.2: {}
 
   chalk-template@0.4.0:
@@ -2994,6 +3145,8 @@ snapshots:
       d3-time: 3.1.0
       d3-time-format: 4.1.0
 
+  d3-selection@3.0.0: {}
+
   d3-shape@1.3.7:
     dependencies:
       d3-path: 1.0.9
@@ -3045,6 +3198,11 @@ snapshots:
   dlv@1.1.3:
     optional: true
 
+  dom-2d-camera@2.2.6(gl-matrix@3.4.4):
+    dependencies:
+      camera-2d-simple: 3.0.0(gl-matrix@3.4.4)
+      gl-matrix: 3.4.4
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -3057,6 +3215,8 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
       stream-shift: 1.0.3
+
+  earcut@3.2.3: {}
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
@@ -3100,6 +3260,8 @@ snapshots:
       '@types/estree': 1.0.9
 
   event-target-shim@5.0.1: {}
+
+  events@3.3.0: {}
 
   expect-type@1.4.0: {}
 
@@ -3210,6 +3372,8 @@ snapshots:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.2
 
+  gl-matrix@3.4.4: {}
+
   google-auth-library@10.9.0(supports-color@7.2.0):
     dependencies:
       base64-js: 1.5.1
@@ -3240,6 +3404,17 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  graphology-types@0.24.8: {}
+
+  graphology-utils@2.5.2(graphology-types@0.24.8):
+    dependencies:
+      graphology-types: 0.24.8
+
+  graphology@0.26.0(graphology-types@0.24.8):
+    dependencies:
+      events: 3.3.0
+      graphology-types: 0.24.8
 
   gtoken@7.1.0(supports-color@7.2.0):
     dependencies:
@@ -3565,6 +3740,8 @@ snapshots:
   property-expr@2.0.6:
     optional: true
 
+  pub-sub-es@3.0.0: {}
+
   pure-rand@6.1.0:
     optional: true
 
@@ -3580,6 +3757,23 @@ snapshots:
       util-deprecate: 1.0.2
 
   readdirp@4.1.2: {}
+
+  regl-line@1.1.1(regl@2.1.1):
+    dependencies:
+      gl-matrix: 3.4.4
+      regl: 2.1.1
+
+  regl-scatterplot@1.16.0(pub-sub-es@3.0.0)(regl@2.1.1):
+    dependencies:
+      '@flekschas/utils': 0.33.0
+      dom-2d-camera: 2.2.6(gl-matrix@3.4.4)
+      earcut: 3.2.3
+      gl-matrix: 3.4.4
+      pub-sub-es: 3.0.0
+      regl: 2.1.1
+      regl-line: 1.1.1(regl@2.1.1)
+
+  regl@2.1.1: {}
 
   resolve@1.22.12:
     dependencies:
@@ -3697,6 +3891,8 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
+  scrollama@3.2.0: {}
+
   set-cookie-parser@3.1.2: {}
 
   side-channel-list@1.0.1:
@@ -3728,6 +3924,13 @@ snapshots:
       side-channel-weakmap: 1.0.2
 
   siginfo@2.0.0: {}
+
+  sigma@3.0.3(graphology-types@0.24.8):
+    dependencies:
+      events: 3.3.0
+      graphology-utils: 2.5.2(graphology-types@0.24.8)
+    transitivePeerDependencies:
+      - graphology-types
 
   sirv@3.0.2:
     dependencies:

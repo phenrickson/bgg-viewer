@@ -34,6 +34,8 @@
   import FacetList from './FacetList.svelte';
   import ComplexityBands from './ComplexityBands.svelte';
   import YearFilter from './YearFilter.svelte';
+  import RailGroup from './rail/RailGroup.svelte';
+  import SegGroup from './rail/SegGroup.svelte';
 
   let {
     scope = $bindable(),
@@ -111,7 +113,11 @@
     year: false,
     categories: false,
     mechanics: false,
-    families: false
+    families: false,
+    // These two were plain `<details>` with no state; RailGroup binds `open`, so they get
+    // keys like the rest. Same default (shut), now remembered while the rail lives.
+    people: false,
+    exact: false
   });
 
   /**
@@ -188,18 +194,17 @@
         with no room to spare, and Upcoming is a different kind of data rather than a filter
         anyone toggles idly. Here it is the first control in the sheet instead.
       -->
-      <span class="lbl">Universe</span>
-      <div class="seg two">
-        {#each [['top10k', 'Top 10,000'], ['rated', 'All rated'], ['upcoming', 'Upcoming']] as [key, label] (key)}
-          {@const on = universeChoice(scope) === key}
-          <button
-            class:on
-            aria-pressed={on}
-            onclick={() => (scope = withUniverseChoice(scope, key as 'top10k' | 'rated' | 'upcoming'))}
-            >{label}</button
-          >
-        {/each}
-      </div>
+      <SegGroup
+        label="Universe"
+        two
+        options={[
+          { value: 'top10k', label: 'Top 10,000' },
+          { value: 'rated', label: 'All rated' },
+          { value: 'upcoming', label: 'Upcoming' }
+        ]}
+        value={universeChoice(scope)}
+        onchange={(v) => (scope = withUniverseChoice(scope, v))}
+      />
       <p class="note">
         {universeChoice(scope) === 'top10k'
           ? 'BGG’s ranked top 10,000, by geek rating.'
@@ -251,26 +256,22 @@
     {/if}
 
     <div class="grp">
-      <span class="lbl">Player count</span>
-      <div class="seg two">
-        <button
-          class:on={pcMode === 'players'}
-          aria-pressed={pcMode === 'players'}
-          onclick={() => setPcMode('players')}>Plays with</button
-        >
-        <button
-          class:on={pcMode === 'bestAt'}
-          aria-pressed={pcMode === 'bestAt'}
-          onclick={() => setPcMode('bestAt')}>Best at</button
-        >
-      </div>
-      <div class="seg">
-        {#each [1, 2, 3, 4, 5, 6] as n (n)}
-          <button class:on={pcValue === n} aria-pressed={pcValue === n} onclick={() => setCount(n)}>
-            {n === 6 ? '6+' : n}
-          </button>
-        {/each}
-      </div>
+      <SegGroup
+        label="Player count"
+        two
+        options={[
+          { value: 'players', label: 'Plays with' },
+          { value: 'bestAt', label: 'Best at' }
+        ]}
+        value={pcMode}
+        onchange={(v) => setPcMode(v)}
+      />
+      <SegGroup
+        ariaLabel="Number of players"
+        options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: n === 6 ? '6+' : String(n) }))}
+        value={pcValue ?? 0}
+        onchange={(n) => setCount(n)}
+      />
       <p class="note">
         {pcMode === 'players'
           ? 'Supports N at the table.'
@@ -305,28 +306,15 @@
     peek={6}
   />
 
-  <details class="grp people">
-    <summary>
-      <span class="lbl">People &amp; publishers</span>
-      {#if entityCount}<span class="badge tnum">{entityCount}</span>{/if}
-      <span class="chev" aria-hidden="true">›</span>
-    </summary>
-    <div class="dbody">
-      <EntityFilter label="Designer" column="designers" bind:selected={scope.designers} />
-      <EntityFilter label="Artist" column="artists" bind:selected={scope.artists} />
-      <EntityFilter label="Publisher" column="publishers" bind:selected={scope.publishers} />
-    </div>
-  </details>
+  <RailGroup title="People & publishers" badge={entityCount} bind:open={facetOpen.people}>
+    <EntityFilter label="Designer" column="designers" bind:selected={scope.designers} />
+    <EntityFilter label="Artist" column="artists" bind:selected={scope.artists} />
+    <EntityFilter label="Publisher" column="publishers" bind:selected={scope.publishers} />
+  </RailGroup>
 
   <YearFilter bind:scope bind:open={facetOpen.year} />
 
-  <details class="grp exact">
-    <summary>
-      <span class="lbl">Exact numbers</span>
-      {#if exactCount}<span class="badge tnum">{exactCount}</span>{/if}
-      <span class="chev" aria-hidden="true">›</span>
-    </summary>
-    <div class="dbody">
+  <RailGroup title="Exact numbers" badge={exactCount} bind:open={facetOpen.exact}>
       <p class="note">
         Typed bounds — the same fields the shape strip brushes.{#if upcoming}
           In this universe they read the model’s estimates, since nobody has played these
@@ -366,8 +354,7 @@
           <input type="number" step="0.1" min="1" max="10" placeholder="max" aria-label="Geek rating max" bind:value={scope.geekMax} />
         </div>
       </div>
-    </div>
-  </details>
+  </RailGroup>
 </aside>
 
 <style>
@@ -467,9 +454,6 @@
     font: inherit;
     font-size: 0.8rem;
   }
-  .seg.two button {
-    font-size: 0.78rem;
-  }
   .seg button:hover {
     color: var(--foreground);
   }
@@ -561,57 +545,6 @@
     color: var(--color-negative);
   }
 
-  /* The two hand-rolled <details> groups match FacetList's chrome. */
-  details.grp {
-    gap: 0;
-    padding: 0;
-  }
-  details.grp summary {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0;
-    cursor: pointer;
-    list-style: none;
-  }
-  details.grp summary::-webkit-details-marker {
-    display: none;
-  }
-  details.grp summary:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-  details.grp summary:hover .lbl {
-    color: var(--foreground);
-  }
-  .badge {
-    font-size: 0.66rem;
-    font-weight: 700;
-    color: var(--primary);
-    background: color-mix(in oklch, var(--primary) 15%, transparent);
-    border-radius: 999px;
-    padding: 0.02rem 0.35rem;
-  }
-  .chev {
-    margin-left: auto;
-    color: var(--muted-foreground);
-    transition: transform 0.12s ease;
-  }
-  details.grp[open] .chev {
-    transform: rotate(90deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
-    }
-  }
-  .dbody {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding-bottom: 0.6rem;
-  }
   .num {
     display: flex;
     flex-direction: column;
@@ -644,8 +577,5 @@
   input:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
-  }
-  .tnum {
-    font-variant-numeric: tabular-nums;
   }
 </style>

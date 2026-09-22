@@ -13,9 +13,19 @@
 #   just vizzes     # regenerate landing content, print the /dev/vizzes review URL
 #   just dev-vizzes # regenerate + start the dev server, one command/one terminal
 #   just dev-similar # start the dev server, print the /dev/similar bench URL
+#   just dev-map    # start the dev server, print the /dev/map embedding-map URL
 #   just verify     # types + tests + build (run before every PR)
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+
+# Dev server port. Change here; every recipe and printed URL follows.
+#
+# 5173, Vite's default, because the artifacts bucket's CORS allow-list names it. The catalog
+# is fetched by the BROWSER from a signed GCS URL, so the dev origin has to be on that list
+# or the fetch is blocked and the catalog simply fails to load — with a healthy server, a
+# valid signature and a 200 on the endpoint, which is what makes it such a slow thing to
+# diagnose. Moving this port again means adding the new origin to the bucket first.
+port := "5173"
 
 # Show the recipe list.
 default:
@@ -44,9 +54,9 @@ doctor:
 # it opened the wrong one. Vite prints the URL — click that.
 #
 # Leading `-` ignores the exit code — Ctrl-C stopping the server is not a failure.
-# Run the dev server (http://localhost:5173).
+# Run the dev server (on the `port` variable above).
 dev:
-    -pnpm exec vite dev --port 5173
+    -pnpm exec vite dev --port {{port}}
 
 # Same server, bound to your LAN so a phone on the same wifi can reach it. Vite prints an
 # extra "Network:" URL — open that one on the phone.
@@ -56,7 +66,7 @@ dev:
 # desktop emulator reproduces it. DevTools device mode covers layout; it does not cover this.
 # Run the dev server reachable from a phone on the same network.
 dev-mobile:
-    -pnpm exec vite dev --port 5173 --host
+    -pnpm exec vite dev --port {{port}} --host
 
 # Offline: serves the catalog from .cache/catalog.arrow.gz and renders game pages from it, so
 # no request reaches BigQuery or the warehouse. Run `just dev` once with network access first
@@ -64,12 +74,12 @@ dev-mobile:
 # Run the dev server with no network, off the cached catalog.
 [unix]
 dev-offline:
-    -OFFLINE=1 pnpm exec vite dev --port 5173
+    -OFFLINE=1 pnpm exec vite dev --port {{port}}
 
 # Run the dev server with no network, off the cached catalog.
 [windows]
 dev-offline:
-    -$env:OFFLINE = '1'; pnpm exec vite dev --port 5173
+    -$env:OFFLINE = '1'; pnpm exec vite dev --port {{port}}
 
 # Ctrl-C only works from the terminal that owns the server; killing whatever holds the port
 # also reaches one orphaned from its terminal.
@@ -79,16 +89,16 @@ dev-offline:
 #
 # just describes a recipe with the LAST comment line above it, so the description goes last
 # and each platform variant repeats it — the listing shows one `stop`, not the rationale.
-# Stop the dev server (kills whatever is listening on 5173).
+# Stop the dev server (kills whatever is listening on the dev port).
 [windows]
 stop:
-    @try { Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction Stop | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force; "stopped pid $($_.OwningProcess)" } } catch { "nothing listening on 5173" }
+    @try { Get-NetTCPConnection -LocalPort {{port}} -State Listen -ErrorAction Stop | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force; "stopped pid $($_.OwningProcess)" } } catch { "nothing listening on {{port}}" }
 
 # Leading `-`: lsof exits non-zero when it finds nothing, which is not a failure here.
-# Stop the dev server (kills whatever is listening on 5173).
+# Stop the dev server (kills whatever is listening on the dev port).
 [unix]
 stop:
-    -@lsof -ti tcp:5173 -sTCP:LISTEN | xargs -r kill
+    -@lsof -ti tcp:{{port}} -sTCP:LISTEN | xargs -r kill
 
 # --- Landing content ---------------------------------------------------------
 
@@ -97,13 +107,13 @@ stop:
 # Regenerate landing content from BigQuery, then print the /dev/vizzes review URL.
 vizzes:
     pnpm landing:content
-    @echo "→ http://localhost:5173/dev/vizzes"
+    @echo "→ http://localhost:{{port}}/dev/vizzes"
 
 # `vizzes` runs first (just's recipe-dependency order), then this starts the server in the same
 # terminal — one command instead of juggling two. Foreground, same as `dev`: Ctrl-C to stop.
 # Regenerate landing content, then start the dev server.
 dev-vizzes: vizzes
-    -pnpm exec vite dev --port 5173
+    -pnpm exec vite dev --port {{port}}
 
 # --- Similarity tuning bench (dev only) -------------------------------------
 
@@ -112,7 +122,7 @@ dev-vizzes: vizzes
 # nothing to regenerate up front, so this just points you at it.
 # Print the /dev/similar tuning-bench URL.
 similar:
-    @echo "-> http://localhost:5173/dev/similar"
+    @echo "-> http://localhost:{{port}}/dev/similar"
 
 # The 24h cache is keyed on time, not content, so a change to the dataset query
 # (src/lib/server/similar-explorer/) isn't picked up until the file is gone. Portable via node.
@@ -125,7 +135,22 @@ similar-rebuild:
 # Foreground, same as `dev`: Ctrl-C to stop.
 # Start the dev server, pointed at the /dev/similar bench.
 dev-similar: similar
-    -pnpm exec vite dev --port 5173
+    -pnpm exec vite dev --port {{port}}
+
+# --- Embedding map (dev only) ------------------------------------------------
+
+# /dev/map is dev-gated and reads the coordinates artifact from BigQuery on first request
+# (~11s, then cached 24h in .cache/coordinates.arrow.gz). Nothing to regenerate up front;
+# this starts the server and points you at it. Foreground, same as `dev`: Ctrl-C to stop.
+# Print the /dev/map embedding-map URL.
+map:
+    @echo "-> http://localhost:{{port}}/dev/map"
+
+# `map` runs first (prints the URL), then the server starts in the same terminal.
+# Foreground, same as `dev`: Ctrl-C to stop.
+# Start the dev server, pointed at the /dev/map embedding map.
+dev-map: map
+    -pnpm exec vite dev --port {{port}}
 
 # Type-check (svelte-check).
 check:
@@ -157,3 +182,7 @@ verify: check test build
 # Remove generated artifacts (keeps source + node_modules). Portable via node.
 clean:
     node -e "for (const d of ['.svelte-kit','build']) require('fs').rmSync(d,{recursive:true,force:true})"
+
+# Print the /dev/map/story guided-tour URL (same server as `just dev-map`).
+map-story:
+    @echo "-> http://localhost:{{port}}/dev/map/story"
