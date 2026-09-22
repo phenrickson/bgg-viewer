@@ -97,10 +97,10 @@ export const PRESETS: Preset[] = [
 	},
 	{
 		id: 'rating-popularity',
-		name: 'Loved vs played',
+		name: 'The Geek Rating, visualized',
 		// Axes flipped: rating on x, how many rated it on y. The question is which games earn a
 		// high geek rating, so rating is the quantity being read along, not the one read up.
-		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
+		blurb: 'Average rating vs (logged user ratings), coloured by geek rating.',
 		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' }
 	}
 ];
