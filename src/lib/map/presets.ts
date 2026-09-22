@@ -73,8 +73,12 @@ export const PRESETS: Preset[] = [
 		name: 'Light to heavy',
 		// PLACEHOLDER (Phil): what PC1 and PC2 actually separate is yours to say — I can
 		// describe the encoding but not what the axes mean.
-		blurb: 'PC1 x PC2, sized by popularity, coloured by weight.',
-		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'popularity' }
+		blurb: 'PC1 x PC2, coloured by weight.',
+		// Weight is the whole point of this view, so a game without one has nothing to say
+		// here. BGG's scale starts at 1, and the catalog uses 0/NULL for "never rated for
+		// complexity" — both fall out under `weightMin: 1`, which keeps every real value.
+		scope: { weightMin: 1 },
+		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'uniform' }
 	},
 	{
 		id: 'rating-weight',
