@@ -19,8 +19,15 @@
  * share.
  */
 
-/** `strip`: one component on x, games jittered on y — a dimension read on its own. */
-export type Projection = 'pca' | 'umap' | 'strip';
+/**
+ * `strip`: one component on x, games jittered on y — a dimension read on its own.
+ * `facts`: two catalog quantities, e.g. rating against complexity. Position stops being the
+ * embedding's and becomes any column the catalog carries; see `factProjection`.
+ */
+export type Projection = 'pca' | 'umap' | 'strip' | 'facts';
+
+/** Catalog quantities a `facts` projection can put on an axis. Mirrors `FactAxis`. */
+export type FactAxis = 'weight' | 'rating' | 'geek' | 'year' | 'ratings';
 export type ColourBy = 'weight' | 'geek' | 'rating' | 'year' | 'upcoming' | 'category';
 export type SizeBy = 'popularity' | 'uniform';
 
@@ -32,6 +39,15 @@ export interface ViewState {
 	colour: ColourBy;
 	/** Dot radius: log(users_rated), or one size for every game. */
 	size: SizeBy;
+	/**
+	 * Which catalog quantities the `facts` projection plots. Ignored by the others.
+	 *
+	 * Separate fields rather than overloading `x`/`y`, which are 1-based component numbers.
+	 * `strip` already varies what `x` means, and a third meaning keyed on `projection` is how
+	 * a preset built for one projection silently means something else under another.
+	 */
+	xFact: FactAxis;
+	yFact: FactAxis;
 }
 
 export const DEFAULT_VIEW: ViewState = {
@@ -39,10 +55,13 @@ export const DEFAULT_VIEW: ViewState = {
 	x: 1,
 	y: 2,
 	colour: 'weight',
-	size: 'popularity'
+	size: 'popularity',
+	xFact: 'weight',
+	yFact: 'rating'
 };
 
-const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip'];
+const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip', 'facts'];
+const FACT_AXES: FactAxis[] = ['weight', 'rating', 'geek', 'year', 'ratings'];
 const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
 const SIZES: SizeBy[] = ['popularity', 'uniform'];
 
@@ -65,7 +84,9 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 		x,
 		y,
 		colour: oneOf(params.get('c'), COLOURS, DEFAULT_VIEW.colour),
-		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size)
+		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size),
+		xFact: oneOf(params.get('fx'), FACT_AXES, DEFAULT_VIEW.xFact),
+		yFact: oneOf(params.get('fy'), FACT_AXES, DEFAULT_VIEW.yFact)
 	};
 }
 
@@ -78,6 +99,12 @@ export function toParams(view: ViewState): URLSearchParams {
 	}
 	if (view.projection === 'pca') {
 		if (view.y !== DEFAULT_VIEW.y) p.set('y', String(view.y));
+	}
+	if (view.projection === 'facts') {
+		// Only meaningful for this projection, so they only appear for it — a PCA view's URL
+		// should not carry axes it is not using.
+		if (view.xFact !== DEFAULT_VIEW.xFact) p.set('fx', view.xFact);
+		if (view.yFact !== DEFAULT_VIEW.yFact) p.set('fy', view.yFact);
 	}
 	if (view.colour !== DEFAULT_VIEW.colour) p.set('c', view.colour);
 	if (view.size !== DEFAULT_VIEW.size) p.set('s', view.size);

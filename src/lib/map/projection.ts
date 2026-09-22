@@ -99,9 +99,17 @@ export function stripProjection(coords: CoordinateSet, x: number): Projection {
  * The producer for a `ViewState`. The one place that maps the view's `projection` choice to
  * a producer, so a page never needs to know which arguments each one takes.
  */
-export function projectionFor(coords: CoordinateSet, view: ViewState): Projection {
+export function projectionFor(
+	coords: CoordinateSet,
+	view: ViewState,
+	/** Required only by the `facts` projection, which plots catalog columns rather than the
+	    embedding. Absent, a `facts` view falls back to PCA rather than failing — a caller
+	    without facts has nothing to plot, and an empty map says less than the default one. */
+	facts?: GameFacts
+): Projection {
 	if (view.projection === 'umap') return umapProjection(coords);
 	if (view.projection === 'strip') return stripProjection(coords, view.x);
+	if (view.projection === 'facts' && facts) return factProjection(facts, view.xFact, view.yFact);
 	return pcaProjection(coords, view.x, view.y);
 }
 

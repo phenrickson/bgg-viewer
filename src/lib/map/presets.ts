@@ -35,52 +35,55 @@ export interface Preset {
 }
 
 /**
- * PLACEHOLDER COPY (Phil): every `name` and `blurb` below is a stand-in, and the SET is a
- * stand-in too — these exist to prove the mechanism and to be replaced by the views you
- * actually want people to land on.
+ * The seven views, from Phil's list. `name` and `blurb` are SHORTHAND FOR REVIEW — the
+ * mechanism is settled, the wording is not.
  *
- * What a preset CAN say today: any filter `Scope` expresses, plus every encoding — a PCA
- * component pair, UMAP, or a single component as a strip, with colour and size.
- *
- * What it cannot: an axis taken from a catalog fact rather than from the embedding. `weight
- * x rating`, `year x geek`. `factProjection` already produces those and `MapLayer` already
- * accepts a `projection` prop that overrides, so the renderer needs nothing; what is missing
- * is a way to SAY you want one, since `ViewState` is pinned to five keys by a test. Once
- * that lands, those are the presets most worth having.
+ * Five plot the embedding (UMAP or a PCA pair) and differ only in what colour and size say.
+ * The last two plot catalog quantities instead, which is what the `facts` projection is
+ * for: position stops being the embedding's and becomes any column the catalog carries.
  */
 export const PRESETS: Preset[] = [
 	{
-		id: 'landscape',
-		name: 'The whole landscape',
-		blurb: 'Every rated game, coloured by weight.',
-		view: { projection: 'pca', x: 1, y: 2, colour: 'weight' }
-	},
-	{
-		id: 'neighbourhoods',
+		id: 'umap-category',
 		name: 'Neighbourhoods',
-		blurb: 'UMAP, coloured by category — the clusters the embedding found.',
+		blurb: 'UMAP, coloured by category.',
 		view: { projection: 'umap', colour: 'category' }
 	},
 	{
-		id: 'wargames',
-		name: 'Wargames',
-		blurb: 'Where wargames sit in the whole of board games.',
-		scope: { categories: ['Wargame'] },
-		view: { colour: 'year' }
+		id: 'umap-geek',
+		name: 'Where the good ones are',
+		blurb: 'UMAP, sized by popularity, coloured by geek rating.',
+		view: { projection: 'umap', colour: 'geek', size: 'popularity' }
 	},
 	{
-		id: 'upcoming',
-		name: 'Not out yet',
-		blurb: 'Games published this year or later, against the established landscape.',
-		scope: { universe: 'upcoming' },
-		view: { colour: 'upcoming', size: 'uniform' }
+		id: 'umap-year',
+		name: 'Old and new',
+		blurb: 'UMAP, sized by popularity, coloured by year released.',
+		view: { projection: 'umap', colour: 'year', size: 'popularity' }
 	},
 	{
-		id: 'heavy',
-		name: 'The heavy end',
-		blurb: 'Complexity 3.5 and up, coloured by rating.',
-		scope: { weightMin: 3.5 },
-		view: { colour: 'rating' }
+		id: 'pca-weight',
+		name: 'Light to heavy',
+		blurb: 'PC1 x PC2, sized by popularity, coloured by weight.',
+		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'popularity' }
+	},
+	{
+		id: 'pca-geek',
+		name: 'The landscape by rating',
+		blurb: 'PC1 x PC2, sized by popularity, coloured by geek rating.',
+		view: { projection: 'pca', x: 1, y: 2, colour: 'geek', size: 'popularity' }
+	},
+	{
+		id: 'rating-weight',
+		name: 'Does heavier mean better?',
+		blurb: 'Average rating against complexity, sized by popularity.',
+		view: { projection: 'facts', xFact: 'weight', yFact: 'rating', size: 'popularity' }
+	},
+	{
+		id: 'rating-popularity',
+		name: 'Loved vs played',
+		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
+		view: { projection: 'facts', xFact: 'ratings', yFact: 'rating', colour: 'geek' }
 	}
 ];
 

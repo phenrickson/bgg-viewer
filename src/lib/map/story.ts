@@ -10,7 +10,7 @@
  * them being absent from the current artifact (they're just filtered out).
  */
 import type { CoordinateSet } from './coordinates';
-import type { ViewState } from './view';
+import { DEFAULT_VIEW, type ViewState } from './view';
 import { neighboursOf, type NeighboursArtifact } from './neighbours';
 
 /** BGG ids of the games the tour points at. Names come from the catalog, never from here. */
@@ -104,6 +104,7 @@ export interface StoryStep {
 
 /** The view every step starts from; a step overrides what it needs to. */
 export const BASE_VIEW: ViewState = {
+	...DEFAULT_VIEW,
 	projection: 'pca',
 	x: 1,
 	y: 2,

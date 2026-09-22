@@ -15,7 +15,9 @@ describe('view ⇄ params', () => {
 			x: 3,
 			y: 5,
 			colour: 'category',
-			size: 'uniform'
+			size: 'uniform',
+			xFact: 'weight',
+			yFact: 'rating'
 		};
 		expect(fromParams(toParams(view), K)).toEqual(view);
 	});
@@ -24,7 +26,17 @@ describe('view ⇄ params', () => {
 		// The map's three old filters (minRatings, upcoming, categories) and its selection now
 		// live in `Scope`, so one filter language serves the list and the plot. If a filter
 		// ever creeps back into this type, that guarantee is gone and this test says so.
-		expect(Object.keys(DEFAULT_VIEW).sort()).toEqual(['colour', 'projection', 'size', 'x', 'y']);
+		// `xFact`/`yFact` are encodings too — WHICH quantity an axis shows, the same kind of
+		// choice as which component. The guarantee this pins is that no FILTER appears here.
+		expect(Object.keys(DEFAULT_VIEW).sort()).toEqual([
+			'colour',
+			'projection',
+			'size',
+			'x',
+			'xFact',
+			'y',
+			'yFact'
+		]);
 	});
 
 	it('ignores the scope params that share its querystring', () => {

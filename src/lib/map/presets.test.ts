@@ -42,7 +42,7 @@ describe('presets', () => {
 	});
 
 	it('stops matching once you change something the preset did not name', () => {
-		const p = presetById('neighbourhoods');
+		const p = presetById('umap-category');
 		expect(p).toBeDefined();
 		const { scope, view } = applyPreset(p!);
 		// The preset says nothing about categories, but filtering still means you are no
@@ -52,11 +52,21 @@ describe('presets', () => {
 	});
 
 	it('compares array fields by contents, not identity', () => {
-		const p = presetById('wargames');
+		// Built here rather than taken from PRESETS: none of the current seven set a filter,
+		// and this is about `matchesPreset`, which must keep working when one does.
+		const p = { id: 'x', name: 'x', blurb: 'x', scope: { categories: ['Wargame'] } };
+		const { scope, view } = applyPreset(p);
+		expect(matchesPreset(p, { ...scope, categories: ['Wargame'] }, view)).toBe(true);
+		expect(matchesPreset(p, { ...scope, categories: ['Wargame', 'Economic'] }, view)).toBe(false);
+	});
+
+	it('round-trips a fact-axis preset through the view', () => {
+		const p = presetById('rating-weight');
 		expect(p).toBeDefined();
-		const { scope, view } = applyPreset(p!);
-		expect(matchesPreset(p!, { ...scope, categories: ['Wargame'] }, view)).toBe(true);
-		expect(matchesPreset(p!, { ...scope, categories: ['Wargame', 'Economic'] }, view)).toBe(false);
+		const { view } = applyPreset(p!);
+		expect(view.projection).toBe('facts');
+		expect(view.xFact).toBe('weight');
+		expect(view.yFact).toBe('rating');
 	});
 
 	it('presetById is undefined for an unknown id', () => {

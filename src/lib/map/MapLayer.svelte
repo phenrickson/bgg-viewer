@@ -109,7 +109,7 @@
   // --- projection → normalised device coords -------------------------------------------
   const uniform = $derived(view.size === 'uniform');
   /** The arrangement: whatever the caller passed, else the one `view` names. */
-  const proj = $derived(projection ?? projectionFor(coords, view));
+  const proj = $derived(projection ?? projectionFor(coords, view, facts));
   const strip = $derived(proj.band);
 
   /**
