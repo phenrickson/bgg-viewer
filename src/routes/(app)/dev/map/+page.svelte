@@ -30,7 +30,6 @@
     DEFAULT_SCOPE,
     toWhere,
     scopeFromParams,
-    activeFilters,
     type Scope
   } from '$lib/catalog/scope';
   import { CATEGORIES, CATEGORY_LABELS } from '$lib/catalog/primary-category';
@@ -133,7 +132,20 @@
   const where = $derived(
     coords && catalog.status === 'ready' ? appendCollectionFilter(toWhere(scope)) : null
   );
-  const filtered = $derived(activeFilters(scope).length > 0);
+  /**
+   * Is the scope narrowing anything?
+   *
+   * Compares the compiled WHERE against the default's, rather than counting chips.
+   * `activeFilters()` is a *chips* function and deliberately omits the universe — it is a
+   * dial with no "off", so it gets no removable chip — which made "upcoming" invisible here:
+   * the page took the all-lit path and drew all 36,001 games at full strength while the list
+   * showed a few thousand. Comparing the SQL catches the universe, `rankedOnly` and every
+   * ordinary filter by construction, so this cannot drift from `toWhere` again.
+   *
+   * All-rated is the default, so arriving at the map cold still lights the whole landscape.
+   */
+  const baseWhere = $derived(appendCollectionFilter(toWhere({ ...DEFAULT_SCOPE })));
+  const filtered = $derived(where != null && where !== baseWhere);
   $effect(() => {
     const c = coords;
     const w = where;
@@ -152,6 +164,31 @@
   const lit = $derived(mask?.lit ?? null);
   const inScope = $derived(mask?.inScope ?? coords?.ids.length ?? 0);
   const placed = $derived(coords?.ids.length ?? 0);
+
+  /**
+   * Zoom to the set you just asked for.
+   *
+   * Filtering changes what you are looking at, so the camera goes and looks at it: lasso a
+   * corner and it fills the frame, clear the filter and you are back to the whole landscape.
+   * Without this, narrowing to forty games leaves them as forty specks somewhere in a
+   * full-map view and you have to find your own answer by hand.
+   *
+   * `focus`, not `keep`: `keep` REMOVES the other points, which is what this page stopped
+   * doing when dimming replaced hiding. The context stays drawn — framing is a camera move,
+   * not a filter. (It was `keep` while the lasso hid everything else.)
+   *
+   * Capped: framing thousands of points costs a full positional redraw and buys nothing,
+   * since a set that large is spread over most of the map anyway.
+   */
+  const FRAME_MAX = 600;
+  const frame = $derived.by(() => {
+    if (!coords || !mask || !filtered) return null;
+    if (inScope === 0 || inScope > FRAME_MAX) return null;
+    const ids: number[] = [];
+    for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) ids.push(coords.ids[i]);
+    return ids;
+  });
+
 
   // --- selection -----------------------------------------------------------------------
   /** A searched-for game the catalog knows but the artifact lacks — "not yet placed". */
@@ -480,6 +517,7 @@
           {lit}
           {selected}
           {activeCategories}
+          focus={frame}
           anchors={ANCHORS}
           {upTo}
           {mode}

@@ -685,3 +685,30 @@ describe('the lasso — an id set as a first-class filter', () => {
 		expect(scopeToParams(DEFAULT_SCOPE).has('lasso')).toBe(false);
 	});
 });
+
+describe('"is anything narrowing the set" is NOT the chips list', () => {
+	// The map dims out-of-scope games, so it has to know whether the scope narrows anything.
+	// Asking `activeFilters().length` gets this wrong: that is a chips function and omits the
+	// universe on purpose (a dial has no "off"), so `u=upcoming` looked like no filter at all
+	// and the map lit all 36,001 games while the list showed a few thousand. Comparing the
+	// compiled WHERE is the question actually being asked.
+	const narrows = (s: Scope) => toWhere(s) !== toWhere(DEFAULT_SCOPE);
+
+	it('all rated is the default, so arriving cold narrows nothing', () => {
+		expect(DEFAULT_SCOPE.universe).toBe('rated');
+		expect(DEFAULT_SCOPE.rankedOnly).toBe(false);
+		expect(narrows(DEFAULT_SCOPE)).toBe(false);
+	});
+
+	it('catches the universe, which activeFilters deliberately does not report', () => {
+		const upcoming: Scope = { ...DEFAULT_SCOPE, universe: 'upcoming' };
+		expect(activeFilters(upcoming)).toHaveLength(0); // no chip, by design
+		expect(narrows(upcoming)).toBe(true); // but it absolutely narrows
+	});
+
+	it('catches rankedOnly, an ordinary filter, and a lasso', () => {
+		expect(narrows({ ...DEFAULT_SCOPE, rankedOnly: true })).toBe(true);
+		expect(narrows({ ...DEFAULT_SCOPE, categories: ['Wargame'] })).toBe(true);
+		expect(narrows({ ...DEFAULT_SCOPE, lasso: [1, 2, 3] })).toBe(true);
+	});
+});
