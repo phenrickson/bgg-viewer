@@ -48,7 +48,9 @@ describe('presets', () => {
 		// The preset says nothing about categories, but filtering still means you are no
 		// longer looking at what it describes.
 		expect(matchesPreset(p!, { ...scope, categories: ['Wargame'] }, view)).toBe(false);
-		expect(matchesPreset(p!, scope, { ...view, size: 'uniform' })).toBe(false);
+		// A field the preset does not name: it still resolves to a default the preset implies,
+		// so changing it still means you are not looking at the preset.
+		expect(matchesPreset(p!, scope, { ...view, x: 4 })).toBe(false);
 	});
 
 	it('compares array fields by contents, not identity', () => {

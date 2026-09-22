@@ -47,19 +47,19 @@ export const PRESETS: Preset[] = [
 		id: 'umap-category',
 		name: 'Neighbourhoods',
 		blurb: 'UMAP, coloured by category.',
-		view: { projection: 'umap', colour: 'category' }
+		view: { projection: 'umap', colour: 'category', size: 'uniform' }
+	},
+	{
+		id: 'umap-year',
+		name: 'Old and new',
+		blurb: 'UMAP, coloured by year released.',
+		view: { projection: 'umap', colour: 'year', size: 'uniform' }
 	},
 	{
 		id: 'umap-geek',
 		name: 'Where the good ones are',
 		blurb: 'UMAP, sized by popularity, coloured by geek rating.',
 		view: { projection: 'umap', colour: 'geek', size: 'popularity' }
-	},
-	{
-		id: 'umap-year',
-		name: 'Old and new',
-		blurb: 'UMAP, sized by popularity, coloured by year released.',
-		view: { projection: 'umap', colour: 'year', size: 'popularity' }
 	},
 	{
 		id: 'pca-weight',
@@ -82,8 +82,10 @@ export const PRESETS: Preset[] = [
 	{
 		id: 'rating-popularity',
 		name: 'Loved vs played',
+		// Axes flipped: rating on x, how many rated it on y. The question is which games earn a
+		// high geek rating, so rating is the quantity being read along, not the one read up.
 		blurb: 'Average rating against how many people rated it, coloured by geek rating.',
-		view: { projection: 'facts', xFact: 'ratings', yFact: 'rating', colour: 'geek' }
+		view: { projection: 'facts', xFact: 'rating', yFact: 'ratings', colour: 'geek', size: 'uniform' }
 	}
 ];
 
