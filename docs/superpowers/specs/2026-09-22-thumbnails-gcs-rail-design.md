@@ -18,7 +18,9 @@ on a TTL, so every cold container pays a full build on the first request that wa
 | coordinates | 1.16 MB | request time | no (map page only) |
 | neighbours | 35 KB | request time | no |
 
-This spec covers **thumbnails only**. similar-explorer is explicitly deferred — see
+This spec covers **thumbnails**, because it is the only one of the four that exists on
+`main`. Coordinates, similar-explorer and neighbours all live on the unmerged map branch
+(PR #71) — `src/routes/api/` here has only `catalog`, `collection` and `thumbnails`. See
 *Not doing*.
 
 ### What the cost actually is
@@ -197,14 +199,22 @@ thumbnails would otherwise inherit the same shape.
 
 ## Not doing
 
+- **Coordinates — deferred, not rejected.** It has the only *measured* cold build (7.2s) and
+  is the artifact that most deserves this treatment. It is out of scope here only because
+  its code is not on `main` yet; it arrives with PR #71. It should then ride this rail as
+  **its own artifact**, not be folded into the catalog as the handoff suggested: the
+  coordinate set is expected to grow to `pc_1 … pc_k` for larger *k*, and the v1 map spec
+  established that more components need no new model or pipeline, just more of the vector.
+  Inside the catalog, every added component taxes every user for a page most sessions never
+  open. As its own artifact, widening it costs only the sessions that open the map. Once
+  #71 lands this is a small follow-up — one `gcs.ts` instance, one build script, one
+  workflow step, one endpoint, one client call site — precisely because the rail built here
+  already exists.
+
 - **similar-explorer (9.33 MB).** Not a requirement now. It is the largest artifact and
   probably the largest win, but it is only loaded by `/dev/similar`, and everything built
   here applies to it unchanged whenever it is wanted — one `gcs.ts` instance, one entry
   script, one workflow step, one endpoint edit.
-- **Coordinates.** The handoff recommends folding these into the *catalog artifact* as
-  ordinary columns rather than putting them on this rail, so the map becomes a view over the
-  catalog with position as a column choice. That is a different design and needs its own
-  spec.
 - **neighbours (35 KB).** Too small to be worth an object.
 - **Changing what box art is or where it comes from.** Same query, same two columns, same
   DuckDB table. Only the delivery path moves.
