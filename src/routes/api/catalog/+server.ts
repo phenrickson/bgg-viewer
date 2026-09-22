@@ -18,6 +18,7 @@ import { error, json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { getCatalogArtifact } from '$lib/server/catalog/cache';
 import { getSignedCatalog } from '$lib/server/catalog/gcs';
+import { isOffline } from '$lib/server/offline';
 import type { RequestHandler } from './$types';
 
 /** Escape hatch: `CATALOG_SOURCE=bigquery` restores the old path without a redeploy. */
@@ -26,7 +27,10 @@ const forceBigQuery = () => (env.CATALOG_SOURCE ?? '').trim().toLowerCase() === 
 export const GET: RequestHandler = async ({ locals, request }) => {
 	if (!locals.user) throw error(401, 'Sign in required.');
 
-	if (!forceBigQuery()) {
+	// `isOffline()` first: offline mode is a deliberate "the network is about to go away"
+	// switch, so reaching for GCS and waiting for it to fail would be exactly wrong. The
+	// disk mirror lives behind `getCatalogArtifact`, which the GCS path bypasses entirely.
+	if (!isOffline() && !forceBigQuery()) {
 		try {
 			const { url, hash, builtAt } = await getSignedCatalog();
 			return json({ url, hash, builtAt });
