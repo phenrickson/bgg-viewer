@@ -81,6 +81,15 @@ export const PRESETS: Preset[] = [
 		view: { projection: 'pca', x: 1, y: 2, colour: 'weight', size: 'uniform' }
 	},
 	{
+		id: 'year-geek',
+		name: 'Every year since 2000',
+		blurb: 'Games by year published, against their geek rating.',
+		// Games BGG has not given a geek rating carry 0, which `axisValues` turns into NaN, so
+		// they drop out on their own — this plot is about games that HAVE a rating.
+		scope: { yearMin: 2000 },
+		view: { projection: 'facts', xFact: 'year', yFact: 'geek', colour: 'weight', size: 'uniform' }
+	},
+	{
 		id: 'rating-weight',
 		name: 'Does heavier mean better?',
 		blurb: 'Average rating against complexity, sized by popularity.',

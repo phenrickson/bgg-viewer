@@ -109,7 +109,8 @@ export function projectionFor(
 ): Projection {
 	if (view.projection === 'umap') return umapProjection(coords);
 	if (view.projection === 'strip') return stripProjection(coords, view.x);
-	if (view.projection === 'facts' && facts) return factProjection(facts, view.xFact, view.yFact);
+	if (view.projection === 'facts' && facts)
+		return factProjection(facts, view.xFact, view.yFact, coords.ids);
 	return pcaProjection(coords, view.x, view.y);
 }
 
@@ -213,10 +214,39 @@ function axisValues(facts: GameFacts, axis: FactAxis): Float32Array {
 	return out;
 }
 
-export function factProjection(facts: GameFacts, x: FactAxis, y: FactAxis): Projection {
+/**
+ * How far a jittered year is allowed to stray, in years.
+ *
+ * `jitter` spans about [-1.6, 1.6], so a quarter of it keeps a game inside ±0.4 of its own
+ * year — wide enough to read the density of a year, narrow enough that two years never
+ * overlap and a point is never shown under the wrong one.
+ */
+const YEAR_JITTER = 0.25;
+
+/** `year` is the one integer-valued axis: without a spread, a year is a single vertical line. */
+const isDiscrete = (axis: FactAxis) => axis === 'year';
+
+export function factProjection(
+	facts: GameFacts,
+	x: FactAxis,
+	y: FactAxis,
+	/**
+	 * Game ids, aligned to `facts`. Only needed for a discrete axis, which is spread so the
+	 * games in one year read as a cloud rather than a line. Hashed from the id rather than
+	 * random, so a game sits in the same place every visit — a plot that reshuffles itself
+	 * on reload is one you cannot point at.
+	 */
+	ids?: ArrayLike<number>
+): Projection {
+	const vx = axisValues(facts, x);
+	const vy = axisValues(facts, y);
+	if (ids) {
+		if (isDiscrete(x)) for (let i = 0; i < vx.length; i++) vx[i] += jitter(ids[i]) * YEAR_JITTER;
+		if (isDiscrete(y)) for (let i = 0; i < vy.length; i++) vy[i] += jitter(ids[i]) * YEAR_JITTER;
+	}
 	return {
-		x: axisValues(facts, x),
-		y: axisValues(facts, y),
+		x: vx,
+		y: vy,
 		xLabel: AXIS_LABEL[x],
 		yLabel: AXIS_LABEL[y],
 		// Two different quantities with different units — a shared scale would be meaningless.

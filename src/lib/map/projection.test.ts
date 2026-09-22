@@ -195,3 +195,43 @@ describe('factProjection — the seam is general, not just asserted to be', () =
 		expect(p.x[1]).toBeCloseTo(4);
 	});
 });
+
+describe('factProjection jitter', () => {
+	const facts = {
+		weight: Float32Array.from([2, 3, 4]),
+		geekRating: Float32Array.from([7, 8, 6]),
+		averageRating: Float32Array.from([7, 8, 6]),
+		year: Int16Array.from([2010, 2010, 2010]),
+		usersRated: Int32Array.from([100, 200, 300]),
+		upcoming: Uint8Array.from([0, 0, 0]),
+		category: Uint8Array.from([0, 0, 0]),
+		categoryLabels: ['Other'],
+		missing: 0,
+		name: () => 'x'
+	} as unknown as Parameters<typeof factProjection>[0];
+	const ids = Int32Array.from([11, 22, 33]);
+
+	it('spreads a year axis so one year is not a single line', () => {
+		const p = factProjection(facts, 'year', 'geek', ids);
+		expect(new Set(Array.from(p.x)).size).toBe(3);
+		// Never far enough to be shown under a neighbouring year.
+		for (const v of p.x) expect(Math.abs(v - 2010)).toBeLessThan(0.5);
+	});
+
+	it('is deterministic — a game sits in the same place every time', () => {
+		const a = factProjection(facts, 'year', 'geek', ids);
+		const b = factProjection(facts, 'year', 'geek', ids);
+		expect(Array.from(a.x)).toEqual(Array.from(b.x));
+	});
+
+	it('leaves continuous axes alone', () => {
+		const p = factProjection(facts, 'weight', 'geek', ids);
+		expect(Array.from(p.x)).toEqual([2, 3, 4]);
+		expect(Array.from(p.y)).toEqual([7, 8, 6]);
+	});
+
+	it('without ids there is no jitter, and a year is a line', () => {
+		const p = factProjection(facts, 'year', 'geek');
+		expect(new Set(Array.from(p.x)).size).toBe(1);
+	});
+});
