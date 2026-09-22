@@ -7,6 +7,8 @@ import {
 	withDimmed,
 	toContext,
 	DIM_CHROMA,
+	LIT_ALPHA,
+	CONTEXT_ALPHA,
 	RADIUS_MIN,
 	RADIUS_MAX,
 	RADIUS_UPCOMING,
@@ -238,5 +240,39 @@ describe('toContext — scenery gives up its hue, not its visibility', () => {
 		const out = toContext('#0072b2', CTX_LIGHT);
 		expect(out).toContain('color-mix(in oklch');
 		expect(out).toContain('#0072b2');
+	});
+});
+
+describe('per-bucket alpha — colour alone could not carry the highlight', () => {
+	const colouring = () => ({
+		bucketOf: Uint8Array.from([0, 1, 2, 1]),
+		colours: ['oklch(0.5 0.1 250)', 'oklch(0.7 0.15 45)', 'oklch(0.6 0.12 150)'],
+		legend: []
+	});
+	const CTX = 'oklch(0.86 0.006 260)';
+
+	it('emits one alpha per bucket, aligned to the palette', () => {
+		const c = withDimmed(colouring(), Uint8Array.from([1, 0, 1, 0]), CTX);
+		expect(c.alpha).toHaveLength(c.colours.length);
+	});
+
+	it('lit buckets are near-solid and context buckets far more transparent', () => {
+		const c = withDimmed(colouring(), Uint8Array.from([1, 0, 1, 0]), CTX);
+		const n = 3;
+		expect(c.alpha!.slice(0, n).every((a) => a === LIT_ALPHA)).toBe(true);
+		expect(c.alpha!.slice(n).every((a) => a === CONTEXT_ALPHA)).toBe(true);
+		// The ratio is what stops thousands of overlapping context dots reading as a surface
+		// drawn over the lit set — which is what the flat 0.5 global alpha did.
+		expect(LIT_ALPHA / CONTEXT_ALPHA).toBeGreaterThanOrEqual(6);
+	});
+
+	it('every point indexes an alpha that exists', () => {
+		const c = withDimmed(colouring(), Uint8Array.from([0, 0, 0, 0]), CTX);
+		for (const b of c.bucketOf) expect(c.alpha![b]).toBeGreaterThan(0);
+	});
+
+	it('carries no alpha when nothing is dimmed, so the resting map keeps one global alpha', () => {
+		expect(withDimmed(colouring(), Uint8Array.from([1, 1, 1, 1]), CTX).alpha).toBeUndefined();
+		expect(withDimmed(colouring(), null, CTX).alpha).toBeUndefined();
 	});
 });

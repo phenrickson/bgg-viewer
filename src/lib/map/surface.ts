@@ -59,7 +59,13 @@ export interface Driver {
 	focus: number[] | null;
 	/** Stretch the data square to the canvas width (the strip) instead of keeping it square. */
 	stretch?: boolean;
-	opacity?: number;
+	/**
+	 * Per-point alpha. A single number applies to every point; an ARRAY is indexed by the
+	 * point's colour bucket, exactly like `palette` — so a layer that already encodes
+	 * lit/dimmed in the bucket gets opacity for free, without spending regl's other value
+	 * channel (which `size` holds).
+	 */
+	opacity?: number | number[];
 	/**
 	 * Polylines in data space (NDC), drawn by regl beneath the points, so they pan and zoom
 	 * with the camera at no per-frame cost. Colour is RGBA 0–1. They appear once the points

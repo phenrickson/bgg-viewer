@@ -70,6 +70,8 @@ export interface Colouring {
 	bucketOf: Uint8Array;
 	/** Colour per bucket. */
 	colours: string[];
+	/** Alpha per bucket, aligned to `colours`. Absent = one global alpha for every point. */
+	alpha?: number[];
 	/** Legend entries in display order; `bucket` indexes `colours`. */
 	legend: { label: string; bucket: number }[];
 	/**
@@ -178,6 +180,25 @@ export function buildColouring(by: ColourBy, facts: GameFacts, palette: Palette,
 export const DIM_CHROMA = 0.15;
 
 /**
+ * Alpha for a lit point and for context, when a scope is narrowing the set.
+ *
+ * Colour alone was not enough, for a reason the contrast maths could not see: every dot is
+ * semi-transparent, so in the dense middle of the map *thousands* of overlapping context
+ * dots accumulate into an opaque veil — and because points draw in array order, plenty of
+ * them land on top of the lit ones. The lit set ended up sitting visibly *behind* a grey
+ * haze, which is the opposite of what a highlight is for.
+ *
+ * So the separation is carried by alpha as well as colour. Lit points go nearly solid,
+ * which also stops the lit set self-veiling where it is dense; context drops far enough
+ * that a pile of overlapping dots reads as texture rather than as a surface. The ratio
+ * matters more than either number: ~9x.
+ */
+export const LIT_ALPHA = 0.9;
+export const CONTEXT_ALPHA = 0.1;
+/** The map's alpha when nothing is filtered — every point is equally the subject. */
+export const PLAIN_ALPHA = 0.5;
+
+/**
  * Split a colouring in two: the lit colours, plus a context copy of each, with out-of-scope
  * points moved into the context half.
  *
@@ -207,8 +228,13 @@ export function withDimmed(
 	}
 	if (!anyDim) return colouring;
 	const dimmed = colouring.colours.map((c) => toContext(c, context));
+	// One alpha per bucket, aligned to `colours`: the lit half solid, the context half faint.
+	const alpha = [
+		...colouring.colours.map(() => LIT_ALPHA),
+		...dimmed.map(() => CONTEXT_ALPHA)
+	];
 	// Legend and domain describe the LIT half only; context buckets are never legend entries.
-	return { ...colouring, bucketOf, colours: [...colouring.colours, ...dimmed] };
+	return { ...colouring, bucketOf, colours: [...colouring.colours, ...dimmed], alpha };
 }
 
 /**

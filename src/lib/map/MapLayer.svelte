@@ -11,7 +11,7 @@
   import type { GameFacts } from './facts';
   import type { ViewState } from './view';
   import { projectionFor, toNdc, type Projection } from './projection';
-  import { buildColouring, withDimmed, radiusFor, type Colouring } from './scales';
+  import { buildColouring, withDimmed, radiusFor, PLAIN_ALPHA, type Colouring } from './scales';
   import { useSurface, MAX_DIAMETER, type Driver } from './surface';
   import { dot, ring, labels } from './ink';
   import type { LabelInput } from './labels';
@@ -164,6 +164,11 @@
     for (let i = 0; i < n; i++) {
       let d = 2 * radiusFor(facts.usersRated[i], facts.upcoming[i] === 1, uniform);
       if (cut != null && facts.year[i] === cut) d *= frac;
+      // Context shrinks as well as fading. A faint dot at full size still claims its area
+      // and, where the map is dense, thousands of them tile into a solid field; smaller
+      // ones leave gaps, so the landscape reads as texture the lit set sits ON rather than
+      // a surface it sits behind.
+      if (lit && !lit[i]) d *= 0.6;
       b[i] = Math.min(MAX_DIAMETER, Math.max(1, Math.round(d)));
     }
     return b;
@@ -200,6 +205,8 @@
     get colour() { return colouring?.bucketOf ?? new Uint8Array(coords.ids.length); },
     get palette() { return colouring?.colours ?? []; },
     get size() { return sizeBucket; },
+    /** Per-bucket when a scope is lit (see `withDimmed`), one global alpha otherwise. */
+    get opacity() { return colouring?.alpha ?? PLAIN_ALPHA; },
     get visible() { return visible; },
     get focus() { return frameIdx; },
     get stretch() { return strip; },

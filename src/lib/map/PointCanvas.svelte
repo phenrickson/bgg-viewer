@@ -88,7 +88,11 @@
       pointColorHover: toHex(theme.accent),
       pointColorActive: toHex(theme.accent),
       lassoColor: toHex(theme.accent),
-      opacity: driver.opacity ?? 0.5
+      opacity: driver.opacity ?? 0.5,
+      // An array opacity is indexed by the colour bucket, so it has to be told to read that
+      // channel; a scalar is global and must NOT, or regl quantises it against the array
+      // length and every point lands on the same alpha step.
+      opacityBy: Array.isArray(driver.opacity) ? 'valueZ' : undefined
     });
   });
   $effect(() => { plot?.set({ mouseMode: mode === 'lasso' ? 'lasso' : 'panZoom' }); });
