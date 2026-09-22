@@ -43,6 +43,7 @@
   import type { GameFacts } from '$lib/map/facts';
   import { DEFAULT_VIEW, fromParams as viewFromParams, type ViewState } from '$lib/map/view';
   import { writeMapUrl, exploreHref } from '$lib/map/route';
+  import { PRESETS, applyPreset, matchesPreset } from '$lib/map/presets';
   import { scopeMask, type ScopeMask } from '$lib/map/scope-mask';
   import { debounce, SCOPE_DEBOUNCE_MS } from '$lib/catalog/debounce';
   import { ANCHORS } from '$lib/map/anchors';
@@ -87,8 +88,24 @@
    * first place (regl's own ResizeObserver races ours). The selection panel is docked inside
    * the canvas frame for exactly this reason. Nothing here resizes the plot.
    */
-  let panel = $state<'filters' | 'controls' | null>(null);
-  const togglePanel = (p: 'filters' | 'controls') => (panel = panel === p ? null : p);
+  let panel = $state<'presets' | 'filters' | 'controls' | null>(null);
+  const togglePanel = (p: 'presets' | 'filters' | 'controls') => (panel = panel === p ? null : p);
+
+  /**
+   * Applying a preset replaces scope AND view wholesale, rather than patching the fields it
+   * names over whatever is on screen. A preset is a view someone arrived at, not a set of
+   * adjustments to yours — leaving a stray filter behind would mean the thing you landed on
+   * is not the thing the list described. `applyPreset` resolves against the defaults, so a
+   * preset still only has to SAY what it means.
+   */
+  function usePreset(id: string) {
+    const p = PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    const next = applyPreset(p);
+    scope = next.scope;
+    view = next.view;
+    selected = [];
+  }
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
     if (!narrow) railOpen = false;
@@ -485,6 +502,15 @@
           >
             <span>Controls</span>
           </button>
+          <button
+            type="button"
+            class="tab"
+            class:on={panel === 'presets'}
+            aria-expanded={panel === 'presets'}
+            onclick={() => togglePanel('presets')}
+          >
+            <span>Presets</span>
+          </button>
           {#if panel !== null}
             <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
           {/if}
@@ -494,7 +520,22 @@
           <!-- `Rail` is the same component /games uses, so the filters here and the filters
                there cannot drift; `MapRail` carries the encodings and the timeline. -->
           <div class="panel-body">
-            {#if panel === 'filters'}
+            {#if panel === 'presets'}
+              <!-- Views worth landing on, authored in `$lib/map/presets.ts`. The map can
+                   express far more than anyone finds by turning six controls one at a time;
+                   these are the ones someone has already found. -->
+              <ul class="presets">
+                {#each PRESETS as p (p.id)}
+                  {@const on = matchesPreset(p, scope, view)}
+                  <li>
+                    <button type="button" class="preset" class:on onclick={() => usePreset(p.id)}>
+                      <strong>{p.name}</strong>
+                      <span>{p.blurb}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {:else if panel === 'filters'}
               {#if where != null}
                 <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
               {/if}
@@ -800,6 +841,19 @@
   .side .close:hover { color: var(--foreground); }
 
   .panel-body { overflow-y: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); }
+
+  .presets { list-style: none; margin: var(--space-sm) 0 0; padding: 0; display: grid; gap: 0.4rem; }
+  .preset {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--background); color: inherit; font: inherit;
+  }
+  .preset strong { display: block; font-size: 0.85rem; color: var(--foreground); font-weight: 600; }
+  .preset span { display: block; margin-top: 0.15rem; font-size: 0.75rem; color: var(--muted-foreground); }
+  .preset:hover { border-color: var(--primary); }
+  .preset.on { border-color: var(--primary); background: var(--muted); }
+  .preset:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
   .canvas {
     display: flex; flex-direction: column; gap: var(--space-sm);

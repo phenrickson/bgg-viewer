@@ -170,9 +170,24 @@
    * context from lit (see `withDimmed`). Stable within each group, so the relative order of
    * the landscape — and of the lit set — is unchanged; only the two groups move apart.
    */
-  function buildOrder(d: Driver): void {
+  interface Perm { order: Int32Array; slot: Int32Array }
+
+  /**
+   * Compute the permutation. PURE — it does not publish.
+   *
+   * `order`/`slot` describe what regl currently holds, and regl does not hold the new
+   * arrangement until the queued `p.draw` actually runs. Assigning them here, where the
+   * permutation is computed, made them describe a layout that was still one queue-wait and
+   * an 800ms transition away: every `screen(toSlot(i))` in between placed a ring against an
+   * arrangement regl had never been given, and hover reported the wrong game. Switching
+   * preset hit it every time, because that changes colour, positions and scope at once.
+   *
+   * So this returns the permutation and the draw publishes it, at the one instant regl's
+   * mapping actually changes.
+   */
+  function buildOrder(d: Driver): Perm | null {
     const alpha = d.opacity;
-    if (!Array.isArray(alpha)) { order = null; slot = null; return; }
+    if (!Array.isArray(alpha)) return null;
     // The lit half of the palette comes first, so a bucket in the back half is context.
     const half = alpha.length / 2;
     const n = d.colour.length;
@@ -182,8 +197,7 @@
     for (let i = 0; i < n; i++) if (d.colour[i] < half) o[k++] = i;  // lit, drawn on top
     const sl = new Int32Array(n);
     for (let j = 0; j < n; j++) sl[o[j]] = j;
-    order = o;
-    slot = sl;
+    return { order: o, slot: sl };
   }
 
   /**
@@ -205,8 +219,9 @@
   function flipScratch(): void { gen ^= 1; }
 
   /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
-  function permute<T extends Float32Array | Uint8Array>(src: T, key: string): T {
-    if (!order) return src;
+  function permute<T extends Float32Array | Uint8Array>(perm: Perm | null, src: T, key: string): T {
+    if (!perm) return src;
+    const order = perm.order;
     const bank = scratch[gen];
     let out = bank.get(key) as T | undefined;
     if (!out || out.length !== src.length || out.constructor !== src.constructor) {
@@ -249,11 +264,19 @@
     shownX = x; shownY = y;
     // Rebuild before drawing: the draw, the filter and every event mapping must agree on
     // one permutation, and the encodings that define it are the ones being drawn now.
-    buildOrder(d);
+    const perm = buildOrder(d);
     flipScratch();
-    const px = permute(x, 'x'), py = permute(y, 'y');
-    const pc = permute(colour, 'c'), ps = permute(size, 's');
+    const px = permute(perm, x, 'x'), py = permute(perm, y, 'y');
+    const pc = permute(perm, colour, 'c'), ps = permute(perm, size, 's');
     enqueueDraw(async () => {
+      // Publish the permutation HERE, before the first `p.draw` of this pass hands regl the
+      // permuted arrays: that call is the instant regl's index mapping changes, so it is the
+      // instant `order`/`slot` become true. Until then the overlay must keep mapping through
+      // the previous arrangement, because that is what is still on screen. Publishing where
+      // the permutation was COMPUTED left it describing a layout a queue-wait and an 800ms
+      // transition in the future, and every ring drawn in between landed on the wrong point.
+      order = perm?.order ?? null;
+      slot = perm?.slot ?? null;
       if (first) {
         await drawRetry(() => p.draw({ x: new Float32Array(px.length), y: new Float32Array(py.length), valueA: pc, valueB: ps }, { preventFilterReset: true }), 1500);
       }
