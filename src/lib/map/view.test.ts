@@ -17,7 +17,8 @@ describe('view ⇄ params', () => {
 			colour: 'category',
 			size: 'uniform',
 			xFact: 'weight',
-			yFact: 'rating'
+			yFact: 'rating',
+			context: 'hide'
 		};
 		expect(fromParams(toParams(view), K)).toEqual(view);
 	});
@@ -30,6 +31,7 @@ describe('view ⇄ params', () => {
 		// choice as which component. The guarantee this pins is that no FILTER appears here.
 		expect(Object.keys(DEFAULT_VIEW).sort()).toEqual([
 			'colour',
+			'context',
 			'projection',
 			'size',
 			'x',

@@ -108,17 +108,13 @@
     // Reset on every preset, not just set on the ones that ask: leaving it on would frame
     // the next preset too, and framing an embedding plot hides the landscape that is the
     // whole reason it is drawn.
-    onlyInScope = p.onlyInScope === true;
   }
-  /** A preset asked for out-of-scope games not to be drawn at all. */
-  let onlyInScope = $state(false);
-
   /**
-   * The ids to draw, when a preset asked for only the scope. `MapLayer.keep` removes the
-   * rest rather than dimming them, and frames what is left.
+   * The ids to draw when the view hides its context rather than dimming it. `MapLayer.keep`
+   * removes the rest and frames what is left.
    */
   const keepIds = $derived.by(() => {
-    if (!onlyInScope || !coords || !mask) return null;
+    if (view.context !== 'hide' || !coords || !mask) return null;
     const out: number[] = [];
     for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) out.push(coords.ids[i]);
     return out;
@@ -288,9 +284,8 @@
      * queueing a camera move behind a large positional redraw, and the effect that consumes
      * this already waits for `drawn` before moving.
      */
-    // `keep` frames what it keeps, so a preset that restricts the drawn set needs nothing
-    // here.
-    if (onlyInScope) return null;
+    // `keep` frames what it keeps, so a hidden context needs nothing here.
+    if (view.context === 'hide') return null;
     if (!filtered) return null;
     if (inScope === 0 || inScope > FRAME_MAX) return null;
     const ids: number[] = [];

@@ -30,6 +30,16 @@ export type Projection = 'pca' | 'umap' | 'strip' | 'facts';
 export type FactAxis = 'weight' | 'rating' | 'geek' | 'year' | 'ratings';
 export type ColourBy = 'weight' | 'geek' | 'rating' | 'year' | 'upcoming' | 'category';
 export type SizeBy = 'popularity' | 'uniform';
+/**
+ * What happens to games OUT of scope.
+ *
+ * `dim` draws them faded, so a filtered set can be read against the whole landscape — the
+ * thing a plot can say that a list cannot. `hide` removes them. Hiding is right when the
+ * axes are catalog quantities rather than the embedding: the artifact carries thousands of
+ * upcoming games with a handful of ratings, and on a rating plot they sit in the middle
+ * looking like data.
+ */
+export type ContextMode = 'dim' | 'hide';
 
 export interface ViewState {
 	projection: Projection;
@@ -48,6 +58,8 @@ export interface ViewState {
 	 */
 	xFact: FactAxis;
 	yFact: FactAxis;
+	/** Dim the games out of scope, or leave them out. */
+	context: ContextMode;
 }
 
 export const DEFAULT_VIEW: ViewState = {
@@ -57,11 +69,13 @@ export const DEFAULT_VIEW: ViewState = {
 	colour: 'weight',
 	size: 'popularity',
 	xFact: 'weight',
-	yFact: 'rating'
+	yFact: 'rating',
+	context: 'dim'
 };
 
 const PROJECTIONS: Projection[] = ['pca', 'umap', 'strip', 'facts'];
 const FACT_AXES: FactAxis[] = ['weight', 'rating', 'geek', 'year', 'ratings'];
+const CONTEXTS: ContextMode[] = ['dim', 'hide'];
 const COLOURS: ColourBy[] = ['weight', 'geek', 'rating', 'year', 'upcoming', 'category'];
 const SIZES: SizeBy[] = ['popularity', 'uniform'];
 
@@ -86,7 +100,8 @@ export function fromParams(params: URLSearchParams, k: number): ViewState {
 		colour: oneOf(params.get('c'), COLOURS, DEFAULT_VIEW.colour),
 		size: oneOf(params.get('s'), SIZES, DEFAULT_VIEW.size),
 		xFact: oneOf(params.get('fx'), FACT_AXES, DEFAULT_VIEW.xFact),
-		yFact: oneOf(params.get('fy'), FACT_AXES, DEFAULT_VIEW.yFact)
+		yFact: oneOf(params.get('fy'), FACT_AXES, DEFAULT_VIEW.yFact),
+		context: oneOf(params.get('ctx'), CONTEXTS, DEFAULT_VIEW.context)
 	};
 }
 
@@ -108,5 +123,6 @@ export function toParams(view: ViewState): URLSearchParams {
 	}
 	if (view.colour !== DEFAULT_VIEW.colour) p.set('c', view.colour);
 	if (view.size !== DEFAULT_VIEW.size) p.set('s', view.size);
+	if (view.context !== DEFAULT_VIEW.context) p.set('ctx', view.context);
 	return p;
 }

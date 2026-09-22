@@ -23,7 +23,7 @@
   import type { Snippet } from 'svelte';
   import RailGroup from '$lib/catalog/rail/RailGroup.svelte';
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
-  import type { ColourBy, Projection, SizeBy, ViewState } from './view';
+  import type { ColourBy, ContextMode, Projection, SizeBy, ViewState } from './view';
 
   let {
     view = $bindable(),
@@ -110,6 +110,24 @@
       />
     {/each}
     <p class="note">{COLOUR_NOTE[view.colour]}</p>
+  </div>
+
+  <div class="grp">
+    <!-- PLACEHOLDER COPY (Phil): label, options and note. -->
+    <SegGroup
+      label="Out of scope"
+      options={[
+        { value: 'dim' as ContextMode, label: 'Dim' },
+        { value: 'hide' as ContextMode, label: 'Hide' }
+      ]}
+      value={view.context}
+      onchange={(v) => (view = { ...view, context: v })}
+    />
+    <p class="note">
+      {view.context === 'dim'
+        ? 'Filtered-out games stay drawn, faded — so you can see where your set sits in the whole.'
+        : 'Filtered-out games are left out entirely, and the view frames what is left.'}
+    </p>
   </div>
 
   <div class="grp">
