@@ -197,9 +197,12 @@ plan, and mark similar-explorer as deferred by decision rather than pending.
 - **Getting the pointer/upload order wrong is the one real hazard.** A pointer naming an
   object that is not there yet is a hard 404 for every reader at once. Step 2 keeps that
   ordering in one function precisely so it cannot be re-derived incorrectly per artifact.
-- **`versionOf` drift** between `publish-artifact.ts` and `artifact-cache.ts` would make the
-  GCS hash and the fallback ETag disagree. Assert it in a test rather than trusting a
-  comment.
+- **`versionOf` drift** between `publish-artifact.ts` and `artifact-cache.ts`. Nothing
+  compares the two at runtime — the ETag belongs to the byte-fallback path and the pointer
+  hash to the GCS path, and no client reads both — so drift breaks *diagnosis*, not
+  correctness: "does the published artifact match what I'd build locally" stops being
+  answerable. Still worth asserting in a test, but it is not the hazard the earlier draft of
+  this plan implied.
 - **v4 signing creeping in** — via a copy-paste, a library default change, or someone
   "fixing" the deprecated v2 API. The symptom is silent: everything works, and every visit
   re-downloads the artifact. The factory test asserting `version: 'v2'` is the guard.
