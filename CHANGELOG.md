@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.23](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.22...bgg-viewer-v0.0.23) (2026-09-22)
+
+
+### Features
+
+* **artifacts:** move thumbnails onto the GCS rail ([#73](https://github.com/phenrickson/bgg-viewer/issues/73)) ([cc476b0](https://github.com/phenrickson/bgg-viewer/commit/cc476b081015920857125f735af82cc1c613e411))
+* **map:** the embedding map — presets, a scope rail, and the canvas work ([#75](https://github.com/phenrickson/bgg-viewer/issues/75)) ([07d4f23](https://github.com/phenrickson/bgg-viewer/commit/07d4f23fce5107ebc14e337adfdefe8962c9865e))
+
 ## [0.0.22](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.21...bgg-viewer-v0.0.22) (2026-09-11)
 
 
