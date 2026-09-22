@@ -27,11 +27,15 @@ export interface ScopeMask {
 	unplaced: number;
 }
 
-/** Everything lit — the map's resting state, and what an empty scope means. */
-export function allLit(coords: CoordinateSet): ScopeMask {
-	const lit = new Uint8Array(coords.ids.length).fill(1);
-	return { lit, inScope: lit.length, unplaced: 0 };
-}
+/**
+ * There is deliberately no `allLit()` shortcut.
+ *
+ * One existed, to skip the query when no filter was set, and it was wrong: the artifact's
+ * population is NOT the default scope's. Coordinates are built over `users_rated >= 30 OR
+ * year_published >= <this year>` while the default scope is `users_rated >= 30` alone, so
+ * "every row in the artifact" silently included ~5,250 thinly-rated upcoming games the
+ * default excludes. Only the query knows what a scope means, so every scope goes through it.
+ */
 
 /**
  * Run `where` against the in-browser catalog and mark the games it returns.

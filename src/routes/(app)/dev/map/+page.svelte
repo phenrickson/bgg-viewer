@@ -38,7 +38,7 @@
   import type { GameFacts } from '$lib/map/facts';
   import { DEFAULT_VIEW, fromParams as viewFromParams, type ViewState } from '$lib/map/view';
   import { writeMapUrl, exploreHref } from '$lib/map/route';
-  import { scopeMask, allLit, type ScopeMask } from '$lib/map/scope-mask';
+  import { scopeMask, type ScopeMask } from '$lib/map/scope-mask';
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import MapRail from '$lib/map/MapRail.svelte';
@@ -133,16 +133,12 @@
     coords && catalog.status === 'ready' ? appendCollectionFilter(toWhere(scope)) : null
   );
   /**
-   * Is the scope narrowing anything?
+   * Is the scope narrowing anything *beyond the default*? Only used to decide whether to
+   * show chips and frame the camera — never to skip the query.
    *
-   * Compares the compiled WHERE against the default's, rather than counting chips.
-   * `activeFilters()` is a *chips* function and deliberately omits the universe — it is a
-   * dial with no "off", so it gets no removable chip — which made "upcoming" invisible here:
-   * the page took the all-lit path and drew all 36,001 games at full strength while the list
-   * showed a few thousand. Comparing the SQL catches the universe, `rankedOnly` and every
-   * ordinary filter by construction, so this cannot drift from `toWhere` again.
-   *
-   * All-rated is the default, so arriving at the map cold still lights the whole landscape.
+   * Compares the compiled WHERE rather than counting chips: `activeFilters()` is a chips
+   * function and deliberately omits the universe (a dial has no "off"), which once made
+   * `u=upcoming` invisible here and lit every game while the list showed a few thousand.
    */
   const baseWhere = $derived(appendCollectionFilter(toWhere({ ...DEFAULT_SCOPE })));
   const filtered = $derived(where != null && where !== baseWhere);
@@ -150,11 +146,20 @@
     const c = coords;
     const w = where;
     if (!c || w == null) return;
-    // No filters: everything is lit, and there is nothing to ask the database.
-    if (!filtered) {
-      mask = allLit(c);
-      return;
-    }
+    /**
+     * ALWAYS ask the database, even at the default scope.
+     *
+     * There used to be an "no filters, so light everything" shortcut here, and it was wrong
+     * for a reason worth keeping written down: the artifact's population is not the default
+     * scope's. Coordinates are built over `users_rated >= 30 OR year_published >= <this
+     * year>`, while the default scope is `users_rated >= 30` alone — so the artifact carries
+     * ~5,250 upcoming games with too few ratings that the default deliberately excludes.
+     * Lighting "everything in the artifact" drew all 36,001 at full strength when the honest
+     * answer was 30,748.
+     *
+     * The query is the only thing that knows what the scope means. One DuckDB count against
+     * an in-browser table is cheap; being wrong about what the map is showing is not.
+     */
     const mine = ++maskToken;
     scopeMask(c, w)
       .then((m) => mine === maskToken && (mask = m))
@@ -162,7 +167,11 @@
   });
 
   const lit = $derived(mask?.lit ?? null);
-  const inScope = $derived(mask?.inScope ?? coords?.ids.length ?? 0);
+  const inScope = $derived(mask?.inScope ?? 0);
+  /**
+   * The denominator: how many games the artifact places, and the honest "of N" the lit count
+   * is read against. Not the same as the number of games in any given scope.
+   */
   const placed = $derived(coords?.ids.length ?? 0);
 
   /**
@@ -409,17 +418,20 @@
            wrapped the same way. Explore puts only its count here too. -->
       <div class="chead">
         <p class="count">
-          {#if coords && facts}
-            {#if filtered}
-              <!-- The count says the same thing the plot does: a lit set, read against a
-                   whole. "of 36,001" is not decoration — it is the denominator that makes
-                   the dimmed points mean something. -->
-              <b class="tnum">{inScope.toLocaleString()}</b>
-              <span>{inScope === 1 ? 'game' : 'games'}</span>
+          {#if coords && facts && mask}
+            <!-- The count says the same thing the plot does: a lit set read against a whole.
+                 "of 36,001" is not decoration — it is the denominator that makes the dimmed
+                 points mean something.
+
+                 Both branches read the LIT count, including at the default scope. The
+                 unfiltered branch used to print the artifact's row count instead, on the
+                 assumption that no filters means every game — but the artifact also carries
+                 ~5,250 thinly-rated upcoming games the default scope excludes, so it claimed
+                 36,001 when the answer was 30,748. -->
+            <b class="tnum">{inScope.toLocaleString()}</b>
+            <span>{inScope === 1 ? 'game' : 'games'}</span>
+            {#if inScope !== placed}
               <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
-            {:else}
-              <b class="tnum">{placed.toLocaleString()}</b>
-              <span>games</span>
             {/if}
             {#if mask && mask.unplaced > 0}
               <!-- Only when it would actually mislead. ~245 games site-wide carry no
