@@ -74,3 +74,8 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
         run: pnpm dlx tsx@4 scripts/build-thumbnails-artifact.ts
+
+      - name: Build and upload coordinates
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: pnpm dlx tsx@4 scripts/build-coordinates-artifact.ts
