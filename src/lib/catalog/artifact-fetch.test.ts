@@ -41,7 +41,7 @@ describe('fetchArtifactBytes', () => {
 	it('does not send credentials to GCS', async () => {
 		// The signature IS the authorisation. Cookies cross-origin would only invite a CORS
 		// preflight failure, so the second fetch must carry no init object at all.
-		const fetchMock = vi.fn(async (input: string) =>
+		const fetchMock = vi.fn(async (input: string, _init?: RequestInit) =>
 			input === '/api/catalog' ? jsonResponse('https://storage.googleapis.com/y') : arrowResponse()
 		);
 		vi.stubGlobal('fetch', fetchMock);
