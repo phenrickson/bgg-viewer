@@ -19,8 +19,12 @@
    * with no semantic form — and shows as one removable chip beside the rest. It can only
    * catch lit points, so a gesture can narrow the set but never silently widen it.
    *
-   * Laid out like `/games`: `Container size="wide" fill` > `.workspace` > `.sidebar` +
-   * `.canvas`, with the rail moving into a bottom sheet on narrow.
+   * Laid out like `/games` — `Container size="wide" fill` > `.workspace` > sidebar +
+   * `.canvas` — but the sidebar is a STRIP of two buttons rather than a 16rem column, and
+   * what they open floats over the plot. /games can afford a standing rail because its
+   * content is a list that reflows around it; here the content is one picture, and a
+   * permanent column of ~40 controls beside it is most of what made the page unreadable.
+   * On narrow both rails still stack in a bottom sheet, as /games does.
    */
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
@@ -69,6 +73,22 @@
   });
 
   let railOpen = $state(false);
+
+  /**
+   * Which side panel is open, or `null` for none.
+   *
+   * The sidebar used to be a 16rem column holding the whole scope rail AND the encodings
+   * rail, permanently, which is most of why the page read as busy: ~40 controls on screen
+   * to look at a picture. It is a strip of two buttons now, and the panel they open floats
+   * OVER the canvas.
+   *
+   * Over, not beside, for a specific reason: a panel that takes layout width resizes the
+   * canvas, and a canvas resize is what put the selection rings off their points in the
+   * first place (regl's own ResizeObserver races ours). The selection panel is docked inside
+   * the canvas frame for exactly this reason. Nothing here resizes the plot.
+   */
+  let panel = $state<'filters' | 'controls' | null>(null);
+  const togglePanel = (p: 'filters' | 'controls') => (panel = panel === p ? null : p);
   // Leaving narrow with the sheet open would strand a modal over a desktop layout.
   $effect(() => {
     if (!narrow) railOpen = false;
@@ -438,15 +458,30 @@
 <Container size="wide" fill>
   <div class="workspace" class:narrow>
     {#if !narrow}
-      <aside class="sidebar">
-        <!-- Which games, then how they're drawn. The map can now BUILD a scope, not just
-             inherit one from Explore and remove chips from it — which is what made going
-             back to /games to change a filter the only way to change a filter. Same
-             component, same `Scope`, so there is nothing to keep in step. -->
-        {#if where != null}
-          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-        {/if}
-        <MapRail seam={where != null} bind:view {components} timeline={timelineControls} />
+      <!-- The sidebar collapsed to what it actually needs to be: two buttons. Whichever
+           panel they open floats over the plot, so the map keeps its full width either way
+           and never resizes. -->
+      <aside class="strip">
+        <button
+          type="button"
+          class="tab"
+          class:on={panel === 'filters'}
+          aria-expanded={panel === 'filters'}
+          onclick={() => togglePanel('filters')}
+        >
+          <!-- PLACEHOLDER COPY (Phil): button labels. -->
+          <span>Filters</span>
+          {#if activeCount}<span class="badge">{activeCount}</span>{/if}
+        </button>
+        <button
+          type="button"
+          class="tab"
+          class:on={panel === 'controls'}
+          aria-expanded={panel === 'controls'}
+          onclick={() => togglePanel('controls')}
+        >
+          <span>Controls</span>
+        </button>
       </aside>
     {/if}
 
@@ -482,8 +517,30 @@
              is removing. The panel and `exportPng` are untouched below, so restoring it is
              one button. -->
 
+        {#if panel !== null}
+          <!-- One scrolling column docked to the map's left edge. `Rail` is the same
+               component /games uses, so the filters here and the filters there cannot
+               drift; `MapRail` carries the encodings and the timeline. -->
+          <div class="panel">
+            <header>
+              <!-- PLACEHOLDER COPY (Phil): panel headings. -->
+              <h2>{panel === 'filters' ? 'Filters' : 'Controls'}</h2>
+              <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
+            </header>
+            <div class="panel-body">
+              {#if panel === 'filters'}
+                {#if where != null}
+                  <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+                {/if}
+              {:else}
+                <MapRail bind:view {components} timeline={timelineControls} />
+              {/if}
+            </div>
+          </div>
+        {/if}
+
         <!-- Top-left: what you are looking at, and how to find one thing in it. -->
-        <div class="stack left">
+        <div class="stack left" class:shifted={panel !== null}>
           <div class="hud readout">
             <p class="count">
               {#if coords && facts && mask}
@@ -515,24 +572,25 @@
             </a>
           </div>
 
-          <div class="hud">
-            <div class="search">
-              <input
-                type="search"
-                placeholder="Find a game…"
-                bind:value={q}
-                oninput={onsearch}
-                aria-label="Find a game"
-              />
-              {#if hits.length}
-                <ul class="hits" role="listbox">
-                  {#each hits as h (h.game_id)}
-                    <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-                  {/each}
-                </ul>
-              {/if}
-            </div>
-          </div>
+          <!-- No `.hud` wrapper: the input already carries its own border, background and
+               radius, so wrapping it drew a second border 0.3rem outside the first. It is a
+               stack member in its own right. -->
+        <div class="search">
+            <input
+              type="search"
+              placeholder="Find a game…"
+              bind:value={q}
+              oninput={onsearch}
+              aria-label="Find a game"
+            />
+            {#if hits.length}
+              <ul class="hits" role="listbox">
+                {#each hits as h (h.game_id)}
+                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+                {/each}
+              </ul>
+            {/if}
+        </div>
         </div>
 
 
@@ -688,15 +746,67 @@
 <style>
   /* Width and fill-height belong to <Container size="wide" fill> — see layout/tokens.ts.
      Same grid as /games: a fixed rail and a canvas that takes what is left. */
+  /* A strip of buttons, not a column of controls. Its panel floats over the plot, so the
+     canvas width is the same open or shut. */
   .workspace {
     display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
-    gap: var(--space-lg);
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-md);
     height: 100%;
     min-height: 0;
   }
   .workspace.narrow { grid-template-columns: 1fr; }
-  .sidebar { display: flex; flex-direction: column; min-height: 0; }
+
+  .strip { display: flex; flex-direction: column; gap: 0.4rem; min-height: 0; }
+  .tab {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    width: 100%; padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--card); color: var(--muted-foreground);
+    font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer;
+  }
+  .tab:hover { color: var(--foreground); }
+  .tab.on { color: var(--foreground); border-color: var(--primary); background: var(--muted); }
+  .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 1rem; height: 1rem; padding: 0 0.25rem; border-radius: 999px;
+    background: var(--primary); color: var(--primary-foreground);
+    font-size: 0.65rem; font-weight: 700;
+  }
+
+  /*
+   * The panel: docked to the map's left edge, full height, its own scroll.
+   *
+   * `position: absolute` inside `.map` rather than a grid column, so opening it does not
+   * change the canvas's size — see the `panel` state for why a resize here is not cosmetic.
+   */
+  .panel {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 3;
+    width: min(18rem, 80%);
+    display: flex; flex-direction: column; min-height: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: 0 2px 16px rgb(0 0 0 / 0.28);
+  }
+  .panel header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem var(--space-md);
+    border-bottom: 1px solid var(--border);
+  }
+  .panel h2 {
+    margin: 0; font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground);
+  }
+  .panel .close {
+    border: 0; background: none; padding: 0 0.25rem; cursor: pointer;
+    color: var(--muted-foreground); font-size: 1rem; line-height: 1;
+  }
+  .panel .close:hover { color: var(--foreground); }
+  .panel-body { overflow-y: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); }
+
+  /* Out from under an open panel. The readout is the one overlay the panel would cover. */
+  .stack.left.shifted { left: calc(min(18rem, 80%) + 2 * var(--space-sm)); }
   .canvas {
     display: flex; flex-direction: column; gap: var(--space-sm);
     min-width: 0; min-height: 0;
@@ -759,6 +869,7 @@
   .search { position: relative; min-width: min(16rem, 100%); }
   .search input {
     width: 100%;
+    backdrop-filter: blur(6px);
     border: 1px solid var(--border);
     border-radius: 7px;
     background: var(--background);
