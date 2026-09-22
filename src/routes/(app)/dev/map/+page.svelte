@@ -853,7 +853,22 @@
   }
   .stack > :global(*) { pointer-events: auto; }
   .stack.left { left: var(--space-sm); align-items: flex-start; }
-  .stack.right { right: var(--space-sm); align-items: flex-end; min-height: 0; }
+  /*
+   * The width cap lives HERE, not on the panel.
+   *
+   * `.lasso` carried `max-width: min(36rem, 48%)` back when it was positioned against
+   * `.map`, so the percentage had a real box to resolve against. Inside this stack it did
+   * not: the stack is absolutely positioned with only `right` set, so its width is
+   * shrink-to-fit from its contents, and a child sized as a percentage OF that is circular.
+   * The browser resolves the loop small — the selection table collapsed to a horizontal
+   * scrollbar with the game's name wrapped over four lines.
+   *
+   * The stack is positioned against `.map`, so the percentage means something here.
+   */
+  .stack.right {
+    right: var(--space-sm); align-items: flex-end; min-height: 0;
+    max-width: min(36rem, 48%);
+  }
 
   /* Inside a stack the chrome is positioned by the stack, not by itself. */
   .stack .hud { position: static; }
@@ -946,8 +961,8 @@
    * resize, and the race, never happen.
    */
   .lasso {
-    /* Positioned by `.stack.right`, not by itself — see that rule. */
-    width: max-content; max-width: min(36rem, 48%);
+    /* Positioned AND capped by `.stack.right` — see that rule. */
+    width: max-content; max-width: 100%;
     min-height: 0;
     display: flex; flex-direction: column; gap: var(--space-sm);
     border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
