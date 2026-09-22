@@ -19,7 +19,13 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 # Dev server port. Change here; every recipe and printed URL follows.
-port := "4300"
+#
+# 5173, Vite's default, because the artifacts bucket's CORS allow-list names it. The catalog
+# is fetched by the BROWSER from a signed GCS URL, so the dev origin has to be on that list
+# or the fetch is blocked and the catalog simply fails to load — with a healthy server, a
+# valid signature and a 200 on the endpoint, which is what makes it such a slow thing to
+# diagnose. Moving this port again means adding the new origin to the bucket first.
+port := "5173"
 
 # Show the recipe list.
 default:

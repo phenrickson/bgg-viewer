@@ -11,10 +11,11 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
-	// Dev server port. The justfile passes `--port` explicitly; this keeps a bare
-	// `pnpm dev` on the same port rather than Vite's default 5173.
+	// Dev server port, kept in step with the justfile's `port`. 5173 is Vite's default AND
+	// the origin on the artifacts bucket's CORS allow-list — the catalog is fetched by the
+	// browser straight from GCS, so an origin that isn't on that list can't load it at all.
 	server: {
-		port: 4300
+		port: 5173
 	},
 	/**
 	 * duckdb-wasm ships prebuilt workers whose sourcemaps point into `@duckdb/apache-arrow`,
