@@ -574,12 +574,6 @@
     {/if}
 
     <div class="canvas">
-      {#if filtered}
-        <div class="chiprow">
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
-        </div>
-      {/if}
-
   {#if exportOpen}
       <div class="export">
         <label>Scale
@@ -629,28 +623,18 @@
             </a>
           </div>
 
-          <!-- No `.hud` wrapper: the input already carries its own border, background and
-               radius, so wrapping it drew a second border 0.3rem outside the first. It is a
-               stack member in its own right. -->
-        <div class="search">
-            <input
-              type="search"
-              placeholder="Find a game…"
-              bind:value={q}
-              oninput={onsearch}
-              aria-label="Find a game"
-            />
-            {#if hits.length}
-              <ul class="hits" role="listbox">
-                {#each hits as h (h.game_id)}
-                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
-                {/each}
-              </ul>
-            {/if}
+          {#if filtered}
+            <!-- INSIDE the canvas, not above it. This band only exists while something is
+                 filtered, so up there filtering MOUNTED it and shrank the canvas. A canvas
+                 resize is what threw the selection rings off their points originally —
+                 regl's ResizeObserver and ours race, and the overlay repaints against the
+                 old size. The selection panel was docked inside the frame for exactly this
+                 reason; this was the last thing still resizing the plot. -->
+            <div class="chiprow">
+              <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE, universe: scope.universe })} />
+            </div>
+          {/if}
         </div>
-        </div>
-
-
 
         {#if loadError}
         <div class="state error">Couldn’t load the map: {loadError}</div>
@@ -705,6 +689,26 @@
               {/if}
             </Button>
           {/if}
+        </div>
+
+          <!-- No `.hud` wrapper: the input already carries its own border, background and
+               radius, so wrapping it drew a second border 0.3rem outside the first. It is a
+               stack member in its own right. -->
+        <div class="search">
+            <input
+              type="search"
+              placeholder="Find a game…"
+              bind:value={q}
+              oninput={onsearch}
+              aria-label="Find a game"
+            />
+            {#if hits.length}
+              <ul class="hits" role="listbox">
+                {#each hits as h (h.game_id)}
+                  <li><button type="button" onclick={() => pick(h)}>{h.name} <span>{h.year_published ?? ''}</span></button></li>
+                {/each}
+              </ul>
+            {/if}
         </div>
       {#if rows.length}
         <section class="lasso" class:shut={!panelOpen}>
@@ -949,6 +953,9 @@
     gap: var(--space-md); font-size: 0.85rem; color: var(--muted-foreground);
     padding: 0.3rem 0.6rem;
   }
+
+  /* A stack member like the others, capped so a long filter list cannot run down the plot. */
+  .chiprow { max-width: min(34rem, 60%); }
 
   .mode { width: 9rem; }
 

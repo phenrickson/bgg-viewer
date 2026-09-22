@@ -87,7 +87,7 @@ export const PRESETS: Preset[] = [
 		// Games BGG has not given a geek rating carry 0, which `axisValues` turns into NaN, so
 		// they drop out on their own — this plot is about games that HAVE a rating.
 		scope: { yearMin: 2000 },
-		view: { projection: 'facts', xFact: 'year', yFact: 'geek', colour: 'weight', size: 'uniform' }
+		view: { projection: 'facts', xFact: 'year', yFact: 'geek', colour: 'year', size: 'popularity' }
 	},
 	{
 		id: 'rating-weight',

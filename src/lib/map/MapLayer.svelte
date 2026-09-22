@@ -240,6 +240,21 @@
     },
     overlay: (ctx, api) => {
       const { theme, hovered, screen, pointScale } = api;
+      /**
+       * Nothing is marked while a positional draw is in flight.
+       *
+       * Every marker here is placed by asking regl where a point is. During a filter or a
+       * projection change there is a window where the encodings, the filter and the
+       * permutation have moved on but regl has not finished taking them — so a ring drawn
+       * then lands next to the dot it belongs to, or on a different one, and the tooltip
+       * points at the wrong game. The marks are worth nothing mid-flight anyway: the points
+       * are still travelling. `drawn` goes false when a positional draw starts and true when
+       * it lands, so this waits it out rather than trying to be right during it.
+       */
+      if (!api.drawn) {
+        tip = null;
+        return;
+      }
       // Flag lookup, not a per-frame Set — see `visibility`.
       const shown = visibility.flag;
       // The drawn dot is the unzoomed radius times regl's point scale; markers have to track
