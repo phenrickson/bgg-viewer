@@ -553,15 +553,6 @@
                 {#if inScope !== placed}
                   <span class="dim">of <span class="tnum">{placed.toLocaleString()}</span></span>
                 {/if}
-                {#if mask && mask.unplaced > 0}
-                  <!-- Only when it would actually mislead. ~245 games site-wide carry no
-                       coordinates — folk games and bookkeeping entries with too little
-                       text to embed — so this stays silent until someone has filtered down
-                       to where they matter. -->
-                  <span class="dim" title="Games with no coordinates in the current embedding — mostly traditional games with no publisher or year.">
-                    · <span class="tnum">{mask.unplaced.toLocaleString()}</span> not placed
-                  </span>
-                {/if}
               {/if}
             </p>
             <!-- The way back. The same scope, rendered as a list — so the map is a view of
