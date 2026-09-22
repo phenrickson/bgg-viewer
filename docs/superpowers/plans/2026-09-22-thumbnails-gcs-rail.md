@@ -3,6 +3,12 @@
 Spec: `docs/superpowers/specs/2026-09-22-thumbnails-gcs-rail-design.md`
 Finding: `docs/session-handoff-2026-09-22-artifact-serving.md`
 
+**Status, 2026-09-22:** steps 1-6 built on `feat/thumbnails-gcs-rail`. Two things remain and
+both need Phil: the first real publish (the renamed workflow is not dispatchable until it is
+on `main`, since `workflow_dispatch` only registers from the default branch), and the browser
+pass on `just dev`. Until the pointer exists the endpoint falls back to the BigQuery build,
+which is correct but is not yet the win.
+
 ## Goal
 
 Move the thumbnails artifact off request-time BigQuery and onto the catalog's CI → GCS →
@@ -68,6 +74,11 @@ branch that has been open a while.
 Time a cold `/api/thumbnails` locally with a stale `.cache/thumbnails.arrow.gz`, the same
 way coordinates was measured (7.2s cold / 0.008s warm). Record the split: BigQuery execution
 vs REST pagination vs Arrow+gzip.
+
+**Result:** 3.4s for the query and pagination, plus ~90ms to serialize and gzip; the catalog
+is 13.3s for the same 36,277 rows, so pagination tracks payload more than row count. Against
+that, fetching the published object is ~0.1s (measured: 0.3s for the catalog's 5.28 MB).
+Below the ~5-7s predicted, well above the ~2s stop threshold, and the ~30x gap settles it.
 
 **Verification:** a number. **If the cold build lands near 2s rather than near 7s**, stop and
 re-open open question 1 in the spec — the reuse argument alone may not justify the sequence,

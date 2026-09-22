@@ -1,7 +1,9 @@
 # Handoff — four of five artifacts are built on demand from BigQuery
 
 **Date:** 2026-09-22
-**Status:** nothing built. This is a finding plus a recommended sequence.
+**Status:** superseded for thumbnails — built on `feat/thumbnails-gcs-rail`. See
+`docs/superpowers/specs/2026-09-22-thumbnails-gcs-rail-design.md` and its plan. The finding
+below stands; three of its recommendations were revised in the doing, marked **[revised]**.
 **Scope note:** found while working on the embedding map. It is infrastructure, not
 mapping, so it was deliberately split out rather than folded into that branch.
 
@@ -33,9 +35,12 @@ warm  0.008s (in-process cache hit)
 The query itself is not the problem — 20 MB scanned, trivial. The time goes on the Node
 BigQuery client paginating 36k rows into JS objects over REST, then serializing.
 
-`similar-explorer` is 9.3 MB and was not timed. It is the obvious worst case and the reason
-this is worth doing; **time it first** so the work is justified by a number rather than by
-this document.
+`similar-explorer` is 9.3 MB and was not timed. It is the obvious worst case, but it is only
+loaded by `/dev/similar` and is not a requirement for now; **time it first** if it comes back.
+
+**[revised]** The "time it first" instruction was right and worth keeping — the prediction
+for thumbnails was ~5-7s by analogy with coordinates, and the measurement came back 3.4s.
+Pagination cost tracks payload size more than row count, which the analogy got wrong.
 
 ## Why the catalog is different
 
@@ -47,9 +52,15 @@ The catalog has a rail nothing else has:
 
 Half the pattern is already shared: `src/lib/server/artifact-cache.ts` (`createArtifactCache`)
 gives all five the TTL + disk-mirror behaviour. The missing half is GCS upload + pointer +
-signed URL, and it generalises cleanly — `gcs.ts` is already parameterised by bucket and
-pointer name, so most of the work is threading an artifact name through and extending the
-workflow to build N artifacts instead of one.
+signed URL.
+
+**[revised]** That half does *not* generalise by threading a name through. `POINTER` is a
+module constant and `pointerCache`/`storage` are module singletons, so a second artifact
+sharing `gcs.ts` would share one pointer cache — whichever resolved first would win the TTL
+and the other would sign a URL for the wrong object. The read side needed the same factory
+shape `createArtifactCache` already has (`src/lib/server/artifact-pointer.ts`), and the
+publish side needed the same split (`scripts/lib/publish-artifact.ts`). Two real refactors,
+not a rename.
 
 Two details in the existing design that must be preserved when generalising, both
 load-bearing and both explained in the source:
@@ -63,15 +74,21 @@ load-bearing and both explained in the source:
 
 ## Recommended sequence
 
-1. **Coordinates into the catalog artifact** — not onto the GCS rail. They are small
-   (measured +1.01 MB gzipped, +20% on the catalog), every map session wants them, and as
-   catalog columns they are queryable in the same SQL as the scope. Phil's framing: the map
-   should be a view over the catalog, with position an ordinary column choice rather than a
-   private artifact the map knows how to fetch. A plan for this exists in conversation but
-   was not written to `docs/superpowers/plans/` — **write it first**, it has real subtleties
-   (LEFT JOIN not INNER, a coverage guard to replace the zero-rows failure, model/version
-   moving to the pointer JSON).
-2. **Generalise the GCS rail** for `thumbnails` and `similar-explorer`. Biggest measured win.
+1. **[revised] Coordinates stay their own artifact, on the GCS rail** — not folded into the
+   catalog. Phil's call, 2026-09-22: the coordinate set is expected to grow to `pc_1 … pc_k`
+   for larger *k*, and more components need no new model or pipeline, just more of the
+   vector. Inside the catalog every added component taxes every user for a page most
+   sessions never open; as its own artifact, widening it costs only the sessions that open
+   the map. Deferred here only because none of the coordinates code is on `main` — it
+   arrives with PR #71, after which it is a small follow-up on the rail now built.
+2. **[revised] Generalise the GCS rail** for `thumbnails`. Done. similar-explorer is not a
+   requirement for now (Phil, 2026-09-22) and rides the same rail unchanged whenever it is.
+
+   The size was measured, and it is smaller than this document implies: rebuilding
+   thumbnails from BigQuery is **3.4s** for the query, against **~0.1s** to fetch the
+   published object (measured as 0.3s for the catalog's 5.28 MB, scaled). Real, but the
+   argument is less "seconds off a page load" than "a cold container stops doing 3.4s of
+   BigQuery work and 1.8 MB of egress, forever" — plus the reuse.
 3. **Future big artifacts** — a game network, a higher-dimensional coordinate set — then ride
    an existing rail instead of growing new machinery. This is the actual argument for doing
    step 2 properly rather than bolting GCS onto one artifact.
@@ -120,7 +137,7 @@ replaced.
 
 ```sh
 pnpm exec svelte-check --tsconfig ./tsconfig.json   # 0 errors; 9 pre-existing AnalysisPanel warnings
-pnpm exec vitest run                                # 418 passing
+pnpm exec vitest run                                # 418 passing on this branch; main is 298
 ```
 
 Ask before starting the dev server — Phil runs his own on 5173.
