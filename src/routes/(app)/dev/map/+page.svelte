@@ -28,6 +28,7 @@
   import { initCatalog, catalog, query, appendCollectionFilter } from '$lib/catalog/catalog.svelte';
   import {
     DEFAULT_SCOPE,
+    activeFilters,
     toWhere,
     scopeFromParams,
     type Scope
@@ -43,6 +44,7 @@
   import { ANCHORS } from '$lib/map/anchors';
   import EmbeddingMap from '$lib/map/EmbeddingMap.svelte';
   import MapRail from '$lib/map/MapRail.svelte';
+  import Rail from '$lib/catalog/Rail.svelte';
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import { Container } from '$lib/components/ui/layout';
@@ -54,6 +56,9 @@
    * `matchMedia` rather than CSS: the rail has to be the SAME component instance whether it
    * is inline or in the sheet — the same reason `/games` does it this way.
    */
+  /** The layout's user, for the rail's "My collection only" filter. */
+  let { data } = $props();
+
   let narrow = $state(false);
   $effect(() => {
     const mq = window.matchMedia('(max-width: 60rem)');
@@ -130,9 +135,17 @@
    */
   let mask = $state<ScopeMask | null>(null);
   let maskToken = 0;
-  const where = $derived(
-    coords && catalog.status === 'ready' ? appendCollectionFilter(toWhere(scope)) : null
-  );
+  /**
+   * The scope's compiled WHERE, always available — the rail's facet counts are scoped to the
+   * set you've built and want it from the first render.
+   */
+  const scopeWhere = $derived(appendCollectionFilter(toWhere(scope)));
+  /**
+   * The same string, gated on there being something to run it against. `null` here means
+   * "don't query yet", which is a statement about readiness, not about the scope — keeping
+   * the two apart is why the rail can render before the artifact lands.
+   */
+  const where = $derived(coords && catalog.status === 'ready' ? scopeWhere : null);
   /**
    * Is the scope narrowing anything *beyond the default*? Only used to decide whether to
    * show chips and frame the camera — never to skip the query.
@@ -177,6 +190,11 @@
     runMask(c, w, mine);
     return () => runMask.cancel();
   });
+
+  /** Same count /games puts on its Filters trigger, from the same function. */
+  const activeCount = $derived(
+    activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0)
+  );
 
   const lit = $derived(mask?.lit ?? null);
   const inScope = $derived(mask?.inScope ?? 0);
@@ -419,7 +437,12 @@
   <div class="workspace" class:narrow>
     {#if !narrow}
       <aside class="sidebar">
-        <MapRail bind:view {components} timeline={timelineControls} />
+        <!-- Which games, then how they're drawn. The map can now BUILD a scope, not just
+             inherit one from Explore and remove chips from it — which is what made going
+             back to /games to change a filter the only way to change a filter. Same
+             component, same `Scope`, so there is nothing to keep in step. -->
+        <Rail bind:scope where={scopeWhere} bggUsername={data.user?.bgg_username ?? null} />
+        <MapRail seam bind:view {components} timeline={timelineControls} />
       </aside>
     {/if}
 
@@ -480,7 +503,18 @@
             {filtered ? 'See these as a list' : 'Browse as a list'} <span aria-hidden="true">→</span>
           </a>
           {#if narrow}
-            <Button size="sm" variant="outline" onclick={() => (railOpen = true)}>Display</Button>
+            <!-- PLACEHOLDER COPY (Phil): this sheet now holds the scope rail as well as the
+                 encodings, so "Display" undersells it. Carries /games' active-filter count,
+                 from the same `activeFilters` call, so narrow still says what is applied. -->
+            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
+              Filters &amp; display
+              {#if activeCount}
+                <span
+                  class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                  >{activeCount}</span
+                >
+              {/if}
+            </Button>
           {/if}
         </div>
       </div>
@@ -627,10 +661,12 @@
 <Sheet.Root bind:open={railOpen}>
   <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
     <Sheet.Header class="border-b border-border">
-      <Sheet.Title>Display</Sheet.Title>
+      <!-- PLACEHOLDER COPY (Phil) — see the trigger above. -->
+      <Sheet.Title>Filters &amp; display</Sheet.Title>
     </Sheet.Header>
     <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-      <MapRail bind:view {components} timeline={timelineControls} />
+        <Rail bind:scope where={scopeWhere} bggUsername={data.user?.bgg_username ?? null} />
+        <MapRail seam bind:view {components} timeline={timelineControls} />
     </div>
     <Sheet.Footer class="border-t border-border">
       <Button size="lg" class="w-full" onclick={() => (railOpen = false)}>

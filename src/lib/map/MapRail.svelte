@@ -36,11 +36,23 @@
      * scrub and watch, and collapsing it would hide the affordance that makes it
      * discoverable at all.
      */
-    timeline
+    timeline,
+    /**
+     * This rail is following a scope rail rather than starting the column.
+     *
+     * The map's rail is two runs — which games (`Rail`), then how they're drawn (this) — and
+     * the seam between them is the same statement the timeline's rule already makes: more
+     * air and a heavier rule, so the two read as separate without either needing a heading.
+     * Reusing `.break` rather than letting the page write the rule itself keeps the value in
+     * one place; the page asserting its own "matching" CSS is exactly how the first MapRail
+     * drifted from `Rail`.
+     */
+    seam = false
   }: {
     view: ViewState;
     components: number[];
     timeline?: Snippet;
+    seam?: boolean;
   } = $props();
 
   const groupOpen = $state({ projection: false });
@@ -86,7 +98,7 @@
 </script>
 
 <aside class="rail">
-  <div class="grp top">
+  <div class="grp" class:top={!seam} class:break={seam}>
     <span class="lbl">Colour</span>
     {#each COLOUR_ROWS as row, i (i)}
       <SegGroup
