@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.24](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.23...bgg-viewer-v0.0.24) (2026-09-23)
+
+
+### Features
+
+* **nav:** a Tools menu, and the map promoted to /map ([#76](https://github.com/phenrickson/bgg-viewer/issues/76)) ([e4ef94d](https://github.com/phenrickson/bgg-viewer/commit/e4ef94d53fb45e69c157f0fa7887b4dfe8fe6c74))
+
+
+### Bug Fixes
+
+* **auth:** stop the login waiting on the last_login write ([#77](https://github.com/phenrickson/bgg-viewer/issues/77)) ([b195490](https://github.com/phenrickson/bgg-viewer/commit/b1954902581ce35b1476221a128d1fa6a8f8c925))
+
 ## [0.0.23](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.22...bgg-viewer-v0.0.23) (2026-09-22)
 
 
