@@ -87,8 +87,10 @@
    * canvas, and a canvas resize is what put the selection rings off their points in the
    * first place (regl's own ResizeObserver races ours). The selection panel is docked inside
    * the canvas frame for exactly this reason. Nothing here resizes the plot.
+   *
+   * Opens on Presets: they are the quickest way into the map for someone arriving cold.
    */
-  let panel = $state<'presets' | 'filters' | 'controls' | null>(null);
+  let panel = $state<'presets' | 'filters' | 'controls' | null>('presets');
   const togglePanel = (p: 'presets' | 'filters' | 'controls') => (panel = panel === p ? null : p);
 
   /**
