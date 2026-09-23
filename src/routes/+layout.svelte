@@ -196,7 +196,7 @@
             <div class="pop" role="menu">
               <a href="/map" role="menuitem" class:on={onMap}>
                 <b>Map</b>
-                <span>PLACEHOLDER(Phil): one-line description</span>
+                <span>Visualize the landscape of board games</span>
               </a>
             </div>
           {/if}
