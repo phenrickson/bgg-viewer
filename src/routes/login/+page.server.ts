@@ -27,7 +27,7 @@ export const actions: Actions = {
 
 		const user = await getUserByEmail(form.data.email);
 		// One generic message for every failure — never reveal which accounts exist.
-		if (!user || !user.is_active || !verifyPassword(form.data.password, user.password_hash)) {
+		if (!user || !user.is_active || !(await verifyPassword(form.data.password, user.password_hash))) {
 			return message(form, 'Invalid email or password.', { status: 400 });
 		}
 
@@ -44,12 +44,9 @@ export const actions: Actions = {
 			),
 			sessionCookieOptions(!dev)
 		);
-		// Best-effort; a login shouldn't fail because the timestamp write did.
-		try {
-			await updateLastLogin(user.user_id);
-		} catch {
-			/* ignore */
-		}
+		// Best-effort and not awaited: a BigQuery UPDATE is a multi-second DML job,
+		// and the login shouldn't wait on (or fail because of) a timestamp write.
+		void updateLastLogin(user.user_id).catch(() => {});
 
 		throw redirect(303, safeNext(url.searchParams.get('next')));
 	}
