@@ -14,7 +14,7 @@
 import { scopeToParams, scopeFromParams, type Scope } from '$lib/catalog/scope';
 import { toParams as viewToParams, fromParams as viewFromParams, type ViewState } from './view';
 
-export const MAP_PATH = '/dev/map';
+export const MAP_PATH = '/map';
 export const EXPLORE_PATH = '/games';
 
 /** Which of the querystring's params belong to the map's *encodings* rather than the scope. */

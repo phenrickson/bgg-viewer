@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * `/dev/map` — the board game landscape.
+   * `/map` — the board game landscape.
    *
    * Every game the embedding places is drawn, always. Filtering does not remove points, it
    * **lights** them: the games in scope keep their colour and the rest fade toward the
@@ -87,8 +87,10 @@
    * canvas, and a canvas resize is what put the selection rings off their points in the
    * first place (regl's own ResizeObserver races ours). The selection panel is docked inside
    * the canvas frame for exactly this reason. Nothing here resizes the plot.
+   *
+   * Opens on Presets: they are the quickest way into the map for someone arriving cold.
    */
-  let panel = $state<'presets' | 'filters' | 'controls' | null>(null);
+  let panel = $state<'presets' | 'filters' | 'controls' | null>('presets');
   const togglePanel = (p: 'presets' | 'filters' | 'controls') => (panel = panel === p ? null : p);
 
   /**
@@ -512,12 +514,11 @@
           <button
             type="button"
             class="tab"
-            class:on={panel === 'filters'}
-            aria-expanded={panel === 'filters'}
-            onclick={() => togglePanel('filters')}
+            class:on={panel === 'presets'}
+            aria-expanded={panel === 'presets'}
+            onclick={() => togglePanel('presets')}
           >
-            <span>Filters</span>
-            {#if activeCount}<span class="badge">{activeCount}</span>{/if}
+            <span>Presets</span>
           </button>
           <button
             type="button"
@@ -531,11 +532,12 @@
           <button
             type="button"
             class="tab"
-            class:on={panel === 'presets'}
-            aria-expanded={panel === 'presets'}
-            onclick={() => togglePanel('presets')}
+            class:on={panel === 'filters'}
+            aria-expanded={panel === 'filters'}
+            onclick={() => togglePanel('filters')}
           >
-            <span>Presets</span>
+            <span>Filters</span>
+            {#if activeCount}<span class="badge">{activeCount}</span>{/if}
           </button>
           {#if panel !== null}
             <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
