@@ -50,6 +50,13 @@
    * in isolation; "answer a few questions, get a shortlist" and "filter and sort the whole
    * catalog" are not. The menu lets the nav say what each view is for instead of assuming
    * the label already means something.
+   *
+   * Tools is the second menu, and the split between the two is the rule for what goes where:
+   * Games is the catalog — ways into the set of games — and Tools is things you do WITH games
+   * or a set of them. The map is the first; recommend, compare and a timeline are planned, and
+   * each gets a row when it ships, never before. The map is a tool even though it reads the
+   * same `Scope` as Explore: Explore's "Map" link is the seam there, as "see all N" is here.
+   * PLACEHOLDER(Phil): reword to taste.
    */
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
@@ -62,11 +69,15 @@
    */
   const onUpcoming = $derived(onExplore && $page.url.searchParams.get('u') === 'upcoming');
   const inGames = $derived(onExplore || onDiscover || onWhatsNew);
+  const onMap = $derived(path === '/map' || path.startsWith('/map/'));
+  const inTools = $derived(onMap);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
-  const onHome = $derived(!inGames && !onAbout);
+  const onHome = $derived(!inGames && !inTools && !onAbout);
 
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
+  let toolsOpen = $state(false);
+  let toolsMenu = $state<HTMLElement | null>(null);
 
   /**
    * The narrow-screen menu. Six text targets — Home, Games, About, Settings, Log out, theme —
@@ -83,20 +94,23 @@
   $effect(() => {
     path;
     gamesOpen = false;
+    toolsOpen = false;
     navOpen = false;
   });
 
   /** Click-away and Escape, the two ways every menu is expected to close. */
   $effect(() => {
-    if (!gamesOpen && !navOpen) return;
+    if (!gamesOpen && !toolsOpen && !navOpen) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (gamesOpen && gamesMenu && !gamesMenu.contains(t)) gamesOpen = false;
+      if (toolsOpen && toolsMenu && !toolsMenu.contains(t)) toolsOpen = false;
       if (navOpen && navMenu && !navMenu.contains(t)) navOpen = false;
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         gamesOpen = false;
+        toolsOpen = false;
         navOpen = false;
       }
     };
@@ -132,7 +146,10 @@
             class:active={inGames}
             aria-expanded={gamesOpen}
             aria-haspopup="true"
-            onclick={() => (gamesOpen = !gamesOpen)}
+            onclick={() => {
+              gamesOpen = !gamesOpen;
+              toolsOpen = false;
+            }}
           >
             Games <span class="caret" aria-hidden="true">▾</span>
           </button>
@@ -160,10 +177,35 @@
           {/if}
         </div>
 
-        <!-- Last, and stays last. Every other item in this row is a dataset — the rated
-             catalog, your shelf — and About is the one that explains them rather than being
-             one. The modelling room and Collection slot in before it; it can grow its own
-             menu (methodology, freshness) without disturbing anything else. -->
+        <div class="menu" bind:this={toolsMenu}>
+          <button
+            type="button"
+            class="trigger"
+            class:active={inTools}
+            aria-expanded={toolsOpen}
+            aria-haspopup="true"
+            onclick={() => {
+              toolsOpen = !toolsOpen;
+              gamesOpen = false;
+            }}
+          >
+            Tools <span class="caret" aria-hidden="true">▾</span>
+          </button>
+
+          {#if toolsOpen}
+            <div class="pop" role="menu">
+              <a href="/map" role="menuitem" class:on={onMap}>
+                <b>Map</b>
+                <span>PLACEHOLDER(Phil): one-line description</span>
+              </a>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Last, and stays last. Games is the catalog and Tools acts on it; About is the one
+             item that explains them rather than being one. The modelling room and Collection
+             slot in before it; it can grow its own menu (methodology, freshness) without
+             disturbing anything else. PLACEHOLDER(Phil): reword to taste. -->
         <a href="/about" class:active={onAbout}>About</a>
       </nav>
       {#if data.user}
