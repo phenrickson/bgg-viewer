@@ -512,12 +512,11 @@
           <button
             type="button"
             class="tab"
-            class:on={panel === 'filters'}
-            aria-expanded={panel === 'filters'}
-            onclick={() => togglePanel('filters')}
+            class:on={panel === 'presets'}
+            aria-expanded={panel === 'presets'}
+            onclick={() => togglePanel('presets')}
           >
-            <span>Filters</span>
-            {#if activeCount}<span class="badge">{activeCount}</span>{/if}
+            <span>Presets</span>
           </button>
           <button
             type="button"
@@ -531,11 +530,12 @@
           <button
             type="button"
             class="tab"
-            class:on={panel === 'presets'}
-            aria-expanded={panel === 'presets'}
-            onclick={() => togglePanel('presets')}
+            class:on={panel === 'filters'}
+            aria-expanded={panel === 'filters'}
+            onclick={() => togglePanel('filters')}
           >
-            <span>Presets</span>
+            <span>Filters</span>
+            {#if activeCount}<span class="badge">{activeCount}</span>{/if}
           </button>
           {#if panel !== null}
             <button type="button" class="close" onclick={() => (panel = null)} aria-label="Close">×</button>
