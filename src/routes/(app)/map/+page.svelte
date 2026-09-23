@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * `/dev/map` — the board game landscape.
+   * `/map` — the board game landscape.
    *
    * Every game the embedding places is drawn, always. Filtering does not remove points, it
    * **lights** them: the games in scope keep their colour and the rest fade toward the

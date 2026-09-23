@@ -1,19 +1,14 @@
+import { redirect } from '@sveltejs/kit';
+import { MAP_PATH } from '$lib/map/route';
 import type { PageServerLoad } from './$types';
 
 /**
- * No gate. Unlike its siblings under `dev/`, this page ships.
+ * The map's old address. It ran here, unlisted, until it was promoted to `/map` under Tools;
+ * links made in that time carry a scope in the querystring, so the redirect keeps it.
  *
- * It used to 404 in any production build (`if (!dev) error(404)`), which was never a
- * security measure — every route under `(app)` already requires a signed-in user, and the
- * coordinates artifact is auth-gated on its own. The gate was editorial: don't ship a page
- * of PLACEHOLDER copy.
- *
- * It is unlisted rather than promoted: nothing in the nav points here, and the only way in
- * is Explore's "Map" link, which carries the scope you built there. Signed-in users can
- * therefore find it, which is the accepted trade — the alternative was removing that link,
- * and the link is what makes this a second view of your set rather than a separate page.
- *
- * The `/dev` in the path is now only a path. `MAP_PATH` in `$lib/map/route.ts` is the single
- * place to change it when this is promoted properly.
+ * Only this exact path. `/dev/map/story` and `/dev/map/network` are still prototypes, gated
+ * on their own, and resolve as before.
  */
-export const load: PageServerLoad = () => {};
+export const load: PageServerLoad = ({ url }) => {
+	redirect(308, MAP_PATH + url.search);
+};
