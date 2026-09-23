@@ -238,10 +238,16 @@
           {#if navOpen}
             <div class="pop right" role="menu">
               <a href="/" role="menuitem" class:on={onHome}><b>Home</b></a>
+              <!-- Labels, not submenus: the list stays flat and one tap deep, but keeps the
+                   bar's split between the catalog and the tools that act on it. -->
+              <span class="grp" aria-hidden="true">Games</span>
               <a href="/discover" role="menuitem" class:on={onDiscover}><b>Discover</b></a>
               <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}><b>Explore</b></a>
               <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}><b>Upcoming</b></a>
               <a href="/whats-new" role="menuitem" class:on={onWhatsNew}><b>What's New</b></a>
+              <span class="grp" aria-hidden="true">Tools</span>
+              <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
+              <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}
                 <hr />
@@ -394,6 +400,11 @@
   .burger { font-size: 1.05rem; }
   .pop.right { left: auto; right: 0; }
   .pop hr { margin: 0.3rem 0.2rem; border: none; border-top: 1px solid var(--border); }
+  .pop .grp {
+    display: block; padding: 0.55rem 0.6rem 0.15rem;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
   .pop form { margin: 0; }
   .pop form button {
     display: flex; width: 100%; padding: 0.6rem;
