@@ -11,10 +11,11 @@ export function hashPassword(plain: string): string {
 	return bcrypt.hashSync(plain, COST);
 }
 
-export function verifyPassword(plain: string, hash: string): boolean {
+// Async so the ~12-round compare doesn't block the event loop for other requests.
+export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
 	if (!hash) return false;
 	try {
-		return bcrypt.compareSync(plain, hash);
+		return await bcrypt.compare(plain, hash);
 	} catch {
 		return false;
 	}
