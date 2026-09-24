@@ -71,7 +71,8 @@
   const onUpcoming = $derived(onExplore && $page.url.searchParams.get('u') === 'upcoming');
   const inGames = $derived(onExplore || onDiscover || onWhatsNew);
   const onMap = $derived(path === '/map' || path.startsWith('/map/'));
-  const inTools = $derived(onMap);
+  const onRecommend = $derived(path === '/recommend' || path.startsWith('/recommend/'));
+  const inTools = $derived(onMap || onRecommend);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
   const onHome = $derived(!inGames && !inTools && !onAbout);
 
@@ -195,6 +196,10 @@
 
           {#if toolsOpen}
             <div class="pop" role="menu">
+              <a href="/recommend" role="menuitem" class:on={onRecommend}>
+                <b>Recommend</b>
+                <span>PLACEHOLDER(Phil): one-line description</span>
+              </a>
               <a href="/map" role="menuitem" class:on={onMap}>
                 <b>Map</b>
                 <span>Visualize the landscape of board games</span>
@@ -248,6 +253,7 @@
               <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}><b>Upcoming</b></a>
               <a href="/whats-new" role="menuitem" class:on={onWhatsNew}><b>What's New</b></a>
               <span class="grp" aria-hidden="true">Tools</span>
+              <a href="/recommend" role="menuitem" class:on={onRecommend}><b>Recommend</b></a>
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>

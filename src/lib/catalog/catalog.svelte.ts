@@ -178,6 +178,19 @@ export function appendCollectionFilter(where: string): string {
 		: where;
 }
 
+/**
+ * Load an extra Arrow artifact into DuckDB as its own table, replacing any previous copy —
+ * e.g. the Recommend tool's per-collection `collection_neighbors`. Waits for the catalog so
+ * the new table can be joined to it straight away.
+ */
+export async function loadArrowTable(name: string, endpoint: string): Promise<void> {
+	await initCatalog();
+	if (!conn) throw new Error('catalog is not ready');
+	const buf = await fetchArtifactBytes(endpoint);
+	await conn.query(`DROP TABLE IF EXISTS ${name}`);
+	await conn.insertArrowFromIPCStream(buf, { name, create: true });
+}
+
 /** Resolve a game's name from its id (map built once at load) — for the plot tooltip. */
 export function nameOf(id: number): string | undefined {
 	return nameById.get(Number(id));

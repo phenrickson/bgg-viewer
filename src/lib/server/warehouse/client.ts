@@ -15,6 +15,7 @@ import {
 	type Lineage,
 	type NewGameRow,
 	type PipelineStatus,
+	type SimilarWireRow,
 	type TableSchema
 } from './types';
 
@@ -33,6 +34,16 @@ export interface WarehouseClient {
 	getPipelineStatus(days?: number): Promise<PipelineStatus>;
 	getLineage(): Promise<Lineage>;
 	getTableSchema(id: string): Promise<TableSchema>;
+	/** Every profile's neighbours for one game within a pool, computed live (~3 s). */
+	getSimilarPooled(gameId: number, pool: SimilarPool): Promise<Record<string, SimilarWireRow[]>>;
+}
+
+/** A pool for the live similarity search; forms combine with AND on the warehouse side. */
+export interface SimilarPool {
+	collection?: string;
+	excludeCollection?: string;
+	yearMin?: number;
+	ids?: number[];
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -93,6 +104,19 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 			const res = await authedGet(path);
 			if (!res.ok) throw await failure(res, path);
 			return (await res.json()) as TableSchema;
+		},
+
+		async getSimilarPooled(gameId: number, pool: SimilarPool) {
+			const q = new URLSearchParams();
+			if (pool.collection) q.set('collection', pool.collection);
+			if (pool.excludeCollection) q.set('exclude_collection', pool.excludeCollection);
+			if (pool.yearMin != null) q.set('year_min', String(pool.yearMin));
+			for (const id of pool.ids ?? []) q.append('ids', String(id));
+			const res = await authedGet(`/games/${gameId}/similar?${q}`);
+			if (!res.ok) {
+				throw new WarehouseError(res.status, `warehouse GET /games/${gameId}/similar failed (${res.status})`);
+			}
+			return (await res.json()) as Record<string, SimilarWireRow[]>;
 		}
 	};
 }

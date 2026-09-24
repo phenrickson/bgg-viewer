@@ -7,7 +7,14 @@
   import { goto } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
 
-  let { compact = false }: { compact?: boolean } = $props();
+  let {
+    compact = false,
+    onpick
+  }: {
+    compact?: boolean;
+    /** When set, a pick calls this instead of navigating to the game's page. */
+    onpick?: (id: number, name: string) => void;
+  } = $props();
 
   type Hit = { game_id: number; name: string; year_published: number | null };
   let q = $state('');
@@ -36,15 +43,18 @@
       .catch((e) => console.error('search failed', e));
   });
 
-  function open(id: number) {
+  function open(id: number, name: string) {
     q = '';
     hits = [];
     active = false;
-    goto(`/games/${id}`);
+    if (onpick) onpick(id, name);
+    else goto(`/games/${id}`);
   }
 
   const placeholder = $derived(
-    catalog.status === 'ready' || catalog.status === 'idle' ? 'Jump to a game…' : 'Warming the catalog…'
+    catalog.status === 'ready' || catalog.status === 'idle'
+      ? onpick ? 'Pick a game…' : 'Jump to a game…'
+      : 'Warming the catalog…'
   );
 </script>
 
@@ -63,7 +73,7 @@
     <ul class="menu">
       {#each hits as h}
         <li>
-          <button onmousedown={() => open(h.game_id)}>
+          <button onmousedown={() => open(h.game_id, h.name)}>
             <span class="nm">{h.name}</span>
             {#if h.year_published}<span class="yr tnum">{h.year_published}</span>{/if}
           </button>
