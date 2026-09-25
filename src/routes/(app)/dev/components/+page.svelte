@@ -31,7 +31,7 @@
     ).then((r) => (games = IDS.flatMap((id) => r.filter((g) => Number(g.id) === id))));
     query<G>(
       `SELECT ${cols} FROM catalog c LEFT JOIN thumbnails t USING (game_id)
-       WHERE t.thumbnail IS NULL AND c.users_rated > 500 ORDER BY c.users_rated DESC LIMIT 1`
+       WHERE t.thumbnail IS NULL ORDER BY c.users_rated DESC NULLS LAST LIMIT 1`
     ).then((r) => (noArt = r[0] ?? null));
   });
 

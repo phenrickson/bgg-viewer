@@ -64,7 +64,7 @@
         <span class="ph" aria-hidden="true">{initials}</span>
       {/if}
     </span>
-    <span class="nm">{name}{#if year}<span class="yr"> {year}</span>{/if}</span>
+    <span class="nm">{name}{#if year}<span class="yr">{year}</span>{/if}</span>
   </a>
   {#if !compact && hasBadges}
     <SimBadges {similarity} {rating} />
@@ -101,25 +101,45 @@
     outline-offset: 3px;
     border-radius: 4px;
   }
-  /* A fixed 4:3 box, so a slow or missing image never reflows the tile. `contain`, not
-     `cover`: BGG thumbnails come in every shape, and a crop slices the box art. */
+  /* The art is BGG's thumbnail, ~200px on its long side, so it's never scaled up: a fixed-height
+     band (so tiles in a row line up and a slow image never reflows one), with the cover at its
+     own shape inside it — no letterbox panel. */
   .art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 7.5rem;
+  }
+  .art img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 4px;
     display: block;
+  }
+  /* Compact keeps the 4:3 box it had: at that size the thumbnail fills it without scaling up. */
+  .compact .art {
+    display: block;
+    height: auto;
     aspect-ratio: 4 / 3;
     border-radius: calc(var(--radius) - 3px);
     overflow: hidden;
     background: color-mix(in oklch, var(--muted) 70%, var(--card));
   }
-  .art img {
+  .compact .art img {
     width: 100%;
     height: 100%;
+    max-height: none;
     object-fit: contain;
-    display: block;
+    border-radius: 0;
   }
   .ph {
     display: flex;
-    width: 100%;
+    width: 5.5rem;
     height: 100%;
+    border-radius: calc(var(--radius) - 3px);
+    background: color-mix(in oklch, var(--muted) 70%, var(--card));
     align-items: center;
     justify-content: center;
     color: var(--muted-foreground);
@@ -137,7 +157,9 @@
   .main:hover .nm {
     color: var(--primary);
   }
+  /* A margin, not a text space: a space inside the span is collapsed away. */
   .yr {
+    margin-left: 0.35em;
     font-size: 0.8rem;
     font-weight: 400;
     color: var(--muted-foreground);
@@ -161,6 +183,8 @@
     font-weight: 600;
   }
   .compact .ph {
+    width: 100%;
+    border-radius: 0;
     font-size: 0.9rem;
   }
 </style>

@@ -39,7 +39,7 @@
   {#if onclose}
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
-  <Split ratio="aside-narrow">
+  <Split ratio="aside-narrow" at="sm">
     {#snippet aside()}
       <a class="art" {href} tabindex="-1" aria-hidden="true">
         {#if image}<img src={image} alt="" decoding="async" />{/if}
@@ -87,19 +87,21 @@
   .close:focus-visible {
     outline: 2px solid var(--primary);
   }
-  /* A fixed 4:3 box, the landing page's featured-game treatment: a slow or missing image
-     never reflows the hero, and `contain` never crops the box art. */
+  /* The art is usually BGG's thumbnail (~200px on its long side), so it's shown at its own
+     shape and never scaled past that: a fixed-height band, so a slow image never reflows the
+     hero, with no letterbox panel around the cover. */
   .art {
-    display: block;
-    aspect-ratio: 4 / 3;
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: color-mix(in oklch, var(--muted) 70%, var(--card));
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    height: 12.5rem;
   }
   .art img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 6px;
     display: block;
   }
   .body {
