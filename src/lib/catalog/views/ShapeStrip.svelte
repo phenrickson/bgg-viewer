@@ -27,6 +27,10 @@
     ratingHistogramSql,
     complexityHistogramSql,
     ratingsCountHistogramSql,
+    playtimeHistogramSql,
+    PLAYTIME_LOG_BIN,
+    PLAYTIME_CAP,
+    PLAYTIME_FLOOR,
     gamesPerYearSql,
     bestAtDistributionSql,
     RATING_BIN,
@@ -44,6 +48,7 @@
   import type { HistBin } from '$lib/charts/types';
   import type { ScaleMode } from '$lib/charts/scale';
   import { compactCount, niceCount, type Scope } from '$lib/catalog/scope';
+  import { formatMinutes } from '$lib/catalog/playtime';
 
   let {
     where,
@@ -59,10 +64,12 @@
     weight: HistBin[];
     /** Bucket values are log10(users_rated) — see RATINGS_LOG_BIN. */
     votes: HistBin[];
+    /** Bucket values are log10(max_playtime) — see PLAYTIME_LOG_BIN. */
+    time: HistBin[];
     year: HistBin[];
     bestAt: PlayerCountBin[];
   };
-  const EMPTY: Shape = { rating: [], weight: [], votes: [], year: [], bestAt: [] };
+  const EMPTY: Shape = { rating: [], weight: [], votes: [], time: [], year: [], bestAt: [] };
 
   /**
    * Which columns the three measure histograms read. In the upcoming universe nobody has
@@ -72,10 +79,11 @@
   const m = $derived(measures(scope.universe));
 
   async function loadShape(w: string): Promise<Shape> {
-    const [rating, weight, votes, year, bestAt] = await Promise.all([
+    const [rating, weight, votes, time, year, bestAt] = await Promise.all([
       query<Bin>(ratingHistogramSql(w, m)),
       query<Bin>(complexityHistogramSql(w, m)),
       query<Bin>(ratingsCountHistogramSql(w, m)),
+      query<Bin>(playtimeHistogramSql(w)),
       query<YearCount>(gamesPerYearSql(w, YEAR_DISPLAY_FLOOR)),
       query<PlayerCountBin>(bestAtDistributionSql(w))
     ]);
@@ -83,6 +91,7 @@
       rating: rating.map((b) => ({ v: b.bucket, n: b.n })),
       weight: weight.map((b) => ({ v: b.bucket, n: b.n })),
       votes: votes.map((b) => ({ v: b.bucket, n: b.n })),
+      time: time.map((b) => ({ v: b.bucket, n: b.n })),
       year: year.map((b) => ({ v: b.year, n: b.n })),
       bestAt
     };
@@ -92,6 +101,21 @@
   const fromLog = (v: number) => compactCount(Math.pow(10, v));
   /** Scope count → log10 for drawing, and back again (snapped) when the brush commits. */
   const toLog = (n: number | null) => (n == null || n <= 0 ? null : Math.log10(n));
+  /**
+   * A log10 edge → minutes a person would type: nearest 5 under an hour, nearest 15 above.
+   * Same idea as `niceCount` for ratings; used for brush commits and axis labels alike.
+   */
+  const niceMinutes = (v: number) => {
+    const m = Math.pow(10, v);
+    return m < 60 ? Math.max(5, Math.round(m / 5) * 5) : Math.round(m / 15) * 15;
+  };
+  /** log10 minutes → a readable time; the clamped end bars read "≤10 min" and "4h+". */
+  const fromLogMinutes = (v: number) =>
+    v >= Math.log10(PLAYTIME_CAP) - 1e-9
+      ? formatMinutes(PLAYTIME_CAP, true)
+      : v <= Math.log10(PLAYTIME_FLOOR) + 1e-9
+        ? `≤${formatMinutes(PLAYTIME_FLOOR)}`
+        : formatMinutes(niceMinutes(v));
 
   let shape = $state<Shape>(EMPTY);
   let backdrop = $state<Shape>(EMPTY);
@@ -100,7 +124,7 @@
   let scaleMode = $state<ScaleMode>('share');
 
   /**
-   * Collapsed = the five headline numbers only, charts hidden. `.strip` is `flex: none`, so
+   * Collapsed = the six headline numbers only, charts hidden. `.strip` is `flex: none`, so
    * stacked to one column on a narrow canvas its five charts eat most of the screen and leave
    * nothing for the table. Persisted for the session; defaults to collapsed on a narrow canvas
    * (the same 860px break where `.cells` drops to one column).
@@ -181,6 +205,9 @@
     ends(backdrop.votes.length ? backdrop.votes : shape.votes, RATINGS_LOG_BIN, fromLog)
   );
   const yearEnds = $derived(ends(backdrop.year.length ? backdrop.year : shape.year, 1, int));
+  const timeEnds = $derived(
+    ends(backdrop.time.length ? backdrop.time : shape.time, PLAYTIME_LOG_BIN, fromLogMinutes)
+  );
 </script>
 
 <section class="strip" class:tall class:collapsed>
@@ -338,6 +365,36 @@
       {/if}
     </div>
 
+    <!-- How long it takes, by the box's longest time — the same column Explore's slider and
+         Discover's dial filter on, so a brush here and those controls move together. -->
+    <div class="cell">
+      <div class="chead">
+        <b class="tnum">{summary?.median_playtime ? formatMinutes(Math.round(summary.median_playtime)) : '—'}</b>
+        <span class="lab">median play time <span class="dim">log scale</span></span>
+      </div>
+      {#if !collapsed}
+      <MiniHistogram
+        bins={shape.time}
+        backdrop={backdrop.time}
+        binWidth={PLAYTIME_LOG_BIN}
+        min={toLog(scope.playtimeMin)}
+        max={toLog(scope.playtimeMax)}
+        height={H}
+        {scaleMode}
+        color="var(--chart-1)"
+        label="play-time distribution"
+        format={fromLogMinutes}
+        onbrush={(lo, hi) => {
+          scope.playtimeMin = lo == null ? null : niceMinutes(lo);
+          scope.playtimeMax = hi == null ? null : niceMinutes(hi);
+        }}
+      />
+      {#if timeEnds}
+        <div class="axis"><span>{timeEnds[0]}</span><span>{timeEnds[1]}</span></div>
+      {/if}
+      {/if}
+    </div>
+
     <div class="cell">
       <div class="chead">
         <b class="tnum">{modalBestAt ?? '—'}</b>
@@ -451,7 +508,7 @@
   /* Widths follow bin count: 58 years need room, 8 player counts do not. */
   .cells {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1.3fr 0.8fr;
+    grid-template-columns: 1fr 1fr 1fr 1.3fr 1fr 0.8fr;
     gap: var(--space-md) var(--space-lg);
   }
   @media (max-width: 1280px) {

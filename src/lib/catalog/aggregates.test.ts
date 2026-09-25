@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { COMPLEXITY_BANDS } from './scope';
 import {
+	playtimeHistogramSql,
+	PLAYTIME_CAP,
+	PLAYTIME_FLOOR,
 	summarySql,
 	ratingHistogramSql,
 	gamesPerYearSql,
@@ -153,3 +156,11 @@ describe('complexityBandsSql', () => {
 	});
 });
 
+
+describe('play-time histogram', () => {
+	it('bins max_playtime on log10, clamps both ends, and skips unlisted', () => {
+		const sql = playtimeHistogramSql('TRUE');
+		expect(sql).toContain(`log10(LEAST(GREATEST(max_playtime, ${PLAYTIME_FLOOR}), ${PLAYTIME_CAP}))`);
+		expect(sql).toContain('max_playtime > 0');
+	});
+});
