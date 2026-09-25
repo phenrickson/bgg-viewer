@@ -26,7 +26,8 @@
     SIMILAR_PROFILE_BLURBS,
     type SimilarProfile
   } from '$lib/game/similar-profiles';
-  import { similarityPct, similarityColor, complexityColor, ratingColor } from '$lib/game/similarity';
+  import { complexityColor } from '$lib/game/similarity';
+  import SimilarRow from '$lib/game/SimilarRow.svelte';
 
   let { data } = $props();
 
@@ -89,8 +90,8 @@
     n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const int = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString());
 
-  // similarityPct / similarityColor / ratingColor / complexityColor come from
-  // $lib/game/similarity — the same scales the /dev/similar bench uses.
+  // complexityColor comes from $lib/game/similarity — the same scales the /dev/similar bench
+  // uses. The neighbour rows' sim/rating badges live in SimilarRow.
 
   /**
    * Zero is not a measurement here — it's the warehouse's way of saying "no geek rating yet"
@@ -687,26 +688,14 @@
         {#if similarList.length}
           <div class="sim">
             {#each similarList as s (s.id)}
-              <a href="/games/{s.id}">
-                {#if thumbById.get(s.id)}
-                  <img class="mono" src={thumbById.get(s.id)} alt="" loading="lazy" />
-                {:else}
-                  <span class="mono ph">{s.name?.[0] ?? '?'}</span>
-                {/if}
-                <span class="nmw"><span class="nm">{s.name}</span> {#if s.year}<span class="yr">{s.year}</span>{/if}</span>
-                <!-- Same two badges as the tuning bench's ResultRow. Colour is computed per
-                     row in script: similarityColor's diverging formula over the measure's own
-                     0..1 bounds; ratingColor's green quality ramp. The rating badge shows the
-                     raw average rating (higher spread than the geek rating). -->
-                <span class="badges">
-                  <span class="badge" style:color={similarityColor(s.similarity)}>
-                    <span class="bl">sim</span>{Math.round(similarityPct(s.similarity))}%
-                  </span>
-                  <span class="badge" style:color={ratingColor(s.average)}>
-                    <span class="bl">rating</span>{s.average && s.average > 0 ? s.average.toFixed(1) : '—'}
-                  </span>
-                </span>
-              </a>
+              <SimilarRow
+                href="/games/{s.id}"
+                name={s.name}
+                year={s.year}
+                thumbnail={thumbById.get(s.id) ?? null}
+                similarity={s.similarity}
+                rating={s.average}
+              />
             {/each}
           </div>
         {:else if data.offline}
@@ -1381,83 +1370,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-  }
-  .sim a {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.45rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    text-decoration: none;
-    color: inherit;
-    background: var(--background);
-    min-width: 0;
-  }
-  .sim a:hover {
-    border-color: var(--primary);
-  }
-  /* Shared footprint for the real thumbnail and the initials placeholder, so a row never
-     shifts size once the (fire-and-forget, non-blocking) thumbnail lookup resolves. */
-  .sim .mono {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 6px;
-    background: var(--muted);
-    flex: none;
-    object-fit: cover;
-  }
-  .sim .mono.ph {
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: var(--muted-foreground);
-  }
-  .sim .nmw {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .sim .nm {
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-  .sim a:hover .nm {
-    color: var(--primary);
-  }
-  .sim .yr {
-    color: var(--muted-foreground);
-    font-size: 0.78rem;
-  }
-  /* The two badges, mirroring the tuning bench's ResultRow. Each badge tints its own
-     border + fill off the `currentColor` set per row in script. */
-  .sim .badges {
-    margin-left: auto;
-    flex: none;
-    display: flex;
-    gap: 0.3rem;
-  }
-  .sim .badge {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.22rem;
-    font-size: 0.8rem;
-    font-weight: 650;
-    font-variant-numeric: tabular-nums;
-    padding: 0.12rem 0.4rem;
-    border-radius: 999px;
-    border: 1px solid color-mix(in oklch, currentColor 30%, transparent);
-    background: color-mix(in oklch, currentColor 12%, transparent);
-  }
-  .sim .bl {
-    font-size: 0.58rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    opacity: 0.7;
   }
 
 
