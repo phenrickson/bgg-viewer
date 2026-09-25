@@ -31,7 +31,7 @@
       key: 'discover',
       title: 'Discover',
       blurb: 'Answer a few questions, get a shortlist.',
-      href: '/discover?best=4&mechs=Cooperative+Game',
+      href: '/recommend?tab=find&best=4&mechs=Cooperative+Game',
       alt: 'Discover: cooperative games best at 4 players, narrowed to 481 matches with a ranked list.'
     },
     {

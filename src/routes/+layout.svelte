@@ -33,9 +33,10 @@
   /**
    * A menu, not a row of tabs.
    *
-   * Discover, Explore and Upcoming are three views of ONE thing — the same `Scope`, the same
-   * in-browser catalog, with "see all N in Explore" as the seam between them — so they belong
-   * under one heading rather than taking a top-level slot each. Upcoming is only a universe
+   * Explore and Upcoming are two views of ONE thing — the same `Scope`, the same in-browser
+   * catalog — so they belong under one heading rather than taking a top-level slot each.
+   * (Discover was a third until it folded into Recommend as "Help me find a game"; `/discover`
+   * redirects there.) Upcoming is only a universe
    * on that Scope, which is exactly why it is a menu row here and not a route: it had its own
    * `/predictions` page for a while, and that page turned out to be Explore with the dial
    * pre-set and ~200 lines of workspace copied to say so.
@@ -46,9 +47,8 @@
    *
    * A menu rather than a second tab bar for two reasons. A sub-bar is a permanent strip of
    * chrome that is empty on most pages, and — the better reason — a menu row can carry a
-   * DESCRIPTION where a tab can only carry a word. "Discover" and "Explore" are near-synonyms
-   * in isolation; "answer a few questions, get a shortlist" and "filter and sort the whole
-   * catalog" are not. The menu lets the nav say what each view is for instead of assuming
+   * DESCRIPTION where a tab can only carry a word — "filter and sort the whole catalog" says
+   * what Explore is for in a way the label alone doesn't. The menu lets the nav say what each view is for instead of assuming
    * the label already means something.
    *
    * Tools is the second menu, and the split between the two is the rule for what goes where:
@@ -60,7 +60,6 @@
    */
   const path = $derived($page.url.pathname);
   const onExplore = $derived(path.startsWith('/games'));
-  const onDiscover = $derived(path.startsWith('/discover'));
   const onWhatsNew = $derived(path.startsWith('/whats-new'));
   const onAdmin = $derived(path.startsWith('/admin'));
   const onAbout = $derived(path.startsWith('/about'));
@@ -69,7 +68,7 @@
    * and reads its own menu row as current only when that dial is actually on `upcoming`.
    */
   const onUpcoming = $derived(onExplore && $page.url.searchParams.get('u') === 'upcoming');
-  const inGames = $derived(onExplore || onDiscover || onWhatsNew);
+  const inGames = $derived(onExplore || onWhatsNew);
   const onMap = $derived(path === '/map' || path.startsWith('/map/'));
   const onRecommend = $derived(path === '/recommend' || path.startsWith('/recommend/'));
   const inTools = $derived(onMap || onRecommend);
@@ -158,10 +157,6 @@
 
           {#if gamesOpen}
             <div class="pop" role="menu">
-              <a href="/discover" role="menuitem" class:on={onDiscover}>
-                <b>Discover</b>
-                <span>Answer a few questions, get a shortlist</span>
-              </a>
               <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}>
                 <b>Explore</b>
                 <span>Filter and sort the whole catalog</span>
@@ -248,7 +243,6 @@
               <!-- Labels, not submenus: the list stays flat and one tap deep, but keeps the
                    bar's split between the catalog and the tools that act on it. -->
               <span class="grp" aria-hidden="true">Games</span>
-              <a href="/discover" role="menuitem" class:on={onDiscover}><b>Discover</b></a>
               <a href="/games" role="menuitem" class:on={onExplore && !onUpcoming}><b>Explore</b></a>
               <a href="/games?u=upcoming" role="menuitem" class:on={onUpcoming}><b>Upcoming</b></a>
               <a href="/whats-new" role="menuitem" class:on={onWhatsNew}><b>What's New</b></a>
@@ -375,8 +369,7 @@
   .pop a:hover { background: color-mix(in oklch, var(--primary) 10%, transparent); }
   .pop a.on { background: color-mix(in oklch, var(--primary) 13%, transparent); }
   .pop b { font-size: 0.88rem; font-weight: 600; color: var(--foreground); }
-  /* The line that earns the menu: a tab can only carry a word, and "Discover" and "Explore"
-     are near-synonyms until something says how they differ. */
+  /* The line that earns the menu: a tab can only carry a word; this says what the view is for. */
   .pop span { font-size: 0.76rem; color: var(--muted-foreground); line-height: 1.35; }
   .navsearch { flex: 1; max-width: 24rem; margin: 0 var(--space-md); }
   .actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; }

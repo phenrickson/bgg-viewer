@@ -3,7 +3,10 @@
    * `/recommend` — one tool for finding a game (spec:
    * `docs/superpowers/specs/2026-09-25-recommend-ui-and-why-design.md`).
    *
-   * With no seed it's the Start screen. (Being rebuilt: steps 4–5 of the plan.)
+   * With no seed it's the Start screen, with two ways in (`?tab`): **I want games like…** (a
+   * search, or one of your top-rated owned games) and **Help me find a game** — Discover's
+   * questions, folded in, plus "Where from?". Its answers are Scope params in the URL, as
+   * Discover's were, so `/discover` links redirect here intact (`$lib/recommend/route.ts`).
    *
    * With a seed the question heads the page — Games like [seed] from [pool] — and the answer
    * is stacked sections: the three precomputed lists (Recommended, Most similar, Dark horses),
@@ -19,13 +22,18 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { initCatalog, catalog, query, loadArrowTable } from '$lib/catalog/catalog.svelte';
-  import { DEFAULT_SCOPE, toWhere, type Scope } from '$lib/catalog/scope';
+  import { scopeToParams, toWhere, type Scope } from '$lib/catalog/scope';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import GameHero from '$lib/catalog/GameHero.svelte';
+  import GameTile from '$lib/catalog/GameTile.svelte';
   import DialStrip from '$lib/discover/DialStrip.svelte';
+  import DialRow from '$lib/discover/DialRow.svelte';
+  import DiscoverResults from '$lib/discover/DiscoverResults.svelte';
+  import { discoverScopeFromParams } from '$lib/discover/dials';
+  import { RECOMMEND_PATH, TAB_PARAM, FIND_TAB, findHref } from '$lib/recommend/route';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
-  import { Container, Stack } from '$lib/components/ui/layout';
+  import { Container, Stack, AutoGrid } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
   import { explain, type TagFrequencies } from '$lib/recommend/why';
@@ -304,36 +312,92 @@
     { value: 'all', label: 'anywhere' }
   ];
 
-  // --- Start (rebuilt in steps 4–5) ---------------------------------------------------------
-  let shelfSeeds = $state<{ id: number; name: string }[]>([]);
+  // --- Start -------------------------------------------------------------------------------
+  /** Shelf games offered as one-click seeds, and the stagger of their one load-in. */
+  const SHELF_SEEDS = 6;
+  const RISE_STAGGER_MS = 70;
+
+  const tab = $derived(params.get(TAB_PARAM) === FIND_TAB ? 'find' : 'like');
+  function setTab(t: 'like' | 'find') {
+    // Each tab starts clean: the questions' answers don't leak into a search, or back.
+    goto(t === 'find' ? findHref() : RECOMMEND_PATH, { keepFocus: true, noScroll: true, replaceState: true });
+  }
+  // PLACEHOLDER copy (Phil): the tab labels.
+  const TAB_OPTIONS: { value: 'like' | 'find'; label: string }[] = [
+    { value: 'like', label: 'I want games like…' },
+    { value: 'find', label: 'Help me find a game' }
+  ];
+
+  // I want games like…: your top-rated owned games as seeds.
+  let shelfSeeds = $state<Game[]>([]);
   $effect(() => {
     if (!hasShelf) return;
-    query<{ id: number; name: string }>(
-      `SELECT game_id AS id, name FROM catalog WHERE game_id IN (${[...owned].join(',')})
-       ORDER BY geek_rating DESC NULLS LAST LIMIT 3`
-    ).then((r) => (shelfSeeds = r.map((x) => ({ id: Number(x.id), name: x.name }))));
+    query<{ id: number }>(
+      `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
+       ORDER BY geek_rating DESC NULLS LAST LIMIT ${SHELF_SEEDS}`
+    )
+      .then(async (r) => {
+        const ids = r.map((x) => Number(x.id));
+        const m = await games(ids);
+        shelfSeeds = ids.flatMap((id) => m.get(id) ?? []);
+      })
+      .catch((e) => console.error('shelf seeds failed', e));
   });
 
-  let scope = $state<Scope>({ ...DEFAULT_SCOPE, universe: 'rated' });
-  let shelfOnly = $state(false);
-  let narrow = $state(false);
-  let startPick = $state<Game | null>(null);
-  const startWhere = $derived(
-    `${toWhere(scope)}${shelfOnly && hasShelf ? ` AND game_id IN (${[...owned].join(',')})` : ''}`
-  );
+  // Help me find a game: Discover's questions, plus "Where from?", all in the URL.
+  const findScope = $derived(discoverScopeFromParams(params));
+  const findPool = $derived.by((): Pool => {
+    const p = params.get('from');
+    return hasShelf && (p === 'shelf' || p === 'unowned') ? p : 'all';
+  });
+  function findUrl(scope: Scope, from: Pool): string {
+    const q = scopeToParams(scope);
+    if (from !== 'all') q.set('from', from);
+    return findHref(q);
+  }
+  const patchFind = (p: Partial<Scope>) =>
+    goto(findUrl({ ...findScope, ...p }, findPool), { keepFocus: true, noScroll: true, replaceState: true });
+  const setFindPool = (from: Pool) =>
+    goto(findUrl(findScope, from), { keepFocus: true, noScroll: true, replaceState: true });
 
+  // PLACEHOLDER copy (Phil): "Where from?" and its answers.
+  const FIND_POOLS: { value: Pool; label: string }[] = [
+    { value: 'all', label: 'Anywhere' },
+    { value: 'shelf', label: 'My shelf' },
+    { value: 'unowned', label: 'Games I don’t own' }
+  ];
+  const poolWhere = $derived(
+    findPool === 'all' || !owned.size
+      ? ''
+      : `game_id ${findPool === 'unowned' ? 'NOT ' : ''}IN (${[...owned].join(',')})`
+  );
+  const findWhere = $derived(`${toWhere(findScope)}${poolWhere ? ` AND ${poolWhere}` : ''}`);
+
+  let matchCount = $state<number | null>(null);
+  $effect(() => {
+    if (catalog.status !== 'ready' || seedId != null || tab !== 'find') return;
+    const where = findWhere;
+    query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${where}`)
+      .then((r) => (matchCount = r[0]?.n ?? 0))
+      .catch(() => (matchCount = null));
+  });
+
+  let showAll = $state(false);
+  let findPick = $state<Game | null>(null);
   /** A random pick from the 100 best-rated matches — a surprise, not a random obscurity. */
   async function pickForMe() {
     const r = await query<{ id: number }>(
       `SELECT game_id AS id FROM (
-         SELECT game_id FROM catalog WHERE ${startWhere} ORDER BY geek_rating DESC NULLS LAST LIMIT 100
+         SELECT game_id FROM catalog WHERE ${findWhere} ORDER BY geek_rating DESC NULLS LAST LIMIT 100
        ) ORDER BY random() LIMIT 1`
     );
     const id = r[0] ? Number(r[0].id) : null;
-    startPick = id == null ? null : ((await games([id])).get(id) ?? null);
+    findPick = id == null ? null : ((await games([id])).get(id) ?? null);
   }
   $effect(() => {
-    if (seedId != null) startPick = null;
+    // A new question, or leaving Start, puts the pick away.
+    [findWhere, seedId, tab];
+    findPick = null;
   });
 </script>
 
@@ -343,33 +407,74 @@
   <Container size="list">
     <Stack gap="lg">
       {#if seedId == null}
-        <!-- ── Start (being rebuilt: plan steps 4–5) ─────────────────────────────── -->
-        <!-- PLACEHOLDER copy (Phil) -->
-        <h1>Games like…</h1>
-        <GameSearch onpick={(id) => set({ id })} />
-        {#if shelfSeeds.length}
-          <div class="seeds">
-            {#each shelfSeeds as s (s.id)}
-              <Button variant="outline" size="sm" href={ask({ id: s.id })}>{s.name}</Button>
-            {/each}
-          </div>
-        {/if}
-        <div class="seeds">
-          <Button onclick={pickForMe} disabled={catalog.status !== 'ready'}>Surprise me</Button>
-          <label class="check"><input type="checkbox" bind:checked={shelfOnly} disabled={!hasShelf} /> Only games on my shelf</label>
-          <Button variant="ghost" size="sm" onclick={() => (narrow = !narrow)}>Narrow it down</Button>
+        <!-- ── Start ───────────────────────────────────────────────────────────── -->
+        <div class="start">
+          <!-- PLACEHOLDER copy (Phil) -->
+          <h1>Find your next game</h1>
+          <SegmentedControl label="How to start" size="lg" options={TAB_OPTIONS} value={tab} onchange={setTab} />
         </div>
-        {#if narrow}<DialStrip {scope} onpatch={(p) => (scope = { ...scope, ...p })} />{/if}
-        {#if startPick}
-          {@const g = startPick}
-          <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail}>
-            {#snippet meta()}{#if g.year_published}<span>{g.year_published}</span>{/if}{/snippet}
-            {#snippet actions()}
-              <Button onclick={pickForMe}>Another one</Button>
-              <Button variant="outline" href={ask({ id: g.game_id })}>More like this</Button>
-              <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
-            {/snippet}
-          </GameHero>
+
+        {#if tab === 'like'}
+          <div class="like">
+            <GameSearch onpick={(id) => set({ id })} />
+            {#if shelfSeeds.length}
+              <!-- PLACEHOLDER copy (Phil) -->
+              <p class="sub">Or start from your shelf</p>
+              <div class="shelf">
+                <AutoGrid min="sm" gap="sm">
+                  {#each shelfSeeds as g, i (g.game_id)}
+                    <GameTile
+                      compact
+                      class="rise"
+                      style="animation-delay: {i * RISE_STAGGER_MS}ms"
+                      href={ask({ id: g.game_id })}
+                      name={g.name}
+                      year={g.year_published}
+                      thumbnail={g.thumbnail}
+                    />
+                  {/each}
+                </AutoGrid>
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <Stack gap="lg">
+            {#if hasShelf}
+              <DialRow
+                id="dial-from"
+                question="Where from?"
+                chips={FIND_POOLS.map((o) => ({ label: o.label, on: findPool === o.value, onclick: () => setFindPool(o.value) }))}
+              />
+            {/if}
+            <DialStrip scope={findScope} onpatch={patchFind} />
+            <div class="acts">
+              <!-- PLACEHOLDER copy (Phil) -->
+              <Button size="lg" onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
+                {findPick ? 'Another one' : 'Pick one for me'}
+              </Button>
+              <Button variant="outline" size="lg" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
+                {showAll ? 'Hide matches' : 'See all matches'}
+              </Button>
+              {#if matchCount != null}<span class="count">{matchCount.toLocaleString()} {matchCount === 1 ? 'game matches' : 'games match'}</span>{/if}
+            </div>
+            {#if findPick}
+              {@const g = findPick}
+              <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => (findPick = null)}>
+                {#snippet meta()}
+                  {#if g.year_published}<span>{g.year_published}</span>{/if}
+                  {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
+                {/snippet}
+                {#snippet actions()}
+                  <Button onclick={pickForMe}>Another one</Button>
+                  <Button variant="outline" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
+                  <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
+                {/snippet}
+              </GameHero>
+            {/if}
+            {#if showAll}
+              <DiscoverResults scope={findScope} extraWhere={poolWhere} onpatch={patchFind} />
+            {/if}
+          </Stack>
         {/if}
       {:else}
         <!-- ── The question ──────────────────────────────────────────────────────── -->
@@ -474,8 +579,29 @@
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
-  .seeds { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: 0.9rem; }
-  .check { display: inline-flex; align-items: center; gap: 0.4rem; }
+  /* Start is the tool's front door, so it's centred; results are left-aligned like the app. */
+  .start {
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-md);
+    padding-top: var(--space-lg); text-align: center;
+  }
+  .like { display: flex; flex-direction: column; gap: var(--space-sm); width: min(100%, 52rem); margin-inline: auto; }
+  .sub { margin: var(--space-sm) 0 0; font-size: 0.9rem; color: var(--muted-foreground); }
+  .acts {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
+    padding-top: var(--space-md); border-top: 1px solid var(--border);
+  }
+  .count { font-size: 0.9rem; color: var(--muted-foreground); }
+
+  /* The one load-in: the shelf seeds rise into place, a beat apart. Nothing else on the page
+     moves unless you act. Off entirely for anyone who asks for less motion. */
+  .shelf :global(.rise) { animation: recommend-rise 420ms ease-out both; }
+  @keyframes -global-recommend-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shelf :global(.rise) { animation: none; }
+  }
 
   .q { display: flex; flex-direction: column; gap: var(--space-sm); }
   .trail { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.8rem; color: var(--muted-foreground); }
