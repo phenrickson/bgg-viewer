@@ -1,78 +1,101 @@
-# Recommend: one question, one answer, and why — design
+# Recommend: one tool for finding a game — design
 
-**Date:** 2026-09-25
+**Date:** 2026-09-25 (revised the same day after the first build and the v2 sketches)
 **Status:** Agreed with Phil 2026-09-25; building
 **Branch:** `feat/recommend-tool` (local; rebased on `main` at 0.0.25)
 **Related:** bgg-data-warehouse `docs/superpowers/specs/2026-09-24-pool-similarity-and-collection-neighbors-design.md`
-(the pooled endpoint and the per-collection artifact); sketches at
-<https://claude.ai/artifact/9ezXBApcvpu1bCPK3sDFS2> (Start · Best match · Surprise me).
+(the pooled endpoint and the per-collection artifact). Sketches:
+<https://claude.ai/artifact/9ezXBApcvpu1bCPK3sDFS2>, the **v2 row** (boards 4–8). The v1 row is
+superseded.
 
 ## Why
 
-The `/recommend` prototype works but shows everything at once: two side-by-side panels, a
-style switcher, a source label per list. The sketches replace that with **one question and
-one answer**: the options you pick decide which single list you see. And a list of names
-with a match percentage doesn't say *why* a game is there; the "why" is what makes a
-recommendation trustworthy. Play time was the missing piece for it and is now in the catalog
-(#79).
+The `/recommend` prototype showed everything at once: side-by-side panels, a style switcher, a
+source label per list. The first rebuild fixed the structure but not the look: it swapped the
+sketch's pieces for whatever existed and hand-rolled the rest. v2 is drawn in the app's own
+theme and components, and settles three things:
 
-This is a front-end pass. It uses the data paths the prototype already has and changes no
-back end.
+- **Discover folds into this tool.** There are two ways in: *I want games like…* and *Help me
+  find a game* (Discover's questions).
+- **A clean interface over options.** The only control on a results page is the pool, inside
+  the question. The three precomputed lists are content (stacked sections), not a setting, and
+  Surprise me is an action, not a mode.
+- **Every match says why**, from the embedding's own inputs (§3). Play time was the missing
+  input and is now in the catalog (#79).
+
+It's a front-end pass on the data paths the prototype already has. The one route change is
+retiring `/discover` into this page.
 
 ## 1. The page
 
-### Start (no seed yet)
+### Start
 
-As the Start sketch:
+One headline, and a large **SegmentedControl** with the two ways in: **I want games like… |
+Help me find a game** (boards 4 and 5).
 
-- **"Games like…"**: a large `GameSearch` (the `onpick` variant). Below it, a few
-  **shelf chips**: your highest-rated owned games, for one-click seeds. Hidden without a
-  collection.
-- **or Surprise me**: one primary button, plus **Only games on my shelf** (a checkbox,
-  disabled without a collection) and **Narrow it down ▾**, which opens Discover's
-  `DialStrip`, collapsed by default. It picks at random from the 100 best-rated games that
-  match, as the prototype does now, and lands on the Surprise result view with that game as
-  the answer.
+**I want games like…** (board 4):
 
-### The question (a seed is set)
+- a large `GameSearch` (the `onpick` variant);
+- **Or start from your shelf:** six of your highest-rated owned games as compact
+  **GameTiles** (thumbnail, name, year). They rise in once on load, 70 ms apart, and not at
+  all under `prefers-reduced-motion`. Hidden without a collection.
 
-One sentence replaces the panels and the trail header:
+**Help me find a game** (board 5), which is Discover folded in:
 
-> Games like **[Great Western Trail · change]** from **[my shelf | games I don't own | anywhere]**
+- `DialStrip`'s questions, with a new first question, **Where from?**, whose answers are the
+  same three pools as the results sentence (Anywhere / My shelf / Games I don't own). It
+  replaces the prototype's "Only games on my shelf" checkbox. Without a collection the
+  question doesn't show.
+- **Pick one for me** (primary): a random pick from the 100 best-rated matches, shown in a
+  **GameHero** with no seed (so no match badge and no why), with Another one / More like
+  this / Open game.
+- **See all matches** (outline): Discover's current results list, in place, under the
+  questions.
+- `/discover` redirects here with Help me find a game selected and its Scope params carried
+  over. Discover leaves the Games menu.
 
-with a **Best match | Surprise me** segment under it and one line of context ("From your
-162 games").
+### Results (a seed is set)
 
-- `change` returns to Start.
-- **The options are the interface.** The pool and the mode are choices you make in the
-  sentence; the page never picks them from what it knows about the seed. It opens on
-  `my shelf` + `Best match`, as the sketch does (`anywhere` without a collection, where the
-  pool choice doesn't show and the sentence ends at the seed). After that, **whatever you
-  last picked stays picked** as you walk from game to game.
-- The walk stays: clicking a result makes it the seed. The trail shrinks to a small
-  breadcrumb above the sentence, and only shows once you've walked at least one step.
+The question, and nothing else, heads the page:
 
-### Best match
+> Games like **[thumb · Brass: Birmingham · change]** from **[my shelf | games I don't own | anywhere]**
 
-As the Best match sketch: the **top 3 as cards** (box art, name, year, match, one-line why),
-then **"Also close"**, ranks 4–10 as compact rows. Each card and row carries an
-**on your shelf** marker where it applies (pool `anywhere`).
+with one **Surprise me** button (outline) under it.
 
-### Surprise me
+- `change` returns to Start. The seed's thumbnail links to its game page, which replaces
+  the separate "Open game" link.
+- **The pool is the reader's choice.** The page opens on `my shelf` (`anywhere` without a
+  collection, where the pool control doesn't show), and whatever you last picked stays picked
+  as you walk. The page never chooses the pool from what it knows about the seed.
+- **The answer is stacked sections, never side by side** (board 6):
+  - when the answer comes from the precomputed lists (every case except `my shelf`):
+    **Recommended**, **Most similar**, **Dark horses**, in that order, each with the game
+    page's one-line blurb, the top 4 as GameTiles, and **All 10** to expand that section;
+  - `my shelf` has one list (the collection artifact), so one section (board 7).
+- **Walking:** a tile links to this page with that game as the seed. A small breadcrumb of
+  the trail shows once you've walked a step.
+- **Why:** each tile's one-line why is a button that opens the full panel under that
+  section (board 7).
 
-As the Surprise sketch: **one game**, shown large with "Try", its match to the seed and the
-why. Actions: **Another one** (redraw, never repeating in this session), **More like this**
-(the pick becomes the seed, back on Best match), **Open game ↗**. Under it, **"Also in the
-draw"** lists the rest of the list it drew from.
+### Surprise me (board 8)
 
-**Surprise draws from a different, wider list than Best match, not a re-roll of Best
-match.** Which list depends on the pool (§2).
+An action, not a mode: it opens a **GameHero** above the sections, closed with ×. It shows
+the pick's art, name, year, match and rating badges, and shelf status, with **Another one**
+(redraw, no repeats this visit), **More like this** (the pick becomes the seed) and **Open
+game ↗**, then the full why. The sections stay underneath.
+
+It draws from a wider list than the top of the page: **Dark horses** (falling back to
+Recommended if that's empty), or ranks 5–20 of the shelf list on `my shelf` (a stub until the
+collection-mode profiles exist).
 
 ### URL
 
-`?id=<seed>&from=shelf|unowned|all&mode=best|surprise`, so back, forward and reload work
-and a result can be linked. No collision with `Scope` or map params (`id`, `from`, `mode`
-are unused by either).
+`?id=<seed>&from=shelf|unowned|all` carries the question, so back, forward and reload work.
+
+**Nice-to-have:** `&pick=<id>` for an open Surprise pick (Surprise me pushes a history entry,
+Another one replaces it, × removes it), and Scope params for Help me find a game, as Discover
+writes them now. If `pick` complicates the build, drop it; it's not a requirement. `id`,
+`from` and `pick` are unused by Scope, the map and Discover.
 
 ## 2. Where each list comes from
 
@@ -93,19 +116,19 @@ warehouse endpoint.
 - **"Minus owned"** filters the precomputed top 10 in the browser. If fewer than 3 are left,
   the page runs the live `pool=exclude` query instead (the `exclude_collection` pool Phil
   wanted kept).
-- **Best match vs Surprise me.** Catalog lists (C, `pool=all`, live `exclude`) carry all three
-  styles, so the two modes map onto them. Shelf lists (A, D, live `collection`) have one
-  plain-similarity list until the collection-mode profiles exist.
+- **What each list shows.** Catalog lists (C, `pool=all`, live `exclude`) carry all three
+  styles; shelf lists (A, D, live `collection`) have one plain-similarity list until the
+  collection-mode profiles exist.
 
-  | List | Best match | Surprise me draws from |
+  | List | Sections | Surprise me draws from |
   | --- | --- | --- |
-  | catalog (C, `pool=all`, `exclude`) | `recommender` | `sicko` (Dark Horses), falling back to `recommender` if `sicko` is empty |
-  | shelf (A, D, `collection`) | plain similarity, ranks 1–10 | **stub:** ranks 5–20 of the same list |
+  | catalog (C, `pool=all`, `exclude`) | Recommended, Most similar, Dark horses (each top 4, All 10) | `sicko`, falling back to `recommender` if `sicko` is empty |
+  | shelf (A, D, `collection`) | one section, ranks 1–10 | **stub:** ranks 5–20 of the same list |
 
-  The shelf row is the seam for step 2: the collection-mode Recommend and Surprise profiles
-  replace both cells without touching the UI.
-- The style switcher (similar / recommender / sicko) leaves this page. It stays on the game
-  page.
+  The shelf row is the seam for step 2: the collection-mode profiles replace it without
+  touching the UI.
+- A section that comes out empty (for example after removing owned games) is left out rather
+  than shown empty.
 
 ## 3. Why are these similar? (level 1)
 
@@ -127,8 +150,8 @@ families.
   best-at votes.
 - **Complexity note:** the complexity row carries a short note that the model uses *predicted*
   complexity rather than BGG's community weight, so a number that differs from BGG doesn't read
-  as a bug. Copy `PLACEHOLDER(Phil)`. Placement default: a small muted line under the row in the
-  full panel, left out of the one-line why.
+  as a bug. Copy `PLACEHOLDER(Phil)`. It's a small muted line under the row in the full panel,
+  left out of the one-line why.
 - **Same cut as the model:** the embedding drops any mechanic, category or family on fewer
   than 10 games (`embeddings.min_feature_count: 10` in bgg-predictive-models `config.yaml`;
   mechanics and categories have no pattern filters). The page already counts tag
@@ -153,74 +176,80 @@ families.
     sorts last under rarest-first anyway, and the prefix filter already removes what would
     mislead.
 - **Where it shows:**
-  - **One-line why** on each Best-match card and on the Surprise pick: the first two traits
-    that match plus the rarest shared mechanic. For example: "Both ~3.8 · 2–4 players ·
-    Network and Route Building".
-  - **Full panel** under the Surprise pick, and on a card behind a **Why?** disclosure: the
-    three scalar rows, then shared tags as chips, capped at 6 per group with "+n".
+  - **One-line why** on every GameTile and in the GameHero: the first two traits that match
+    plus the rarest shared mechanic. For example: "Both ~3.8 · 2–4 players · Network and Route
+    Building".
+  - **Full panel:** in the GameHero, and under a section when a tile's one-line why (a
+    button) is clicked. The three scalar rows, then shared tags as `TagChip`s, capped at 6 per
+    group with "+n".
 - It lives in `src/lib/recommend/why.ts`, a pure function over two rows plus the frequency
   maps, so it can be tested without DuckDB and reused later on the game page.
 
 Level 1 only: what the two games share on the inputs. Which features *drove* the
 embedding's distance (level 2) is out of scope.
 
-## 4. Built from what's already there
+## 4. Components
 
-No hand-rolled controls. The sketches set the arrangement; every piece comes from a
-component or pattern the app already uses. The prototype's local `.seg`, `.modes`,
-`.primary`, `.link` and `NeighbourList` styles all go.
+Built from the app's patterns and components. New components are fine, but they're **shared
+components with a job beyond this page**, not one-offs styled to match a sketch. Anything that
+needs a variant gets a prop on the shared component, not a local copy.
 
-| Piece | Reuses |
-| --- | --- |
-| Page shell, title, lede | `Container size="list"` + the Discover page's `h1` / `.lede` treatment, so one measure and one left edge |
-| Vertical rhythm | `Stack` (`$lib/components/ui/layout`) |
-| Seed search | `GameSearch` (the `onpick` variant already on the branch) |
-| Shelf chips, pool choice, Best match / Surprise me | `SegGroup` (`$lib/catalog/rail/SegGroup.svelte`), the house segmented control. Its doc comment says a hand-rolled choice control is the tell to avoid |
-| Surprise me, Another one, More like this, Why?, live-search offer | `Button` (`$lib/components/ui/button`): `default` for the one primary action per view, `outline` / `ghost` / `link` for the rest |
-| Narrow it down | `DialStrip` as-is |
-| Best-match top 3 and the Surprise pick | `GameCard` (`$lib/catalog/GameCard.svelte`), the shared art / identity / stats shell. Thumbnails come from the `thumbnails` table, as Explore does |
-| Also close / Also in the draw rows | Discover's `GameRow` if its props fit a match % in place of rank. Otherwise extend `GameRow` with an optional stat snippet rather than writing a third row component |
-| Match % | `similarityPct` / `similarityColor` from `$lib/game/similarity`, the game page's "sim" badge, so a match reads the same on both pages |
-| Complexity in the why panel | `ComplexityMeter` for both games, side by side |
-| Shared tags | The chip look `FilterChips` already uses (tokens, radius), as read-only chips |
+**Existing:** `Container`, `Stack`, `Split`, `AutoGrid`; `Button` (`default` for the one primary
+action in a view, `outline` / `ghost` / `link` otherwise); `GameSearch`; `DialStrip`;
+`SimilarRow` (lifted from the game page on this branch); `ComplexityMeter`; `TagChip` (lifted
+from the game page's chip style on this branch); `similarityPct` / `similarityColor` /
+`ratingColor` for badges.
 
-- If a piece needs a variant, add it to the shared component (a prop), not a local copy.
-  `WhyMatch.svelte` is the only new component. It's colocated with the route, since only
-  this page uses it until the game page does.
-- Colors are theme tokens only (`style-rules`); status is never shown by color alone. The
-  "on your shelf" marker is text.
+**New shared:**
+
+| Component | What it is | Who else uses it |
+| --- | --- | --- |
+| `SegmentedControl` (`$lib/components/ui/`) | The muted-track, raised-pill control, with `size` sm / md / lg. | The game page's similar-games switcher and `ShapeStrip`, which each carry their own copy of this look in page CSS today, move onto it. `SegGroup` stays the Explore rail's control. |
+| `GameTile` (`$lib/catalog/`) | A game as a card: art, name + year, optional sim/rating badges, optional one-line slot. `compact` = art, name, year only. | The Start shelf cards use `compact`. Landing and Discover card views are candidates later. |
+| `GameHero` (`$lib/catalog/`) | One game shown large: fixed 4:3 art, title, a meta line, an actions slot and a body slot, on `Split`. | The landing page's `FeaturedGame` is a candidate to adopt it. |
+
+**Colocated (Recommend-only):** `WhyMatch.svelte`, the full why panel built from
+`ComplexityMeter` + `TagChip`.
+
+- Colors are theme tokens only (`style-rules`); state is never shown by color alone. The "on
+  your shelf" marker is text.
+- The one piece of motion is the Start cards' load-in; everything else moves only in response
+  to an action.
 
 ## 5. Layout and states
 
-- **Mobile:** everything stacks. The sentence wraps, with the pool as a segmented control on
-  its own line. Cards become rows at narrow widths.
+- **Measure:** `Container size="list"`. Start is centred (it's the tool's front door); results
+  are left-aligned like the rest of the app.
+- **Mobile:** the sentence wraps with the pool control on its own line; tiles go from 4 across
+  to 2 to 1 by container width (`AutoGrid`); the GameHero stacks via `Split`.
 - **States:**
-  - no collection linked: pool fixed to `anywhere`, shelf chips hidden, one line pointing to
-    Settings;
-  - artifact missing for the user: same as no collection, with the prototype's message;
-  - loading;
-  - empty list;
-  - live search offered or running.
-- The admin username box stays but moves behind the `Collection:` line (admin only).
-- Theme tokens only, light and dark, per `style-rules`.
-- **Copy** is `PLACEHOLDER(Phil)` wherever the sketches invented words, including the
-  sentence, the section labels and the lede.
+  - no collection linked: pool fixed to `anywhere`, no shelf cards, no "Where from?", one line
+    pointing to Settings;
+  - no artifact built for the user: same, with a line saying so;
+  - loading: sections show a loading line; the live pooled query runs without a prompt;
+  - empty: a section with no games is left out; if every section is empty, one line says so.
+- The admin username box stays (admin only), as a small input on the Settings line.
+- **Copy** is `PLACEHOLDER(Phil)` wherever the sketches invented words.
 
 ## 6. Not in this pass
 
-- **Collection-mode profiles** (what Best match and Surprise me rank by on a shelf). This is
-  step 2; §2's stub is the seam.
+- **Collection-mode profiles** (what the shelf list and Surprise rank by). This is step 2;
+  §2's stub is the seam.
 - **Productionizing:** the collection-neighbours Dataform model plus the `viewer-artifacts`
   export, shipping `feat/pooled-similarity`, then this branch. The artifact is still built
   by `scripts/build-collection-neighbors.ts` and read from `.cache`.
+- Moving the game page's and `FeaturedGame`'s own chip copies onto `TagChip`.
 - Level-2 "why", and multi-seed ("games like these three").
 - The `p` URL param collision (Scope vs map) is still open and separate.
 
-## Open for Phil
+## Decisions
 
-1. ~~Complexity source~~: **decided (2026-09-25)**, `predicted_complexity`, with a UI note that
-   it's the model's, not BGG's.
-2. ~~Family denylist~~: **decided (2026-09-25)**. Use the embedding's own family allowlist,
-   copied from `transformer.py`, with the model's 10-game floor but not its top-150 cut.
-3. ~~Default pool per seed~~: **dropped**. The pool is the reader's choice; the page opens on
-   `my shelf` + `Best match` and remembers the last pick (§1).
+1. **Complexity source (2026-09-25):** `predicted_complexity`, with a UI note that it's the
+   model's, not BGG's.
+2. **Families (2026-09-25):** the embedding's own family allowlist, copied from
+   `transformer.py`, with the model's 10-game floor but not its top-150 cut.
+3. **Pool:** the reader's choice, never inferred from the seed. The page opens on `my shelf`
+   and remembers the last pick.
+4. **The three lists (2026-09-25):** stacked as content, top 4 each, not a switch.
+5. **Discover (2026-09-25):** folds in as "Help me find a game"; `/discover` redirects.
+6. **URL state:** the question is in the URL; `pick` is a nice-to-have.
