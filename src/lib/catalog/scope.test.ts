@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { writeMapUrl, readMapUrl } from '$lib/map/route';
+import { DEFAULT_VIEW } from '$lib/map/view';
 import {
 	DEFAULT_SCOPE,
 	toWhere,
@@ -477,6 +479,8 @@ describe('URL round-trip', () => {
 			usersRatedMax: 50000,
 			geekMin: 6.5,
 			geekMax: 8,
+			playtimeMin: 30,
+			playtimeMax: 90,
 			players: 3,
 			bestAt: 2,
 			recommendedAt: 5,
@@ -710,5 +714,34 @@ describe('"is anything narrowing the set" is NOT the chips list', () => {
 		expect(narrows({ ...DEFAULT_SCOPE, rankedOnly: true })).toBe(true);
 		expect(narrows({ ...DEFAULT_SCOPE, categories: ['Wargame'] })).toBe(true);
 		expect(narrows({ ...DEFAULT_SCOPE, lasso: [1, 2, 3] })).toBe(true);
+	});
+});
+
+describe('play time', () => {
+	it('filters on the box upper bound, max_playtime', () => {
+		const w = toWhere({ ...DEFAULT_SCOPE, playtimeMin: 30, playtimeMax: 60 });
+		expect(w).toContain('max_playtime >= 30');
+		expect(w).toContain('max_playtime <= 60');
+		expect(toWhere(DEFAULT_SCOPE)).not.toContain('playtime');
+	});
+
+	it('round-trips as tmin / tmax, alongside the map encodings', () => {
+		const p = scopeToParams({ ...DEFAULT_SCOPE, playtimeMax: 60 });
+		expect(p.get('tmax')).toBe('60');
+		expect(p.has('tmin')).toBe(false);
+		expect(scopeFromParams(p).playtimeMax).toBe(60);
+		// The map writes its encodings into the same querystring; neither side may clobber the other.
+		const qs = writeMapUrl({ ...DEFAULT_SCOPE, playtimeMin: 90 }, { ...DEFAULT_VIEW, projection: 'umap' });
+		expect(readMapUrl(new URLSearchParams(qs), 6).scope.playtimeMin).toBe(90);
+	});
+
+	it('shows one chip that clears both bounds', () => {
+		const chips = activeFilters({ ...DEFAULT_SCOPE, playtimeMin: 60, playtimeMax: 120 });
+		const chip = chips.find((c) => c.id === 'playtime');
+		expect(chip?.label).toBe('1h–2h');
+		expect(chip?.patch).toEqual({ playtimeMin: null, playtimeMax: null });
+		expect(activeFilters({ ...DEFAULT_SCOPE, playtimeMax: 30 }).find((c) => c.id === 'playtime')?.label).toBe(
+			'up to 30 min'
+		);
 	});
 });

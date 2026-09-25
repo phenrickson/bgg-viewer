@@ -36,6 +36,14 @@
   import YearFilter from './YearFilter.svelte';
   import RailGroup from './rail/RailGroup.svelte';
   import SegGroup from './rail/SegGroup.svelte';
+  import RangeSlider from './RangeSlider.svelte';
+  import {
+    PLAYTIME_DOMAIN,
+    minutesAt,
+    indexAt,
+    formatMinutes,
+    playtimeRangeLabel
+  } from './playtime';
 
   let {
     scope = $bindable(),
@@ -279,6 +287,30 @@
       </p>
     </div>
 
+    <!-- The slider moves over tick indices, not minutes (see playtime.ts); these bindings
+         translate at the edge so `Scope` only ever holds minutes. -->
+    <div class="grp">
+      <span class="lbl"
+        >Play time <span class="readout">{playtimeRangeLabel(scope.playtimeMin, scope.playtimeMax)}</span></span
+      >
+      <RangeSlider
+        bind:min={
+          () => indexAt(scope.playtimeMin),
+          (i) => (scope = { ...scope, playtimeMin: i == null ? null : minutesAt(i) })
+        }
+        bind:max={
+          () => indexAt(scope.playtimeMax),
+          (i) => (scope = { ...scope, playtimeMax: i == null ? null : minutesAt(i) })
+        }
+        domain={PLAYTIME_DOMAIN}
+        step={1}
+        label="play time"
+        loLabel="any"
+        hiLabel="4h+"
+        format={(i) => formatMinutes(minutesAt(i), i === PLAYTIME_DOMAIN.hi)}
+      />
+    </div>
+
   </div>
 
   <ComplexityBands bind:selected={scope.weightBands} bind:open={facetOpen.complexity} />
@@ -421,6 +453,14 @@
     letter-spacing: 0.05em;
     color: var(--muted-foreground);
     font-weight: 600;
+  }
+  /* The value, not the field: normal case and full colour so it reads as the answer. */
+  .lbl .readout {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--foreground);
+    font-weight: 600;
+    margin-left: 0.35rem;
   }
   .lbl.sm {
     font-size: 0.68rem;

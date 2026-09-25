@@ -10,6 +10,8 @@
  * no live module. `recommendedAt` is the third: recommended at N but not best, matching the
  * amber segment of the Best-at chart.
  */
+import { formatMinutes } from './playtime';
+
 export interface ComplexityBand {
 	label: string;
 	/** Inclusive lower bound; null = open. */
@@ -92,6 +94,13 @@ export interface Scope {
 	 */
 	geekMin: number | null;
 	geekMax: number | null;
+	/**
+	 * Play-time window in minutes, on `max_playtime` — the box's upper bound, which is how
+	 * people read "how long is it": `playtimeMax: 60` is "done within an hour". A game with no
+	 * listed time (NULL in the catalog) drops out while either bound is set.
+	 */
+	playtimeMin: number | null;
+	playtimeMax: number | null;
 	players: number | null;
 	/** Community "best at N players" — the flagship filter BGG can't do. */
 	bestAt: number | null;
@@ -230,6 +239,8 @@ export const DEFAULT_SCOPE: Scope = {
 	usersRatedMax: null,
 	geekMin: null,
 	geekMax: null,
+	playtimeMin: null,
+	playtimeMax: null,
 	players: null,
 	bestAt: null,
 	recommendedAt: null,
@@ -379,6 +390,8 @@ export function toWhere(scope: Scope): string {
 	if (scope.usersRatedMax != null) parts.push(`${col.usersRated} <= ${scope.usersRatedMax}`);
 	if (scope.geekMin != null) parts.push(`${col.geek} >= ${scope.geekMin}`);
 	if (scope.geekMax != null) parts.push(`${col.geek} <= ${scope.geekMax}`);
+	if (scope.playtimeMin != null) parts.push(`max_playtime >= ${scope.playtimeMin}`);
+	if (scope.playtimeMax != null) parts.push(`max_playtime <= ${scope.playtimeMax}`);
 	// Only the upcoming universe has a hurdle to clear; elsewhere every game already did.
 	if (scope.universe === 'upcoming' && scope.hurdleMin != null && scope.hurdleMin > 0)
 		parts.push(`predicted_hurdle_prob >= ${scope.hurdleMin}`);
@@ -525,6 +538,15 @@ export function activeFilters(scope: Scope): FilterChip[] {
 	// importantly — clearing the chip clears BOTH bounds. The old bespoke block handled only
 	// `geekMin`, so a max would have filtered the set with no chip able to remove it.
 	range('geek', 'geek', scope.geekMin, scope.geekMax, 'geekMin', 'geekMax', exact);
+	range(
+		'playtime',
+		'play time',
+		scope.playtimeMin,
+		scope.playtimeMax,
+		'playtimeMin',
+		'playtimeMax',
+		(n) => formatMinutes(n)
+	);
 	if (scope.players != null)
 		chips.push({
 			id: 'players',
@@ -608,6 +630,8 @@ export function scopeToParams(scope: Scope): URLSearchParams {
 	if (scope.usersRatedMax != null) p.set('urmax', String(scope.usersRatedMax));
 	if (scope.geekMin != null) p.set('gmin', String(scope.geekMin));
 	if (scope.geekMax != null) p.set('gmax', String(scope.geekMax));
+	if (scope.playtimeMin != null) p.set('tmin', String(scope.playtimeMin));
+	if (scope.playtimeMax != null) p.set('tmax', String(scope.playtimeMax));
 	if (scope.players != null) p.set('p', String(scope.players));
 	if (scope.bestAt != null) p.set('best', String(scope.bestAt));
 	if (scope.recommendedAt != null) p.set('rec', String(scope.recommendedAt));
@@ -721,6 +745,8 @@ export function scopeFromParams(params: URLSearchParams): Scope {
 		usersRatedMax: finite(params.get('urmax')),
 		geekMin: finite(params.get('gmin')),
 		geekMax: finite(params.get('gmax')),
+		playtimeMin: finite(params.get('tmin')),
+		playtimeMax: finite(params.get('tmax')),
 		players: finite(params.get('p')),
 		bestAt: finite(params.get('best')),
 		recommendedAt: finite(params.get('rec')),

@@ -52,4 +52,14 @@ describe('catalogQuerySql', () => {
 		expect(LIST_COLUMNS).toContain('designers');
 		expect(INT_LIST_COLUMNS).toContain('best_player_counts');
 	});
+
+	it('carries play time, with unlisted (0) as NULL and time per player derived', () => {
+		expect(SCALAR_NAMES).toEqual(expect.arrayContaining(['min_playtime', 'max_playtime', 'time_per_player']));
+		expect(sql).toContain('NULLIF(f.min_playtime, 0) AS min_playtime');
+		expect(sql).toContain('NULLIF(f.max_playtime, 0) AS max_playtime');
+		expect(sql).toContain(
+			'SAFE_DIVIDE(NULLIF(f.max_playtime, 0), NULLIF(f.max_players, 0)) AS time_per_player'
+		);
+		expect(sql).not.toContain('f.time_per_player');
+	});
 });

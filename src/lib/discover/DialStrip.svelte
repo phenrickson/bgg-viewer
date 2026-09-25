@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Discover's three questions. Deliberately chips, not a rail: the point of this page is
+   * Discover's four questions. Deliberately chips, not a rail: the point of this page is
    * that every option is visible at once and none of them is a text field, a slider, or a
    * combo box. The visual language is lifted from the landing page's "Try a query" chips so
    * arriving here from the front door feels like the same room.
@@ -15,7 +15,10 @@
     toggleCategory,
     isCategoryOn,
     isBandOn,
-    bandPatch
+    bandPatch,
+    PLAYTIME_CHIPS,
+    isPlaytimeOn,
+    playtimePatch
   } from './dials';
 
   let { scope, onpatch }: { scope: Scope; onpatch: (patch: Partial<Scope>) => void } = $props();
@@ -67,6 +70,22 @@
           aria-pressed={on}
           onclick={() => onpatch(bandPatch(scope, b))}
         >{b.label}</button>
+      {/each}
+    </div>
+  </div>
+
+  <div class="row">
+    <p class="q" id="dial-time">How long do you have?</p>
+    <div class="chips" role="group" aria-labelledby="dial-time">
+      {#each PLAYTIME_CHIPS as t (t.label)}
+        {@const on = isPlaytimeOn(scope, t)}
+        <button
+          type="button"
+          class="chip"
+          class:on
+          aria-pressed={on}
+          onclick={() => onpatch(playtimePatch(scope, t))}
+        >{t.label}</button>
       {/each}
     </div>
   </div>

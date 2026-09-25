@@ -25,6 +25,7 @@ export interface Summary {
 	median_geek: number | null;
 	median_rating: number | null;
 	median_users_rated: number | null;
+	median_playtime: number | null;
 	median_year: number | null;
 	year_min: number | null;
 	year_max: number | null;
@@ -87,6 +88,7 @@ export const summarySql = (where: string, m: MeasureColumns = RATED): string =>
 	   median(${m.geek}) FILTER (WHERE ${m.geek} > 0) AS median_geek,
 	   median(${m.rating}) FILTER (WHERE ${m.rating} > 0) AS median_rating,
 	   median(${m.usersRated}) FILTER (WHERE ${m.usersRated} > 0) AS median_users_rated,
+	   median(max_playtime) AS median_playtime,
 	   -- median, not min/max: BGG carries public-domain games at historical years (Go at
 	   -- -2200) that make a printed span nonsense. The median reads as "this set's era".
 	   median(year_published) FILTER (WHERE year_published >= ${YEAR_DISPLAY_FLOOR}) AS median_year,
@@ -165,6 +167,24 @@ export const ratingsCountHistogramSql = (where: string, m: MeasureColumns = RATE
 	`SELECT (floor(log10(${m.usersRated}) / ${RATINGS_LOG_BIN}) * ${RATINGS_LOG_BIN}) AS bucket,
 	        COUNT(*)::INT AS n
 	 FROM catalog WHERE ${where} AND ${m.usersRated} > 0
+	 GROUP BY bucket ORDER BY bucket`;
+
+/**
+ * Play time is skewed like ratings count — most games list 15–120 minutes, a long tail runs to
+ * 1,000+ — so it is binned on log10 too. Listed times cluster on round numbers (30, 45, 60,
+ * 90, 120), and 0.1-wide log bins keep each of those in its own bar. Both ends are clamped to
+ * the Explore slider's scale — ≤10 min into the first bar, over 4 hours into the last — so a
+ * few 1-minute and 6,000-minute outliers don't stretch the axis.
+ */
+export const PLAYTIME_LOG_BIN = 0.1;
+export const PLAYTIME_FLOOR = 10;
+export const PLAYTIME_CAP = 240;
+
+/** `max_playtime` distribution, bucketed on log10 and clamped to [PLAYTIME_FLOOR, PLAYTIME_CAP]. */
+export const playtimeHistogramSql = (where: string): string =>
+	`SELECT (floor(log10(LEAST(GREATEST(max_playtime, ${PLAYTIME_FLOOR}), ${PLAYTIME_CAP})) / ${PLAYTIME_LOG_BIN}) * ${PLAYTIME_LOG_BIN}) AS bucket,
+	        COUNT(*)::INT AS n
+	 FROM catalog WHERE ${where} AND max_playtime > 0
 	 GROUP BY bucket ORDER BY bucket`;
 
 /**
