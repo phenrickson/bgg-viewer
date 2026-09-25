@@ -1,7 +1,7 @@
 # Recommend: one tool for finding a game — design
 
 **Date:** 2026-09-25 (revised the same day after the first build and the v2 sketches)
-**Status:** Agreed with Phil 2026-09-25; building
+**Status:** Built on `feat/recommend-tool` (local), 2026-09-25; awaiting Phil's review. See "Build notes" at the end.
 **Branch:** `feat/recommend-tool` (local; rebased on `main` at 0.0.25)
 **Related:** bgg-data-warehouse `docs/superpowers/specs/2026-09-24-pool-similarity-and-collection-neighbors-design.md`
 (the pooled endpoint and the per-collection artifact). Sketches:
@@ -253,3 +253,28 @@ from the game page's chip style on this branch); `similarityPct` / `similarityCo
 4. **The three lists (2026-09-25):** stacked as content, top 4 each, not a switch.
 5. **Discover (2026-09-25):** folds in as "Help me find a game"; `/discover` redirects.
 6. **URL state:** the question is in the URL; `pick` is a nice-to-have.
+
+## Build notes (2026-09-25)
+
+Where the build differs from, or adds to, the sections above:
+
+- **"Where from?" is the `from` param, not a Scope field.** It uses the same `from` as the
+  results sentence (`all` by default on Help me find a game, `shelf` on results) and is kept out
+  of `Scope` because it needs the reader's owned ids, which `toWhere` doesn't have. It's a
+  `DialRow`, the row `DialStrip`'s four questions are now built from.
+- **The Start tab is `?tab=find`**; no param is "I want games like…". Switching tabs starts the
+  other tab clean.
+- **`pick` is in the URL** for the results page's Surprise me. "Pick one for me" on Help me find
+  a game keeps its pick on the page instead (it has no seed to go with it).
+- **The seed in the sentence** is its thumbnail (a link to its game page) beside an outline
+  Button with its name and "change", since a link can't sit inside another.
+- **A tile's one-line why** ends in a small "Why?" link button, rather than the whole line being
+  a button.
+- **Discover's results** moved into `$lib/discover/DiscoverResults.svelte`, unchanged apart from
+  taking the scope as a prop plus an extra WHERE. Its "open in Explore" door came with it.
+- **The landing page's Discover showcase card** now links to Help me find a game; its title,
+  blurb and screenshot still say Discover (Phil's copy).
+- **Extra shared pieces:** `SimBadges` (the sim/rating badges, shared by `SimilarRow` and
+  `GameTile`) and `DialRow`.
+- **Not done:** the game page's and `FeaturedGame`'s chip copies onto `TagChip`; `AnalysisPanel`'s
+  parked segmented controls (commented out, so nothing to move).

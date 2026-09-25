@@ -59,7 +59,7 @@ compact vs full). **Checkpoint 1:** you look at `/dev/components`, the game page
 and the Explore shape strip, in light and dark. The shape and density of the tile, hero and
 segmented control get settled here.
 
-### 2. Results page → checkpoint 2
+### 2. Results page → checkpoint 2 (built; Phil: "keep going")
 
 - Rewrite `/recommend` results on the shared components: the question sentence (the seed
   button and the pool `SegmentedControl`, size md), then the stacked sections (Recommended / Most similar /
@@ -75,7 +75,7 @@ pools, with the "why" opened on a couple of tiles. Needs `DEV_BGG_USERNAME=phenr
 shelf pools, and the local warehouse API (`uv run --extra api uvicorn
 services.warehouse_api.main:app --port 8080` on `feat/pooled-similarity`) for the live cases.
 
-### 3. Surprise me → checkpoint 3
+### 3. Surprise me → checkpoint 3 (built)
 
 - The Surprise me button under the question opens a `GameHero` above the sections, with
   Another one / More like this / Open game / ×, and the full `WhyMatch` as its body.
@@ -86,7 +86,7 @@ services.warehouse_api.main:app --port 8080` on `feat/pooled-similarity`) for th
 **Verify:** a unit test for the draw (no repeats, fallback when Dark horses is empty).
 **Checkpoint 3:** open, redraw, More like this, ×, Back.
 
-### 4. Start, games like → checkpoint 4
+### 4. Start, games like → checkpoint 4 (built)
 
 - The headline and the Start `SegmentedControl` lg (I want games like… | Help me find a game).
 - `GameSearch`, then six shelf `GameTile`s (`compact`), highest-rated owned games, with the
@@ -95,7 +95,7 @@ services.warehouse_api.main:app --port 8080` on `feat/pooled-similarity`) for th
 **Verify:** `just check`. **Checkpoint 4:** the Start screen with and without a collection,
 and with reduced motion on.
 
-### 5. Help me find a game (Discover folds in) → checkpoint 5
+### 5. Help me find a game (Discover folds in) → checkpoint 5 (built)
 
 - The second Start tab: `DialStrip` with a new first question, **Where from?** (Anywhere / My
   shelf / Games I don't own; hidden without a collection). It's a Scope-level answer, so it
@@ -111,7 +111,7 @@ and with reduced motion on.
 (like `map/route.test.ts`), `just check`, `just test`. **Checkpoint 5:** the questions, Pick
 one for me, See all matches, and an old `/discover?…` link landing in the right place.
 
-### 6. Tidy and hand-off
+### 6. Tidy and hand-off (done; drift listed in the spec's "Build notes")
 
 - Delete the leftovers of the first build (the old page parts, unused CSS).
 - Confirm each spec section against what's built and list any drift for you.
