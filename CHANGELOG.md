@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.25](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.24...bgg-viewer-v0.0.25) (2026-09-25)
+
+
+### Features
+
+* **catalog:** play time in the catalog, Explore and Discover ([#79](https://github.com/phenrickson/bgg-viewer/issues/79)) ([ed149a5](https://github.com/phenrickson/bgg-viewer/commit/ed149a5b5af892a8fdd437dbb945d70b5242c629))
+
 ## [0.0.24](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.23...bgg-viewer-v0.0.24) (2026-09-23)
 
 
