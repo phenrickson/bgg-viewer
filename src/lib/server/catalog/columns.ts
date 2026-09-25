@@ -13,8 +13,28 @@ export const SCALAR_COLUMNS = {
 	average_weight: 'float',
 	users_rated: 'int',
 	min_players: 'int',
-	max_players: 'int'
+	max_players: 'int',
+	min_playtime: 'int',
+	max_playtime: 'int',
+	/** Derived, not stored upstream — see `SCALAR_SQL`. A model input for the embeddings. */
+	time_per_player: 'float32'
 } as const;
+
+/**
+ * Scalars that aren't a plain `f.<col>` read. Everything else in `SCALAR_COLUMNS` selects
+ * straight from `games_features`; these carry their own expression so the SELECT and the
+ * Arrow schema still come from the one list above.
+ *
+ * `0` in `games_features` play time means "not listed" on BGG, so it lands as NULL — a filter
+ * or an aggregate must never read it as a zero-minute game. `time_per_player` is the
+ * embedding pipeline's rule (bgg-predictive-models `src/features/transformers.py`,
+ * `_create_time_per_player`): `max_playtime / max_players`, NULL when either is 0 or NULL.
+ */
+const SCALAR_SQL: Partial<Record<keyof typeof SCALAR_COLUMNS, string>> = {
+	min_playtime: 'NULLIF(f.min_playtime, 0)',
+	max_playtime: 'NULLIF(f.max_playtime, 0)',
+	time_per_player: 'SAFE_DIVIDE(NULLIF(f.max_playtime, 0), NULLIF(f.max_players, 0))'
+};
 
 /**
  * Model output. Every game in this catalog carries its prediction — including games the
@@ -120,7 +140,8 @@ export function catalogQuerySql(
 	bestPlayerCountsTable: string,
 	predictionsTable: string
 ): string {
-	const cols = [...SCALAR_NAMES, ...LIST_COLUMNS].map((c) => `f.${c}`).join(', ');
+	const scalars = SCALAR_NAMES.map((c) => (SCALAR_SQL[c] ? `${SCALAR_SQL[c]} AS ${c}` : `f.${c}`));
+	const cols = [...scalars, ...LIST_COLUMNS.map((c) => `f.${c}`)].join(', ');
 	// LEFT JOIN: `bgg_predictions` is year-filtered and holds one row per scored game, so a
 	// missing row is the normal case and must not drop the game from the catalog.
 	const preds = PREDICTION_NAMES.map((c) => `p.${c}`).join(', ');
