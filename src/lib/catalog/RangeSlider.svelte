@@ -12,11 +12,11 @@
    * Generic over `domain` / `step` / `format`: it knows nothing about complexity or about
    * `Scope`. The nullable-bounds translation lives in `range.ts`.
    *
-   * **Currently unused, on purpose.** It was built for complexity, which then went to band
-   * checkboxes (a set control, not a span control), and year took steppers. Kept because the
-   * rail still has four typed min/max pairs under "Exact numbers" — rating, ratings count and
-   * geek rating are all genuine spans that a slider would serve better than two text fields.
-   * `range.test.ts` covers the bounds logic, so it stays honest while it waits.
+   * Built for complexity, which then went to band checkboxes (a set control, not a span
+   * control), and year took steppers. Its first user is play time, which slides over tick
+   * indices rather than minutes (`playtime.ts`). The rail's typed min/max pairs under "Exact
+   * numbers" — rating, ratings count and geek rating — are genuine spans it would serve too.
+   * `range.test.ts` covers the bounds logic.
    */
   import { toBounds, toHandles, type Domain } from './range';
 

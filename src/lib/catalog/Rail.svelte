@@ -36,6 +36,8 @@
   import YearFilter from './YearFilter.svelte';
   import RailGroup from './rail/RailGroup.svelte';
   import SegGroup from './rail/SegGroup.svelte';
+  import RangeSlider from './RangeSlider.svelte';
+  import { PLAYTIME_DOMAIN, minutesAt, indexAt, formatMinutes } from './playtime';
 
   let {
     scope = $bindable(),
@@ -277,6 +279,30 @@
           ? 'Supports N at the table.'
           : 'The community voted N the best count — the filter BGG can’t do.'}
       </p>
+    </div>
+
+    <!-- The slider moves over tick indices, not minutes (see playtime.ts); these bindings
+         translate at the edge so `Scope` only ever holds minutes. -->
+    <div class="grp">
+      <span class="lbl">Play time</span>
+      <RangeSlider
+        bind:min={
+          () => indexAt(scope.playtimeMin),
+          (i) => (scope = { ...scope, playtimeMin: i == null ? null : minutesAt(i) })
+        }
+        bind:max={
+          () => indexAt(scope.playtimeMax),
+          (i) => (scope = { ...scope, playtimeMax: i == null ? null : minutesAt(i) })
+        }
+        domain={PLAYTIME_DOMAIN}
+        step={1}
+        label="play time"
+        loLabel="any"
+        hiLabel="4h+"
+        format={(i) => formatMinutes(minutesAt(i), i === PLAYTIME_DOMAIN.hi)}
+      />
+      <!-- PLACEHOLDER copy (Phil) -->
+      <p class="note">By the box’s longest time.</p>
     </div>
 
   </div>

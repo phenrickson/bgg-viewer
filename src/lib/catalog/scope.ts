@@ -10,6 +10,8 @@
  * no live module. `recommendedAt` is the third: recommended at N but not best, matching the
  * amber segment of the Best-at chart.
  */
+import { formatMinutes } from './playtime';
+
 export interface ComplexityBand {
 	label: string;
 	/** Inclusive lower bound; null = open. */
@@ -543,7 +545,7 @@ export function activeFilters(scope: Scope): FilterChip[] {
 		scope.playtimeMax,
 		'playtimeMin',
 		'playtimeMax',
-		(n) => `${n} min`
+		(n) => formatMinutes(n)
 	);
 	if (scope.players != null)
 		chips.push({

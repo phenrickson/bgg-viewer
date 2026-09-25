@@ -738,7 +738,7 @@ describe('play time', () => {
 	it('shows one chip that clears both bounds', () => {
 		const chips = activeFilters({ ...DEFAULT_SCOPE, playtimeMin: 60, playtimeMax: 120 });
 		const chip = chips.find((c) => c.id === 'playtime');
-		expect(chip?.label).toBe('60 min–120 min');
+		expect(chip?.label).toBe('1h–2h');
 		expect(chip?.patch).toEqual({ playtimeMin: null, playtimeMax: null });
 		expect(activeFilters({ ...DEFAULT_SCOPE, playtimeMax: 30 }).find((c) => c.id === 'playtime')?.label).toBe(
 			'up to 30 min'
