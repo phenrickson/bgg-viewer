@@ -1,63 +1,36 @@
 <script lang="ts">
   /**
-   * Discover — the step between the front door and the workshop.
+   * The games that answer Discover's questions — a readable list, top rated first, paged in as
+   * you scroll, with a door to Explore for the same set. Recommend's "Help me find a game"
+   * shows it under the questions ("See all matches"); it was Discover's page before Discover
+   * folded into Recommend.
    *
-   * Explore can answer anything but shows you a rail of twelve controls to do it. Discover
-   * asks four coarse questions and hands back a readable list. It is the same `Scope`
-   * underneath, which is why "see all N in Explore" is a link and not a translation: the
-   * user carries their question into the bigger room instead of restating it.
+   * It is the same `Scope` as Explore underneath, which is why "open in Explore" is a link and
+   * not a translation. `extraWhere` narrows it further (Recommend's "Where from?").
    *
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
-  import { onMount } from 'svelte';
-  import { afterNavigate, replaceState } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
-  import {
-    DEFAULT_SCOPE,
-    scopeToParams,
-    toWhere,
-    activeFilters,
-    type Scope
-  } from '$lib/catalog/scope';
-  import DialStrip from '$lib/discover/DialStrip.svelte';
-  import GameRow from '$lib/discover/GameRow.svelte';
-  import { discoverScopeFromParams, DISCOVER_LIMIT } from '$lib/discover/dials';
-  import type { DiscoverGame } from '$lib/discover/types';
-  import { Container } from '$lib/components/ui/layout';
+  import { scopeToParams, toWhere, activeFilters, type Scope } from '$lib/catalog/scope';
+  import GameRow from './GameRow.svelte';
+  import { DISCOVER_LIMIT } from './dials';
+  import type { DiscoverGame } from './types';
 
-  /**
-   * Discover defaults to the whole rated population rather than the top-10k slice, so that
-   * with nothing selected the page reads as "top rated, all-time" — the same promise the
-   * landing page's chip of that name makes.
-   */
-  const DISCOVER_DEFAULT: Scope = { ...DEFAULT_SCOPE, universe: 'rated' };
+  let {
+    scope,
+    extraWhere = '',
+    onpatch
+  }: {
+    scope: Scope;
+    /** More SQL, ANDed onto the scope's WHERE. */
+    extraWhere?: string;
+    onpatch: (patch: Partial<Scope>) => void;
+  } = $props();
 
-  let scope = $state<Scope>(DISCOVER_DEFAULT);
   let rows = $state<DiscoverGame[]>([]);
   let total = $state(0);
   let loading = $state(true);
   let failed = $state(false);
-
-  onMount(() => {
-    initCatalog();
-  });
-
-  /**
-   * Re-read `scope` from the URL on every navigation that lands here, not just the first —
-   * see the identical fix and full reasoning on Explore's /games page. `patch()` below mirrors
-   * scope to the URL via SvelteKit's `replaceState`, which is explicitly shallow and does not
-   * trigger `afterNavigate`, so there's no feedback loop.
-   */
-  afterNavigate(() => {
-    scope = discoverScopeFromParams(new URLSearchParams(location.search));
-  });
-
-  /** Apply a dial's patch: update state, then mirror it into the URL. */
-  function patch(p: Partial<Scope>) {
-    scope = { ...scope, ...p };
-    const qs = scopeToParams(scope).toString();
-    replaceState(qs ? `?${qs}` : location.pathname, {});
-  }
 
   const exploreHref = $derived(`/games?${scopeToParams(scope).toString()}`);
 
@@ -123,6 +96,7 @@
   // last one had been scrolled.
   $effect(() => {
     scope;
+    extraWhere;
     limit = DISCOVER_LIMIT;
   });
 
@@ -149,7 +123,7 @@
     // with real art — the LEFT JOIN itself is unconditional (see catalog.svelte.ts), this
     // is only what makes the *second* pass happen once there's something new to show.
     catalog.thumbnailsReady;
-    const where = toWhere(scope);
+    const where = `${toWhere(scope)}${extraWhere ? ` AND ${extraWhere}` : ''}`;
     const n = limit;
     const mine = ++token;
     loading = true;
@@ -183,21 +157,6 @@
   });
 </script>
 
-<svelte:head><title>Discover · Boardgame-Viz</title></svelte:head>
-
-<!-- ONE measure, so everything shares a left edge.
-     An earlier pass put the hero in `prose` and the list in a wider container, meaning to
-     make the results "step out". With a short headline above a full-width card the two
-     margins just read as misalignment — the page wobbled instead of stepping. The landing
-     page is calm precisely because every element starts at the same x. -->
-<div class="page">
-  <Container size="list">
-    <!-- PLACEHOLDER copy -->
-    <h1>Find your next <em>game night</em>.</h1>
-    <p class="lede">Answer as few or as many as you like — the list below narrows as you go.</p>
-
-    <DialStrip {scope} onpatch={patch} />
-
     <div class="results">
       <div class="head">
         <span class="count">
@@ -216,7 +175,7 @@
         {#if extraFilters.length}
           <span class="extras">
             {#each extraFilters as f (f.id)}
-              <button type="button" class="ext" onclick={() => patch(f.patch)}>
+              <button type="button" class="ext" onclick={() => onpatch(f.patch)}>
                 <span class="dim">{f.kind}</span> {f.label} <span class="x">×</span>
               </button>
             {/each}
@@ -270,51 +229,15 @@
         {/if}
       </span>
     </a>
-  </Container>
-</div>
 
 <style>
-  /* Content-driven, not fill-height. Bounding the list to DISCOVER_LIMIT rows made the
-     internal scroll pointless — 25 rows is content, so the page just flows and the document
-     scrolls, which is also what lets the door at the foot be reached by scrolling to the end
-     rather than hiding below a nested scroller. */
-  .page {
-    display: flex; flex-direction: column;
-    /* No top padding: the app shell's `.content` already pads every page, and adding a
-       viewport-scaled clamp on top of it stacked to ~4.5rem of nothing above the headline on
-       a wide window. Bottom padding stays, so the last element isn't flush to the scroll end. */
-    gap: var(--space-xl); padding: 0 0 var(--space-xl);
-  }
-  /* The results sit further from the questions than the questions do from each other, so
-     the step out to the wider measure lands as a section break rather than a wobble. */
-
-  /* Matches the landing page's hero, so the two pages read as one voice. */
-  h1 {
-    font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem));
-    font-weight: 750; letter-spacing: -0.03em; line-height: 1.05;
-    margin: 0; text-wrap: balance;
-  }
-  h1 em { font-style: normal; color: var(--primary); }
-  .lede {
-    font-size: 1.1rem; color: var(--muted-foreground); max-width: 40rem;
-    /* Sits under its own headline (0.6rem), then a full gap before the questions begin, so
-       the hero reads as one block rather than as the first item in a flat list. */
-    margin: 0.6rem 0 var(--space-xl);
-  }
-
-  /* Sits further from the questions than they do from each other, so stepping out to the
-     wider measure lands as a section break rather than a wobble. */
-  /* The answer, set apart from the questions.
-     `.page`'s gap does not reach here — everything below the hero lives inside the
-     Container, so the hero, the dials and this block are siblings *within* it, not flex
-     children of `.page`. The break has to be stated on the element itself. */
+  /* The page around it sets the gap from the questions above. */
   .results {
     display: flex; flex-direction: column;
-    margin-top: var(--space-xl); margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-lg);
   }
 
-  /* Belongs to the list beneath it, not to the chips above — hence tight below, and the
-     `.page` gap doing the separating above. */
+  /* Belongs to the list beneath it, not to the chips above — hence tight below. */
   .head {
     display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
     font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: 0.55rem;
