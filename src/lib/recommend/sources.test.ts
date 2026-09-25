@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sourceFor, sectionsFor, surpriseFrom, withoutIds, tooThin, type Hit, type Lists } from './sources';
+import { sourceFor, sectionsFor, surpriseFrom, drawFrom, withoutIds, tooThin, type Hit, type Lists } from './sources';
 
 const hits = (...ids: number[]): Hit[] => ids.map((id, i) => ({ id, similarity: 1 - i / 100 }));
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
@@ -56,5 +56,30 @@ describe('withoutIds / tooThin', () => {
 		expect(left).toEqual({ kind: 'styles', similar: [], recommender: [hits(1, 2, 3)[2]], sicko: [] });
 		expect(tooThin(left)).toBe(true);
 		expect(tooThin(lists)).toBe(false);
+	});
+});
+
+describe('drawFrom', () => {
+	const pool = hits(1, 2, 3);
+
+	it('never repeats until the list is used up', () => {
+		let seen = new Set<number>();
+		const drawn: number[] = [];
+		for (let i = 0; i < 3; i++) {
+			const r = drawFrom(pool, seen);
+			drawn.push(r.hit!.id);
+			seen = r.seen;
+		}
+		expect([...drawn].sort()).toEqual([1, 2, 3]);
+	});
+
+	it('starts over once every hit is seen, without repeating the last one', () => {
+		const r = drawFrom(pool, new Set([1, 2, 3]), () => 0);
+		expect(r.hit!.id).not.toBe(3);
+		expect([...r.seen]).toEqual([r.hit!.id]);
+	});
+
+	it('returns nothing from an empty list', () => {
+		expect(drawFrom([], new Set()).hit).toBeNull();
 	});
 });

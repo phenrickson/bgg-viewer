@@ -27,10 +27,13 @@
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
   import { Container, Stack } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
-  import type { TagFrequencies } from '$lib/recommend/why';
+  import SimBadges from '$lib/game/SimBadges.svelte';
+  import { explain, type TagFrequencies } from '$lib/recommend/why';
   import {
     sourceFor,
     sectionsFor,
+    surpriseFrom,
+    drawFrom,
     withoutIds,
     tooThin,
     type Pool,
@@ -39,6 +42,7 @@
     type SectionKey
   } from '$lib/recommend/sources';
   import ResultSection, { type Game, type Item } from './ResultSection.svelte';
+  import WhyMatch from './WhyMatch.svelte';
 
   let { data } = $props();
 
@@ -101,9 +105,16 @@
     return p === 'unowned' || p === 'all' ? p : 'shelf';
   });
 
-  /** A link to this page with some of the question changed — how every option and walk moves. */
-  function ask(patch: { id?: number | null; from?: Pool }): string {
+  /** An open Surprise pick (nice-to-have URL state, spec §1). */
+  const pickId = $derived(Number(params.get('pick')) || null);
+
+  /**
+   * A link to this page with some of the question changed — how every option and walk moves.
+   * A new seed closes any open Surprise pick unless the patch says otherwise.
+   */
+  function ask(patch: { id?: number | null; from?: Pool; pick?: number | null }): string {
     const q = new URLSearchParams(params);
+    if ('id' in patch && !('pick' in patch)) q.delete('pick');
     for (const [k, v] of Object.entries(patch)) {
       if (v == null) q.delete(k);
       else q.set(k, String(v));
@@ -111,7 +122,8 @@
     const s = q.toString();
     return `/recommend${s ? `?${s}` : ''}`;
   }
-  const set = (patch: Parameters<typeof ask>[0]) => goto(ask(patch), { keepFocus: true, noScroll: true });
+  const set = (patch: Parameters<typeof ask>[0], replaceState = false) =>
+    goto(ask(patch), { keepFocus: true, noScroll: true, replaceState });
 
   // --- catalog rows ------------------------------------------------------------------------
   const arr = (v: unknown): string[] | null => (v == null ? null : Array.from(v as ArrayLike<string>));
@@ -227,11 +239,41 @@
     });
   });
 
-  /** The stacked sections, minus the seed and the games already walked through. */
-  const sections = $derived.by(() => {
-    if (!lists || seedId == null) return [];
-    return sectionsFor(withoutIds(lists, new Set([seedId, ...trail.map((s) => s.id)])));
+  /** The seed and the games already walked through — left out of every answer. */
+  const walked = $derived(new Set([...(seedId == null ? [] : [seedId]), ...trail.map((s) => s.id)]));
+
+  /** The stacked sections. */
+  const sections = $derived(lists && seedId != null ? sectionsFor(withoutIds(lists, walked)) : []);
+
+  // --- Surprise me: one game drawn from a wider list, shown above the sections ---------------
+  const surprisePool = $derived(lists ? surpriseFrom(withoutIds(lists, walked)) : []);
+  let seen = $state<Set<number>>(new Set());
+  $effect(() => {
+    // A new question starts the draw afresh.
+    [seedId, pool];
+    seen = new Set();
   });
+  function surprise() {
+    const r = drawFrom(surprisePool, seen);
+    seen = r.seen;
+    // Opening pushes a history entry; redrawing replaces it, so Back closes the pick.
+    if (r.hit) set({ pick: r.hit.id }, pickId != null);
+  }
+  let pickGame = $state<Game | null>(null);
+  $effect(() => {
+    const id = pickId;
+    if (id == null || catalog.status !== 'ready') {
+      pickGame = null;
+      return;
+    }
+    games([id]).then((m) => id === pickId && (pickGame = m.get(id) ?? null));
+  });
+  /** The pick's match to the seed — from the list it was drawn from, if it's still there. */
+  const pickSim = $derived(
+    surprisePool.find((h) => h.id === pickId)?.similarity ??
+      sections.flatMap((s) => s.hits).find((h) => h.id === pickId)?.similarity ??
+      null
+  );
 
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
@@ -355,6 +397,9 @@
               <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
             {/if}
           </div>
+          {#if status === 'ready' && surprisePool.length}
+            <div><Button variant="outline" onclick={surprise}>Surprise me</Button></div>
+          {/if}
           <div class="who">
             {#if !username}
               <span>PLACEHOLDER: link a BGG collection in <a href="/settings">Settings</a> to search your shelf.</span>
@@ -376,6 +421,25 @@
             {/if}
           </div>
         </header>
+
+        <!-- ── Surprise me ───────────────────────────────────────────────────────── -->
+        {#if pickGame && seed}
+          {@const g = pickGame}
+          <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => set({ pick: null })}>
+            {#snippet meta()}
+              {#if g.year_published}<span>{g.year_published}</span>{/if}
+              <SimBadges similarity={pickSim} rating={g.average_rating} />
+              {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
+            {/snippet}
+            {#snippet actions()}
+              <!-- PLACEHOLDER copy (Phil) -->
+              <Button onclick={surprise}>Another one</Button>
+              <Button variant="outline" href={ask({ id: g.game_id })}>More like this</Button>
+              <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
+            {/snippet}
+            <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} />
+          </GameHero>
+        {/if}
 
         <!-- ── The answer ────────────────────────────────────────────────────────── -->
         {#if status === 'error'}

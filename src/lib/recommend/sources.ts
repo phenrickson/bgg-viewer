@@ -98,3 +98,25 @@ export function tooThin(lists: Lists): boolean {
 	const top = lists.kind === 'shelf' ? lists.list : lists.recommender.length ? lists.recommender : lists.similar;
 	return top.length < MIN_AFTER_OWNED;
 }
+
+/**
+ * One Surprise draw: a random hit not yet seen this visit. Once every hit has been seen the
+ * draw starts over (minus the one just shown, so it never repeats back to back).
+ */
+export function drawFrom(
+	hits: Hit[],
+	seen: ReadonlySet<number>,
+	random: () => number = Math.random
+): { hit: Hit | null; seen: Set<number> } {
+	if (!hits.length) return { hit: null, seen: new Set(seen) };
+	let fresh = hits.filter((h) => !seen.has(h.id));
+	let next = new Set(seen);
+	if (!fresh.length) {
+		const last = [...seen].at(-1);
+		fresh = hits.length > 1 ? hits.filter((h) => h.id !== last) : hits;
+		next = new Set();
+	}
+	const hit = fresh[Math.floor(random() * fresh.length)];
+	next.add(hit.id);
+	return { hit, seen: next };
+}
