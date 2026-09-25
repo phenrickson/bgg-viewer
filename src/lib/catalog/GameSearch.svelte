@@ -99,5 +99,8 @@
   .menu button:hover { background: var(--muted); }
   .menu .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
   .menu .yr { color: var(--muted-foreground); font-size: 0.82rem; }
+  /* On the full-width bar a right-aligned year sits a screen away from its name; keep it
+     beside the name. The compact header menu is narrow enough that right-aligned reads fine. */
+  .gs:not(.compact) .menu .nm { flex: 0 1 auto; }
   .tnum { font-variant-numeric: tabular-nums; }
 </style>
