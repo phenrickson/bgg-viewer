@@ -84,8 +84,8 @@
   type Chip = { label: string; room: 'discover' | 'games'; scope: Partial<Scope> };
 
   /**
-   * Answerable with Discover's three dials, so each one arrives with its chip already
-   * selected and the other two dials free to adjust.
+   * Answerable with Discover's dials, so each one arrives with its chip already
+   * selected and the other dials free to adjust.
    *
    * Every count below was measured against the catalog, not estimated — see the note on
    * `Hidden gems` for why that matters.

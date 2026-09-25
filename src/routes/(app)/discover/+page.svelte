@@ -3,7 +3,7 @@
    * Discover — the step between the front door and the workshop.
    *
    * Explore can answer anything but shows you a rail of twelve controls to do it. Discover
-   * asks three coarse questions and hands back a readable list. It is the same `Scope`
+   * asks four coarse questions and hands back a readable list. It is the same `Scope`
    * underneath, which is why "see all N in Explore" is a link and not a translation: the
    * user carries their question into the bigger room instead of restating it.
    *

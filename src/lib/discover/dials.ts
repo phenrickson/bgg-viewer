@@ -72,7 +72,7 @@ export const PLAYER_CHIPS: { label: string; bestAt: number }[] = [
  *   ≤30: 12,227 · 31–45: 4,154 · 46–60: 4,630 · 61–120: 5,311 · 121+: 3,377 · unlisted 1,306
  *
  * The first chip is the heavy one (40%) — accepted over moving 30-minute games into the next
- * band, because "up to 30 minutes" is how people ask for a short game. Labels: PLACEHOLDER (Phil).
+ * band, because "up to 30 minutes" is how people ask for a short game. Labels approved by Phil.
  */
 export const PLAYTIME_CHIPS: { label: string; min: number | null; max: number | null }[] = [
   { label: 'Up to 30 min', min: null, max: 30 },

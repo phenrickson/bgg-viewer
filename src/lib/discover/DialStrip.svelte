@@ -75,7 +75,6 @@
   </div>
 
   <div class="row">
-    <!-- PLACEHOLDER copy (Phil) -->
     <p class="q" id="dial-time">How long do you have?</p>
     <div class="chips" role="group" aria-labelledby="dial-time">
       {#each PLAYTIME_CHIPS as t (t.label)}
