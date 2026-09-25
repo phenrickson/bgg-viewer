@@ -35,3 +35,11 @@ export function formatMinutes(minutes: number, open = false): string {
 	const m = minutes % 60;
 	return `${h}h${m ? ` ${m}` : ''}${open ? '+' : ''}`;
 }
+
+/** The current range as a reader says it: "any", "up to 1h", "30 min – 2h", "2h+". */
+export function playtimeRangeLabel(min: number | null, max: number | null): string {
+	if (min == null && max == null) return 'any';
+	if (min == null) return `up to ${formatMinutes(max!)}`;
+	if (max == null) return `${formatMinutes(min)}+`;
+	return `${formatMinutes(min)} – ${formatMinutes(max)}`;
+}

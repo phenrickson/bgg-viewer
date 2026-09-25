@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { PLAYTIME_DOMAIN, PLAYTIME_TICKS, minutesAt, indexAt, formatMinutes } from './playtime';
+import {
+	PLAYTIME_DOMAIN,
+	PLAYTIME_TICKS,
+	minutesAt,
+	indexAt,
+	formatMinutes,
+	playtimeRangeLabel
+} from './playtime';
 import { toBounds } from './range';
 
 describe('play-time scale', () => {
@@ -24,5 +31,14 @@ describe('play-time scale', () => {
 		expect(formatMinutes(60)).toBe('1h');
 		expect(formatMinutes(90)).toBe('1h 30');
 		expect(formatMinutes(240, true)).toBe('4h+');
+	});
+});
+
+describe('play-time labels', () => {
+	it('reads the range back as a reader says it', () => {
+		expect(playtimeRangeLabel(null, null)).toBe('any');
+		expect(playtimeRangeLabel(null, 60)).toBe('up to 1h');
+		expect(playtimeRangeLabel(120, null)).toBe('2h+');
+		expect(playtimeRangeLabel(30, 120)).toBe('30 min – 2h');
 	});
 });

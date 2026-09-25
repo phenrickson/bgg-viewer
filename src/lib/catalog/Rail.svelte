@@ -37,7 +37,13 @@
   import RailGroup from './rail/RailGroup.svelte';
   import SegGroup from './rail/SegGroup.svelte';
   import RangeSlider from './RangeSlider.svelte';
-  import { PLAYTIME_DOMAIN, minutesAt, indexAt, formatMinutes } from './playtime';
+  import {
+    PLAYTIME_DOMAIN,
+    minutesAt,
+    indexAt,
+    formatMinutes,
+    playtimeRangeLabel
+  } from './playtime';
 
   let {
     scope = $bindable(),
@@ -284,7 +290,9 @@
     <!-- The slider moves over tick indices, not minutes (see playtime.ts); these bindings
          translate at the edge so `Scope` only ever holds minutes. -->
     <div class="grp">
-      <span class="lbl">Play time</span>
+      <span class="lbl"
+        >Play time <span class="readout">{playtimeRangeLabel(scope.playtimeMin, scope.playtimeMax)}</span></span
+      >
       <RangeSlider
         bind:min={
           () => indexAt(scope.playtimeMin),
@@ -301,8 +309,6 @@
         hiLabel="4h+"
         format={(i) => formatMinutes(minutesAt(i), i === PLAYTIME_DOMAIN.hi)}
       />
-      <!-- PLACEHOLDER copy (Phil) -->
-      <p class="note">By the box’s longest time.</p>
     </div>
 
   </div>
@@ -447,6 +453,14 @@
     letter-spacing: 0.05em;
     color: var(--muted-foreground);
     font-weight: 600;
+  }
+  /* The value, not the field: normal case and full colour so it reads as the answer. */
+  .lbl .readout {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--foreground);
+    font-weight: 600;
+    margin-left: 0.35rem;
   }
   .lbl.sm {
     font-size: 0.68rem;
