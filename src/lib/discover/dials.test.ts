@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_SCOPE } from '$lib/catalog/scope';
 import {
+	PLAYTIME_CHIPS,
+	isPlaytimeOn,
+	playtimePatch,
   CATEGORY_CHIPS,
   PLAYER_CHIPS,
   COMPLEXITY_BANDS,
@@ -139,4 +142,21 @@ describe('complexityLabel and complexityBandIndex', () => {
       }
     }
   });
+});
+
+describe('play-time chips', () => {
+	it('are half-open, so no listed time lands in two chips', () => {
+		for (let i = 1; i < PLAYTIME_CHIPS.length; i++)
+			expect(PLAYTIME_CHIPS[i].min).toBe((PLAYTIME_CHIPS[i - 1].max ?? NaN) + 1);
+		expect(PLAYTIME_CHIPS[0].min).toBeNull();
+		expect(PLAYTIME_CHIPS.at(-1)!.max).toBeNull();
+	});
+
+	it('select one band at a time and clear on a second click', () => {
+		const chip = PLAYTIME_CHIPS[1];
+		const on = { ...DEFAULT_SCOPE, ...playtimePatch(DEFAULT_SCOPE, chip) };
+		expect(isPlaytimeOn(on, chip)).toBe(true);
+		expect(isPlaytimeOn(on, PLAYTIME_CHIPS[2])).toBe(false);
+		expect(playtimePatch(on, chip)).toEqual({ playtimeMin: null, playtimeMax: null });
+	});
 });

@@ -1,11 +1,13 @@
 /**
  * Discover's whole vocabulary, in one file.
  *
- * Discover asks three coarse questions where Explore offers a rail of precise ones. Each
+ * Discover asks four coarse questions where Explore offers a rail of precise ones. Each
  * chip is a patch on the SAME `Scope` Explore uses, so the two pages are two views of one
  * query — which is what makes "see all N in Explore" a link rather than a translation.
  *
- * Keep this list short. A fourth dial is the failure mode Discover exists to avoid.
+ * Keep this list short. This file used to say a fourth dial was the failure mode Discover
+ * exists to avoid; play time earned the exception (Phil, 2026-09-24) — it is one of the first
+ * things anyone asks about a game. A fifth needs the same kind of case.
  */
 import type { Scope, ComplexityBand } from '$lib/catalog/scope';
 import { scopeFromParams, COMPLEXITY_BANDS, complexityBandIndex } from '$lib/catalog/scope';
@@ -60,6 +62,35 @@ export const PLAYER_CHIPS: { label: string; bestAt: number }[] = [
   { label: '5 players', bestAt: 5 },
   { label: '6 players', bestAt: 6 }
 ];
+
+/**
+ * Play time, on `max_playtime` (the box's upper bound). Half-open bands with the round-number
+ * spikes ENDING their band: listed times cluster hard on 30 / 60 / 45 / 90 / 120, so an
+ * inclusive edge at 30 would put every 30-minute game in two chips. Counts over the rated
+ * working set (users_rated >= 30), measured 2026-09-24:
+ *
+ *   ≤30: 12,227 · 31–45: 4,154 · 46–60: 4,630 · 61–120: 5,311 · 121+: 3,377 · unlisted 1,306
+ *
+ * The first chip is the heavy one (40%) — accepted over moving 30-minute games into the next
+ * band, because "up to 30 minutes" is how people ask for a short game. Labels: PLACEHOLDER (Phil).
+ */
+export const PLAYTIME_CHIPS: { label: string; min: number | null; max: number | null }[] = [
+  { label: 'Up to 30 min', min: null, max: 30 },
+  { label: '30–45 min', min: 31, max: 45 },
+  { label: '45–60 min', min: 46, max: 60 },
+  { label: '1–2 hours', min: 61, max: 120 },
+  { label: '2+ hours', min: 121, max: null }
+];
+
+export function isPlaytimeOn(scope: Scope, chip: (typeof PLAYTIME_CHIPS)[number]): boolean {
+  return scope.playtimeMin === chip.min && scope.playtimeMax === chip.max;
+}
+
+/** Single-select, like complexity: apply the band, or clear it if it is already active. */
+export function playtimePatch(scope: Scope, chip: (typeof PLAYTIME_CHIPS)[number]): Partial<Scope> {
+  if (isPlaytimeOn(scope, chip)) return { playtimeMin: null, playtimeMax: null };
+  return { playtimeMin: chip.min, playtimeMax: chip.max };
+}
 
 /**
  * How many games Discover shows. It is a recommendation, not a result set — a bare digit
