@@ -10,10 +10,11 @@
    * `onclose` adds a × in the corner, for a hero that sits over other content and can be
    * dismissed.
    *
-   * Laid out on `Split`, so it stacks to one column on its own width, not the viewport's.
+   * The art is usually BGG's thumbnail (~200px on its long side), so it sits on the left at
+   * its own size and the space goes to the text beside it. Stacks only when the hero itself
+   * is too narrow for both (a container query, not the viewport).
    */
   import type { Snippet } from 'svelte';
-  import { Split } from '$lib/components/ui/layout';
 
   let {
     href,
@@ -39,21 +40,17 @@
   {#if onclose}
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
-  <Split ratio="aside-narrow" at="sm">
-    {#snippet aside()}
-      <a class="art" {href} tabindex="-1" aria-hidden="true">
-        {#if image}<img src={image} alt="" decoding="async" />{/if}
-      </a>
-    {/snippet}
-    {#snippet main()}
-      <div class="body">
-        <h2><a {href}>{name}</a></h2>
-        {#if meta}<div class="meta">{@render meta()}</div>{/if}
-        {#if actions}<div class="actions">{@render actions()}</div>{/if}
-        {#if children}<div class="more">{@render children()}</div>{/if}
-      </div>
-    {/snippet}
-  </Split>
+  <div class="row">
+    <a class="art" {href} tabindex="-1" aria-hidden="true">
+      {#if image}<img src={image} alt="" decoding="async" />{/if}
+    </a>
+    <div class="body">
+      <h2><a {href}>{name}</a></h2>
+      {#if meta}<div class="meta">{@render meta()}</div>{/if}
+      {#if actions}<div class="actions">{@render actions()}</div>{/if}
+      {#if children}<div class="more">{@render children()}</div>{/if}
+    </div>
+  </div>
 </section>
 
 <style>
@@ -87,31 +84,40 @@
   .close:focus-visible {
     outline: 2px solid var(--primary);
   }
-  /* The art is usually BGG's thumbnail (~200px on its long side), so it's shown at its own
-     shape and never scaled past that: a fixed-height band, so a slow image never reflows the
-     hero, with no letterbox panel around the cover. */
-  .art {
+  .row {
     display: flex;
     align-items: flex-start;
+    gap: var(--space-lg);
+  }
+  /* Left, at its own shape, never scaled past the thumbnail's size. */
+  .art {
+    flex: none;
+    width: 12.5rem;
+    display: flex;
     justify-content: center;
-    height: 12.5rem;
   }
   .art img {
     max-width: 100%;
-    max-height: 100%;
+    max-height: 12.5rem;
     width: auto;
     height: auto;
     border-radius: 6px;
     display: block;
   }
+  @container (max-width: 32rem) {
+    .row { flex-direction: column; gap: var(--space-md); }
+    .art { width: auto; justify-content: flex-start; }
+    .art img { max-height: 9rem; }
+  }
   .body {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
     min-width: 0;
   }
   h2 {
-    font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem));
+    font-size: clamp(1.5rem, 1rem + 2.5cqi, 2.4rem);
     font-weight: 750;
     letter-spacing: -0.03em;
     line-height: 1.05;
