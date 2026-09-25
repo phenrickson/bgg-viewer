@@ -27,20 +27,17 @@ and a narrow window) and signed it off.
   to see something.
 - **Copy stays `PLACEHOLDER(Phil)`**, and never blocks a checkpoint.
 
-## Branches and PRs
+## Branch and PR
 
-| PR | Branch | From | Contents | Can merge when |
-| --- | --- | --- | --- | --- |
-| 1 | `feat/shared-game-components` | `main` | `SegmentedControl`, `GameTile`, `GameHero`, the `SimilarRow` and `TagChip` extractions, `/dev/components`, and the game page + `ShapeStrip` moved onto `SegmentedControl` | After checkpoint 1. It stands alone: nothing in it needs the warehouse endpoint. |
-| 2 | `feat/recommend-tool` | rebased onto PR 1 | The Recommend page (steps 2–5) and the Discover merge | After `feat/pooled-similarity` ships in the warehouse and the collection-neighbours artifact is productionized (spec §6). Until then it's local. |
-
-The existing `SimilarRow` / `TagChip` commits on `feat/recommend-tool` move into PR 1
-(cherry-picked), and `feat/recommend-tool` is rebased onto it. I'll ask before each of those
-branch moves.
+**One branch, `feat/recommend-tool`** (Phil, 2026-09-25: the shared components and the page are
+too closely related to split). The shared-component commits sit at its base, so they could
+still be split out later if wanted. One PR, opened when Phil asks, and mergeable only after
+`feat/pooled-similarity` ships in the warehouse and the collection-neighbours artifact is
+productionized (spec §6). `feat/shared-game-components` is now a subset of this branch.
 
 ## Steps
 
-### 1. Shared components → checkpoint 1 (PR 1)
+### 1. Shared components → checkpoint 1 ✅ (signed off 2026-09-25; details to revisit)
 
 - `SegmentedControl` in `$lib/components/ui/segmented-control/`: `options`, `value`,
   `onchange`, `size` sm / md / lg, `aria-pressed` buttons in a labelled group. Tokens only.
