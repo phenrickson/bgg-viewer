@@ -28,6 +28,7 @@
   } from '$lib/game/similar-profiles';
   import { complexityColor } from '$lib/game/similarity';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
+  import { SegmentedControl } from '$lib/components/ui/segmented-control';
 
   let { data } = $props();
 
@@ -669,17 +670,16 @@
                A profile with no list for this game (Dark Horses / Recommended on a low-rating
                game) is a disabled tab. Hidden offline — there are no lists to switch between. -->
           {#if !data.offline}
-            <div class="seg" role="group" aria-label="Similar-games list">
-              {#each SIMILAR_PROFILES as p (p)}
-                <button
-                  type="button"
-                  class:on={p === profile}
-                  aria-pressed={p === profile}
-                  disabled={(g.similarByProfile?.[p]?.length ?? 0) === 0}
-                  onclick={() => pickProfile(p)}>{SIMILAR_PROFILE_LABELS[p]}</button
-                >
-              {/each}
-            </div>
+            <SegmentedControl
+              label="Similar-games list"
+              value={profile}
+              onchange={pickProfile}
+              options={SIMILAR_PROFILES.map((p) => ({
+                value: p,
+                label: SIMILAR_PROFILE_LABELS[p],
+                disabled: (g.similarByProfile?.[p]?.length ?? 0) === 0
+              }))}
+            />
           {/if}
         </div>
         {#if !data.offline}
@@ -1334,38 +1334,6 @@
     line-height: 1.3;
     color: var(--muted-foreground);
   }
-  /* Mirrors ShapeStrip's `.seg` so the app has one segmented-control look. */
-  .seg {
-    display: flex;
-    gap: 0.15rem;
-    background: var(--muted);
-    border-radius: 7px;
-    padding: 0.1rem;
-  }
-  .seg button {
-    border: none;
-    background: none;
-    border-radius: 5px;
-    color: var(--muted-foreground);
-    font: inherit;
-    font-size: 0.7rem;
-    padding: 0.1rem 0.45rem;
-    cursor: pointer;
-  }
-  .seg button.on {
-    background: var(--card);
-    color: var(--foreground);
-    font-weight: 600;
-  }
-  .seg button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .seg button:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
-  }
-
   .sim {
     display: flex;
     flex-direction: column;

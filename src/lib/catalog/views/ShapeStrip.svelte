@@ -46,6 +46,7 @@
   import MiniHistogram from '$lib/charts/MiniHistogram.svelte';
   import MiniColumns from '$lib/charts/MiniColumns.svelte';
   import type { HistBin } from '$lib/charts/types';
+  import { SegmentedControl } from '$lib/components/ui/segmented-control';
   import type { ScaleMode } from '$lib/charts/scale';
   import { compactCount, niceCount, type Scope } from '$lib/catalog/scope';
   import { formatMinutes } from '$lib/catalog/playtime';
@@ -219,20 +220,23 @@
     <div class="ctrls">
       {#if !collapsed}
         <!-- Height means one thing at a time, and which one is a real choice — see scale.ts. -->
-        <div class="seg" role="group" aria-label="Bar height">
-          <button
-            class:on={scaleMode === 'count'}
-            aria-pressed={scaleMode === 'count'}
-            title="Bar height is the number of games, on one scale for both series — your set sits inside the catalog's curve."
-            onclick={() => (scaleMode = 'count')}>Count</button
-          >
-          <button
-            class:on={scaleMode === 'share'}
-            aria-pressed={scaleMode === 'share'}
-            title="Bar height is each bin's share of its own set — use it when your set is too small to see against the catalog."
-            onclick={() => (scaleMode = 'share')}>Share</button
-          >
-        </div>
+        <SegmentedControl
+          label="Bar height"
+          value={scaleMode}
+          onchange={(v) => (scaleMode = v)}
+          options={[
+            {
+              value: 'count',
+              label: 'Count',
+              title: "Bar height is the number of games, on one scale for both series — your set sits inside the catalog's curve."
+            },
+            {
+              value: 'share',
+              label: 'Share',
+              title: "Bar height is each bin's share of its own set — use it when your set is too small to see against the catalog."
+            }
+          ]}
+        />
         <button class="taller" onclick={() => (tall = !tall)} aria-pressed={tall}>
           {tall ? 'Shorter' : 'Taller'}
         </button>
@@ -456,37 +460,10 @@
     align-items: center;
     gap: 0.35rem;
   }
-  .seg {
-    display: flex;
-    gap: 0.15rem;
-    background: var(--muted);
-    border-radius: 7px;
-    padding: 0.1rem;
-  }
-  .seg button {
-    border: none;
-    background: none;
-    border-radius: 5px;
-    color: var(--muted-foreground);
-    font: inherit;
-    font-size: 0.7rem;
-    padding: 0.08rem 0.4rem;
-    cursor: pointer;
-  }
-  .seg button.on {
-    background: var(--card);
-    color: var(--foreground);
-    font-weight: 600;
-  }
-  .seg button:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
-  }
   /* Touch sizing: padding AND type together, not min-height alone. Raising only the height
      gave tall boxes with tiny text floating in them — a desktop control in a bigger box.
      A touch control should look touch-sized. Desktop density is left alone. */
   @media (max-width: 40rem) {
-    .seg button { padding: 0.6rem 0.8rem; font-size: 0.85rem; }
     .taller { padding: 0.6rem 0.8rem; font-size: 0.85rem; }
   }
 
