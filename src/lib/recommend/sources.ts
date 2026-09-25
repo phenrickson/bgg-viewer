@@ -1,8 +1,8 @@
 /**
  * Where the Recommend page gets its answer, and which part of it each mode shows.
  *
- * The reader picks a POOL (my shelf / games I don't own / anywhere) and a MODE (Best match /
- * Surprise me). How the page answers is its own business and never shows as a choice:
+ * The reader picks a POOL (my shelf / games I don't own / anywhere). How the page answers is
+ * its own business and never shows as a choice:
  *
  *   seed               my shelf           games I don't own     anywhere
  *   on the shelf       artifact A         artifact C            precomputed game_neighbors
@@ -16,9 +16,6 @@
 
 export const POOLS = ['shelf', 'unowned', 'all'] as const;
 export type Pool = (typeof POOLS)[number];
-
-export const MODES = ['best', 'surprise'] as const;
-export type Mode = (typeof MODES)[number];
 
 export type Source =
 	| { kind: 'artifact'; part: 'A' | 'C' | 'D' }
@@ -52,28 +49,40 @@ export type Lists =
 	| { kind: 'styles'; similar: Hit[]; recommender: Hit[]; sicko: Hit[] }
 	| { kind: 'shelf'; list: Hit[] };
 
-export const BEST_COUNT = 10;
+/** A section lists at most this many; the page shows fewer until "All" is asked for. */
+export const SECTION_MAX = 10;
 /** Shelf Surprise, until the collection-mode Surprise profile replaces it: ranks 5–20. */
 export const SHELF_SURPRISE = { from: 4, to: 20 } as const;
 
+/** The three precomputed lists, in the order the page stacks them. */
+export const STYLE_ORDER = ['recommender', 'similar', 'sicko'] as const;
+export type SectionKey = (typeof STYLE_ORDER)[number] | 'shelf';
+
+export interface Section {
+	key: SectionKey;
+	hits: Hit[];
+}
+
 /**
- * The list a mode shows.
- *
- *   Best match   catalog: `recommender` (falling back to `similar`)  · shelf: ranks 1–10
- *   Surprise me  catalog: `sicko` (falling back to `recommender`)    · shelf: ranks 5–20 (stub)
- *
- * Surprise is a different, wider list than Best match — never a re-roll of the same one.
+ * The sections the page stacks, top to bottom: the three precomputed lists
+ * (Recommended, Most similar, Dark horses) or the one shelf list. An empty section is left
+ * out rather than shown empty.
  */
-export function listFor(lists: Lists, mode: Mode): Hit[] {
-	if (lists.kind === 'shelf') {
-		return mode === 'best'
-			? lists.list.slice(0, BEST_COUNT)
-			: lists.list.slice(SHELF_SURPRISE.from, SHELF_SURPRISE.to);
-	}
-	const pick = (...lists: Hit[][]) => lists.find((l) => l.length) ?? [];
-	return mode === 'best'
-		? pick(lists.recommender, lists.similar).slice(0, BEST_COUNT)
-		: pick(lists.sicko, lists.recommender, lists.similar);
+export function sectionsFor(lists: Lists): Section[] {
+	const all: Section[] =
+		lists.kind === 'shelf'
+			? [{ key: 'shelf', hits: lists.list }]
+			: STYLE_ORDER.map((key) => ({ key, hits: lists[key] }));
+	return all.map((s) => ({ ...s, hits: s.hits.slice(0, SECTION_MAX) })).filter((s) => s.hits.length);
+}
+
+/**
+ * What Surprise me draws from — wider than the top of the page, never a re-roll of it:
+ * Dark horses (falling back to Recommended, then Most similar), or ranks 5–20 of a shelf list.
+ */
+export function surpriseFrom(lists: Lists): Hit[] {
+	if (lists.kind === 'shelf') return lists.list.slice(SHELF_SURPRISE.from, SHELF_SURPRISE.to);
+	return [lists.sicko, lists.recommender, lists.similar].find((l) => l.length) ?? [];
 }
 
 /** Drop the given ids from every list — owned games for "games I don't own", the trail. */
@@ -84,7 +93,8 @@ export function withoutIds(lists: Lists, drop: ReadonlySet<number>): Lists {
 		: { kind: 'styles', similar: keep(lists.similar), recommender: keep(lists.recommender), sicko: keep(lists.sicko) };
 }
 
-/** Too few games left in the list Best match would show? */
+/** Too few games left at the top of the page (Recommended, or Most similar without it)? */
 export function tooThin(lists: Lists): boolean {
-	return listFor(lists, 'best').length < MIN_AFTER_OWNED;
+	const top = lists.kind === 'shelf' ? lists.list : lists.recommender.length ? lists.recommender : lists.similar;
+	return top.length < MIN_AFTER_OWNED;
 }

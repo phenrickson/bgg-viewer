@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sourceFor, listFor, withoutIds, tooThin, type Hit, type Lists } from './sources';
+import { sourceFor, sectionsFor, surpriseFrom, withoutIds, tooThin, type Hit, type Lists } from './sources';
 
 const hits = (...ids: number[]): Hit[] => ids.map((id, i) => ({ id, similarity: 1 - i / 100 }));
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+const ids = (h: Hit[]) => h.map((x) => x.id);
 
 describe('sourceFor', () => {
 	it('routes each pool by what the seed is', () => {
@@ -15,24 +16,36 @@ describe('sourceFor', () => {
 	});
 });
 
-describe('listFor', () => {
-	const styles: Lists = { kind: 'styles', similar: hits(1, 2), recommender: hits(3, 4), sicko: hits(5, 6) };
-
-	it('Best match is recommender, Surprise is sicko', () => {
-		expect(listFor(styles, 'best').map((h) => h.id)).toEqual([3, 4]);
-		expect(listFor(styles, 'surprise').map((h) => h.id)).toEqual([5, 6]);
+describe('sectionsFor', () => {
+	it('stacks Recommended, Most similar, Dark horses in that order', () => {
+		const lists: Lists = { kind: 'styles', similar: hits(1), recommender: hits(2), sicko: hits(3) };
+		expect(sectionsFor(lists).map((s) => s.key)).toEqual(['recommender', 'similar', 'sicko']);
 	});
 
-	it('falls back when a style is empty', () => {
-		const thin: Lists = { kind: 'styles', similar: hits(1), recommender: [], sicko: [] };
-		expect(listFor(thin, 'best').map((h) => h.id)).toEqual([1]);
-		expect(listFor({ ...thin, recommender: hits(3) }, 'surprise').map((h) => h.id)).toEqual([3]);
+	it('leaves out an empty section and caps each at 10', () => {
+		const lists: Lists = { kind: 'styles', similar: hits(...range(12)), recommender: [], sicko: hits(3) };
+		const s = sectionsFor(lists);
+		expect(s.map((x) => x.key)).toEqual(['similar', 'sicko']);
+		expect(s[0].hits).toHaveLength(10);
 	});
 
-	it('on a shelf list, Best is ranks 1–10 and Surprise ranks 5–20', () => {
-		const shelf: Lists = { kind: 'shelf', list: hits(...range(25)) };
-		expect(listFor(shelf, 'best').map((h) => h.id)).toEqual(range(10));
-		expect(listFor(shelf, 'surprise').map((h) => h.id)).toEqual(range(20).slice(4));
+	it('gives a shelf list one section', () => {
+		const s = sectionsFor({ kind: 'shelf', list: hits(...range(20)) });
+		expect(s).toHaveLength(1);
+		expect(s[0].key).toBe('shelf');
+		expect(ids(s[0].hits)).toEqual(range(10));
+	});
+});
+
+describe('surpriseFrom', () => {
+	it('draws from Dark horses, falling back when it is empty', () => {
+		expect(ids(surpriseFrom({ kind: 'styles', similar: hits(1), recommender: hits(2), sicko: hits(3) }))).toEqual([3]);
+		expect(ids(surpriseFrom({ kind: 'styles', similar: hits(1), recommender: hits(2), sicko: [] }))).toEqual([2]);
+		expect(ids(surpriseFrom({ kind: 'styles', similar: hits(1), recommender: [], sicko: [] }))).toEqual([1]);
+	});
+
+	it('draws from ranks 5–20 of a shelf list', () => {
+		expect(ids(surpriseFrom({ kind: 'shelf', list: hits(...range(25)) }))).toEqual(range(20).slice(4));
 	});
 });
 
