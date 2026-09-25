@@ -251,7 +251,10 @@ from the game page's chip style on this branch); `similarityPct` / `similarityCo
 3. **Pool:** the reader's choice, never inferred from the seed. The page opens on `my shelf`
    and remembers the last pick.
 4. **The three lists (2026-09-25):** stacked as content, top 4 each, not a switch.
-5. **Discover (2026-09-25):** folds in as "Help me find a game"; `/discover` redirects.
+5. **Discover (2026-09-25):** folds in as "Help me find a game". **For now Discover also stays in
+   place** (Phil, 2026-09-25): `/discover`, its Games-menu entry and the landing card are
+   unchanged, and its page is built from the same `DialStrip` + `DiscoverResults`. Retiring it
+   (a redirect to `/recommend?tab=find`, via `findHref`) is a later call.
 6. **URL state:** the question is in the URL; `pick` is a nice-to-have.
 
 ## Build notes (2026-09-25)
@@ -272,8 +275,8 @@ Where the build differs from, or adds to, the sections above:
   a button.
 - **Discover's results** moved into `$lib/discover/DiscoverResults.svelte`, unchanged apart from
   taking the scope as a prop plus an extra WHERE. Its "open in Explore" door came with it.
-- **The landing page's Discover showcase card** now links to Help me find a game; its title,
-  blurb and screenshot still say Discover (Phil's copy).
+- **Discover stays in place for now** (decision 5): nothing about `/discover` changes for
+  readers. The redirect, menu removal and landing-card link were built and then reverted.
 - **Extra shared pieces:** `SimBadges` (the sim/rating badges, shared by `SimilarRow` and
   `GameTile`) and `DialRow`.
 - **Not done:** the game page's and `FeaturedGame`'s chip copies onto `TagChip`; `AnalysisPanel`'s
