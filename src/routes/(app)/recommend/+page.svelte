@@ -25,7 +25,7 @@
   import { scopeToParams, toWhere, type Scope } from '$lib/catalog/scope';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import GameHero from '$lib/catalog/GameHero.svelte';
-  import GameTile from '$lib/catalog/GameTile.svelte';
+  import GameTileRow from '$lib/catalog/GameTileRow.svelte';
   import DialStrip from '$lib/discover/DialStrip.svelte';
   import DialRow from '$lib/discover/DialRow.svelte';
   import DiscoverResults from '$lib/discover/DiscoverResults.svelte';
@@ -33,7 +33,7 @@
   import { RECOMMEND_PATH, TAB_PARAM, FIND_TAB, findHref } from '$lib/recommend/route';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
-  import { Container, Stack, AutoGrid } from '$lib/components/ui/layout';
+  import { Container, Stack } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
   import { explain, type TagFrequencies } from '$lib/recommend/why';
@@ -314,9 +314,10 @@
   ];
 
   // --- Start -------------------------------------------------------------------------------
-  /** Shelf games offered as one-click seeds, and the stagger of their one load-in. */
-  const SHELF_SEEDS = 6;
-  const RISE_STAGGER_MS = 70;
+  /** How many games each Start row offers (the row shows as many as fit, up to this). */
+  const SEEDS_PER_ROW = 6;
+  /** The favourites row draws from this many of the catalog's best-rated games. */
+  const FAVOURITES_FROM = 100;
 
   const tab = $derived(params.get(TAB_PARAM) === FIND_TAB ? 'find' : 'like');
   function setTab(t: 'like' | 'find') {
@@ -329,19 +330,36 @@
     { value: 'find', label: 'Help me find a game' }
   ];
 
-  // I want games like…: your top-rated owned games as seeds.
+  /** Ids from a query, as catalog rows in the same order. */
+  async function rowsFor(sql: string): Promise<Game[]> {
+    const ids = (await query<{ id: number }>(sql)).map((x) => Number(x.id));
+    const m = await games(ids);
+    return ids.flatMap((id) => m.get(id) ?? []);
+  }
+
+  // I want games like…: a random handful of well-known games for everyone, drawn once per
+  // visit from the catalog's best-rated — and, with a collection, your top-rated owned games.
+  let favourites = $state<Game[]>([]);
+  $effect(() => {
+    if (catalog.status !== 'ready') return;
+    rowsFor(
+      `SELECT game_id AS id FROM (
+         SELECT game_id FROM catalog WHERE geek_rating IS NOT NULL
+         ORDER BY geek_rating DESC LIMIT ${FAVOURITES_FROM}
+       ) ORDER BY random() LIMIT ${SEEDS_PER_ROW}`
+    )
+      .then((g) => (favourites = g))
+      .catch((e) => console.error('favourites failed', e));
+  });
+
   let shelfSeeds = $state<Game[]>([]);
   $effect(() => {
     if (!hasShelf) return;
-    query<{ id: number }>(
+    rowsFor(
       `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
-       ORDER BY geek_rating DESC NULLS LAST LIMIT ${SHELF_SEEDS}`
+       ORDER BY geek_rating DESC NULLS LAST LIMIT ${SEEDS_PER_ROW}`
     )
-      .then(async (r) => {
-        const ids = r.map((x) => Number(x.id));
-        const m = await games(ids);
-        shelfSeeds = ids.flatMap((id) => m.get(id) ?? []);
-      })
+      .then((g) => (shelfSeeds = g))
       .catch((e) => console.error('shelf seeds failed', e));
   });
 
@@ -418,24 +436,14 @@
         {#if tab === 'like'}
           <div class="like">
             <GameSearch onpick={(id) => set({ id })} />
+            <!-- PLACEHOLDER copy (Phil): both row labels. -->
+            {#if favourites.length}
+              <p class="sub">Or start from a favourite</p>
+              <GameTileRow label="Favourites" games={favourites} hrefFor={(id) => ask({ id })} rise />
+            {/if}
             {#if shelfSeeds.length}
-              <!-- PLACEHOLDER copy (Phil) -->
               <p class="sub">Or start from your shelf</p>
-              <div class="shelf">
-                <AutoGrid min="sm" gap="sm">
-                  {#each shelfSeeds as g, i (g.game_id)}
-                    <GameTile
-                      compact
-                      class="rise"
-                      style="animation-delay: {i * RISE_STAGGER_MS}ms"
-                      href={ask({ id: g.game_id })}
-                      name={g.name}
-                      year={g.year_published}
-                      thumbnail={g.thumbnail}
-                    />
-                  {/each}
-                </AutoGrid>
-              </div>
+              <GameTileRow label="Your shelf" games={shelfSeeds} hrefFor={(id) => ask({ id })} rise />
             {/if}
           </div>
         {:else}
@@ -592,17 +600,6 @@
     padding-top: var(--space-md); border-top: 1px solid var(--border);
   }
   .count { font-size: 0.9rem; color: var(--muted-foreground); }
-
-  /* The one load-in: the shelf seeds rise into place, a beat apart. Nothing else on the page
-     moves unless you act. Off entirely for anyone who asks for less motion. */
-  .shelf :global(.rise) { animation: recommend-rise 420ms ease-out both; }
-  @keyframes -global-recommend-rise {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .shelf :global(.rise) { animation: none; }
-  }
 
   .q { display: flex; flex-direction: column; gap: var(--space-sm); }
   .trail { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.8rem; color: var(--muted-foreground); }
