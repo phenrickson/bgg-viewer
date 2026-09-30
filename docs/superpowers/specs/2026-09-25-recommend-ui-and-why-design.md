@@ -64,9 +64,11 @@ with one **Surprise me** button (outline) under it.
 
 - `change` returns to Start. The seed's thumbnail links to its game page, which replaces
   the separate "Open game" link.
-- **The pool is the reader's choice.** The page opens on `my shelf` (`anywhere` without a
-  collection, where the pool control doesn't show), and whatever you last picked stays picked
-  as you walk. The page never chooses the pool from what it knows about the seed.
+- **The pool is the reader's choice, and the collection is an option, never the default**
+  (Phil, 2026-09-30). The page opens on `anywhere`; `my shelf` and `games I don't own` are
+  there when a collection is linked (without one the pool control doesn't show). Whatever you
+  last picked stays picked as you walk. The page never chooses the pool from what it knows
+  about the seed.
 - **The answer is stacked sections, never side by side** (board 6):
   - when the answer comes from the precomputed lists (every case except `my shelf`):
     **Recommended**, **Most similar**, **Dark horses**, in that order, each with the game
@@ -248,8 +250,8 @@ from the game page's chip style on this branch); `similarityPct` / `similarityCo
    model's, not BGG's.
 2. **Families (2026-09-25):** the embedding's own family allowlist, copied from
    `transformer.py`, with the model's 10-game floor but not its top-150 cut.
-3. **Pool:** the reader's choice, never inferred from the seed. The page opens on `my shelf`
-   and remembers the last pick.
+3. **Pool:** the reader's choice, never inferred from the seed. The page opens on `anywhere`
+   (2026-09-30: the collection is an option, not the default) and remembers the last pick.
 4. **The three lists (2026-09-25):** stacked as content, top 4 each, not a switch.
 5. **Discover (2026-09-25):** folds in as "Help me find a game". **For now Discover also stays in
    place** (Phil, 2026-09-25): `/discover`, its Games-menu entry and the landing card are

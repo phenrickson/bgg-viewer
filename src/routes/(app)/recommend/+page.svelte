@@ -110,7 +110,8 @@
   const pool = $derived.by((): Pool => {
     const p = params.get('from');
     if (!hasShelf) return 'all';
-    return p === 'unowned' || p === 'all' ? p : 'shelf';
+    // Anywhere unless you ask for your collection: the shelf is an option, never the default.
+    return p === 'shelf' || p === 'unowned' ? p : 'all';
   });
 
   /** An open Surprise pick (nice-to-have URL state, spec §1). */
