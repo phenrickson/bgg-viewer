@@ -15,6 +15,8 @@
    * Stateless about the scope — it renders the scope it is given and reports the patch for
    * what was clicked.
    *
+   * `centered` centres each question and its chips.
+   *
    * `lead` puts extra questions first (Recommend's "Where from?").
    *
    * `stepwise` asks one question at a time: only the first shows, and answering it — any chip,
@@ -41,12 +43,14 @@
     scope,
     onpatch,
     lead = [],
-    stepwise = false
+    stepwise = false,
+    centered = false
   }: {
     scope: Scope;
     onpatch: (patch: Partial<Scope>) => void;
     lead?: DialQuestion[];
     stepwise?: boolean;
+    centered?: boolean;
   } = $props();
 
   const own: DialQuestion[] = $derived([
@@ -123,7 +127,7 @@
 <div class="strip">
   {#each shown as q (q.id)}
     <div class:reveal={stepwise}>
-      <DialRow id={q.id} question={q.question} chips={q.chips} />
+      <DialRow id={q.id} question={q.question} chips={q.chips} {centered} />
     </div>
   {/each}
 </div>

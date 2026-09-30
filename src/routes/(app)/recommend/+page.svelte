@@ -570,7 +570,7 @@
       {:else}
         <!-- ── Help me find a game ───────────────────────────────────────────────── -->
         <Stack gap="lg">
-          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise />
+          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise centered />
           <div class="acts">
             <!-- PLACEHOLDER copy (Phil) -->
             <Button size="lg" onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
@@ -622,7 +622,7 @@
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .end { margin-left: auto; }
   .acts {
-    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm);
     padding-top: var(--space-md); border-top: 1px solid var(--border);
   }
   .count { font-size: 0.9rem; color: var(--muted-foreground); }

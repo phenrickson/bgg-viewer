@@ -17,12 +17,18 @@
    * and turned the page into a filter toolbar.
    *
    * Stateless: each chip says whether it's on and what clicking it does. `DialStrip` builds its
-   * four questions from this; Recommend's "Where from?" is one more.
+   * four questions from this; Recommend's "Where from?" is one more. `centered` centres the
+   * question and its chips (Recommend, under its centred headline).
    */
-  let { id, question, chips }: { id: string; question: string; chips: DialChip[] } = $props();
+  let {
+    id,
+    question,
+    chips,
+    centered = false
+  }: { id: string; question: string; chips: DialChip[]; centered?: boolean } = $props();
 </script>
 
-<div class="row">
+<div class="row" class:centered>
   <p class="q" {id}>{question}</p>
   <div class="chips" role="group" aria-labelledby={id}>
     {#each chips as c (c.label)}
@@ -49,6 +55,8 @@
   }
 
   .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .centered { align-items: center; text-align: center; }
+  .centered .chips { justify-content: center; }
 
   /* Matches the landing page's `.chip`, as a button rather than a link. */
   .chip {
