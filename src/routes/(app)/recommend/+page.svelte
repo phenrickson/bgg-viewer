@@ -8,10 +8,12 @@
    * questions, folded in, plus "Where from?". Its answers are Scope params in the URL, as
    * Discover's were, so `/discover` links redirect here intact (`$lib/recommend/route.ts`).
    *
-   * With a seed the question heads the page — Games like [seed] from [pool] — and the answer
-   * is stacked sections: the three precomputed lists (Recommended, Most similar, Dark horses),
-   * or the one shelf list. The question lives in the URL (`?id&from`); tiles link to this page
-   * with a new seed, and the pool you last picked stays picked as you walk. How an answer is
+   * One page, not two: the search stays at the top. Picking a game (or clicking a result)
+   * loads its answer underneath, in place — the search box then shows that game and still
+   * searches — with the pool ("from my shelf | games I don't own | anywhere"), Surprise me and
+   * a List | Cards toggle beneath it. The answer is stacked sections: the three precomputed
+   * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
+   * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
    * fetched (collection artifact, precomputed lists, the live pooled query) is
    * `$lib/recommend/sources.ts` and never shows as a choice.
    *
@@ -26,8 +28,7 @@
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import GameHero from '$lib/catalog/GameHero.svelte';
   import GameTileRow from '$lib/catalog/GameTileRow.svelte';
-  import DialStrip from '$lib/discover/DialStrip.svelte';
-  import DialRow from '$lib/discover/DialRow.svelte';
+  import DialStrip, { type DialQuestion } from '$lib/discover/DialStrip.svelte';
   import DiscoverResults from '$lib/discover/DiscoverResults.svelte';
   import { discoverScopeFromParams } from '$lib/discover/dials';
   import { RECOMMEND_PATH, TAB_PARAM, FIND_TAB, findHref } from '$lib/recommend/route';
@@ -49,7 +50,7 @@
     type Hit,
     type SectionKey
   } from '$lib/recommend/sources';
-  import ResultSection, { type Game, type Item } from './ResultSection.svelte';
+  import ResultSection, { type Game, type Item, type Display } from './ResultSection.svelte';
   import WhyMatch from './WhyMatch.svelte';
 
   let { data } = $props();
@@ -313,6 +314,31 @@
     { value: 'all', label: 'anywhere' }
   ];
 
+  // --- List or cards: a per-browser preference ---------------------------------------------
+  const DISPLAY_KEY = 'recommend.display';
+  let display = $state<Display>('cards');
+  $effect(() => {
+    try {
+      const v = localStorage.getItem(DISPLAY_KEY);
+      if (v === 'list' || v === 'cards') display = v;
+    } catch {
+      // Storage can be unavailable (private windows, blocked site data); cards it is.
+    }
+  });
+  function setDisplay(v: Display) {
+    display = v;
+    try {
+      localStorage.setItem(DISPLAY_KEY, v);
+    } catch {
+      // Not remembered this time; the choice still applies on the page.
+    }
+  }
+  // PLACEHOLDER copy (Phil)
+  const DISPLAY_OPTIONS: { value: Display; label: string }[] = [
+    { value: 'cards', label: 'Cards' },
+    { value: 'list', label: 'List' }
+  ];
+
   // --- Start -------------------------------------------------------------------------------
   /** How many games each Start row offers (the row shows as many as fit, up to this). */
   const SEEDS_PER_ROW = 6;
@@ -385,6 +411,23 @@
     { value: 'shelf', label: 'My shelf' },
     { value: 'unowned', label: 'Games I don’t own' }
   ];
+  /** "Where from?" leads the questions when there's a collection; Anywhere is its default. */
+  const whereFrom = $derived<DialQuestion[]>(
+    hasShelf
+      ? [
+          {
+            id: 'dial-from',
+            question: 'Where from?',
+            chips: FIND_POOLS.map((o) => ({
+              label: o.label,
+              on: findPool === o.value,
+              isDefault: o.value === 'all',
+              onclick: () => setFindPool(o.value)
+            }))
+          }
+        ]
+      : []
+  );
   const poolWhere = $derived(
     findPool === 'all' || !owned.size
       ? ''
@@ -425,17 +468,18 @@
 <div class="page">
   <Container size="list">
     <Stack gap="lg">
-      {#if seedId == null}
-        <!-- ── Start ───────────────────────────────────────────────────────────── -->
-        <div class="start">
-          <!-- PLACEHOLDER copy (Phil) -->
-          <h1>Find your next game</h1>
-          <SegmentedControl label="How to start" size="lg" options={TAB_OPTIONS} value={tab} onchange={setTab} />
-        </div>
+      <div class="start">
+        <!-- PLACEHOLDER copy (Phil) -->
+        <h1>Find your next game</h1>
+        <SegmentedControl label="How to start" size="lg" options={TAB_OPTIONS} value={tab} onchange={setTab} />
+      </div>
 
-        {#if tab === 'like'}
-          <div class="like">
-            <GameSearch onpick={(id) => set({ id })} />
+      {#if tab === 'like'}
+        <!-- ── I want games like… ──────────────────────────────────────────────── -->
+        <Stack gap="sm">
+          <GameSearch onpick={(id) => set({ id })} current={seed ? { name: seed.name, thumbnail: seed.thumbnail } : null} />
+
+          {#if seedId == null}
             <!-- PLACEHOLDER copy (Phil): both row labels. -->
             {#if favourites.length}
               <p class="sub">Or start from a favourite</p>
@@ -445,137 +489,116 @@
               <p class="sub">Or start from your shelf</p>
               <GameTileRow label="Your shelf" games={shelfSeeds} hrefFor={(id) => ask({ id })} rise />
             {/if}
-          </div>
-        {:else}
-          <Stack gap="lg">
-            {#if hasShelf}
-              <DialRow
-                id="dial-from"
-                question="Where from?"
-                chips={FIND_POOLS.map((o) => ({ label: o.label, on: findPool === o.value, onclick: () => setFindPool(o.value) }))}
-              />
-            {/if}
-            <DialStrip scope={findScope} onpatch={patchFind} />
-            <div class="acts">
-              <!-- PLACEHOLDER copy (Phil) -->
-              <Button size="lg" onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
-                {findPick ? 'Another one' : 'Pick one for me'}
-              </Button>
-              <Button variant="outline" size="lg" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
-                {showAll ? 'Hide matches' : 'See all matches'}
-              </Button>
-              {#if matchCount != null}<span class="count">{matchCount.toLocaleString()} {matchCount === 1 ? 'game matches' : 'games match'}</span>{/if}
+          {:else}
+            <div class="controls">
+              {#if hasShelf}
+                <!-- PLACEHOLDER copy (Phil) -->
+                <span class="from">from</span>
+                <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
+              {/if}
+              {#if status === 'ready' && surprisePool.length}
+                <Button variant="outline" onclick={surprise}>Surprise me</Button>
+              {/if}
+              <span class="end">
+                <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+              </span>
             </div>
-            {#if findPick}
-              {@const g = findPick}
-              <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => (findPick = null)}>
-                {#snippet meta()}
-                  {#if g.year_published}<span>{g.year_published}</span>{/if}
-                  {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
-                {/snippet}
-                {#snippet actions()}
-                  <Button onclick={pickForMe}>Another one</Button>
-                  <Button variant="outline" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
-                  <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
-                {/snippet}
-              </GameHero>
+            {#if (username && (art === 'missing' || art === 'error')) || data.isAdmin}
+              <div class="who">
+                {#if art === 'missing'}
+                  <span>PLACEHOLDER: no shelf neighbours built for {username} yet.</span>
+                {:else if art === 'error'}
+                  <span>Couldn’t load {username}’s shelf.</span>
+                {/if}
+                {#if data.isAdmin}
+                  <input
+                    class="admin"
+                    type="text"
+                    placeholder="any username (admin)"
+                    bind:value={adminInput}
+                    onkeydown={(e) => e.key === 'Enter' && adminInput.trim() && (username = adminInput.trim())}
+                  />
+                {/if}
+              </div>
             {/if}
-            {#if showAll}
-              <DiscoverResults scope={findScope} extraWhere={poolWhere} onpatch={patchFind} />
-            {/if}
-          </Stack>
+          {/if}
+        </Stack>
+
+        {#if seedId != null}
+          <!-- ── Surprise me ───────────────────────────────────────────────────── -->
+          {#if pickGame && seed}
+            {@const g = pickGame}
+            <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => set({ pick: null })}>
+              {#snippet meta()}
+                {#if g.year_published}<span>{g.year_published}</span>{/if}
+                <SimBadges similarity={pickSim} rating={g.average_rating} />
+                {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
+              {/snippet}
+              {#snippet actions()}
+                <!-- PLACEHOLDER copy (Phil) -->
+                <Button onclick={surprise}>Another one</Button>
+                <Button variant="outline" href={ask({ id: g.game_id })}>More like this</Button>
+                <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
+              {/snippet}
+              <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} />
+            </GameHero>
+          {/if}
+
+          <!-- ── The answer ────────────────────────────────────────────────────── -->
+          {#if status === 'error'}
+            <p class="msg">{failure}</p>
+          {:else if status === 'loading' && !sections.length}
+            <p class="msg">Looking…</p>
+          {:else if seed && status === 'ready' && !sections.length}
+            <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
+          {:else if seed}
+            {#each sections as s (`${seedId}-${s.key}`)}
+              <ResultSection
+                title={SECTION_TEXT[s.key].title}
+                blurb={SECTION_TEXT[s.key].blurb}
+                items={toItems(s.hits)}
+                {seed}
+                {freq}
+                {owned}
+                {display}
+                markOwned={pool === 'all'}
+                hrefFor={(id) => ask({ id })}
+              />
+            {/each}
+          {/if}
         {/if}
       {:else}
-        <!-- ── The question ──────────────────────────────────────────────────────── -->
-        <header class="q">
-          {#if trail.length > 1}
-            <nav class="trail" aria-label="Path">
-              {#each trail.slice(0, -1) as step (step.id)}
-                <a href={ask({ id: step.id })}>{step.name}</a><span aria-hidden="true">→</span>
-              {/each}
-            </nav>
-          {/if}
-          <div class="sentence">
-            <!-- PLACEHOLDER copy (Phil): the sentence's words. -->
-            <span>Games like</span>
-            <span class="seed">
-              {#if seed?.thumbnail}
-                <a href="/games/{seed.game_id}" class="seed-art" aria-label="Open {seed.name}"><img src={seed.thumbnail} alt="" /></a>
-              {/if}
-              <Button variant="outline" size="lg" href={ask({ id: null })} class="seed-btn">
-                {seed?.name ?? '…'} <span class="change">change</span>
-              </Button>
-            </span>
-            {#if hasShelf}
-              <span>from</span>
-              <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
-            {/if}
+        <!-- ── Help me find a game ───────────────────────────────────────────────── -->
+        <Stack gap="lg">
+          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise />
+          <div class="acts">
+            <!-- PLACEHOLDER copy (Phil) -->
+            <Button size="lg" onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
+              {findPick ? 'Another one' : 'Pick one for me'}
+            </Button>
+            <Button variant="outline" size="lg" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
+              {showAll ? 'Hide matches' : 'See all matches'}
+            </Button>
+            {#if matchCount != null}<span class="count">{matchCount.toLocaleString()} {matchCount === 1 ? 'game matches' : 'games match'}</span>{/if}
           </div>
-          {#if status === 'ready' && surprisePool.length}
-            <div><Button variant="outline" onclick={surprise}>Surprise me</Button></div>
+          {#if findPick}
+            {@const g = findPick}
+            <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => (findPick = null)}>
+              {#snippet meta()}
+                {#if g.year_published}<span>{g.year_published}</span>{/if}
+                {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
+              {/snippet}
+              {#snippet actions()}
+                <Button onclick={pickForMe}>Another one</Button>
+                <Button variant="outline" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
+                <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
+              {/snippet}
+            </GameHero>
           {/if}
-          <div class="who">
-            {#if !username}
-              <span>PLACEHOLDER: link a BGG collection in <a href="/settings">Settings</a> to search your shelf.</span>
-            {:else if art === 'loading'}
-              <span>Loading {username}’s shelf…</span>
-            {:else if art === 'missing'}
-              <span>PLACEHOLDER: no shelf neighbours built for {username} yet.</span>
-            {:else if art === 'error'}
-              <span>Couldn’t load {username}’s shelf.</span>
-            {/if}
-            {#if data.isAdmin}
-              <input
-                class="admin"
-                type="text"
-                placeholder="any username (admin)"
-                bind:value={adminInput}
-                onkeydown={(e) => e.key === 'Enter' && adminInput.trim() && (username = adminInput.trim())}
-              />
-            {/if}
-          </div>
-        </header>
-
-        <!-- ── Surprise me ───────────────────────────────────────────────────────── -->
-        {#if pickGame && seed}
-          {@const g = pickGame}
-          <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => set({ pick: null })}>
-            {#snippet meta()}
-              {#if g.year_published}<span>{g.year_published}</span>{/if}
-              <SimBadges similarity={pickSim} rating={g.average_rating} />
-              {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
-            {/snippet}
-            {#snippet actions()}
-              <!-- PLACEHOLDER copy (Phil) -->
-              <Button onclick={surprise}>Another one</Button>
-              <Button variant="outline" href={ask({ id: g.game_id })}>More like this</Button>
-              <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
-            {/snippet}
-            <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} />
-          </GameHero>
-        {/if}
-
-        <!-- ── The answer ────────────────────────────────────────────────────────── -->
-        {#if status === 'error'}
-          <p class="msg">{failure}</p>
-        {:else if status === 'loading' && !sections.length}
-          <p class="msg">Looking…</p>
-        {:else if seed && status === 'ready' && !sections.length}
-          <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
-        {:else if seed}
-          {#each sections as s (`${seedId}-${s.key}`)}
-            <ResultSection
-              title={SECTION_TEXT[s.key].title}
-              blurb={SECTION_TEXT[s.key].blurb}
-              items={toItems(s.hits)}
-              {seed}
-              {freq}
-              {owned}
-              markOwned={pool === 'all'}
-              hrefFor={(id) => ask({ id })}
-            />
-          {/each}
-        {/if}
+          {#if showAll}
+            <DiscoverResults scope={findScope} extraWhere={poolWhere} onpatch={patchFind} />
+          {/if}
+        </Stack>
       {/if}
     </Stack>
   </Container>
@@ -588,35 +611,22 @@
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
-  /* Start is the tool's front door, so it's centred; results are left-aligned like the app. */
+  /* The headline and the two ways in are centred; everything under them shares one column
+     (the page's measure), so the search, the questions and the answer all start at one edge. */
   .start {
     display: flex; flex-direction: column; align-items: center; gap: var(--space-md);
     padding-top: var(--space-lg); text-align: center;
   }
-  .like { display: flex; flex-direction: column; gap: var(--space-sm); width: min(100%, 52rem); margin-inline: auto; }
   .sub { margin: var(--space-sm) 0 0; font-size: 0.9rem; color: var(--muted-foreground); }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+  .from { font-size: 0.95rem; color: var(--muted-foreground); }
+  .end { margin-left: auto; }
   .acts {
     display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
     padding-top: var(--space-md); border-top: 1px solid var(--border);
   }
   .count { font-size: 0.9rem; color: var(--muted-foreground); }
-
-  .q { display: flex; flex-direction: column; gap: var(--space-sm); }
-  .trail { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.8rem; color: var(--muted-foreground); }
-  .trail a { color: inherit; text-decoration: none; }
-  .trail a:hover { color: var(--primary); }
-  .sentence {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
-    font-size: var(--text-heading, clamp(1.25rem, 1rem + 1vw, 1.75rem));
-    font-weight: 700; letter-spacing: -0.02em;
-  }
-  .seed { display: inline-flex; align-items: center; gap: 0.5rem; }
-  .seed-art img { display: block; height: 2.5rem; width: auto; max-width: 3.5rem; border-radius: 5px; }
-  /* The seed reads at the sentence's size; Button's `lg` is a control size, not a headline. */
-  .sentence :global(.seed-btn) { font-size: inherit; font-weight: 700; height: auto; padding-block: 0.25rem; }
-  .change { font-size: 0.8rem; font-weight: 500; color: var(--muted-foreground); }
   .who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: 0.8rem; color: var(--muted-foreground); }
-  .who a { color: var(--primary); }
   .admin {
     font: inherit; font-size: 0.78rem; padding: 0.2rem 0.45rem; border-radius: 6px;
     border: 1px solid var(--border); background: var(--card); color: var(--foreground);
