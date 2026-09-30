@@ -62,21 +62,27 @@
     display: inline-flex;
     background: var(--muted);
   }
+  /* Unselected options are brighter than muted text, so the whole group reads as choices you
+     can press rather than as a label with one bold word in it. */
   button {
     border: none;
     background: none;
-    color: var(--muted-foreground);
+    color: color-mix(in oklch, var(--foreground) 70%, var(--muted-foreground));
     font: inherit;
     cursor: pointer;
     white-space: nowrap;
   }
   button:hover:not(.on):not(:disabled) {
     color: var(--foreground);
+    background: color-mix(in oklch, var(--card) 55%, transparent);
   }
+  /* The chosen option: raised onto the card colour and marked in the primary colour, the same
+     accent the app's chips use for "on". Not colour alone — `aria-pressed` carries it too. */
   button.on {
     background: var(--card);
-    color: var(--foreground);
+    color: var(--primary);
     font-weight: 600;
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 45%, transparent);
   }
   button:disabled {
     opacity: 0.4;

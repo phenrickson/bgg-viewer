@@ -8,6 +8,8 @@
    * `SimBadges`, shared with `GameTile`.
    *
    * `children`, when given, is a second line under the name — Recommend's one-line "why".
+   * `action`, when given, sits after the badges, outside the link, so it can be a control of
+   * its own (Recommend's "Why?") without nesting interactive elements.
    */
   import type { Snippet } from 'svelte';
   import SimBadges from './SimBadges.svelte';
@@ -19,7 +21,8 @@
     thumbnail = null,
     similarity,
     rating = null,
-    children
+    children,
+    action
   }: {
     href: string;
     name: string;
@@ -28,21 +31,24 @@
     similarity: number;
     rating?: number | null;
     children?: Snippet;
+    action?: Snippet;
   } = $props();
 </script>
 
-<a class="row" {href}>
-  {#if thumbnail}
-    <img class="mono" src={thumbnail} alt="" loading="lazy" />
-  {:else}
-    <span class="mono ph">{name?.[0] ?? '?'}</span>
-  {/if}
-  <span class="txt">
-    <span class="nmw"><span class="nm">{name}</span> {#if year}<span class="yr">{year}</span>{/if}</span>
-    {#if children}<span class="sub">{@render children()}</span>{/if}
-  </span>
-  <span class="end"><SimBadges {similarity} {rating} /></span>
-</a>
+<div class="row">
+  <a class="main" {href}>
+    {#if thumbnail}
+      <img class="mono" src={thumbnail} alt="" loading="lazy" />
+    {:else}
+      <span class="mono ph">{name?.[0] ?? '?'}</span>
+    {/if}
+    <span class="txt">
+      <span class="nmw"><span class="nm">{name}</span> {#if year}<span class="yr">{year}</span>{/if}</span>
+      {#if children}<span class="sub">{@render children()}</span>{/if}
+    </span>
+  </a>
+  <span class="end"><SimBadges {similarity} {rating} />{#if action}{@render action()}{/if}</span>
+</div>
 
 <style>
   .row {
@@ -52,17 +58,26 @@
     padding: 0.45rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    text-decoration: none;
-    color: inherit;
     background: var(--background);
     min-width: 0;
   }
-  .row:hover {
+  .row:has(.main:hover) {
     border-color: var(--primary);
   }
-  .row:focus-visible {
+  /* The link covers the art and the name; the badges and any action sit beside it. */
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .main:focus-visible {
     outline: 2px solid var(--primary);
-    outline-offset: 1px;
+    outline-offset: 3px;
+    border-radius: 4px;
   }
   /* Shared footprint for the real thumbnail and the initials placeholder, so a row never
      shifts size once a (fire-and-forget, non-blocking) thumbnail lookup resolves. */
@@ -99,7 +114,7 @@
     font-weight: 600;
     font-size: 0.9rem;
   }
-  .row:hover .nm {
+  .main:hover .nm {
     color: var(--primary);
   }
   .yr {
@@ -113,5 +128,8 @@
   .end {
     margin-left: auto;
     flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
 </style>

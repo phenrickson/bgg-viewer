@@ -1,5 +1,12 @@
 <script lang="ts" module>
-  export type DialChip = { label: string; on: boolean; onclick: () => void; ariaLabel?: string };
+  export type DialChip = {
+    label: string;
+    on: boolean;
+    onclick: () => void;
+    ariaLabel?: string;
+    /** A pre-selected answer ("Anywhere") — on, but not a choice the reader made. */
+    isDefault?: boolean;
+  };
 </script>
 
 <script lang="ts">
