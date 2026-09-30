@@ -15,7 +15,9 @@
    * Stateless about the scope — it renders the scope it is given and reports the patch for
    * what was clicked.
    *
-   * `centered` centres each question and its chips.
+   * `centered` centres each question and its chips. `answered` (bindable) is how many of the
+   * four questions have an answer, "Doesn't matter" included — so a page can hold back its
+   * actions until something's been asked.
    *
    * `lead` puts extra questions first (Recommend's "Where from?").
    *
@@ -44,13 +46,15 @@
     onpatch,
     lead = [],
     stepwise = false,
-    centered = false
+    centered = false,
+    answered: answeredCount = $bindable(0)
   }: {
     scope: Scope;
     onpatch: (patch: Partial<Scope>) => void;
     lead?: DialQuestion[];
     stepwise?: boolean;
     centered?: boolean;
+    answered?: number;
   } = $props();
 
   const own: DialQuestion[] = $derived([
@@ -116,11 +120,17 @@
     })
   );
 
-  /** Up to and including the first question not yet answered. */
+  /** Up to and including the first unanswered question after the last answered one — so
+   *  answers already in the URL show even when an earlier question hasn't been touched. */
   const shown = $derived.by(() => {
     if (!stepwise) return asked;
-    const next = questions.findIndex((q) => !answered(q));
+    const last = questions.findLastIndex((q) => answered(q));
+    const next = questions.findIndex((q, i) => i > last && !answered(q));
     return next === -1 ? asked : asked.slice(0, next + 1);
+  });
+
+  $effect(() => {
+    answeredCount = own.filter((q) => answered(q)).length;
   });
 </script>
 

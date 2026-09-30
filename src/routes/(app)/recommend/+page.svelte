@@ -445,6 +445,8 @@
   });
 
   let showAll = $state(false);
+  /** How many of the four questions have an answer; the actions wait for the first. */
+  let answeredCount = $state(0);
   let findPick = $state<Game | null>(null);
   /** A random pick from the 100 best-rated matches — a surprise, not a random obscurity. */
   async function pickForMe() {
@@ -570,17 +572,20 @@
       {:else}
         <!-- ── Help me find a game ───────────────────────────────────────────────── -->
         <Stack gap="lg">
-          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise centered />
-          <div class="acts">
-            <!-- PLACEHOLDER copy (Phil) -->
-            <Button size="lg" onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
-              {findPick ? 'Another one' : 'Pick one for me'}
-            </Button>
-            <Button variant="outline" size="lg" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
-              {showAll ? 'Hide matches' : 'See all matches'}
-            </Button>
-            {#if matchCount != null}<span class="count">{matchCount.toLocaleString()} {matchCount === 1 ? 'game matches' : 'games match'}</span>{/if}
-          </div>
+          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise centered bind:answered={answeredCount} />
+          {#if answeredCount > 0}
+            <div class="acts">
+              <!-- PLACEHOLDER copy (Phil) -->
+              <Button onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
+                {findPick ? 'Another one' : 'Pick one for me'}
+              </Button>
+              {#if matchCount != null}
+                <Button variant="link" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
+                  {showAll ? 'Hide matches' : `See all ${matchCount.toLocaleString()} ${matchCount === 1 ? 'match' : 'matches'}`}
+                </Button>
+              {/if}
+            </div>
+          {/if}
           {#if findPick}
             {@const g = findPick}
             <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => (findPick = null)}>
@@ -621,11 +626,7 @@
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .end { margin-left: auto; }
-  .acts {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm);
-    padding-top: var(--space-md); border-top: 1px solid var(--border);
-  }
-  .count { font-size: 0.9rem; color: var(--muted-foreground); }
+  .acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm); }
   .who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: 0.8rem; color: var(--muted-foreground); }
   .admin {
     font: inherit; font-size: 0.78rem; padding: 0.2rem 0.45rem; border-radius: 6px;
