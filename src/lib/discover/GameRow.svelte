@@ -13,17 +13,23 @@
    */
   import { navigating } from '$app/stores';
   import { complexityLabel, complexityBandIndex } from './dials';
-  import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
   import GameCard from '$lib/catalog/GameCard.svelte';
+  import type { Snippet } from 'svelte';
   import type { DiscoverGame } from './types';
 
   let {
     game,
     rank,
     /** Render as a card rather than a row — see `GameCard.svelte`. Decided by the page. */
-    card = false
-  }: { game: DiscoverGame; rank: number; card?: boolean } = $props();
+    card = false,
+    /**
+     * A control of the caller's at the end of the row (Recommend's "More like this"). It sits
+     * outside the link, so the row is a `div` with the link stretched over it rather than an
+     * `<a>` — a button can't live inside a link.
+     */
+    action
+  }: { game: DiscoverGame; rank: number | null; card?: boolean; action?: Snippet } = $props();
 
   /**
    * Is THIS row the one being navigated to? The shell shows a global progress bar, but that
@@ -80,6 +86,7 @@
     to make that read as reinforcement rather than repetition. That leaves the two facts the
     stat row states once each.
   -->
+  <div class="cardwrap">
   <GameCard {href} {opening}>
     {#snippet art()}
       {#if game.thumbnail}
@@ -114,11 +121,13 @@
       </span>
     {/snippet}
   </GameCard>
+  {#if action}<div class="card-act">{@render action()}</div>{/if}
+  </div>
 {:else}
-<a class="row" class:opening {href} aria-busy={opening}>
+<div class="row" class:opening class:has-action={!!action} aria-busy={opening}>
   <!-- Position in the returned set. In a panel that scrolls through thousands, this is the
        only thing telling you whether you are at the top of the list or deep inside it. -->
-  <span class="rk tnum">{rank.toLocaleString()}</span>
+  <span class="rk tnum">{rank?.toLocaleString() ?? ''}</span>
   {#if game.thumbnail}
     <img class="thumb" src={game.thumbnail} alt="" loading="lazy" aria-hidden="true" />
   {:else}
@@ -127,7 +136,7 @@
 
   <span class="main">
     <span class="l1">
-      <span class="nm">{game.name}</span>
+      <a class="nm" {href}>{game.name}</a>
       {#if game.year_published != null}<span class="yr">{game.year_published}</span>{/if}
     </span>
     <span class="l2">
@@ -158,16 +167,12 @@
     {/if}
   </span>
 
-  <span class="cplx">
-    <span class="lbl">Complexity</span>
-    <ComplexityMeter weight={game.average_weight} />
-  </span>
-
   <span class="rate">
     <span class="lbl">Rating</span>
     <RatingBar value={game.geek_rating} />
   </span>
-</a>
+  {#if action}<span class="act">{@render action()}</span>{/if}
+</div>
 {/if}
 
 <style>
@@ -182,7 +187,8 @@
     /* "Recommended" was 7.5rem wide because of the LABEL, not the data — the numbers under it
        are usually four characters. Shortening it to "Also good" lets the column give 2rem back
        to the game's title. */
-    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem 4.5rem;
+    grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem;
+    position: relative;
     align-items: center;
     gap: 0 var(--space-md);
     padding: 0.5rem var(--space-md);
@@ -197,7 +203,18 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 3.75rem;
   }
+  .row.has-action { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem 8rem; }
   .row:last-child { border-bottom: none; }
+  /* The name is the link; its ::after stretches it over the whole row, so the row still
+     clicks through to the game while the action sits above it and stays its own control. */
+  .row .nm::after { content: ''; position: absolute; inset: 0; }
+  .act { position: relative; z-index: 1; justify-self: end; }
+  .row:has(.nm:focus-visible) { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .row .nm:focus-visible { outline: none; }
+  .cardwrap { border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent); }
+  .cardwrap:last-child { border-bottom: none; }
+  .cardwrap :global(.card) { border-bottom: none; }
+  .card-act { padding: 0 var(--space-md) 0.6rem calc(3.2rem + var(--space-md) + var(--space-sm)); }
   .row:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
 
   /* The clicked row holds the hover tint and gains a left edge, so the click is acknowledged
@@ -209,7 +226,6 @@
     pointer-events: none;
   }
   .row.opening .nm { color: var(--primary); }
-  .row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .row > span { min-width: 0; }
 
   /* Quiet — it is a position marker, not a score. Tabular so the digits stay in column as
@@ -242,7 +258,7 @@
      a card whose whole point is that the title finally has room to wrap. */
   .row .nm {
     font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; color: var(--foreground);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .row:hover .nm { color: var(--primary); }
   .yr { font-size: 0.85rem; color: var(--muted-foreground); flex: none; }
@@ -296,11 +312,6 @@
   .cx[data-step='4'] { --step: 4; }
   .cx[data-step='5'] { --step: 5; }
 
-  /* The badge already says the word; the gauge beside Rating is the visual indicator the
-     review flagged as missing — same component and column treatment as `.rate`, so the two
-     read as a pair rather than complexity sitting off in the title line by itself. */
-  .cplx { justify-self: stretch; text-align: center; }
-
   .cats {
     font-size: 0.73rem; color: var(--muted-foreground);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
@@ -321,7 +332,8 @@
     .cats { display: none; }
   }
   @container (max-width: 34rem) {
-    .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 4.5rem; }
+    .row { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem; }
+    .row.has-action { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 8rem; }
     .f-also { display: none; }
   }
 

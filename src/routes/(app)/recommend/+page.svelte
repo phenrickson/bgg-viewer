@@ -30,6 +30,7 @@
   import GameTileRow from '$lib/catalog/GameTileRow.svelte';
   import DialStrip, { type DialQuestion } from '$lib/discover/DialStrip.svelte';
   import DiscoverResults from '$lib/discover/DiscoverResults.svelte';
+  import type { DiscoverGame } from '$lib/discover/types';
   import { discoverScopeFromParams } from '$lib/discover/dials';
   import { RECOMMEND_PATH, TAB_PARAM, FIND_TAB, findHref } from '$lib/recommend/route';
   import { Button } from '$lib/components/ui/button';
@@ -444,19 +445,23 @@
       .catch(() => (matchCount = null));
   });
 
-  let showAll = $state(false);
   /** How many of the four questions have an answer; the actions wait for the first. */
   let answeredCount = $state(0);
-  let findPick = $state<Game | null>(null);
-  /** A random pick from the 100 best-rated matches — a surprise, not a random obscurity. */
+  /** The matches open on this many, top rated first, with "Show all" for the rest. */
+  const FIND_SHOWN = 10;
+  let findPick = $state<DiscoverGame | null>(null);
+  /** A random pick from the 100 best-rated matches — a surprise, not a random obscurity.
+   *  Same columns as the list's rows, since it's shown as one of them. */
   async function pickForMe() {
-    const r = await query<{ id: number }>(
-      `SELECT game_id AS id FROM (
-         SELECT game_id FROM catalog WHERE ${findWhere} ORDER BY geek_rating DESC NULLS LAST LIMIT 100
+    const r = await query<DiscoverGame>(
+      `SELECT * FROM (
+         SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_weight,
+                c.best_player_counts, c.recommended_player_counts, c.categories, t.thumbnail
+         FROM catalog c LEFT JOIN thumbnails t USING (game_id)
+         WHERE ${findWhere} ORDER BY c.geek_rating DESC NULLS LAST LIMIT 100
        ) ORDER BY random() LIMIT 1`
     );
-    const id = r[0] ? Number(r[0].id) : null;
-    findPick = id == null ? null : ((await games([id])).get(id) ?? null);
+    findPick = r[0] ?? null;
   }
   $effect(() => {
     // A new question, or leaving Start, puts the pick away.
@@ -579,29 +584,21 @@
               <Button onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
                 {findPick ? 'Another one' : 'Pick one for me'}
               </Button>
-              {#if matchCount != null}
-                <Button variant="link" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
-                  {showAll ? 'Hide matches' : `See all ${matchCount.toLocaleString()} ${matchCount === 1 ? 'match' : 'matches'}`}
-                </Button>
-              {/if}
             </div>
-          {/if}
-          {#if findPick}
-            {@const g = findPick}
-            <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => (findPick = null)}>
-              {#snippet meta()}
-                {#if g.year_published}<span>{g.year_published}</span>{/if}
-                {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
+            <!-- PLACEHOLDER copy (Phil): the pick's label. -->
+            <DiscoverResults
+              scope={findScope}
+              extraWhere={poolWhere}
+              onpatch={patchFind}
+              initial={FIND_SHOWN}
+              pinned={findPick}
+              pinnedLabel="Picked for you"
+              onunpin={() => (findPick = null)}
+            >
+              {#snippet action(g)}
+                <Button variant="outline" size="sm" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
               {/snippet}
-              {#snippet actions()}
-                <Button onclick={pickForMe}>Another one</Button>
-                <Button variant="outline" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
-                <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
-              {/snippet}
-            </GameHero>
-          {/if}
-          {#if showAll}
-            <DiscoverResults scope={findScope} extraWhere={poolWhere} onpatch={patchFind} />
+            </DiscoverResults>
           {/if}
         </Stack>
       {/if}
