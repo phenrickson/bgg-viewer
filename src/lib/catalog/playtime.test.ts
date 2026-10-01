@@ -5,7 +5,8 @@ import {
 	minutesAt,
 	indexAt,
 	formatMinutes,
-	playtimeRangeLabel
+	playtimeRangeLabel,
+	boxPlaytimeLabel
 } from './playtime';
 import { toBounds } from './range';
 
@@ -40,5 +41,15 @@ describe('play-time labels', () => {
 		expect(playtimeRangeLabel(null, 60)).toBe('up to 1h');
 		expect(playtimeRangeLabel(120, null)).toBe('2h+');
 		expect(playtimeRangeLabel(30, 120)).toBe('30 min – 2h');
+	});
+});
+
+describe('boxPlaytimeLabel', () => {
+	it('prints a range, a single time, or nothing', () => {
+		expect(boxPlaytimeLabel(30, 120)).toBe('30–120 min');
+		expect(boxPlaytimeLabel(45, 45)).toBe('45 min');
+		expect(boxPlaytimeLabel(null, 60)).toBe('60 min');
+		expect(boxPlaytimeLabel(0, 0)).toBeNull();
+		expect(boxPlaytimeLabel(null, null)).toBeNull();
 	});
 });

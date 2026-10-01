@@ -30,6 +30,7 @@
   import GameTileRow from '$lib/catalog/GameTileRow.svelte';
   import DialStrip, { type DialQuestion } from '$lib/discover/DialStrip.svelte';
   import DiscoverResults from '$lib/discover/DiscoverResults.svelte';
+  import GameResult from '$lib/catalog/GameResult.svelte';
   import type { DiscoverGame } from '$lib/discover/types';
   import { discoverScopeFromParams } from '$lib/discover/dials';
   import { RECOMMEND_PATH, TAB_PARAM, FIND_TAB, findHref } from '$lib/recommend/route';
@@ -456,7 +457,8 @@
     const r = await query<DiscoverGame>(
       `SELECT * FROM (
          SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_weight,
-                c.best_player_counts, c.recommended_player_counts, c.categories, t.thumbnail
+                c.best_player_counts, c.recommended_player_counts, c.categories,
+                c.min_playtime, c.max_playtime, t.thumbnail
          FROM catalog c LEFT JOIN thumbnails t USING (game_id)
          WHERE ${findWhere} ORDER BY c.geek_rating DESC NULLS LAST LIMIT 100
        ) ORDER BY random() LIMIT 1`
@@ -577,26 +579,35 @@
       {:else}
         <!-- ── Help me find a game ───────────────────────────────────────────────── -->
         <Stack gap="lg">
-          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise centered bind:answered={answeredCount} />
+          <DialStrip scope={findScope} onpatch={patchFind} lead={whereFrom} stepwise centered collapsible bind:answered={answeredCount} />
           {#if answeredCount > 0}
-            <div class="acts">
-              <!-- PLACEHOLDER copy (Phil) -->
-              <Button onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
-                {findPick ? 'Another one' : 'Pick one for me'}
-              </Button>
-            </div>
-            <!-- PLACEHOLDER copy (Phil): the pick's label. -->
+            <!-- PLACEHOLDER copy (Phil): the pick's label, its links, and "More like this →". -->
+            {#if findPick}
+              {@const g = findPick}
+              <div class="feature">
+                <GameResult game={g} href="/games/{g.game_id}" layout="feature" eyebrow="Picked for you" onclose={() => (findPick = null)}>
+                  {#snippet actions()}
+                    <Button variant="link" href="{RECOMMEND_PATH}?id={g.game_id}">More like this →</Button>
+                    <Button variant="ghost" onclick={pickForMe}>Another one</Button>
+                  {/snippet}
+                </GameResult>
+              </div>
+            {/if}
             <DiscoverResults
               scope={findScope}
               extraWhere={poolWhere}
               onpatch={patchFind}
               initial={FIND_SHOWN}
-              pinned={findPick}
-              pinnedLabel="Picked for you"
-              onunpin={() => (findPick = null)}
+              variant={display}
             >
+              {#snippet headEnd()}
+                <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+                <Button onclick={pickForMe} disabled={catalog.status !== 'ready' || matchCount === 0}>
+                  {findPick ? 'Another one' : 'Pick one for me'}
+                </Button>
+              {/snippet}
               {#snippet action(g)}
-                <Button variant="outline" size="sm" href="{RECOMMEND_PATH}?id={g.game_id}">More like this</Button>
+                <Button variant="link" size="sm" class="more-like" href="{RECOMMEND_PATH}?id={g.game_id}">More like this →</Button>
               {/snippet}
             </DiscoverResults>
           {/if}
@@ -623,7 +634,11 @@
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .end { margin-left: auto; }
-  .acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm); }
+  /* The feature card's layout answers to its own width. */
+  .feature { container-type: inline-size; }
+  /* "More like this" on every game: quiet until pointed at, so ten of them don't shout. */
+  :global(.more-like) { color: var(--muted-foreground); padding-left: 0; padding-right: 0; }
+  :global(.more-like:hover) { color: var(--primary); }
   .who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: 0.8rem; color: var(--muted-foreground); }
   .admin {
     font: inherit; font-size: 0.78rem; padding: 0.2rem 0.45rem; border-radius: 6px;

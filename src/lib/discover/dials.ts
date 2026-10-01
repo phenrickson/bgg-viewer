@@ -150,3 +150,17 @@ export function complexityLabel(weight: number | null): string | null {
   const idx = complexityBandIndex(weight);
   return idx === 0 ? null : COMPLEXITY_BANDS[idx - 1].label;
 }
+
+/**
+ * The community's player-count vote as two lists: "best" and "also good", the latter without
+ * anything already in "best" (BGG marks some counts both, and listing a number under both
+ * reads as a contradiction). Sorted, comma-joined; empty when there's no vote.
+ */
+export function playerCounts(
+  best: number[] | null | undefined,
+  rec: number[] | null | undefined
+): { best: string; also: string } {
+  const b = best ? Array.from(best).sort((x, y) => x - y) : [];
+  const r = rec ? Array.from(rec).sort((x, y) => x - y).filter((n) => !b.includes(n)) : [];
+  return { best: b.join(', '), also: r.join(', ') };
+}

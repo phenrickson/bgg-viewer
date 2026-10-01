@@ -12,7 +12,8 @@ import {
   isBandOn,
   bandPatch,
   complexityLabel,
-  complexityBandIndex
+  complexityBandIndex,
+  playerCounts
 } from './dials';
 
 describe('category chips', () => {
@@ -158,5 +159,12 @@ describe('play-time chips', () => {
 		expect(isPlaytimeOn(on, chip)).toBe(true);
 		expect(isPlaytimeOn(on, PLAYTIME_CHIPS[2])).toBe(false);
 		expect(playtimePatch(on, chip)).toEqual({ playtimeMin: null, playtimeMax: null });
+	});
+});
+
+describe('playerCounts', () => {
+	it('sorts, and leaves "also" without anything already best', () => {
+		expect(playerCounts([3, 2], [4, 2, 1])).toEqual({ best: '2, 3', also: '1, 4' });
+		expect(playerCounts(null, null)).toEqual({ best: '', also: '' });
 	});
 });

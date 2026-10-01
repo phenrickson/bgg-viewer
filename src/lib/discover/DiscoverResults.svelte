@@ -8,15 +8,18 @@
    * It is the same `Scope` as Explore underneath, which is why "open in Explore" is a link and
    * not a translation. `extraWhere` narrows it further (Recommend's "Where from?").
    *
-   * Recommend also passes `initial` (open on a short list, with "Show all N" to page in the
-   * rest), `pinned` (its "Pick one for me", as a highlighted row above the list) and `action`
-   * (a control at the end of every row — "More like this").
+   * Recommend shows the same answer differently: `variant` 'cards' or 'list' draws each game
+   * as a `GameResult` (no table panel, no column headings, no Explore door), `initial` opens
+   * on a short list with "Show all N" to page in the rest, `headEnd` puts its controls on the
+   * count line, and `action` is a control on every game ("More like this").
    *
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import { scopeToParams, toWhere, activeFilters, type Scope } from '$lib/catalog/scope';
   import GameRow from './GameRow.svelte';
+  import GameResult from '$lib/catalog/GameResult.svelte';
+  import { AutoGrid } from '$lib/components/ui/layout';
   import { DISCOVER_LIMIT } from './dials';
   import type { Snippet } from 'svelte';
   import type { DiscoverGame } from './types';
@@ -26,9 +29,8 @@
     extraWhere = '',
     onpatch,
     initial,
-    pinned = null,
-    pinnedLabel = '',
-    onunpin,
+    variant = 'table',
+    headEnd,
     action: rowAction
   }: {
     scope: Scope;
@@ -37,10 +39,10 @@
     onpatch: (patch: Partial<Scope>) => void;
     /** Open on this many and wait for "Show all" before paging in more. */
     initial?: number;
-    /** A game shown above the list, highlighted. */
-    pinned?: DiscoverGame | null;
-    pinnedLabel?: string;
-    onunpin?: () => void;
+    /** Discover's table, or Recommend's cards / one-line rows. */
+    variant?: 'table' | 'cards' | 'list';
+    /** Controls at the end of the count line. */
+    headEnd?: Snippet;
     action?: Snippet<[DiscoverGame]>;
   } = $props();
 
@@ -124,7 +126,8 @@
   });
 
   $effect(() => {
-    if (!sentinel || !listwrap || !hasMore || loading || held) return;
+    const table = variant === 'table';
+    if (!sentinel || (table && !listwrap) || !hasMore || loading || held) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) limit += PAGE;
@@ -133,7 +136,7 @@
       // viewport-rooted observer would fire once and then never again. The margin starts the
       // next page a panel-height early, so rows are usually there before the scroll reaches
       // them.
-      { root: narrow ? null : listwrap, rootMargin: '400px' }
+      { root: narrow || !table ? null : listwrap, rootMargin: '400px' }
     );
     io.observe(sentinel);
     return () => io.disconnect();
@@ -155,7 +158,8 @@
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${where}`),
       query<DiscoverGame>(
         `SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_weight,
-                c.best_player_counts, c.recommended_player_counts, c.categories, t.thumbnail
+                c.best_player_counts, c.recommended_player_counts, c.categories,
+                c.min_playtime, c.max_playtime, t.thumbnail
          FROM catalog c LEFT JOIN thumbnails t USING (game_id)
          WHERE ${where}
          ORDER BY geek_rating DESC NULLS LAST, game_id
@@ -180,20 +184,20 @@
   });
 </script>
 
-    <div class="results">
+    <div class="results" class:answer={variant !== 'table'}>
       <div class="head">
         <span class="count">
           {#if catalog.status !== 'ready' || (loading && !rows.length)}
             Finding games…
           {:else if total === 0}
             No matches
+          {:else if held}
+            <!-- PLACEHOLDER copy (Phil) -->
+            <b>Top {rows.length.toLocaleString()}</b> of {total.toLocaleString()}
+            <span class="dim">· top rated</span>
           {:else}
-            {#if held}
-              Top <b>{rows.length.toLocaleString()}</b> of <b>{total.toLocaleString()}</b>
-            {:else}
-              Showing <b>{rows.length.toLocaleString()}</b>
-              of <b>{total.toLocaleString()}</b>
-            {/if}
+            Showing <b>{rows.length.toLocaleString()}</b>
+            of <b>{total.toLocaleString()}</b>
             {total === 1 ? 'match' : 'matches'}
             <span class="dim">· top rated first</span>
           {/if}
@@ -208,9 +212,10 @@
             {/each}
           </span>
         {/if}
+        {#if headEnd}<span class="head-end">{@render headEnd()}</span>{/if}
       </div>
 
-      <div class="listwrap" bind:this={listwrap}>
+      {#snippet status()}
         {#if catalog.status === 'error' || failed}
           <p class="msg">
             Couldn’t load the catalog.
@@ -220,71 +225,83 @@
           <p class="msg">Warming the catalog…</p>
         {:else if !rows.length && !loading}
           <p class="msg">No games match all of these. Try turning one of the chips off.</p>
-        {:else}
-          <!-- One heading for the three fixed columns every row repeats, rather than each row
-               spelling out "BEST" / "ALSO GOOD" / "RATING" beside its own numbers. Column
-               widths and the narrow-container collapse mirror GameRow.svelte's `.row` grid
-               exactly, so the heading always sits over the values it names. -->
-          <div class="collhead" class:cards={narrow} class:has-action={!!rowAction} aria-hidden="true">
-            <span></span><span></span><span></span>
-            <span>Best</span><span>Also good</span><span>Rating</span>{#if rowAction}<span></span>{/if}
-          </div>
-          {#if pinned}
-            {@const p = pinned}
-            <div class="pinned">
-              <div class="pin-head">
-                <span>{pinnedLabel}</span>
-                {#if onunpin}
-                  <button type="button" class="unpin" aria-label="Put the pick away" onclick={onunpin}>×</button>
-                {/if}
-              </div>
-              {#if rowAction}
-                <GameRow game={p} rank={null} card={narrow}>
-                  {#snippet action()}{@render rowAction(p)}{/snippet}
-                </GameRow>
-              {:else}
-                <GameRow game={p} rank={null} card={narrow} />
-              {/if}
-            </div>
-          {/if}
-          <div class="rows">
-            {#each rows as g, i (g.game_id)}
-              {#if rowAction}
-                <GameRow game={g} rank={i + 1} card={narrow}>
-                  {#snippet action()}{@render rowAction(g)}{/snippet}
-                </GameRow>
-              {:else}
-                <GameRow game={g} rank={i + 1} card={narrow} />
-              {/if}
-            {/each}
-          </div>
-          {#if held && hasMore}
-            <!-- PLACEHOLDER copy (Phil) -->
-            <button type="button" class="more show-all" onclick={() => ((expanded = true), (limit += PAGE))}>
-              Show all {total.toLocaleString()}
-            </button>
-          {:else if hasMore}
-            <div class="more" bind:this={sentinel}>
-              {loading ? 'Loading more…' : `${(total - rows.length).toLocaleString()} more`}
-            </div>
-          {/if}
         {/if}
-      </div>
+      {/snippet}
+      {#snippet more()}
+        {#if held && hasMore}
+          <!-- PLACEHOLDER copy (Phil) -->
+          <button type="button" class="show-all" onclick={() => ((expanded = true), (limit += PAGE))}>
+            Show all {total.toLocaleString()}
+          </button>
+        {:else if hasMore}
+          <div class="more" bind:this={sentinel}>
+            {loading ? 'Loading more…' : `${(total - rows.length).toLocaleString()} more`}
+          </div>
+        {/if}
+      {/snippet}
+
+      {#if variant !== 'table'}
+        <div class="answer-list">
+          {#if catalog.status !== 'ready' || failed || (!rows.length && !loading)}
+            {@render status()}
+          {:else if variant === 'cards'}
+            <AutoGrid min="xl" gap="md">
+              {#each rows as g (g.game_id)}
+                <GameResult game={g} href="/games/{g.game_id}" layout="card">
+                  {#snippet actions()}{@render rowAction?.(g)}{/snippet}
+                </GameResult>
+              {/each}
+            </AutoGrid>
+          {:else}
+            <div class="lines">
+              {#each rows as g (g.game_id)}
+                <GameResult game={g} href="/games/{g.game_id}" layout="row">
+                  {#snippet actions()}{@render rowAction?.(g)}{/snippet}
+                </GameResult>
+              {/each}
+            </div>
+          {/if}
+          {@render more()}
+        </div>
+      {:else}
+        <div class="listwrap" bind:this={listwrap}>
+          {#if catalog.status !== 'ready' || failed || (!rows.length && !loading)}
+            {@render status()}
+          {:else}
+            <!-- One heading for the three fixed columns every row repeats, rather than each row
+                 spelling out "BEST" / "ALSO GOOD" / "RATING" beside its own numbers. Column
+                 widths and the narrow-container collapse mirror GameRow.svelte's `.row` grid
+                 exactly, so the heading always sits over the values it names. -->
+            <div class="collhead" class:cards={narrow} aria-hidden="true">
+              <span></span><span></span><span></span>
+              <span>Best</span><span>Also good</span><span>Rating</span>
+            </div>
+            <div class="rows">
+              {#each rows as g, i (g.game_id)}
+                <GameRow game={g} rank={i + 1} card={narrow} />
+              {/each}
+            </div>
+            {@render more()}
+          {/if}
+        </div>
+      {/if}
     </div>
 
-    <!-- Directly under the table, where the games end. Below the scrollytelling it competed
-         with the scroll and retreated further with every page of rows appended; here the
-         handoff to Explore sits exactly where someone finishes with the list. -->
-    <a class="door" href={exploreHref}>
-      <span class="door-t">Want to go deeper? <span class="arw">→</span></span>
-      <span class="door-p">
-        {#if total > DISCOVER_LIMIT}
-          Open all {total.toLocaleString()} in Explore — filter, sort, and see the shape of the set.
-        {:else}
-          Open this set in Explore — filter, sort, and see the shape of the whole catalog.
-        {/if}
-      </span>
-    </a>
+    {#if variant === 'table'}
+      <!-- Directly under the table, where the games end. Below the scrollytelling it competed
+           with the scroll and retreated further with every page of rows appended; here the
+           handoff to Explore sits exactly where someone finishes with the list. -->
+      <a class="door" href={exploreHref}>
+        <span class="door-t">Want to go deeper? <span class="arw">→</span></span>
+        <span class="door-p">
+          {#if total > DISCOVER_LIMIT}
+            Open all {total.toLocaleString()} in Explore — filter, sort, and see the shape of the set.
+          {:else}
+            Open this set in Explore — filter, sort, and see the shape of the whole catalog.
+          {/if}
+        </span>
+      </a>
+    {/if}
 
 <style>
   /* The page around it sets the gap from the questions above. */
@@ -366,38 +383,31 @@
     .collhead {
       grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem;
     }
-    .collhead.has-action { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 4.5rem 8rem; }
     .collhead span:nth-child(5) { display: none; }
   }
   /* A card has no columns for a heading to sit over, so the heading goes and each card labels
      its own numbers instead. Keyed off the same `narrow` the rows are, rather than a container
      query of its own — a heading that outlives the columns it names is worse than no heading. */
   .collhead.cards { display: none; }
-  .collhead.has-action { grid-template-columns: 2rem 3.5rem minmax(0, 1fr) 4.5rem 5.5rem 4.5rem 8rem; }
-
-  /* The pick sits above the list in the list's own row, tinted so it reads as chosen. */
-  .pinned {
-    background: color-mix(in oklch, var(--primary) 9%, var(--card));
-    border-bottom: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    box-shadow: inset 3px 0 0 var(--primary);
-  }
-  .pin-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.45rem var(--space-md) 0;
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 650;
-    color: var(--primary);
-  }
-  .unpin {
-    font: inherit; font-size: 1rem; line-height: 1; cursor: pointer;
-    background: none; border: none; color: var(--muted-foreground); padding: 0 0.2rem;
-  }
-  .unpin:hover { color: var(--foreground); }
+  /* "Show all N": a link-weight control, centred under the games. */
   .show-all {
-    display: block; width: 100%; font: inherit; cursor: pointer;
-    background: none; border: none; border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
-    color: var(--primary); font-size: 0.85rem; font-weight: 600;
+    display: block; margin: var(--space-md) auto 0; padding: 0.4rem 0.8rem; font: inherit; cursor: pointer;
+    background: none; border: none; border-radius: 8px;
+    color: var(--primary); font-size: 0.95rem; font-weight: 600;
   }
-  .show-all:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
+  .show-all:hover { background: color-mix(in oklch, var(--primary) 8%, transparent); }
+  .show-all:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  /* Recommend's answer: one header line over the games, no panel around them. */
+  .answer .head {
+    font-size: 0.95rem; margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm); border-bottom: 1px solid var(--border);
+  }
+  .answer .count b { font-weight: 650; }
+  .head-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-sm); }
+  .answer-list { container-type: inline-size; }
+  .lines { display: flex; flex-direction: column; }
+  .answer-list .more { border-top: none; }
 
   .msg {
     padding: var(--space-xl) var(--space-lg); text-align: center;

@@ -6,6 +6,8 @@
     ariaLabel?: string;
     /** A pre-selected answer ("Anywhere") — on, but not a choice the reader made. */
     isDefault?: boolean;
+    /** "Doesn't matter": when on, outlined and neutral rather than filled — not an answer. */
+    quiet?: boolean;
   };
 </script>
 
@@ -36,6 +38,7 @@
         type="button"
         class="chip"
         class:on={c.on}
+        class:quiet={c.quiet}
         aria-pressed={c.on}
         aria-label={c.ariaLabel}
         onclick={c.onclick}>{c.label}</button
@@ -76,6 +79,14 @@
     border-color: var(--primary);
     color: var(--primary-foreground, var(--card));
     font-weight: 600;
+  }
+
+  /* A chosen "Doesn't matter" is a non-answer: neutral, outlined, not filled. */
+  .chip.on.quiet {
+    background: transparent;
+    border-color: color-mix(in oklch, var(--foreground) 45%, var(--border));
+    color: var(--foreground);
+    font-weight: 500;
   }
 
   /* Touch sizing: padding AND type together, not `min-height` alone — a touch control
