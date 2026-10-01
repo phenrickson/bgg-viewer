@@ -283,3 +283,27 @@ Where the build differs from, or adds to, the sections above:
   `GameTile`) and `DialRow`.
 - **Not done:** the game page's and `FeaturedGame`'s chip copies onto `TagChip`; `AnalysisPanel`'s
   parked segmented controls (commented out, so nothing to move).
+
+## v3: Help me find a game's answer (2026-10-01)
+
+Canvas boards 9 (rows) and 10 (cards). Replaces "Pick one for me → GameHero" and "See all
+matches → Discover's table" above.
+
+- **The answer shows as soon as a question is answered** (not counting "Where from?"): the top
+  10 matches, top rated first, with **Show all N** under them to page in the rest. No toggle,
+  no table panel, no inner scroll, no rank, no column headings, no Explore door.
+- **One header line** over the answer: "Top 10 of N · top rated" on the left; the Cards | List
+  setting (shared with I want games like…) and **Pick one for me** on the right.
+- **Cards** (board 10, the default): `GameResult` cards in two columns — art at 96px (under the
+  ~200px thumbnail, never upscaled), name (wraps) and year · two categories, chips for
+  complexity, playtime and players ("Best at 2 · also 1, 3"), a rating tile, and a muted
+  **More like this →**. **List** (board 9): the same facts as one line per game.
+- **The pick** is a `GameResult` feature card above the header line: 168px art, "Picked for
+  you", the same chips, a larger rating tile, More like this → / Another one, and ×.
+- **The answers collapse** to one centred line once every question is answered — the answers
+  given in the text colour, the rest muted ("any kind") — with **Change** to reopen them.
+- **Orange is only for what's clickable or chosen.** Complexity, players and rating are
+  neutral. A chosen "Doesn't matter" is outlined and neutral, not filled.
+- **More like this** still opens I want games like… with that game as the seed; carrying the
+  answers across waits on the filtered neighbours endpoint.
+- `/discover` keeps its table (`GameRow`, now without the complexity bar).
