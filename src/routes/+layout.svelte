@@ -62,6 +62,7 @@
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
   const onWhatsNew = $derived(path.startsWith('/whats-new'));
+  const onPipeline = $derived(path.startsWith('/admin/pipeline'));
   const onAbout = $derived(path.startsWith('/about'));
   /**
    * Upcoming is `/games` with the universe dial set, so it lights the same Games trigger —
@@ -207,6 +208,7 @@
              slot in before it; it can grow its own menu (methodology, freshness) without
              disturbing anything else. PLACEHOLDER(Phil): reword to taste. -->
         <a href="/about" class:active={onAbout}>About</a>
+        {#if data.isAdmin}<a href="/admin/pipeline" class:active={onPipeline}>Pipeline</a>{/if}
       </nav>
       {#if data.user}
         <div class="navsearch"><GameSearch compact /></div>
@@ -249,6 +251,7 @@
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
+              {#if data.isAdmin}<a href="/admin/pipeline" role="menuitem" class:on={onPipeline}><b>Pipeline</b></a>{/if}
               {#if data.user}
                 <hr />
                 <a href="/settings" role="menuitem"><b>Settings</b><span>{data.user.display_name || data.user.email}</span></a>
