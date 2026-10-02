@@ -258,7 +258,7 @@
       <li><b>Verdict and today's chain:</b> GitHub Actions run history across the three repos, grouped into one chain per day. Comes from a new <span class="k">/monitoring/pipeline</span> endpoint on the warehouse API, so the viewer never holds a GitHub token.</li>
       <li><b>The amber "green but no hand-off" state:</b> a run that succeeded but whose next stage never started within its expected window. This is the signal neither GitHub nor the heartbeat raises today.</li>
       <li><b>Data freshness and coverage:</b> a new Dataform view, <span class="k">monitoring.pipeline_status</span>, with one row per table: max timestamp, distinct games, and a count of the universe that table <i>should</i> cover. The viewer artifacts row comes from the artifact pointer's <span class="k">builtAt</span>, which the viewer already reads.</li>
-      <li><b>Models:</b> the existing <span class="k">monitoring.deployed_models</span> view, unchanged.</li>
+      <li><b>Models:</b> <span class="k">monitoring.deployed_models</span>, rebuilt as a table on the serving tables: every version still behind a current prediction, so an older version still serving games shows up.</li>
       <li><b>Services:</b> the API calls each Cloud Run service's <span class="k">/health</span>. This is the least valuable section and the first to cut.</li>
     </ul>
   </div>
