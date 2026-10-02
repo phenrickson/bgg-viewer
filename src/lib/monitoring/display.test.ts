@@ -6,6 +6,7 @@ import {
 	elapsed,
 	freshness,
 	freshnessReference,
+	modelKey,
 	STATUS_GLYPH,
 	STATUS_TONE,
 	STATUS_WORD
@@ -66,5 +67,13 @@ describe('coverage', () => {
 	it('is null without a universe', () => {
 		expect(coverage(null, null)).toBeNull();
 		expect(coverage(5, 0)).toBeNull();
+	});
+});
+
+describe('modelKey', () => {
+	it('tells apart rows that share type, name and version but not experiment or algorithm', () => {
+		const base = { model_type: 'hurdle', model_name: 'h', model_version: 3, experiment: 'a', algorithm: null };
+		expect(modelKey(base)).not.toBe(modelKey({ ...base, experiment: 'b' }));
+		expect(modelKey({ ...base, algorithm: 'pca' })).not.toBe(modelKey({ ...base, algorithm: 'svd' }));
 	});
 });

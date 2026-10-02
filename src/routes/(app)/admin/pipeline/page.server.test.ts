@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock is hoisted above every other statement, so the mocks it closes over must be too.
-const { getPipelineStatus, getCatalogPointer } = vi.hoisted(() => ({
-	getPipelineStatus: vi.fn(),
-	getCatalogPointer: vi.fn()
-}));
+const { getPipelineStatus, getCatalogPointer, warehouseClient } = vi.hoisted(() => {
+	const getPipelineStatus = vi.fn();
+	return {
+		getPipelineStatus,
+		getCatalogPointer: vi.fn(),
+		warehouseClient: vi.fn(() => ({ getPipelineStatus }))
+	};
+});
 
-vi.mock('$lib/server/warehouse', () => ({
-	warehouseClient: () => ({ getPipelineStatus })
-}));
+vi.mock('$lib/server/warehouse', () => ({ warehouseClient }));
 vi.mock('$lib/server/catalog/gcs', () => ({ getCatalogPointer }));
 
 const { load } = await import('./+page.server');
@@ -52,5 +54,14 @@ describe('/admin/pipeline load', () => {
 		const data = await run(ADMIN);
 		expect(data.catalog).toBeNull();
 		expect(data.status).not.toBeNull();
+	});
+
+	it('returns the error message when the client cannot be built (no WAREHOUSE_API_URL)', async () => {
+		warehouseClient.mockImplementationOnce(() => {
+			throw new Error('WAREHOUSE_API_URL is not set — cannot reach the warehouse.');
+		});
+		const data = await run(ADMIN);
+		expect(data.status).toBeNull();
+		expect(data.error).toContain('WAREHOUSE_API_URL is not set');
 	});
 });

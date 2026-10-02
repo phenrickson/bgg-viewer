@@ -95,3 +95,18 @@ export function coverage(covered: number | null, universe: number | null): Cover
 	const pct = covered / universe;
 	return { pct, low: pct < COVERAGE_FLOOR };
 }
+
+/**
+ * Stable #each key for a deployed-model row. deployed_models groups by experiment
+ * (predictions) or algorithm (embeddings) as well as name and version, so those are
+ * part of the identity; a key without them can repeat and crash the list.
+ */
+export function modelKey(m: {
+	model_type: string;
+	model_name: string | null;
+	model_version: number | null;
+	experiment: string | null;
+	algorithm: string | null;
+}): string {
+	return [m.model_type, m.model_name, m.model_version, m.experiment, m.algorithm].join('|');
+}

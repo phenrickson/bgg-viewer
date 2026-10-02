@@ -13,8 +13,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!isAdmin(locals.user)) error(404, 'Not found');
 
 	const [result, catalog] = await Promise.all([
-		warehouseClient()
-			.getPipelineStatus(14)
+		// Built inside the chain: warehouseClient() throws synchronously when
+		// WAREHOUSE_API_URL is unset, and that must reach the page as a message too.
+		Promise.resolve()
+			.then(() => warehouseClient().getPipelineStatus(14))
 			.then(
 				(status: PipelineStatus) => ({ status, error: null }),
 				(e: unknown) => ({ status: null, error: e instanceof Error ? e.message : String(e) })

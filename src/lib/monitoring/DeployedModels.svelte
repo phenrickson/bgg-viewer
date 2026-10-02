@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DeployedModelRow } from '$lib/server/warehouse';
   import StatusBadge from './StatusBadge.svelte';
-  import { clock } from './display';
+  import { clock, modelKey } from './display';
 
   // Rows arrive ordered by category, type, newest first, so any row after the first
   // of its type is an older version still serving some games.
@@ -16,7 +16,7 @@
   <table>
     <thead><tr><th>Model</th><th>Version</th><th class="num">Games</th><th>Last scored (UTC)</th></tr></thead>
     <tbody>
-      {#each models as m, i (`${m.model_type}:${m.model_name}:${m.model_version}`)}
+      {#each models as m, i (modelKey(m))}
         {@const older = i > 0 && models[i - 1].model_type === m.model_type}
         <tr>
           <td>
