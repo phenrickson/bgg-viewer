@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bgg-viewer — Pipeline monitor mockup</title>
+<style>
+  /* Tokens verbatim from the app's app.css — previews the real design language.
+     Status uses NO green/red: blue = succeeded, amber = needs attention, violet = failed,
+     each always paired with a glyph + word. --status-* are NEW (proposed) tokens. */
+  :root {
+    --radius: 0.625rem;
+    --space-sm: 0.5rem; --space-md: 0.75rem; --space-lg: 1.25rem; --space-xl: 2rem;
+    --background: oklch(0.99 0.004 80); --foreground: oklch(0.22 0.02 260);
+    --card: oklch(1 0 0); --primary: oklch(0.64 0.17 45);
+    --muted: oklch(0.96 0.006 80); --muted-foreground: oklch(0.50 0.02 260);
+    --border: oklch(0.91 0.008 80); --page: oklch(0.955 0.006 80);
+    --chart-1: oklch(0.62 0.14 250); --chart-3: oklch(0.65 0.12 170); --chart-4: oklch(0.62 0.12 300);
+    --status-ok: oklch(0.62 0.14 250); --status-warn: oklch(0.72 0.14 75); --status-fail: oklch(0.55 0.16 300);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: oklch(0.19 0.02 260); --foreground: oklch(0.94 0.006 80);
+      --card: oklch(0.23 0.02 260); --primary: oklch(0.70 0.16 48);
+      --muted: oklch(0.27 0.02 260); --muted-foreground: oklch(0.68 0.02 260);
+      --border: oklch(0.32 0.02 260); --page: oklch(0.15 0.02 260);
+      --status-warn: oklch(0.78 0.13 75); --status-ok: oklch(0.70 0.13 250); --status-fail: oklch(0.68 0.15 300);
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: oklch(0.19 0.02 260); --foreground: oklch(0.94 0.006 80);
+    --card: oklch(0.23 0.02 260); --primary: oklch(0.70 0.16 48);
+    --muted: oklch(0.27 0.02 260); --muted-foreground: oklch(0.68 0.02 260);
+    --border: oklch(0.32 0.02 260); --page: oklch(0.15 0.02 260);
+    --status-warn: oklch(0.78 0.13 75); --status-ok: oklch(0.70 0.13 250); --status-fail: oklch(0.68 0.15 300);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--foreground);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 82rem; margin: 0 auto; padding: var(--space-xl) 16px 4rem; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .k { font: 0.82em ui-monospace, Menlo, monospace; background: var(--muted); padding: .05rem .3rem; border-radius: 4px; }
+
+  /* ---- mockup doc chrome ---- */
+  .doc-h { margin-bottom: var(--space-lg); }
+  .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 600; color: var(--primary); margin: 0 0 .5rem; }
+  .doc-h h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.1rem); font-weight: 700; letter-spacing: -.02em; margin: 0 0 .35rem; }
+  .doc-h p { margin: 0; color: var(--muted-foreground); max-width: 52rem; }
+  .doc-h p + p { margin-top: .5rem; }
+  .scenario { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: var(--space-lg) 0; font-size: .85rem; color: var(--muted-foreground); }
+  .scenario button { font: inherit; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: .3rem .8rem; cursor: pointer; }
+  .scenario button[aria-pressed="true"] { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+  .note { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0; padding: var(--space-md) var(--space-lg); margin: var(--space-md) 0 var(--space-xl); }
+  .note h4 { margin: 0 0 .3rem; font-size: .9rem; font-weight: 650; }
+  .note p, .note li { margin: 0; font-size: .85rem; color: var(--muted-foreground); }
+  .note p + p { margin-top: .45rem; }
+  .note ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+  .note b { color: var(--foreground); font-weight: 600; }
+
+  .chrome { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--background);
+    box-shadow: 0 1px 2px oklch(0 0 0 / .05), 0 12px 30px oklch(0 0 0 / .06); }
+  .chrome-bar { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; background: var(--muted); border-bottom: 1px solid var(--border); }
+  .dots { display: flex; gap: .35rem; } .dots i { width: .7rem; height: .7rem; border-radius: 50%; background: var(--border); display: block; }
+  .addr { flex: 1; font: .78rem ui-monospace, Menlo, monospace; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); border-radius: 6px; padding: .25rem .6rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .appbar { display: flex; align-items: center; gap: var(--space-lg); padding: .7rem var(--space-lg); border-bottom: 1px solid var(--border); background: var(--card); flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: -.01em; }
+  .nav { display: flex; gap: .2rem; flex-wrap: wrap; }
+  .nav a { font-size: .88rem; color: var(--muted-foreground); text-decoration: none; padding: .3rem .6rem; border-radius: 7px; }
+  .nav a.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+  .spacer { flex: 1; }
+  .admin-pill { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--primary); border: 1px solid var(--primary); border-radius: 999px; padding: .05rem .5rem; }
+
+  .page { padding: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
+  .page > section, .two > div { min-width: 0; }
+  @media (max-width: 640px) { .page { padding: var(--space-md); } }
+  .page h2 { font-size: 1.05rem; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+  .sec-h { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: var(--space-md); }
+  .sec-h span { font-size: .8rem; color: var(--muted-foreground); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+
+  /* ---- status glyphs: colour is always paired with a glyph + word ---- */
+  .st { display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+  .st i { font-style: normal; width: 1.1rem; height: 1.1rem; border-radius: 50%; display: inline-grid; place-items: center; font-size: .7rem; color: var(--card); }
+  .st.ok i { background: var(--status-ok); } .st.ok { color: var(--status-ok); }
+  .st.warn i { background: var(--status-warn); color: oklch(0.25 0.02 260); } .st.warn { color: color-mix(in oklch, var(--status-warn) 75%, var(--foreground)); }
+  .st.fail i { background: var(--status-fail); } .st.fail { color: var(--status-fail); }
+  .st.skip i { background: transparent; border: 1.5px dashed var(--muted-foreground); color: var(--muted-foreground); } .st.skip { color: var(--muted-foreground); }
+
+  /* ---- verdict banner ---- */
+  .verdict { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-lg); align-items: center; padding: var(--space-lg); border-left: 4px solid var(--vc); }
+  .verdict .big { width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 1.2rem; background: var(--vc); color: var(--card); }
+  .verdict h3 { margin: 0; font-size: 1.15rem; letter-spacing: -.01em; }
+  .verdict p { margin: .15rem 0 0; color: var(--muted-foreground); font-size: .88rem; }
+  .verdict .meta { text-align: right; font-size: .8rem; color: var(--muted-foreground); }
+  .verdict .meta b { color: var(--foreground); font-weight: 600; display: block; font-size: .95rem; }
+  @media (max-width: 640px) { .verdict { grid-template-columns: auto 1fr; } .verdict .meta { grid-column: 1 / -1; text-align: left; } }
+
+  /* ---- chain swimlane ---- */
+  .lanes { display: grid; grid-template-columns: 4.5rem repeat(3, minmax(0, 1fr)); }
+  .lanes .lh { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted-foreground); font-weight: 600; padding: .6rem .75rem; border-bottom: 1px solid var(--border); }
+  .lanes .lh small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: .72rem; }
+  .lanes .t { font-size: .75rem; color: var(--muted-foreground); padding: .55rem .75rem; border-top: 1px dashed var(--border); }
+  .lanes .cell { padding: .4rem .5rem; border-top: 1px dashed var(--border); border-left: 1px solid var(--border); min-height: 3.2rem; }
+  .lanes .cell:empty { background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in oklch, var(--muted) 60%, transparent) 6px 7px); }
+  .step { border: 1px solid var(--border); border-radius: 8px; padding: .4rem .55rem; background: var(--background); }
+  .step.ok { border-left: 3px solid var(--status-ok); }
+  .step.warn { border-left: 3px solid var(--status-warn); background: color-mix(in oklch, var(--status-warn) 8%, var(--background)); }
+  .step.fail { border-left: 3px solid var(--status-fail); }
+  .step.skip { border-style: dashed; opacity: .7; }
+  .step .n { font-size: .85rem; font-weight: 600; display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
+  .step .n a { color: var(--muted-foreground); font-weight: 400; font-size: .72rem; text-decoration: none; }
+  .step .d { font-size: .75rem; color: var(--muted-foreground); display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .1rem; }
+  .step .why { font-size: .75rem; margin-top: .3rem; color: var(--foreground); }
+  .evt { font: .68rem ui-monospace, Menlo, monospace; color: var(--muted-foreground); margin-top: .25rem; }
+  .evt.dead { color: var(--status-fail); text-decoration: line-through; }
+  .offchain { padding: .6rem .75rem; border-top: 1px solid var(--border); display: flex; gap: var(--space-md); flex-wrap: wrap; align-items: stretch; background: var(--muted); }
+  .offchain > span { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted-foreground); font-weight: 600; align-self: center; }
+  .offchain .step { flex: 1 1 14rem; }
+  @media (max-width: 760px) {
+    .lanes { grid-template-columns: 3.6rem minmax(0, 1fr); }
+    .lanes .lh:not(:first-child) { display: none; }
+    .lanes .lh:first-child { grid-column: 1 / -1; }
+    .lanes .cell:empty { display: none; }
+    .step .repo-tag { display: inline; }
+  }
+  .repo-tag { display: none; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); }
+
+  /* ---- history heat strip ---- */
+  .hist { overflow-x: auto; }
+  .hist table { border-collapse: separate; border-spacing: 3px; font-size: .75rem; min-width: 34rem; width: 100%; }
+  .hist th { font-weight: 500; color: var(--muted-foreground); text-align: left; white-space: nowrap; padding-right: .6rem; }
+  .hist thead th { text-align: center; font-size: .68rem; padding: 0; }
+  .hist td { height: 1.15rem; border-radius: 3px; text-align: center; font-size: .62rem; color: var(--card); font-weight: 700; }
+  .hist td.ok { background: color-mix(in oklch, var(--status-ok) 28%, var(--card)); color: color-mix(in oklch, var(--status-ok) 70%, var(--card)); } /* healthy recedes; problems carry the ink */
+  .hist td.warn { background: var(--status-warn); color: oklch(0.25 0.02 260); }
+  .hist td.fail { background: var(--status-fail); }
+  .hist td.skip { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border); }
+  .legend { display: flex; gap: var(--space-lg); flex-wrap: wrap; padding: .6rem .75rem 0; }
+
+  /* ---- data table ---- */
+  .tbl { width: 100%; border-collapse: collapse; font-size: .83rem; }
+  .tbl th { text-align: left; font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); padding: .55rem .75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .tbl td { padding: .5rem .75rem; border-top: 1px solid var(--border); vertical-align: middle; }
+  .tbl tr.group td { background: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted-foreground); font-weight: 600; padding: .3rem .75rem; }
+  .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tbl .mono { font-family: ui-monospace, Menlo, monospace; font-size: .78rem; }
+  .tbl .sub { color: var(--muted-foreground); font-size: .75rem; }
+  .cov { display: flex; align-items: center; gap: .5rem; min-width: 9rem; }
+  .cov .bar { flex: 1; height: .45rem; background: var(--muted); border-radius: 999px; overflow: hidden; }
+  .cov .bar b { display: block; height: 100%; background: var(--chart-1); border-radius: 999px; }
+  .cov.low .bar b { background: var(--status-warn); }
+  .scroll { overflow-x: auto; }
+  .two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--space-lg); }
+  @media (max-width: 900px) { .two { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc-h">
+    <p class="eyebrow">Mockup · admin</p>
+    <h1>Pipeline monitor</h1>
+    <p>One admin-only page in bgg-viewer that answers three questions about the back end: <b>did today's chain run end-to-end</b>, <b>is the data fresh and complete</b>, and <b>which models are live</b>. Numbers are illustrative.</p>
+    <p>Switch scenarios to see how it reads on a good day versus the silent failure we found in the review: a Dataform pass that warns instead of failing, so no dispatch is sent and the rest of the chain never starts.</p>
+  </header>
+
+  <div class="scenario" role="group" aria-label="Scenario">
+    <span>Scenario:</span>
+    <button type="button" data-s="stalled" aria-pressed="true">Stalled mid-chain</button>
+    <button type="button" data-s="healthy" aria-pressed="false">Healthy day</button>
+  </div>
+
+  <div class="chrome">
+    <div class="chrome-bar"><div class="dots"><i></i><i></i><i></i></div><div class="addr">bgg-viewer.app/admin/pipeline</div></div>
+    <div class="appbar">
+      <span class="brand">bgg-viewer</span>
+      <nav class="nav"><a>Home</a><a>Explore ▾</a><a>Tools ▾</a><a>About</a><a class="active">Pipeline</a></nav>
+      <span class="spacer"></span><span class="admin-pill">Admin</span>
+    </div>
+
+    <div class="page">
+
+      <!-- 1. Verdict -->
+      <section>
+        <div class="card verdict" id="verdict"></div>
+      </section>
+
+      <!-- 2. Today's chain -->
+      <section>
+        <div class="sec-h"><h2>Today's chain</h2><span id="chain-date">Thu 1 Oct · started 06:00 UTC</span></div>
+        <div class="card">
+          <div class="lanes" id="lanes">
+            <div class="lh">Start</div>
+            <div class="lh">Warehouse<small>bgg-data-warehouse</small></div>
+            <div class="lh">Models<small>bgg-predictive-models</small></div>
+            <div class="lh">Viewer<small>bgg-viewer</small></div>
+          </div>
+          <div class="offchain" id="offchain"><span>Off-chain (cron)</span></div>
+        </div>
+      </section>
+
+      <!-- 3. History -->
+      <section>
+        <div class="sec-h"><h2>Last 14 days</h2><span>one cell per stage per day · newest on the right</span></div>
+        <div class="card hist">
+          <div class="legend">
+            <span class="st ok"><i>✓</i>Succeeded</span>
+            <span class="st warn"><i>!</i>Green but no hand-off</span>
+            <span class="st fail"><i>✕</i>Failed</span>
+            <span class="st skip"><i></i>Never started</span>
+          </div>
+          <div style="padding:.4rem .5rem .75rem"><table id="hist"></table></div>
+        </div>
+      </section>
+
+      <!-- 4. Data freshness & coverage -->
+      <section>
+        <div class="sec-h"><h2>Data freshness &amp; coverage</h2><span>coverage = games in the table ÷ games it should cover</span></div>
+        <div class="card scroll">
+          <table class="tbl" id="data">
+            <thead><tr><th>Table</th><th>Status</th><th>Last updated</th><th class="num">Games</th><th>Coverage</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 5. Models + services -->
+      <section class="two">
+        <div>
+          <div class="sec-h"><h2>Deployed models</h2><span>from <span class="k">monitoring.deployed_models</span></span></div>
+          <div class="card scroll">
+            <table class="tbl" id="models">
+              <thead><tr><th>Model</th><th>Version</th><th class="num">Games</th><th>Last scored</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="sec-h"><h2>Services</h2><span>live <span class="k">/health</span> checks</span></div>
+          <div class="card scroll">
+            <table class="tbl" id="services">
+              <thead><tr><th>Service</th><th>Status</th><th class="num">Latency</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:var(--space-xl)">
+    <h4>Where each section's data comes from</h4>
+    <ul>
+      <li><b>Verdict and today's chain:</b> GitHub Actions run history across the three repos, grouped into one chain per day. Comes from a new <span class="k">/monitoring/pipeline</span> endpoint on the warehouse API, so the viewer never holds a GitHub token.</li>
+      <li><b>The amber "green but no hand-off" state:</b> a run that succeeded but whose next stage never started within its expected window. This is the signal neither GitHub nor the heartbeat raises today.</li>
+      <li><b>Data freshness and coverage:</b> a new Dataform view, <span class="k">monitoring.pipeline_status</span>, with one row per table: max timestamp, distinct games, and a count of the universe that table <i>should</i> cover. The viewer artifacts row comes from the artifact pointer's <span class="k">builtAt</span>, which the viewer already reads.</li>
+      <li><b>Models:</b> the existing <span class="k">monitoring.deployed_models</span> view, unchanged.</li>
+      <li><b>Services:</b> the API calls each Cloud Run service's <span class="k">/health</span>. This is the least valuable section and the first to cut.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h4>Open questions for the spec</h4>
+    <ul>
+      <li><b>What does each table <i>should</i> cover?</b> For example, do predictions cover every active game or only unrated and upcoming ones? This sets the coverage denominator, and a wrong denominator gives a permanently amber bar.</li>
+      <li><b>Fix vs. observe:</b> should the spec also close the gaps it detects (make Dataform fail on a non-SUCCEEDED run, chain collection scoring off <span class="k">embeddings_complete</span>), or only make them visible?</li>
+      <li><b>Push vs. pull:</b> is the page enough, or should a red verdict also notify you (heartbeat-style failing workflow, email)?</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const G = { ok: '✓', warn: '!', fail: '✕', skip: '' };
+const WORD = { ok: 'Succeeded', warn: 'Green, no hand-off', fail: 'Failed', skip: 'Not reached' };
+const st = (s, w) => `<span class="st ${s}"><i>${G[s]}</i>${w ?? WORD[s]}</span>`;
+
+// lane: 0 warehouse, 1 models, 2 viewer. evt = dispatch it sends on success.
+const CHAIN = [
+  { name: 'Fetch Thing IDs', lane: 0 },
+  { name: 'Fetch New Games', lane: 0 },
+  { name: 'Refresh Old Games', lane: 0 },
+  { name: 'Dataform · pass 1', lane: 0, evt: 'dataform_complete' },
+  { name: 'Text Embeddings', lane: 1, evt: 'text_embeddings_complete' },
+  { name: 'Dataform · pass 2', lane: 0, evt: 'dataform_text_embeddings_ready' },
+  { name: 'Score Complexity', lane: 1, evt: 'complexity_complete' },
+  { name: 'Dataform · pass 3', lane: 0, evt: 'dataform_complexity_ready' },
+  { name: 'Score Games', lane: 1 },
+  { name: 'Game Embeddings + Coords', lane: 1, evt: 'embeddings_complete' },
+  { name: 'Dataform · pass 4', lane: 0, evt: 'catalog_refresh' },
+  { name: 'Viewer Artifacts', lane: 2 },
+];
+const LANE = ['warehouse', 'models', 'viewer'];
+
+const S = {
+  healthy: {
+    verdict: { s: 'ok', color: 'var(--status-ok)', title: 'Chain completed',
+      body: 'All 12 stages finished. The viewer\'s catalog was rebuilt from today\'s predictions.',
+      meta: ['Finished', '08:46 UTC', '2h 46m end-to-end'] },
+    runs: [
+      ['06:00', '4m', 'ok', '1,204 IDs probed · 37 new'], ['06:05', '6m', 'ok', '37 games fetched'],
+      ['06:11', '41m', 'ok', '8,950 refreshed'], ['06:53', '7m', 'ok'], ['07:01', '5m', 'ok', '412 games'],
+      ['07:07', '6m', 'ok'], ['07:14', '3m', 'ok', '412 games'], ['07:18', '6m', 'ok'],
+      ['07:25', '38m', 'ok', '9,287 simulated'], ['08:04', '28m', 'ok', '9,287 games'], ['08:33', '7m', 'ok'],
+      ['08:41', '5m', 'ok', 'catalog · thumbs · coords'],
+    ],
+    off: [
+      ['Collection Scoring', '08:00', 'warn', 'Ran 46 min before today\'s predictions landed: scored against yesterday\'s.'],
+      ['Collection Reports', '09:00', 'ok', '6 users'],
+      ['Scrape Heartbeat', '12:00', 'ok', 'Last Fetch New Games 6h ago'],
+    ],
+    histToday: 'ok',
+    dataAge: 0,
+  },
+  stalled: {
+    verdict: { s: 'warn', color: 'var(--status-warn)', title: 'Stalled after Dataform pass 3',
+      body: 'Dataform pass 3 ended green, but its invocation was still RUNNING when polling gave up, so it never sent dataform_complexity_ready. Scoring, game embeddings and the viewer rebuild never started. Nothing in GitHub is red.',
+      meta: ['Stuck for', '4h 52m', 'since 07:24 UTC'] },
+    runs: [
+      ['06:00', '4m', 'ok', '1,204 IDs probed · 37 new'], ['06:05', '6m', 'ok', '37 games fetched'],
+      ['06:11', '41m', 'ok', '8,950 refreshed'], ['06:53', '7m', 'ok'], ['07:01', '5m', 'ok', '412 games'],
+      ['07:07', '6m', 'ok'], ['07:14', '3m', 'ok', '412 games'],
+      ['07:18', '6m', 'warn', null, 'Invocation still RUNNING after 60 polls; the dispatch step was skipped.'],
+      [null, null, 'skip'], [null, null, 'skip'], [null, null, 'skip'], [null, null, 'skip'],
+    ],
+    off: [
+      ['Collection Scoring', '08:00', 'warn', 'Scored against yesterday\'s predictions: today\'s never landed.'],
+      ['Collection Reports', '09:00', 'ok', '6 users'],
+      ['Scrape Heartbeat', '12:00', 'ok', 'Passed: it only watches Fetch New Games.'],
+    ],
+    histToday: 'stall',
+    dataAge: 1,
+  },
+};
+
+function renderVerdict(v) {
+  const el = document.getElementById('verdict');
+  el.style.setProperty('--vc', v.color);
+  el.innerHTML = `<div class="big" aria-hidden="true">${G[v.s]}</div>
+    <div><h3>${v.title}</h3><p>${v.body}</p></div>
+    <div class="meta">${v.meta[0]}<b class="tnum">${v.meta[1]}</b>${v.meta[2]}</div>`;
+}
+
+function renderLanes(sc) {
+  const el = document.getElementById('lanes');
+  el.querySelectorAll('.t,.cell').forEach(n => n.remove());
+  CHAIN.forEach((c, i) => {
+    const [t, dur, s, detail, why] = sc.runs[i];
+    const prevStalled = s === 'warn' && c.evt;
+    const evt = c.evt ? `<div class="evt ${prevStalled ? 'dead' : s === 'skip' ? 'dead' : ''}">→ ${c.evt}${prevStalled ? ' (not sent)' : ''}</div>` : '';
+    el.insertAdjacentHTML('beforeend', `<div class="t tnum">${t ?? '—'}</div>`);
+    for (let l = 0; l < 3; l++) {
+      if (l !== c.lane) { el.insertAdjacentHTML('beforeend', '<div class="cell"></div>'); continue; }
+      el.insertAdjacentHTML('beforeend', `<div class="cell"><div class="step ${s}">
+        <div class="n"><span>${c.name}</span>${s !== 'skip' ? '<a href="#" title="Open run in GitHub">run ↗</a>' : ''}</div>
+        <div class="d"><span class="repo-tag">${LANE[l]} ·</span>${st(s)}${dur ? `<span class="tnum">${dur}</span>` : ''}${detail ? `<span>${detail}</span>` : ''}</div>
+        ${why ? `<div class="why">${why}</div>` : ''}${evt}</div></div>`);
+    }
+  });
+  const off = document.getElementById('offchain');
+  off.querySelectorAll('.step').forEach(n => n.remove());
+  sc.off.forEach(([name, t, s, detail]) => off.insertAdjacentHTML('beforeend',
+    `<div class="step ${s}"><div class="n"><span>${name}</span><span class="tnum" style="font-weight:400;font-size:.75rem;color:var(--muted-foreground)">${t}</span></div>
+     <div class="d">${st(s, s === 'warn' ? 'Ran out of order' : undefined)}</div><div class="why">${detail}</div></div>`));
+}
+
+function renderHist(sc) {
+  const days = [...Array(14)].map((_, i) => { const d = new Date(Date.UTC(2026, 8, 18 + i)); return d.getUTCDate(); });
+  // Past days: mostly green, with the realistic failures — one BGG outage, one earlier stall at pass 2.
+  const past = (row, day) => {
+    if (day === 3 && row === 1) return 'fail';
+    if (day === 3 && (row === 0)) return 'ok';
+    if (day === 3 && row >= 3 && row <= 11) return 'ok'; // refresh ran anyway, chain continued
+    if (day === 8 && row === 5) return 'warn';
+    if (day === 8 && row > 5) return 'skip';
+    return 'ok';
+  };
+  const today = (row) => sc.histToday === 'ok' ? 'ok' : row < 7 ? 'ok' : row === 7 ? 'warn' : 'skip';
+  let h = '<thead><tr><th></th>' + days.map((d, i) => `<th class="tnum">${i === 13 ? 'today' : d}</th>`).join('') + '</tr></thead><tbody>';
+  CHAIN.forEach((c, r) => {
+    h += `<tr><th>${c.name}</th>` + days.map((_, d) => {
+      const s = d === 13 ? today(r) : past(r, d);
+      return `<td class="${s}" title="${c.name} · ${WORD[s]}">${G[s]}</td>`;
+    }).join('') + '</tr>';
+  });
+  document.getElementById('hist').innerHTML = h + '</tbody>';
+}
+
+function renderData(sc) {
+  const a = sc.dataAge; // 0 = everything from today; 1 = downstream of pass 3 is a day old
+  const rows = [
+    ['Warehouse'],
+    ['raw.thing_ids', 'ok', '06:04', '1 Oct', 172_418, null],
+    ['raw.fetched_responses', 'ok', '06:52', '1 Oct', 171_903, [171_903, 172_418]],
+    ['analytics.games_features', 'ok', '06:59', '1 Oct', 158_240, null],
+    ['Predictions', 'universe: active games eligible for scoring'],
+    ['predictions.bgg_description_embeddings', 'ok', '07:12', '1 Oct', 158_240, [158_240, 158_240]],
+    ['predictions.bgg_complexity_predictions', 'ok', '07:23', '1 Oct', 158_240, [158_240, 158_240]],
+    ['predictions.bgg_predictions', a ? 'warn' : 'ok', '08:39', a ? '30 Sep' : '1 Oct', a ? 38_904 : 39_316, [a ? 38_904 : 39_316, 39_316]],
+    ['predictions.bgg_game_embeddings', a ? 'warn' : 'ok', '08:39', a ? '30 Sep' : '1 Oct', a ? 157_828 : 158_240, [a ? 157_828 : 158_240, 158_240]],
+    ['predictions.bgg_game_coordinates', a ? 'warn' : 'ok', '08:39', a ? '30 Sep' : '1 Oct', a ? 157_828 : 158_240, [a ? 157_828 : 158_240, 158_240]],
+    ['predictions.user_collection_predictions', 'ok', '08:06', '1 Oct', 6 * 158_240, null, '6 users'],
+    ['Viewer'],
+    ['catalog artifact (GCS)', a ? 'warn' : 'ok', '08:46', a ? '30 Sep' : '1 Oct', a ? 38_904 : 39_316, null, a ? 'built from yesterday\'s predictions' : 'hash 3f9c…e1'],
+  ];
+  document.querySelector('#data tbody').innerHTML = rows.map(r => {
+    if (r.length <= 2) return `<tr class="group"><td colspan="5">${r[0]}${r[1] ? ` <span style="text-transform:none;letter-spacing:0;font-weight:400">· ${r[1]}</span>` : ''}</td></tr>`;
+    const [t, s, time, day, n, cov, sub] = r;
+    const pct = cov ? cov[0] / cov[1] : null;
+    const covCell = pct == null ? '<span class="sub">—</span>'
+      : `<div class="cov ${pct < 0.999 ? 'low' : ''}"><div class="bar"><b style="width:${(pct * 100).toFixed(1)}%"></b></div><span class="tnum">${(pct * 100).toFixed(1)}%</span></div>`;
+    return `<tr><td class="mono">${t}${sub ? `<div class="sub" style="font-family:inherit">${sub}</div>` : ''}</td>
+      <td>${st(s, s === 'warn' ? 'A day old' : 'Fresh')}</td>
+      <td class="tnum">${day} · ${time}</td><td class="num">${n.toLocaleString()}</td><td>${covCell}</td></tr>`;
+  }).join('');
+}
+
+function renderModels(sc) {
+  const old = sc.dataAge ? '30 Sep 08:39' : 'today 08:39';
+  const models = [
+    ['hurdle', 'hurdle-lr', 'v14'], ['complexity', 'complexity-catboost', 'v9'], ['rating', 'rating-catboost', 'v11'],
+    ['users_rated', 'users-lgbm', 'v8'], ['geek_rating', 'geek-ard', 'v6'],
+    ['game_embedding', 'svd-64', 'v5'], ['text_embedding', 'pmi-sif-100', 'v3'],
+  ];
+  document.querySelector('#models tbody').innerHTML = models.map(([type, name, v], i) =>
+    `<tr><td>${type}<div class="sub mono">${name}</div></td><td class="mono">${v}</td>
+     <td class="num">${(i < 5 ? 39_316 : 158_240).toLocaleString()}</td><td class="tnum">${i <= 5 ? old : 'today 07:12'}</td></tr>`).join('');
+}
+
+function renderStatic() {
+  const svcs = [
+    ['warehouse-api', 'ok', '84 ms'], ['bgg-model-scoring', 'ok', '1.2 s'], ['bgg-text-embeddings-service', 'ok', '310 ms'],
+    ['bgg-embeddings-service', 'ok', '2.9 s'], ['bgg-collection-scoring', 'ok', '240 ms'],
+  ];
+  document.querySelector('#services tbody').innerHTML = svcs.map(([n, s, l]) =>
+    `<tr><td class="mono">${n}</td><td>${st(s, 'Up')}</td><td class="num">${l}</td></tr>`).join('');
+}
+
+function render(key) {
+  const sc = S[key];
+  renderVerdict(sc.verdict); renderLanes(sc); renderHist(sc); renderData(sc); renderModels(sc);
+  document.querySelectorAll('.scenario button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === key)));
+}
+document.querySelectorAll('.scenario button').forEach(b => b.addEventListener('click', () => render(b.dataset.s)));
+renderStatic();
+render('stalled');
+</script>
+</body>
+</html>
