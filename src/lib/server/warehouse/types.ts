@@ -128,7 +128,47 @@ export interface PipelineStatus {
 	generated_at: string;
 	verdict: PipelineVerdict;
 	today: { day: string; stages: PipelineStage[]; off_chain: PipelineStage[] };
-	history: { day: string; stages: Record<string, StageStatusName> }[];
+	history: { day: string; stages: Record<string, HistoryCell | StageStatusName> }[];
 	tables: PipelineTableRow[];
 	models: DeployedModelRow[];
+}
+
+/** One history cell: its status and the run it came from. Old APIs sent the status alone. */
+export interface HistoryCell {
+	status: StageStatusName;
+	url: string | null;
+}
+
+export type LineageKind = 'table' | 'incremental' | 'view' | 'source' | 'operation' | 'assertion';
+
+export interface LineageNode {
+	id: string;
+	project: string;
+	dataset: string;
+	name: string;
+	kind: LineageKind;
+	rows: number | null;
+	bytes: number | null;
+	last_modified: string | null;
+	type: string | null;
+	error: string | null;
+}
+
+export interface Lineage {
+	generated_at: string;
+	compilation: { name: string; created: string | null; commit: string | null };
+	nodes: LineageNode[];
+	edges: [string, string][];
+}
+
+export interface SchemaField {
+	name: string;
+	type: string;
+	mode: string | null;
+	description: string | null;
+}
+
+export interface TableSchema {
+	id: string;
+	schema: SchemaField[];
 }
