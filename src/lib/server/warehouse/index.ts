@@ -25,5 +25,11 @@ export type {
 	PipelineVerdict,
 	PipelineTableRow,
 	DeployedModelRow,
-	PipelineStatus
+	PipelineStatus,
+	HistoryCell,
+	LineageKind,
+	LineageNode,
+	Lineage,
+	SchemaField,
+	TableSchema
 } from './types';
