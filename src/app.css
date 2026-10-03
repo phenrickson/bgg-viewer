@@ -161,6 +161,13 @@
   /* Semantic status tokens — pair with a label/icon, never color alone */
   --color-positive: oklch(0.62 0.14 150);
   --color-negative: oklch(0.60 0.17 25);
+  /*
+   * Pipeline monitor status. Deliberately NOT green/red: blue = succeeded, amber = needs
+   * a look, violet = failed. Always paired with a glyph and a word (StatusBadge.svelte).
+   */
+  --status-ok: oklch(0.62 0.14 250);
+  --status-warn: oklch(0.72 0.14 75);
+  --status-fail: oklch(0.55 0.16 300);
 
   /*
    * The community's player-count verdict: best > recommended > not. An ORDERED judgment, so it
@@ -196,6 +203,9 @@
 }
 
 .dark {
+  --status-ok: oklch(0.70 0.13 250);
+  --status-warn: oklch(0.78 0.13 75);
+  --status-fail: oklch(0.68 0.15 300);
   --background: oklch(0.19 0.02 260);
   /* Dark mode keeps its own endpoints: against a 0.19 page the pale end at 0.38 already
      clears context (ΔE 0.074) and borrowing light mode's 0.78 would collapse the ramp

@@ -8,7 +8,13 @@
  * Both collaborators — the `fetch` implementation and the ID-token source — are
  * injected, so the client is unit-testable with zero network / GCP access.
  */
-import { GameNotFoundError, WarehouseError, type GameDocument, type NewGameRow } from './types';
+import {
+	GameNotFoundError,
+	WarehouseError,
+	type GameDocument,
+	type NewGameRow,
+	type PipelineStatus
+} from './types';
 
 export interface WarehouseClientDeps {
 	/** Base URL of the warehouse Cloud Run service, e.g. https://warehouse-api-xxx.run.app */
@@ -22,6 +28,7 @@ export interface WarehouseClientDeps {
 export interface WarehouseClient {
 	getGame(gameId: number): Promise<GameDocument>;
 	getNewGames(days: 7 | 30 | 365): Promise<NewGameRow[]>;
+	getPipelineStatus(days?: number): Promise<PipelineStatus>;
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -51,6 +58,23 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 				throw new WarehouseError(res.status, `warehouse GET /new-games failed (${res.status})`);
 			}
 			return (await res.json()) as NewGameRow[];
+		},
+
+		async getPipelineStatus(days = 14): Promise<PipelineStatus> {
+			const res = await authedGet(`/monitoring/pipeline?days=${days}`);
+			if (!res.ok) {
+				// The API explains a 502/503 in `detail` (missing token, GitHub/BigQuery down);
+				// the admin page shows it, so carry it through rather than just the status.
+				const detail = await res
+					.json()
+					.then((b: { detail?: string }) => b.detail ?? '')
+					.catch(() => '');
+				throw new WarehouseError(
+					res.status,
+					`warehouse GET /monitoring/pipeline failed (${res.status})${detail ? `: ${detail}` : ''}`
+				);
+			}
+			return (await res.json()) as PipelineStatus;
 		}
 	};
 }

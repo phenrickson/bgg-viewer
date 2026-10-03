@@ -145,3 +145,55 @@ describe('createWarehouseClient.getNewGames', () => {
 		await expect(client.getNewGames(7)).rejects.toBeInstanceOf(WarehouseError);
 	});
 });
+
+describe('createWarehouseClient.getPipelineStatus', () => {
+	const status = {
+		generated_at: '2026-10-02T12:00:00Z',
+		verdict: { status: 'ok', stage: null, headline: 'Chain completed', since: '2026-10-02T07:31:00Z', duration_minutes: 65 },
+		today: { day: '2026-10-02', stages: [], off_chain: [] },
+		history: [],
+		tables: [],
+		models: []
+	};
+
+	it('GETs /monitoring/pipeline with the day count', async () => {
+		const { fetchImpl, calls } = stubFetch(status);
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		const result = await client.getPipelineStatus(7);
+
+		expect(calls[0].url).toBe('https://warehouse.example/monitoring/pipeline?days=7');
+		expect(result).toEqual(status);
+	});
+
+	it('defaults to 14 days', async () => {
+		const { fetchImpl, calls } = stubFetch(status);
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		await client.getPipelineStatus();
+
+		expect(calls[0].url).toBe('https://warehouse.example/monitoring/pipeline?days=14');
+	});
+
+	it('throws WarehouseError carrying the API detail on failure', async () => {
+		const { fetchImpl } = stubFetch({ detail: 'GH_TOKEN is not set on the warehouse API' }, { status: 503 });
+		const client = createWarehouseClient({
+			baseUrl: 'https://warehouse.example',
+			getIdToken: async () => 'tok',
+			fetch: fetchImpl
+		});
+
+		const err = await client.getPipelineStatus().catch((e) => e);
+		expect(err).toBeInstanceOf(WarehouseError);
+		expect(err.status).toBe(503);
+		expect(err.message).toContain('GH_TOKEN is not set');
+	});
+});

@@ -62,6 +62,7 @@
   const onExplore = $derived(path.startsWith('/games'));
   const onDiscover = $derived(path.startsWith('/discover'));
   const onWhatsNew = $derived(path.startsWith('/whats-new'));
+  const onAdmin = $derived(path.startsWith('/admin'));
   const onAbout = $derived(path.startsWith('/about'));
   /**
    * Upcoming is `/games` with the universe dial set, so it lights the same Games trigger —
@@ -214,6 +215,7 @@
       <nav class="actions">
         {#if data.user}
           <span class="who">{data.user.display_name || data.user.email}</span>
+          {#if data.isAdmin}<a class="link muted" href="/admin" class:on={onAdmin}>Admin</a>{/if}
           <a class="link muted" href="/settings">Settings</a>
           <form method="POST" action="/logout">
             <button class="link muted" type="submit">Log out</button>
@@ -251,6 +253,7 @@
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}
                 <hr />
+                {#if data.isAdmin}<a href="/admin" role="menuitem" class:on={onAdmin}><b>Admin</b></a>{/if}
                 <a href="/settings" role="menuitem"><b>Settings</b><span>{data.user.display_name || data.user.email}</span></a>
                 <form method="POST" action="/logout"><button type="submit"><b>Log out</b></button></form>
               {:else}

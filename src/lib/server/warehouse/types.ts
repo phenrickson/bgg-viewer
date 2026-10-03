@@ -76,3 +76,59 @@ export interface NewGameRow {
 	first_seen: string;
 	predicted_hurdle_prob: number | null;
 }
+
+/** Stage statuses from GET /monitoring/pipeline — the warehouse's src/monitoring/chain.py. */
+export type StageStatusName = 'ok' | 'warn' | 'fail' | 'running' | 'pending' | 'not_reached';
+export type Lane = 'warehouse' | 'models' | 'viewer';
+
+export interface PipelineStage {
+	key: string;
+	label: string;
+	lane: Lane;
+	status: StageStatusName;
+	started: string | null;
+	finished: string | null;
+	url: string | null;
+	event: string | null;
+	title: string | null;
+	note: string | null;
+}
+
+export interface PipelineVerdict {
+	status: 'ok' | 'running' | 'warn' | 'fail';
+	stage: string | null;
+	headline: string;
+	since: string | null;
+	duration_minutes: number | null;
+}
+
+export interface PipelineTableRow {
+	table: string;
+	last_updated: string | null;
+	games: number;
+	covered: number | null;
+	universe: number | null;
+	users: number | null;
+}
+
+/** One model version still serving games. Several rows for a type = an older version lingers. */
+export interface DeployedModelRow {
+	model_category: 'prediction' | 'embedding';
+	model_type: string;
+	model_name: string | null;
+	/** A string so both `3` and year-style versions like `2027.0.1` fit. */
+	model_version: string | null;
+	experiment: string | null;
+	algorithm: string | null;
+	games_count: number;
+	last_updated: string | null;
+}
+
+export interface PipelineStatus {
+	generated_at: string;
+	verdict: PipelineVerdict;
+	today: { day: string; stages: PipelineStage[]; off_chain: PipelineStage[] };
+	history: { day: string; stages: Record<string, StageStatusName> }[];
+	tables: PipelineTableRow[];
+	models: DeployedModelRow[];
+}
