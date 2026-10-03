@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PipelineStage, PipelineStatus } from '$lib/server/warehouse';
   import StatusBadge from './StatusBadge.svelte';
-  import { STATUS_GLYPH, STATUS_WORD } from './display';
+  import { historyCell, STATUS_GLYPH, STATUS_WORD } from './display';
 
   let { history, stages }: { history: PipelineStatus['history']; stages: PipelineStage[] } = $props();
   const dayLabel = (d: string, i: number) => (i === history.length - 1 ? 'today' : String(Number(d.slice(8, 10))));
@@ -19,8 +19,12 @@
           <tr>
             <th scope="row">{s.label}</th>
             {#each history as h (h.day)}
-              {@const st = h.stages[s.key] ?? 'not_reached'}
-              <td class={st} title="{s.label} · {h.day} · {STATUS_WORD[st]}">{STATUS_GLYPH[st]}</td>
+              {@const cell = historyCell(h.stages[s.key])}
+              <td class={cell.status} title="{s.label} · {h.day} · {STATUS_WORD[cell.status]}">
+                {#if cell.url}
+                  <a href={cell.url} target="_blank" rel="noreferrer" aria-label="{s.label} on {h.day}: {STATUS_WORD[cell.status]}, open run">{STATUS_GLYPH[cell.status]}</a>
+                {:else}{STATUS_GLYPH[cell.status]}{/if}
+              </td>
             {/each}
           </tr>
         {/each}
@@ -43,4 +47,6 @@
   td.fail { background: var(--status-fail); }
   td.running, td.pending, td.not_reached { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border); }
   .tnum { font-variant-numeric: tabular-nums; }
+  td a { display: block; color: inherit; text-decoration: none; }
+  td a:hover { outline: 2px solid var(--foreground); outline-offset: -2px; border-radius: 3px; }
 </style>
