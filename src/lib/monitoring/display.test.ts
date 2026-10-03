@@ -72,7 +72,7 @@ describe('coverage', () => {
 
 describe('modelKey', () => {
 	it('tells apart rows that share type, name and version but not experiment or algorithm', () => {
-		const base = { model_type: 'hurdle', model_name: 'h', model_version: 3, experiment: 'a', algorithm: null };
+		const base = { model_type: 'hurdle', model_name: 'h', model_version: '3', experiment: 'a', algorithm: null };
 		expect(modelKey(base)).not.toBe(modelKey({ ...base, experiment: 'b' }));
 		expect(modelKey({ ...base, algorithm: 'pca' })).not.toBe(modelKey({ ...base, algorithm: 'svd' }));
 	});

@@ -104,7 +104,7 @@ export function coverage(covered: number | null, universe: number | null): Cover
 export function modelKey(m: {
 	model_type: string;
 	model_name: string | null;
-	model_version: number | null;
+	model_version: string | null;
 	experiment: string | null;
 	algorithm: string | null;
 }): string {

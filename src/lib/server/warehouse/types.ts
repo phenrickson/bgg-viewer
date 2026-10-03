@@ -116,7 +116,8 @@ export interface DeployedModelRow {
 	model_category: 'prediction' | 'embedding';
 	model_type: string;
 	model_name: string | null;
-	model_version: number | null;
+	/** A string so both `3` and year-style versions like `2027.0.1` fit. */
+	model_version: string | null;
 	experiment: string | null;
 	algorithm: string | null;
 	games_count: number;
