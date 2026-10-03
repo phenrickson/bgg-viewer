@@ -20,7 +20,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 				(e: unknown) => ({ lineage: null, error: message(e) })
 			),
 		Promise.resolve()
-			.then(() => warehouseClient().getPipelineStatus(1))
+			// 14 days, like the Pipeline page: the API caches per day count, so this reuses
+			// that report instead of starting its own GitHub fan-out and freshness query.
+			.then(() => warehouseClient().getPipelineStatus(14))
 			.then(
 				(p: PipelineStatus) => p,
 				() => null

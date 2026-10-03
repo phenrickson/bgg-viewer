@@ -27,6 +27,8 @@ describe('/admin/lineage load', () => {
 		expect(data.lineage).toEqual({ nodes: [], edges: [] });
 		expect(data.error).toBeNull();
 		expect(data.pipeline.today.day).toBe('2026-10-03');
+		// Same day count as the Pipeline page, so the API's cached report is reused.
+		expect(getPipelineStatus).toHaveBeenCalledWith(14);
 	});
 
 	it('shows a lineage failure as a message', async () => {
