@@ -45,7 +45,7 @@
       {#if data.lineage}
         <span>
           Dataform compilation {data.lineage.compilation.commit ?? ''} · {clock(data.lineage.compilation.created)} UTC ·
-          {data.lineage.nodes.length} tables · may be up to 5 min old
+          {data.lineage.nodes.length} tables
         </span>
       {/if}
     </header>
