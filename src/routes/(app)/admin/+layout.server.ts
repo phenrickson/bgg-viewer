@@ -9,7 +9,10 @@ import type { LayoutServerLoad } from './$types';
  *
  * `sections` drives the panel's sub-nav; add a tool here when it gets a route.
  */
-const SECTIONS = [{ href: '/admin/pipeline', label: 'Pipeline' }];
+const SECTIONS = [
+	{ href: '/admin/pipeline', label: 'Pipeline' },
+	{ href: '/admin/lineage', label: 'Lineage' }
+];
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	if (!isAdmin(locals.user)) error(404, 'Not found');
