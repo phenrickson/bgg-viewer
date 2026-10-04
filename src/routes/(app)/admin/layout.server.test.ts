@@ -13,6 +13,9 @@ describe('/admin layout load', () => {
 
 	it('lists the admin sections for the sub-nav', async () => {
 		const data = await run({ email: 'phil.henrickson@gmail.com' });
-		expect(data.sections).toEqual([{ href: '/admin/pipeline', label: 'Pipeline' }]);
+		expect(data.sections).toEqual([
+			{ href: '/admin/pipeline', label: 'Pipeline' },
+			{ href: '/admin/lineage', label: 'Lineage' }
+		]);
 	});
 });

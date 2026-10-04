@@ -6,7 +6,7 @@
  * Colour: no green/red. `ok` is blue, `warn` amber, `fail` violet (see --status-* in
  * app.css), and every status also carries a glyph and a word.
  */
-import type { StageStatusName } from '$lib/server/warehouse';
+import type { HistoryCell, LineageNode, StageStatusName } from '$lib/server/warehouse';
 
 export type Tone = 'ok' | 'warn' | 'fail' | 'idle';
 
@@ -109,4 +109,19 @@ export function modelKey(m: {
 	algorithm: string | null;
 }): string {
 	return [m.model_type, m.model_name, m.model_version, m.experiment, m.algorithm].join('|');
+}
+
+/** A history cell from either API shape: `{status, url}` now, a bare status before. */
+export function historyCell(cell: HistoryCell | StageStatusName | undefined): HistoryCell {
+	if (cell == null) return { status: 'not_reached', url: null };
+	return typeof cell === 'string' ? { status: cell, url: null } : cell;
+}
+
+/**
+ * A lineage node's status: the same freshness rule as Pipeline's tables. None for
+ * views (their last-modified is when the definition changed) or unreadable tables.
+ */
+export function nodeStatus(node: LineageNode, reference: string): Freshness | null {
+	if (node.kind === 'view' || node.error || !node.last_modified) return null;
+	return freshness(node.last_modified, reference);
 }

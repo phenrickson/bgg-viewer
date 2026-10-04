@@ -6,6 +6,8 @@ import {
 	elapsed,
 	freshness,
 	freshnessReference,
+	historyCell,
+	nodeStatus,
 	modelKey,
 	STATUS_GLYPH,
 	STATUS_TONE,
@@ -75,5 +77,33 @@ describe('modelKey', () => {
 		const base = { model_type: 'hurdle', model_name: 'h', model_version: '3', experiment: 'a', algorithm: null };
 		expect(modelKey(base)).not.toBe(modelKey({ ...base, experiment: 'b' }));
 		expect(modelKey({ ...base, algorithm: 'pca' })).not.toBe(modelKey({ ...base, algorithm: 'svd' }));
+	});
+});
+
+describe('historyCell', () => {
+	it('accepts the old string shape, the new object shape, and a missing cell', () => {
+		expect(historyCell('ok')).toEqual({ status: 'ok', url: null });
+		expect(historyCell({ status: 'fail', url: 'https://github.com/x' })).toEqual({
+			status: 'fail',
+			url: 'https://github.com/x'
+		});
+		expect(historyCell(undefined)).toEqual({ status: 'not_reached', url: null });
+	});
+});
+
+describe('nodeStatus', () => {
+	const ref = '2026-10-03T06:26:05Z';
+	const node = {
+		id: 'p.d.t', project: 'p', dataset: 'd', name: 't', kind: 'table' as const,
+		rows: 1, bytes: 1, last_modified: '2026-10-03T07:19:00Z', type: 'TABLE', error: null
+	};
+	it('is the freshness of a table', () => {
+		expect(nodeStatus(node, ref)).toEqual({ tone: 'ok', label: 'Fresh' });
+		expect(nodeStatus({ ...node, last_modified: '2026-10-01T07:00:00Z' }, ref)?.tone).toBe('warn');
+	});
+	it('is null for views, unreadable tables and tables without a timestamp', () => {
+		expect(nodeStatus({ ...node, kind: 'view' }, ref)).toBeNull();
+		expect(nodeStatus({ ...node, error: 'no access' }, ref)).toBeNull();
+		expect(nodeStatus({ ...node, last_modified: null }, ref)).toBeNull();
 	});
 });

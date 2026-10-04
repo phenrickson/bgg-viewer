@@ -18,7 +18,7 @@
   <Stack>
     <header class="head">
       <h1>Pipeline</h1>
-      {#if data.status}<span>as of {clock(data.status.generated_at)} UTC · may be up to 5 min old</span>{/if}
+      {#if data.status}<span>as of {clock(data.status.generated_at)} UTC</span>{/if}
     </header>
 
     {#if data.error || !data.status}

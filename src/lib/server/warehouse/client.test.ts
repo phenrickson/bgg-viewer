@@ -197,3 +197,36 @@ describe('createWarehouseClient.getPipelineStatus', () => {
 		expect(err.message).toContain('GH_TOKEN is not set');
 	});
 });
+
+describe('createWarehouseClient lineage', () => {
+	const lineage = {
+		generated_at: '2026-10-03T18:00:00Z',
+		compilation: { name: 'c1', created: '2026-10-03T17:46:47Z', commit: '4b04de4' },
+		nodes: [],
+		edges: []
+	};
+	const make = (fetchImpl: typeof fetch) =>
+		createWarehouseClient({ baseUrl: 'https://warehouse.example', getIdToken: async () => 'tok', fetch: fetchImpl });
+
+	it('GETs /monitoring/lineage', async () => {
+		const { fetchImpl, calls } = stubFetch(lineage);
+		expect(await make(fetchImpl).getLineage()).toEqual(lineage);
+		expect(calls[0].url).toBe('https://warehouse.example/monitoring/lineage');
+	});
+
+	it('GETs one table schema with the id encoded', async () => {
+		const { fetchImpl, calls } = stubFetch({ id: 'p.d.t', schema: [] });
+		await make(fetchImpl).getTableSchema('bgg-data-warehouse.analytics.games features');
+		expect(calls[0].url).toBe(
+			'https://warehouse.example/monitoring/tables/bgg-data-warehouse.analytics.games%20features'
+		);
+	});
+
+	it('carries the API detail and status on failure', async () => {
+		const { fetchImpl } = stubFetch({ detail: 'the warehouse API cannot read p.d.t' }, { status: 403 });
+		const err = await make(fetchImpl).getTableSchema('p.d.t').catch((e) => e);
+		expect(err).toBeInstanceOf(WarehouseError);
+		expect(err.status).toBe(403);
+		expect(err.message).toContain('cannot read p.d.t');
+	});
+});

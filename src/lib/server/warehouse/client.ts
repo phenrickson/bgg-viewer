@@ -12,8 +12,10 @@ import {
 	GameNotFoundError,
 	WarehouseError,
 	type GameDocument,
+	type Lineage,
 	type NewGameRow,
-	type PipelineStatus
+	type PipelineStatus,
+	type TableSchema
 } from './types';
 
 export interface WarehouseClientDeps {
@@ -29,6 +31,8 @@ export interface WarehouseClient {
 	getGame(gameId: number): Promise<GameDocument>;
 	getNewGames(days: 7 | 30 | 365): Promise<NewGameRow[]>;
 	getPipelineStatus(days?: number): Promise<PipelineStatus>;
+	getLineage(): Promise<Lineage>;
+	getTableSchema(id: string): Promise<TableSchema>;
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -40,6 +44,18 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 		return doFetch(`${base}${path}`, {
 			headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
 		});
+	}
+
+	/** A WarehouseError carrying the API's `detail` (missing token, no access, …), shown on admin pages. */
+	async function failure(res: Response, path: string): Promise<WarehouseError> {
+		const detail = await res
+			.json()
+			.then((b: { detail?: string }) => b.detail ?? '')
+			.catch(() => '');
+		return new WarehouseError(
+			res.status,
+			`warehouse GET ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`
+		);
 	}
 
 	return {
@@ -62,19 +78,21 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 
 		async getPipelineStatus(days = 14): Promise<PipelineStatus> {
 			const res = await authedGet(`/monitoring/pipeline?days=${days}`);
-			if (!res.ok) {
-				// The API explains a 502/503 in `detail` (missing token, GitHub/BigQuery down);
-				// the admin page shows it, so carry it through rather than just the status.
-				const detail = await res
-					.json()
-					.then((b: { detail?: string }) => b.detail ?? '')
-					.catch(() => '');
-				throw new WarehouseError(
-					res.status,
-					`warehouse GET /monitoring/pipeline failed (${res.status})${detail ? `: ${detail}` : ''}`
-				);
-			}
+			if (!res.ok) throw await failure(res, '/monitoring/pipeline');
 			return (await res.json()) as PipelineStatus;
+		},
+
+		async getLineage(): Promise<Lineage> {
+			const res = await authedGet('/monitoring/lineage');
+			if (!res.ok) throw await failure(res, '/monitoring/lineage');
+			return (await res.json()) as Lineage;
+		},
+
+		async getTableSchema(id: string): Promise<TableSchema> {
+			const path = `/monitoring/tables/${encodeURIComponent(id)}`;
+			const res = await authedGet(path);
+			if (!res.ok) throw await failure(res, path);
+			return (await res.json()) as TableSchema;
 		}
 	};
 }
