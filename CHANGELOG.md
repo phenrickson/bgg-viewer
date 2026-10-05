@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.26](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.25...bgg-viewer-v0.0.26) (2026-10-04)
+
+
+### Features
+
+* **admin:** admin panel with pipeline monitor ([#81](https://github.com/phenrickson/bgg-viewer/issues/81)) ([23fed61](https://github.com/phenrickson/bgg-viewer/commit/23fed619d2403958a3ead79d73373e657d7c20d9))
+* **admin:** Lineage view; history cells link to runs ([#84](https://github.com/phenrickson/bgg-viewer/issues/84)) ([8fe037b](https://github.com/phenrickson/bgg-viewer/commit/8fe037bc95291f98aa3fd9fad1bf81244322c96d))
+
 ## [0.0.25](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.24...bgg-viewer-v0.0.25) (2026-09-25)
 
 
