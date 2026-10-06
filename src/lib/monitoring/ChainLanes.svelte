@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Lane, PipelineStage } from '$lib/server/warehouse';
+  import type { Lane, PipelineStage, PipelineStep } from '$lib/server/warehouse';
   import StatusBadge from './StatusBadge.svelte';
   import { clock, duration } from './display';
 
@@ -11,6 +11,16 @@
     { key: 'viewer', label: 'Viewer', repo: 'bgg-viewer' }
   ];
 </script>
+
+{#snippet step(x: PipelineStep)}
+  <li>
+    <span class="sl">{x.label}</span>
+    <StatusBadge status={x.status} />
+    {#if x.finished}<span class="tnum">{duration(x.started, x.finished)}</span>{/if}
+    {#if x.note}<span class="sn">{x.note}</span>{/if}
+    {#if x.url}<a href={x.url} target="_blank" rel="noreferrer" aria-label="{x.label} job">↗</a>{/if}
+  </li>
+{/snippet}
 
 {#snippet card(s: PipelineStage)}
   <div class="step {s.status}">
@@ -24,6 +34,15 @@
       {#if s.finished}<span class="tnum">{duration(s.started, s.finished)}</span>{/if}
     </div>
     {#if s.note}<div class="note">{s.note}</div>{/if}
+    {#if s.steps?.length}
+      <ol class="steps">
+        {#each s.steps.filter((x) => x.branch === 'main') as x (x.key)}{@render step(x)}{/each}
+      </ol>
+      <div class="side-h">Doesn't block publish</div>
+      <ol class="steps side">
+        {#each s.steps.filter((x) => x.branch === 'side') as x (x.key)}{@render step(x)}{/each}
+      </ol>
+    {/if}
   </div>
 {/snippet}
 
@@ -69,6 +88,13 @@
   .offchain .step { flex: 1 1 14rem; }
   .oh { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-foreground); font-weight: 600; align-self: center; }
   .tnum { font-variant-numeric: tabular-nums; }
+  .steps { list-style: none; margin: 0.4rem 0 0; padding: 0.35rem 0 0; border-top: 1px dashed var(--border); display: grid; gap: 0.2rem; }
+  .steps li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.75rem; flex-wrap: wrap; }
+  .steps .sl { min-width: 8.5rem; }
+  .steps .sn { color: var(--muted-foreground); }
+  .steps a { color: var(--muted-foreground); text-decoration: none; margin-left: auto; }
+  .side-h { margin-top: 0.4rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-foreground); }
+  .steps.side { border-top: none; padding-top: 0.15rem; }
   @media (max-width: 760px) {
     .lanes { grid-template-columns: 3.6rem minmax(0, 1fr); }
     .lane-h { display: none; }

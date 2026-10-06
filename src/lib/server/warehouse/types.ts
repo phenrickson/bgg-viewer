@@ -81,6 +81,19 @@ export interface NewGameRow {
 export type StageStatusName = 'ok' | 'warn' | 'fail' | 'running' | 'pending' | 'not_reached';
 export type Lane = 'warehouse' | 'models' | 'viewer';
 
+
+export interface PipelineStep {
+	key: string;
+	label: string;
+	/** `main` gates publish; `side` (collections) is shown but never blocks it. */
+	branch: 'main' | 'side';
+	status: StageStatusName;
+	started: string | null;
+	finished: string | null;
+	url: string | null;
+	note: string | null;
+}
+
 export interface PipelineStage {
 	key: string;
 	label: string;
@@ -92,6 +105,49 @@ export interface PipelineStage {
 	event: string | null;
 	title: string | null;
 	note: string | null;
+	/** ML Pipeline only: its jobs grouped into steps. */
+	steps?: PipelineStep[] | null;
+}
+
+/** The model a scoring step used in its latest run, and how many games it now serves. Collections: one per user and outcome. */
+export interface DeployedModelRow {
+	model_category: 'game' | 'collection';
+	model_type: string;
+	username: string | null;
+	model_name: string | null;
+	model_version: string | null;
+	last_scored: string | null;
+	/** Games in the serving table whose current row came from this model and version. */
+	games_served: number;
+	/** Every game in that serving table (per user and outcome for collections). */
+	games_total: number;
+	job_id: string | null;
+}
+
+/** A history day: one "old chain" cell before the cutover, per-stage cells after. */
+export interface HistoryDay {
+	day: string;
+	era?: 'old' | 'new';
+	status?: StageStatusName;
+	url?: string | null;
+	stages?: Record<string, HistoryCell | StageStatusName>;
+}
+
+export interface PipelineStatus {
+	generated_at: string;
+	verdict: PipelineVerdict;
+	today: { day: string; stages: PipelineStage[]; off_chain: PipelineStage[] };
+	history: HistoryDay[];
+	tables: PipelineTableRow[];
+	models: DeployedModelRow[];
+}
+
+/** One history cell: its status and the run it came from. Old APIs sent the status alone. */
+export interface HistoryCell {
+	status: StageStatusName;
+	url: string | null;
+	/** ML Pipeline: whether a side step (collections) failed that day; null if not fetched. */
+	side?: 'ok' | 'fail' | null;
 }
 
 export interface PipelineVerdict {
@@ -111,33 +167,8 @@ export interface PipelineTableRow {
 	users: number | null;
 }
 
-/** One model version still serving games. Several rows for a type = an older version lingers. */
-export interface DeployedModelRow {
-	model_category: 'prediction' | 'embedding';
-	model_type: string;
-	model_name: string | null;
-	/** A string so both `3` and year-style versions like `2027.0.1` fit. */
-	model_version: string | null;
-	experiment: string | null;
-	algorithm: string | null;
-	games_count: number;
-	last_updated: string | null;
-}
 
-export interface PipelineStatus {
-	generated_at: string;
-	verdict: PipelineVerdict;
-	today: { day: string; stages: PipelineStage[]; off_chain: PipelineStage[] };
-	history: { day: string; stages: Record<string, HistoryCell | StageStatusName> }[];
-	tables: PipelineTableRow[];
-	models: DeployedModelRow[];
-}
 
-/** One history cell: its status and the run it came from. Old APIs sent the status alone. */
-export interface HistoryCell {
-	status: StageStatusName;
-	url: string | null;
-}
 
 export type LineageKind = 'table' | 'incremental' | 'view' | 'source' | 'operation' | 'assertion';
 

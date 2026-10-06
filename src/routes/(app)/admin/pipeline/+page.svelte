@@ -46,8 +46,8 @@
       </section>
 
       <section>
-        <h2>Deployed models <span>every version behind a current prediction · older versions flagged</span></h2>
-        <DeployedModels models={s.models} />
+        <h2>Models in use <span>each step's current model · serving = games whose prediction came from it · stale = no run in 48h</span></h2>
+        <DeployedModels models={s.models} generatedAt={s.generated_at} />
       </section>
     {/if}
   </Stack>
