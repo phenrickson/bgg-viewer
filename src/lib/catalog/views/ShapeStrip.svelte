@@ -537,7 +537,11 @@
     margin-bottom: 0.15rem;
     min-width: 0;
   }
+  /* nowrap + flex: none: "45 min" is the one headline with a space; in a narrow cell it broke
+     onto two lines. The value stays whole and the label ellipsizes instead. */
   .chead b {
+    flex: none;
+    white-space: nowrap;
     font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: -0.02em;
