@@ -191,14 +191,14 @@
         <p class="try">Start simple</p>
         <div class="chips">
           {#each simple as c (c.label)}
-            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+            <a class="chip" href={href(c.room, c.scope)}>{c.label}<span class="arw">→</span></a>
           {/each}
         </div>
 
         <p class="try">Go deeper</p>
         <div class="chips">
           {#each deeper as c (c.label)}
-            <a class="chip" href={href(c.room, c.scope)}>{c.label} <span class="arw">→</span></a>
+            <a class="chip" href={href(c.room, c.scope)}>{c.label}<span class="arw">→</span></a>
           {/each}
         </div>
       </section>
@@ -249,7 +249,7 @@
   .try { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); font-weight: 600; margin: 1.6rem 0 .55rem; }
   .block > .try:first-child { margin-top: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
-  .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
+  .chip { font-size: 0.85rem; padding: .4rem .75rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: color-mix(in oklch, var(--primary) 8%, var(--card)); text-decoration: none; display: inline-flex; align-items: center; gap: .3em; }
   .chip:hover { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
   .chip .arw { opacity: .6; }
 
