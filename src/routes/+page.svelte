@@ -228,7 +228,8 @@
 </Container>
 
 <style>
-  .land { padding: clamp(1rem, 3vw, 2.5rem) 0; }
+  /* Top kept small: the layout already pads below the nav, and the two stacked read as a gap. */
+  .land { padding: clamp(.25rem, 1vw, .75rem) 0 clamp(1rem, 3vw, 2.5rem); }
 
   .warming { display: inline-flex; align-items: center; gap: .5rem; font-size: 0.76rem; color: var(--muted-foreground); border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: .28rem .7rem; }
   .warming.ready { color: var(--foreground); }
@@ -255,6 +256,8 @@
 
   /* Each block is a destination you scroll to; the last one leaves air at the end. */
   .block { margin-top: clamp(2.5rem, 5vw, 4.5rem); }
+  /* The first block follows the lede, so it continues the hero rather than starting a new section. */
+  .lede + .block { margin-top: clamp(1.5rem, 3vw, 2.25rem); }
   .rotation { padding-bottom: clamp(3rem, 6vw, 6rem); }
 
 </style>
