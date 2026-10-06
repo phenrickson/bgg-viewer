@@ -183,7 +183,7 @@
   });
 </script>
 
-<svelte:head><title>Discover · bgg-viewer</title></svelte:head>
+<svelte:head><title>Discover · Boardgame-Viz</title></svelte:head>
 
 <!-- ONE measure, so everything shares a left edge.
      An earlier pass put the hero in `prose` and the list in a wider container, meaning to

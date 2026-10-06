@@ -145,7 +145,7 @@
   const rangeTo = $derived(Math.min(filtered.length, (page + 1) * PAGE_SIZE));
 </script>
 
-<svelte:head><title>What's New · bgg-viewer</title></svelte:head>
+<svelte:head><title>What's New · Boardgame-Viz</title></svelte:head>
 
 <div class="page">
   <Container size="list">

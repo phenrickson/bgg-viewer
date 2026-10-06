@@ -36,7 +36,7 @@
   }
 </script>
 
-<svelte:head><title>Lineage · bgg-viewer</title></svelte:head>
+<svelte:head><title>Lineage · Boardgame-Viz</title></svelte:head>
 
 <Container>
   <Stack>

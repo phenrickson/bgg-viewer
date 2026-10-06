@@ -12,7 +12,7 @@
   const now = new Date();
 </script>
 
-<svelte:head><title>Pipeline · bgg-viewer</title></svelte:head>
+<svelte:head><title>Pipeline · Boardgame-Viz</title></svelte:head>
 
 <Container>
   <Stack>

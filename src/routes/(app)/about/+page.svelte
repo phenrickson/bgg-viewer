@@ -50,7 +50,7 @@
   });
 </script>
 
-<svelte:head><title>About the data · bgg-viewer</title></svelte:head>
+<svelte:head><title>About the data · Boardgame-Viz</title></svelte:head>
 
 <div class="page">
   <Container size="list">
