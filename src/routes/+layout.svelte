@@ -136,7 +136,7 @@
        the brand lines up with the page beneath it instead of drifting into the gutter. -->
   <header class="appbar">
     <Container size="wide" class="appbar-inner">
-      <a class="brand" href="/">bgg-viewer</a>
+      <a class="brand" href="/">Boardgame-Viz</a>
       <nav class="mainnav">
         <a href="/" class:active={onHome}>Home</a>
 

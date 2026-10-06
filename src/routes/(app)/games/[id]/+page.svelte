@@ -368,7 +368,7 @@
   const upcoming = $derived(g?.year != null && g.year >= new Date().getFullYear());
 </script>
 
-<svelte:head><title>{g ? `${g.name} · ` : ''}bgg-viewer</title></svelte:head>
+<svelte:head><title>{g ? `${g.name} · ` : ''}Boardgame-Viz</title></svelte:head>
 
 {#if !g}
   <!-- Offline, waiting on the catalog to warm (or the game isn't in the working set). The

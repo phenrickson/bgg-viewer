@@ -215,7 +215,7 @@
   });
 </script>
 
-<svelte:head><title>Explore · bgg-viewer</title></svelte:head>
+<svelte:head><title>Explore · Boardgame-Viz</title></svelte:head>
 
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>

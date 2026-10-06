@@ -131,7 +131,7 @@
   ];
 </script>
 
-<svelte:head><title>bgg-viewer</title></svelte:head>
+<svelte:head><title>Boardgame-Viz</title></svelte:head>
 
 <Container size="prose">
     <div class="land">

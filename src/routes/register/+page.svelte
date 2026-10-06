@@ -11,7 +11,7 @@
   const { form, errors, enhance, submitting, message } = sf;
 </script>
 
-<svelte:head><title>Register · bgg-viewer</title></svelte:head>
+<svelte:head><title>Register · Boardgame-Viz</title></svelte:head>
 
 <div class="auth">
   <form method="POST" use:enhance>

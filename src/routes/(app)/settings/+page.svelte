@@ -67,7 +67,7 @@
   }
 </script>
 
-<svelte:head><title>Settings · bgg-viewer</title></svelte:head>
+<svelte:head><title>Settings · Boardgame-Viz</title></svelte:head>
 
 <div class="settings">
   <h1>Settings</h1>
