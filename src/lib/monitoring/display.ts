@@ -6,7 +6,13 @@
  * Colour: no green/red. `ok` is blue, `warn` amber, `fail` violet (see --status-* in
  * app.css), and every status also carries a glyph and a word.
  */
-import type { HistoryCell, LineageNode, StageStatusName } from '$lib/server/warehouse';
+import type {
+	DeployedModelRow,
+	HistoryCell,
+	HistoryDay,
+	LineageNode,
+	StageStatusName
+} from '$lib/server/warehouse';
 
 export type Tone = 'ok' | 'warn' | 'fail' | 'idle';
 
@@ -96,20 +102,6 @@ export function coverage(covered: number | null, universe: number | null): Cover
 	return { pct, low: pct < COVERAGE_FLOOR };
 }
 
-/**
- * Stable #each key for a deployed-model row. deployed_models groups by experiment
- * (predictions) or algorithm (embeddings) as well as name and version, so those are
- * part of the identity; a key without them can repeat and crash the list.
- */
-export function modelKey(m: {
-	model_type: string;
-	model_name: string | null;
-	model_version: string | null;
-	experiment: string | null;
-	algorithm: string | null;
-}): string {
-	return [m.model_type, m.model_name, m.model_version, m.experiment, m.algorithm].join('|');
-}
 
 /** A history cell from either API shape: `{status, url}` now, a bare status before. */
 export function historyCell(cell: HistoryCell | StageStatusName | undefined): HistoryCell {
@@ -124,4 +116,53 @@ export function historyCell(cell: HistoryCell | StageStatusName | undefined): Hi
 export function nodeStatus(node: LineageNode, reference: string): Freshness | null {
 	if (node.kind === 'view' || node.error || !node.last_modified) return null;
 	return freshness(node.last_modified, reference);
+}
+
+/** Stable #each key for a deployed-model row: one per step, per user and outcome. */
+export function modelKey(m: {
+	model_category: string;
+	model_type: string;
+	username: string | null;
+	model_name: string | null;
+	model_version: string | null;
+}): string {
+	return [m.model_category, m.model_type, m.username, m.model_name, m.model_version].join('|');
+}
+
+/** A history day as one old-chain cell (before the cutover) or per-stage cells. */
+export function historyDay(
+	h: HistoryDay
+): { era: 'old'; cell: HistoryCell } | { era: 'new'; stages: Record<string, HistoryCell | StageStatusName> } {
+	if (h.era === 'old') return { era: 'old', cell: { status: h.status ?? 'not_reached', url: h.url ?? null } };
+	return { era: 'new', stages: h.stages ?? {} };
+}
+
+/** A model whose latest run is more than `hours` before the report is not actively scoring. */
+export function isStale(lastScored: string | null, generatedAt: string, hours = 48): boolean {
+	if (!lastScored) return true;
+	return Date.parse(generatedAt) - Date.parse(lastScored) > hours * 60 * MINUTE;
+}
+
+/** Every game scoring step, in page order. A missing one has had no run in 30 days. */
+export const GAME_MODEL_TYPES = [
+	'hurdle', 'rating', 'users_rated', 'geek_rating', 'complexity', 'text_embedding', 'game_embedding'
+] as const;
+
+export interface MissingModel {
+	model_type: string;
+	missing: true;
+}
+
+export function splitModels(models: DeployedModelRow[]): {
+	game: (DeployedModelRow | MissingModel)[];
+	collections: DeployedModelRow[];
+} {
+	const game = models.filter((m) => m.model_category === 'game');
+	return {
+		game: GAME_MODEL_TYPES.flatMap((t): (DeployedModelRow | MissingModel)[] => {
+			const rows = game.filter((m) => m.model_type === t);
+			return rows.length ? rows : [{ model_type: t, missing: true as const }];
+		}),
+		collections: models.filter((m) => m.model_category === 'collection')
+	};
 }

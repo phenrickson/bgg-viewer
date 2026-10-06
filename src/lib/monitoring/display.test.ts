@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clock,
+	GAME_MODEL_TYPES,
+	historyDay,
+	isStale,
+	splitModels,
 	coverage,
 	duration,
 	elapsed,
@@ -72,13 +76,6 @@ describe('coverage', () => {
 	});
 });
 
-describe('modelKey', () => {
-	it('tells apart rows that share type, name and version but not experiment or algorithm', () => {
-		const base = { model_type: 'hurdle', model_name: 'h', model_version: '3', experiment: 'a', algorithm: null };
-		expect(modelKey(base)).not.toBe(modelKey({ ...base, experiment: 'b' }));
-		expect(modelKey({ ...base, algorithm: 'pca' })).not.toBe(modelKey({ ...base, algorithm: 'svd' }));
-	});
-});
 
 describe('historyCell', () => {
 	it('accepts the old string shape, the new object shape, and a missing cell', () => {
@@ -105,5 +102,57 @@ describe('nodeStatus', () => {
 		expect(nodeStatus({ ...node, kind: 'view' }, ref)).toBeNull();
 		expect(nodeStatus({ ...node, error: 'no access' }, ref)).toBeNull();
 		expect(nodeStatus({ ...node, last_modified: null }, ref)).toBeNull();
+	});
+});
+
+const row = (o: Partial<import('$lib/server/warehouse').DeployedModelRow>) => ({
+	model_category: 'game' as const, model_type: 'hurdle', username: null, model_name: 'hurdle-v2026',
+	model_version: '3', last_scored: '2026-10-06T16:14:00Z', games_scored: 512, job_id: 'j', ...o
+});
+
+describe('historyDay', () => {
+	it('reads an old-era day as one cell', () => {
+		expect(historyDay({ day: '2026-10-05', era: 'old', status: 'ok', url: 'u' })).toEqual({
+			era: 'old', cell: { status: 'ok', url: 'u' }
+		});
+	});
+	it('reads a new-era day, and a day from an API without era, as stages', () => {
+		const stages = { ml_pipeline: { status: 'ok' as const, url: null, side: 'fail' as const } };
+		expect(historyDay({ day: '2026-10-07', era: 'new', stages })).toEqual({ era: 'new', stages });
+		expect(historyDay({ day: '2026-10-02', stages })).toEqual({ era: 'new', stages });
+	});
+});
+
+describe('isStale', () => {
+	it('is stale past 48 hours before generated_at, or with no run', () => {
+		expect(isStale('2026-10-06T16:00:00Z', '2026-10-08T15:59:00Z')).toBe(false);
+		expect(isStale('2026-10-06T16:00:00Z', '2026-10-08T16:01:00Z')).toBe(true);
+		expect(isStale(null, '2026-10-08T00:00:00Z')).toBe(true);
+	});
+});
+
+describe('splitModels', () => {
+	it('splits game and collection rows', () => {
+		const c = row({ model_category: 'collection', model_type: 'own', username: 'phenrickson' });
+		const { game, collections } = splitModels([row({}), c]);
+		expect(collections).toEqual([c]);
+		expect(game[0]).toEqual(row({}));
+	});
+	it('lists missing game model types', () => {
+		const { game } = splitModels([row({})]);
+		expect(game.map((g) => g.model_type)).toEqual([...GAME_MODEL_TYPES]);
+		expect(game.find((g) => g.model_type === 'complexity')).toEqual({ model_type: 'complexity', missing: true });
+	});
+	it('keeps two rows when one run used two versions', () => {
+		const { game } = splitModels([row({}), row({ model_version: '4' })]);
+		expect(game.filter((g) => g.model_type === 'hurdle')).toHaveLength(2);
+	});
+});
+
+describe('modelKey', () => {
+	it('separates collection users and outcomes', () => {
+		const a = row({ model_category: 'collection', model_type: 'own', username: 'a' });
+		const b = row({ model_category: 'collection', model_type: 'own', username: 'b' });
+		expect(modelKey(a)).not.toBe(modelKey(b));
 	});
 });
