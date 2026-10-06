@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.27](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.26...bgg-viewer-v0.0.27) (2026-10-06)
+
+
+### Features
+
+* **admin:** pipeline monitor v2 — ML steps, old-chain history, models in use ([#85](https://github.com/phenrickson/bgg-viewer/issues/85)) ([fbf7923](https://github.com/phenrickson/bgg-viewer/commit/fbf7923029558655cdc3200e18f1041c56ec99f8))
+* **brand:** name the site Boardgame-Viz, plus small UI fixes ([#87](https://github.com/phenrickson/bgg-viewer/issues/87)) ([12849a6](https://github.com/phenrickson/bgg-viewer/commit/12849a6a519ab11990e7f1a7c307e58909863730))
+
 ## [0.0.26](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.25...bgg-viewer-v0.0.26) (2026-10-04)
 
 
