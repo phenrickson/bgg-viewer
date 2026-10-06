@@ -50,9 +50,11 @@
   .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
   .legend { display: flex; gap: var(--space-lg); flex-wrap: wrap; padding: 0.6rem 0.75rem 0; }
   .scroll { overflow-x: auto; padding: 0.4rem 0.5rem 0.75rem; }
-  table { border-collapse: separate; border-spacing: 3px; font-size: 0.75rem; min-width: 34rem; width: 100%; }
+  /* Fixed layout: the stage-name column is set, every day column gets an equal share. */
+  table { border-collapse: separate; border-spacing: 3px; font-size: 0.75rem; min-width: 34rem; width: 100%; table-layout: fixed; }
   th { font-weight: 500; color: var(--muted-foreground); text-align: left; white-space: nowrap; padding-right: 0.6rem; }
   thead th { text-align: center; font-size: 0.68rem; padding: 0; }
+  thead th:first-child { width: 9.5rem; }
   td { height: 1.15rem; border-radius: 3px; text-align: center; font-size: 0.62rem; font-weight: 700; color: var(--card); }
   /* Healthy recedes; problems carry the ink. */
   td.ok { background: color-mix(in oklch, var(--status-ok) 28%, var(--card)); color: color-mix(in oklch, var(--status-ok) 70%, var(--card)); }
