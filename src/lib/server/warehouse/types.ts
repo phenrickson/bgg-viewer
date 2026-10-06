@@ -109,7 +109,7 @@ export interface PipelineStage {
 	steps?: PipelineStep[] | null;
 }
 
-/** The model a scoring step used in its latest run. Collections: one per user and outcome. */
+/** The model a scoring step used in its latest run, and how many games it now serves. Collections: one per user and outcome. */
 export interface DeployedModelRow {
 	model_category: 'game' | 'collection';
 	model_type: string;
@@ -117,7 +117,10 @@ export interface DeployedModelRow {
 	model_name: string | null;
 	model_version: string | null;
 	last_scored: string | null;
-	games_scored: number;
+	/** Games in the serving table whose current row came from this model and version. */
+	games_served: number;
+	/** Every game in that serving table (per user and outcome for collections). */
+	games_total: number;
 	job_id: string | null;
 }
 

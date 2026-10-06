@@ -1,10 +1,9 @@
 <script lang="ts">
   import type { DeployedModelRow } from '$lib/server/warehouse';
   import StatusBadge from './StatusBadge.svelte';
-  import { clock, isStale, modelKey, splitModels } from './display';
+  import { clock, isStale, modelKey, servedLabel, splitModels } from './display';
 
   let { models, generatedAt }: { models: DeployedModelRow[]; generatedAt: string } = $props();
-  const fmt = new Intl.NumberFormat('en-US');
   const day = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '—';
   const split = $derived(splitModels(models));
@@ -20,7 +19,7 @@
 <div class="card scroll">
   <table>
     <caption>Scoring models</caption>
-    <thead><tr><th>Step</th><th>Model</th><th>Version</th><th class="num">Games</th><th>Last scored (UTC)</th></tr></thead>
+    <thead><tr><th>Step</th><th>Model</th><th>Version</th><th class="num">Serving</th><th>Last scored (UTC)</th></tr></thead>
     <tbody>
       {#each split.game as m, i ('missing' in m ? `${m.model_type}|missing` : `${modelKey(m)}|${i}`)}
         <tr>
@@ -30,7 +29,7 @@
           {:else}
             <td class="mono">{m.model_name ?? '—'}</td>
             <td class="mono">{m.model_version != null ? `v${m.model_version}` : '—'}</td>
-            <td class="num">{fmt.format(m.games_scored)}</td>
+            <td class="num">{servedLabel(m.games_served, m.games_total)}</td>
             {@render when(m)}
           {/if}
         </tr>
@@ -42,7 +41,7 @@
 <div class="card scroll">
   <table>
     <caption>Collections</caption>
-    <thead><tr><th>User</th><th>Outcome</th><th>Model</th><th>Version</th><th>Last scored (UTC)</th></tr></thead>
+    <thead><tr><th>User</th><th>Outcome</th><th>Model</th><th>Version</th><th class="num">Serving</th><th>Last scored (UTC)</th></tr></thead>
     <tbody>
       {#each split.collections as m, i (`${modelKey(m)}|${i}`)}
         <tr>
@@ -50,10 +49,11 @@
           <td>{m.model_type}</td>
           <td class="mono">{m.model_name ?? '—'}</td>
           <td class="mono">{m.model_version != null ? `v${m.model_version}` : '—'}</td>
+          <td class="num">{servedLabel(m.games_served, m.games_total)}</td>
           {@render when(m)}
         </tr>
       {:else}
-        <tr><td colspan="5" class="sub">No collection scoring in 30 days.</td></tr>
+        <tr><td colspan="6" class="sub">No collection scoring in 30 days.</td></tr>
       {/each}
     </tbody>
   </table>

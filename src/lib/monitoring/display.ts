@@ -166,3 +166,15 @@ export function splitModels(models: DeployedModelRow[]): {
 		collections: models.filter((m) => m.model_category === 'collection')
 	};
 }
+
+const count = new Intl.NumberFormat('en-US');
+
+/**
+ * "43,623 of 47,942 (91.0%)": games whose current prediction came from the step's latest
+ * model, against every game in its serving table. Never rounds a partial rollout up to 100%.
+ */
+export function servedLabel(served: number, total: number): string {
+	if (!total) return '—';
+	const pct = served === total ? '100' : Math.min(99.9, Math.round((served / total) * 1000) / 10).toFixed(1);
+	return `${count.format(served)} of ${count.format(total)} (${pct}%)`;
+}

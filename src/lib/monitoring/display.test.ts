@@ -4,6 +4,7 @@ import {
 	GAME_MODEL_TYPES,
 	historyDay,
 	isStale,
+	servedLabel,
 	splitModels,
 	coverage,
 	duration,
@@ -107,7 +108,7 @@ describe('nodeStatus', () => {
 
 const row = (o: Partial<import('$lib/server/warehouse').DeployedModelRow>) => ({
 	model_category: 'game' as const, model_type: 'hurdle', username: null, model_name: 'hurdle-v2026',
-	model_version: '3', last_scored: '2026-10-06T16:14:00Z', games_scored: 512, job_id: 'j', ...o
+	model_version: '3', last_scored: '2026-10-06T16:14:00Z', games_served: 43623, games_total: 47942, job_id: 'j', ...o
 });
 
 describe('historyDay', () => {
@@ -154,5 +155,16 @@ describe('modelKey', () => {
 		const a = row({ model_category: 'collection', model_type: 'own', username: 'a' });
 		const b = row({ model_category: 'collection', model_type: 'own', username: 'b' });
 		expect(modelKey(a)).not.toBe(modelKey(b));
+	});
+});
+
+describe('servedLabel', () => {
+	it('reads games served by the current model against the serving table', () => {
+		expect(servedLabel(43623, 47942)).toBe('43,623 of 47,942 (91.0%)');
+		expect(servedLabel(129480, 129480)).toBe('129,480 of 129,480 (100%)');
+		expect(servedLabel(0, 0)).toBe('—');
+	});
+	it('flags a partial rollout', () => {
+		expect(servedLabel(230, 43564)).toBe('230 of 43,564 (0.5%)');
 	});
 });
