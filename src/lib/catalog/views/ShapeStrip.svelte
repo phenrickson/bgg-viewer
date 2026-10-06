@@ -369,7 +369,7 @@
          Discover's dial filter on, so a brush here and those controls move together. -->
     <div class="cell">
       <div class="chead">
-        <b class="tnum">{summary?.median_playtime ? formatMinutes(Math.round(summary.median_playtime)) : '—'}</b>
+        <b class="tnum">{summary?.median_playtime ? formatMinutes(Math.round(summary.median_playtime)).replace(" min", "") : '—'}</b>
         <span class="lab">median play time <span class="dim">log scale</span></span>
       </div>
       {#if !collapsed}
@@ -537,11 +537,7 @@
     margin-bottom: 0.15rem;
     min-width: 0;
   }
-  /* nowrap + flex: none: "45 min" is the one headline with a space; in a narrow cell it broke
-     onto two lines. The value stays whole and the label ellipsizes instead. */
   .chead b {
-    flex: none;
-    white-space: nowrap;
     font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: -0.02em;
