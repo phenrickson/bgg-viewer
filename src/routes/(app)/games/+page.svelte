@@ -597,5 +597,7 @@
      nesting one scroll container inside another was exactly the "which way does a swipe go"
      bug from the first version. Same fix, new host: the sheet's own scroll region wins. */
   .sheet-scroll { display: flex; flex-direction: column; gap: var(--space-md); }
-  .sheet-scroll :global(.rail) { overflow-y: visible; }
+  /* flex: none — the rail's `min-height: 0` let it shrink to the sheet's height, and with
+     overflow visible its facets spilled over the admin picker below it. */
+  .sheet-scroll :global(.rail) { overflow-y: visible; flex: none; }
 </style>
