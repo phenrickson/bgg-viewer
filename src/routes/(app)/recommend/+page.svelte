@@ -472,7 +472,7 @@
   });
 </script>
 
-<svelte:head><title>Recommend · bgg-viewer</title></svelte:head>
+<svelte:head><title>Recommend · Boardgame-Viz</title></svelte:head>
 
 <div class="page">
   <Container size="list">
