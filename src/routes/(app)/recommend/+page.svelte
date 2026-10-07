@@ -470,6 +470,64 @@
     [findWhere, seedId, tab];
     findPick = null;
   });
+
+  // --- More like this, keeping the answers ---------------------------------------------------
+  /**
+   * "More like this" on Help me find a game: the seed's neighbours among exactly the games that
+   * match the answers. The browser works out the matches with the same filter that draws the
+   * list and posts their ids; the warehouse ranks them with the usual profiles (~3 s). Results
+   * walk on from here with the same pool, and changing an answer closes it.
+   */
+  type MoreLike = {
+    seed: Game;
+    pool: number;
+    status: 'loading' | 'ready' | 'error';
+    sections: ReturnType<typeof sectionsFor>;
+    rows: Map<number, Game>;
+    failure: string;
+  };
+  let more = $state<MoreLike | null>(null);
+  let moreEl = $state<HTMLElement | null>(null);
+  let moreToken = 0;
+  async function moreLikeThis(id: number) {
+    const mine = ++moreToken;
+    try {
+      const [seedRow, poolRows] = await Promise.all([
+        games([id]),
+        query<{ id: number }>(`SELECT game_id AS id FROM catalog WHERE ${findWhere}`)
+      ]);
+      const seedGame = seedRow.get(id);
+      if (!seedGame || mine !== moreToken) return;
+      const ids = poolRows.map((r) => Number(r.id));
+      more = { seed: seedGame, pool: ids.length, status: 'loading', sections: [], rows: new Map(), failure: '' };
+      queueMicrotask(() => moreEl?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      const res = await fetch('/api/similar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, ids })
+      });
+      if (!res.ok) throw new Error(`couldn’t load matches (${res.status})`);
+      const lists = withoutIds(toStyles((await res.json()).profiles), new Set([id]));
+      const sections = sectionsFor(lists);
+      const rows = await games([...new Set(sections.flatMap((x) => x.hits.map((h) => h.id)))]);
+      if (mine !== moreToken) return;
+      more = { ...more, status: 'ready', sections, rows };
+    } catch (e) {
+      if (mine !== moreToken || !more) return;
+      more = { ...more, status: 'error', failure: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  const moreItems = (m: MoreLike, hits: Hit[]): Item[] =>
+    hits.flatMap((h) => {
+      const g = m.rows.get(h.id);
+      return g ? [{ ...g, similarity: h.similarity }] : [];
+    });
+  $effect(() => {
+    // A new question, or leaving Start, closes it.
+    [findWhere, seedId, tab];
+    moreToken++;
+    more = null;
+  });
 </script>
 
 <svelte:head><title>Recommend · Boardgame-Viz</title></svelte:head>
@@ -587,11 +645,46 @@
               <div class="feature">
                 <GameResult game={g} href="/games/{g.game_id}" layout="feature" eyebrow="Picked for you" onclose={() => (findPick = null)}>
                   {#snippet actions()}
-                    <Button variant="link" href="{RECOMMEND_PATH}?id={g.game_id}">More like this →</Button>
+                    <Button variant="link" onclick={() => moreLikeThis(g.game_id)}>More like this →</Button>
                     <Button variant="ghost" onclick={pickForMe}>Another one</Button>
                   {/snippet}
                 </GameResult>
               </div>
+            {/if}
+            {#if more}
+              {@const m = more}
+              <!-- PLACEHOLDER copy (Phil): the heading, the count line and the messages. -->
+              <section class="more" bind:this={moreEl} aria-busy={m.status === 'loading'}>
+                <header class="more-head">
+                  <div>
+                    <h2>More like {m.seed.name}</h2>
+                    <p class="msg">Among the {m.pool.toLocaleString()} {m.pool === 1 ? 'game' : 'games'} that match your answers</p>
+                  </div>
+                  <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => (moreToken++, (more = null))}>×</Button>
+                </header>
+                {#if m.status === 'loading'}
+                  <p class="msg">Looking…</p>
+                {:else if m.status === 'error'}
+                  <p class="msg">{m.failure}</p>
+                {:else if !m.sections.length}
+                  <p class="msg">Nothing among these is close enough to {m.seed.name}. Try loosening an answer.</p>
+                {:else}
+                  {#each m.sections as sec (`${m.seed.game_id}-${sec.key}`)}
+                    <ResultSection
+                      title={SECTION_TEXT[sec.key].title}
+                      blurb={SECTION_TEXT[sec.key].blurb}
+                      items={moreItems(m, sec.hits)}
+                      seed={m.seed}
+                      {freq}
+                      {owned}
+                      {display}
+                      markOwned={findPool === 'all' && hasShelf}
+                      hrefFor={(id) => `/games/${id}`}
+                      onmore={moreLikeThis}
+                    />
+                  {/each}
+                {/if}
+              </section>
             {/if}
             <DiscoverResults
               scope={findScope}
@@ -607,7 +700,7 @@
                 </Button>
               {/snippet}
               {#snippet action(g)}
-                <Button variant="link" size="sm" class="more-like" href="{RECOMMEND_PATH}?id={g.game_id}">More like this →</Button>
+                <Button variant="link" size="sm" class="more-like" onclick={() => moreLikeThis(g.game_id)}>More like this →</Button>
               {/snippet}
             </DiscoverResults>
           {/if}
@@ -634,6 +727,15 @@
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .end { margin-left: auto; }
+  /* More like this: the answer to one game, set apart from the list it came from. */
+  .more {
+    display: flex; flex-direction: column; gap: var(--space-lg);
+    padding: var(--space-lg); border-radius: 16px; scroll-margin-top: var(--space-lg);
+    background: color-mix(in oklch, var(--foreground) 3%, var(--card));
+    border: 1px solid var(--border);
+  }
+  .more-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
+  .more-head h2 { margin: 0 0 0.2rem; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
   /* The feature card's layout answers to its own width. */
   .feature { container-type: inline-size; }
   /* "More like this" on every game: quiet until pointed at, so ten of them don't shout. */

@@ -34,7 +34,10 @@ export interface WarehouseClient {
 	getPipelineStatus(days?: number): Promise<PipelineStatus>;
 	getLineage(): Promise<Lineage>;
 	getTableSchema(id: string): Promise<TableSchema>;
-	/** Every profile's neighbours for one game within a pool, computed live (~3 s). */
+	/**
+	 * Every profile's neighbours for one game within a pool, computed live (~3 s). POSTed, so a
+	 * pool of ids can be as long as the catalog (Help me find a game sends every match).
+	 */
 	getSimilarPooled(gameId: number, pool: SimilarPool): Promise<Record<string, SimilarWireRow[]>>;
 }
 
@@ -57,15 +60,28 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 		});
 	}
 
+	async function authedPost(path: string, body: unknown): Promise<Response> {
+		const token = await deps.getIdToken();
+		return doFetch(`${base}${path}`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: 'application/json',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(body)
+		});
+	}
+
 	/** A WarehouseError carrying the API's `detail` (missing token, no access, …), shown on admin pages. */
-	async function failure(res: Response, path: string): Promise<WarehouseError> {
+	async function failure(res: Response, path: string, method = 'GET'): Promise<WarehouseError> {
 		const detail = await res
 			.json()
 			.then((b: { detail?: string }) => b.detail ?? '')
 			.catch(() => '');
 		return new WarehouseError(
 			res.status,
-			`warehouse GET ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`
+			`warehouse ${method} ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`
 		);
 	}
 
@@ -107,15 +123,14 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 		},
 
 		async getSimilarPooled(gameId: number, pool: SimilarPool) {
-			const q = new URLSearchParams();
-			if (pool.collection) q.set('collection', pool.collection);
-			if (pool.excludeCollection) q.set('exclude_collection', pool.excludeCollection);
-			if (pool.yearMin != null) q.set('year_min', String(pool.yearMin));
-			for (const id of pool.ids ?? []) q.append('ids', String(id));
-			const res = await authedGet(`/games/${gameId}/similar?${q}`);
-			if (!res.ok) {
-				throw new WarehouseError(res.status, `warehouse GET /games/${gameId}/similar failed (${res.status})`);
-			}
+			const path = `/games/${gameId}/similar`;
+			const res = await authedPost(path, {
+				...(pool.ids ? { ids: pool.ids } : {}),
+				...(pool.collection ? { collection: pool.collection } : {}),
+				...(pool.excludeCollection ? { exclude_collection: pool.excludeCollection } : {}),
+				...(pool.yearMin != null ? { year_min: pool.yearMin } : {})
+			});
+			if (!res.ok) throw await failure(res, path, 'POST');
 			return (await res.json()) as Record<string, SimilarWireRow[]>;
 		}
 	};

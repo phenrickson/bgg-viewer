@@ -41,7 +41,8 @@
     owned,
     markOwned = false,
     hrefFor,
-    display = 'cards'
+    display = 'cards',
+    onmore
   }: {
     title: string;
     blurb?: string;
@@ -52,6 +53,8 @@
     markOwned?: boolean;
     hrefFor: (id: number) => string;
     display?: Display;
+    /** "More like this" on each game, for walking without leaving the page (Help me find a game). */
+    onmore?: (id: number) => void;
   } = $props();
 
   let all = $state(false);
@@ -83,6 +86,10 @@
     <Button variant="link" size="xs" class="why-btn" aria-expanded={openWhy === g.game_id} onclick={() => toggleWhy(g.game_id)}>
       {openWhy === g.game_id ? 'Hide why' : 'Why?'}
     </Button>
+    {#if onmore}
+      <!-- PLACEHOLDER copy (Phil) -->
+      <Button variant="link" size="xs" class="why-btn" onclick={() => onmore(g.game_id)}>More like this</Button>
+    {/if}
   {/snippet}
 
   {#if display === 'list'}

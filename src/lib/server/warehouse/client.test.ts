@@ -230,3 +230,27 @@ describe('createWarehouseClient lineage', () => {
 		expect(err.message).toContain('cannot read p.d.t');
 	});
 });
+
+describe('createWarehouseClient.getSimilarPooled', () => {
+	const pooled = { similar: [{ game_id: 21, name: 'Carcassonne', year_published: 2000, distance: 0.1 }], recommender: [], sicko: [] };
+	const make = (fetchImpl: typeof fetch) =>
+		createWarehouseClient({ baseUrl: 'https://warehouse.example', getIdToken: async () => 'tok', fetch: fetchImpl });
+
+	it('POSTs the pool as a JSON body, so an id list of any length fits', async () => {
+		const { fetchImpl, calls } = stubFetch(pooled);
+		const ids = Array.from({ length: 7000 }, (_, i) => i + 1);
+
+		const result = await make(fetchImpl).getSimilarPooled(13, { ids, excludeCollection: 'phenrickson' });
+
+		expect(calls[0].url).toBe('https://warehouse.example/games/13/similar');
+		expect(calls[0].init?.method).toBe('POST');
+		expect(JSON.parse(String(calls[0].init?.body))).toEqual({ ids, exclude_collection: 'phenrickson' });
+		expect(new Headers(calls[0].init?.headers).get('authorization')).toBe('Bearer tok');
+		expect(result).toEqual(pooled);
+	});
+
+	it('throws a WarehouseError carrying the detail on a 400', async () => {
+		const { fetchImpl } = stubFetch({ detail: 'too many ids in pool' }, { status: 400 });
+		await expect(make(fetchImpl).getSimilarPooled(13, { ids: [1] })).rejects.toThrow(/too many ids/);
+	});
+});
