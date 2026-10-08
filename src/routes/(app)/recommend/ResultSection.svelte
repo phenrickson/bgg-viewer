@@ -38,6 +38,8 @@
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import InfoIcon from '@lucide/svelte/icons/info';
   import ScanSearchIcon from '@lucide/svelte/icons/scan-search';
+  import UsersIcon from '@lucide/svelte/icons/users';
+  import ClockIcon from '@lucide/svelte/icons/clock';
   import { similarityPct } from '$lib/game/similarity';
   import WhyMatch from './WhyMatch.svelte';
 
@@ -96,23 +98,24 @@
   </header>
 
   {#snippet factsOf(g: Item)}
+    {@const players = boxPlayersLabel(g.min_players, g.max_players, true)}
+    {@const time = boxPlaytimeLabel(g.min_playtime, g.max_playtime, true)}
     <ComplexityBadge weight={g.predicted_complexity} />
-    {#each [boxPlayersLabel(g.min_players, g.max_players), boxPlaytimeLabel(g.min_playtime, g.max_playtime)].filter(Boolean) as f (f)}
-      <span>{f}</span>
-    {/each}
+    {#if players}<span class="fact" title="Players"><UsersIcon aria-hidden="true" /><span class="sr-only">Players</span>{players}</span>{/if}
+    {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
   {/snippet}
   {#snippet gameActions(g: Item)}
     <!-- PLACEHOLDER copy (Phil): both labels (tooltip and screen reader). -->
     <Button
-      variant="ghost"
-      size="icon-xs"
+      variant="secondary"
+      size="icon-sm"
       class="act"
       title="Why this match"
       aria-label="Why this match"
       aria-expanded={whyId === g.game_id}
       onclick={() => onwhy(g.game_id)}><InfoIcon /></Button
     >
-    <Button variant="ghost" size="icon-xs" class="act" title="Games like this" aria-label="Games like this" onclick={() => onwalk(g.game_id)}
+    <Button variant="secondary" size="icon-sm" class="act" title="Games like this" aria-label="Games like this" onclick={() => onwalk(g.game_id)}
       ><ScanSearchIcon /></Button
     >
   {/snippet}
@@ -173,9 +176,12 @@
   h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
   header p { font-size: 0.85rem; color: var(--muted-foreground); margin: 0.15rem 0 0; }
   .own { color: var(--primary); font-weight: 600; }
-  /* A game's two icon actions: quiet until pointed at (or open), so a page of them doesn't shout. */
-  .sec :global(.act) { color: var(--muted-foreground); }
+  /* A game's two icon actions, on the art's corner: solid enough to read over any cover. */
+  .sec :global(.act) { color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / 0.35); }
   .sec :global(.act:hover), .sec :global(.act[aria-expanded='true']) { color: var(--primary); }
+  /* An icon and its number, kept together. */
+  .sec :global(.fact) { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+  .sec :global(.fact svg) { width: 0.85rem; height: 0.85rem; flex: none; }
   /* The list's facts: whole facts wrap, never mid-fact. */
   .row-facts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; }
   .row-facts > :global(*) { white-space: nowrap; }

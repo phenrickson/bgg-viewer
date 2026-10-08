@@ -428,7 +428,7 @@
         <!-- ── The chosen game ─────────────────────────────────────────────────── -->
         {#if seed}
           {@const sd = seed}
-          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail}>
+          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
             {#snippet meta()}
               {#if sd.year_published}<span>{sd.year_published}</span>{/if}
               <SimBadges rating={sd.average_rating} />

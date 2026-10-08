@@ -8,7 +8,8 @@
    * `children` (a "why", a description) is the caller's.
    *
    * `onclose` adds a × in the corner, for a hero that sits over other content and can be
-   * dismissed.
+   * dismissed. `compact` is the small size: ~96px art and a heading-size name (Recommend's
+   * chosen game).
    *
    * The art is usually BGG's thumbnail (~200px on its long side), so it sits on the left at
    * its own size and the space goes to the text beside it. Stacks only when the hero itself
@@ -23,7 +24,8 @@
     meta,
     actions,
     children,
-    onclose
+    onclose,
+    compact = false
   }: {
     href: string;
     name: string;
@@ -33,10 +35,11 @@
     actions?: Snippet;
     children?: Snippet;
     onclose?: () => void;
+    compact?: boolean;
   } = $props();
 </script>
 
-<section class="hero" aria-label={name}>
+<section class="hero" class:compact aria-label={name}>
   {#if onclose}
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
@@ -108,6 +111,22 @@
     .row { flex-direction: column; gap: var(--space-md); }
     .art { width: auto; justify-content: flex-start; }
     .art img { max-height: 9rem; }
+  }
+  .compact {
+    padding: var(--space-md);
+  }
+  .compact .row {
+    gap: var(--space-md);
+  }
+  .compact .art {
+    width: 6rem;
+  }
+  .compact .art img {
+    max-height: 6rem;
+  }
+  .compact h2 {
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
   }
   .body {
     flex: 1;

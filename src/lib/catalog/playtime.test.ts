@@ -52,4 +52,9 @@ describe('boxPlaytimeLabel', () => {
 		expect(boxPlaytimeLabel(0, 0)).toBeNull();
 		expect(boxPlaytimeLabel(null, null)).toBeNull();
 	});
+
+	it('has a short form, for beside a clock icon', () => {
+		expect(boxPlaytimeLabel(45, 75, true)).toBe('45–75m');
+		expect(boxPlaytimeLabel(60, 60, true)).toBe('60m');
+	});
 });

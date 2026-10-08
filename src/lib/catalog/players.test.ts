@@ -9,4 +9,9 @@ describe('boxPlayersLabel', () => {
 		expect(boxPlayersLabel(null, 5)).toBe('5 players');
 		expect(boxPlayersLabel(0, null)).toBeNull();
 	});
+
+	it('has a short form, for beside a players icon', () => {
+		expect(boxPlayersLabel(1, 4, true)).toBe('1–4');
+		expect(boxPlayersLabel(1, 1, true)).toBe('1');
+	});
 });

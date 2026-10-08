@@ -1,24 +1,24 @@
 <script lang="ts">
   /**
-   * One game as a TILE: the art, a row of scores with the tile's actions, then the name and the
-   * game's facts. The visual unit for a short list you browse by picture: a handful of
+   * One game as a TILE: the art (the tile's actions on its top-right corner), the scores, then
+   * the name with its year and the game's facts on one line. The visual unit for a short list you browse by picture: a handful of
    * recommendations, a shelf to start from.
    *
    * Not `GameCard`: that is a dense list row that has run out of width, art beside text, laid
    * out to scan down. A tile is laid out to scan across: a few in a row, art first.
    *
    * Built on the shared `Card`. The fixed-size parts come first (the art in a 4:3 frame, the
-   * score row), so they line up across a row by construction; the parts whose length varies
-   * (the name, up to two lines, and the facts) come last, so any spare height falls at the
-   * foot of a tile, not in the middle of it. BGG's ~200px thumbnail sits inside the frame at
+   * scores), so they line up across a row by construction; the name, which varies (up to two
+   * lines), comes after them, and the facts last, so any spare height falls at the foot of a
+   * tile, not in the middle of it. BGG's ~200px thumbnail sits inside the frame at
    * its own shape and is never scaled up.
    *
    * `compact` keeps only the art, name and year, for a row of small picks.
    *
-   * The art and the name link to `href`. `actions` (icon buttons) and `facts` sit outside the
-   * links, so they can hold controls of their own. `marker` is a badge on the art's corner
-   * ("On your shelf"). Each item in `facts` should be one unbreakable fact; they wrap as whole
-   * items, never mid-fact.
+   * The art and the name link to `href`. `actions` (small icon buttons, each with its label as a
+   * tooltip) sit on the art's top-right corner, beside the link rather than inside it. `marker`
+   * is a badge on the top-left ("On your shelf"). `facts` should be short (an icon and a
+   * number), so they hold one line.
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -37,9 +37,9 @@
     compact = false,
     /** A short badge on the art's corner. */
     marker = '',
-    /** The game's facts under the name, after its year. */
+    /** The game's facts under the name: short, one line. */
     facts,
-    /** Icon buttons at the end of the score row. */
+    /** Icon buttons on the art's top-right corner. */
     actions,
     class: className = '',
     style = ''
@@ -58,7 +58,7 @@
     style?: string;
   } = $props();
 
-  const hasScores = $derived(!compact && (similarity != null || rating !== undefined || !!actions));
+  const hasScores = $derived(!compact && (similarity != null || rating !== undefined));
   /** Initials stand in for missing box art. */
   const initials = $derived(
     name
@@ -72,34 +72,25 @@
 </script>
 
 <Card.Root size="sm" class="tile min-w-0 {className}" data-compact={compact || undefined} {style}>
-  <Card.Content>
+  <Card.Content class="frame">
     <a class="art" {href} tabindex="-1" aria-hidden="true">
       {#if thumbnail}
         <img src={thumbnail} alt="" loading="lazy" decoding="async" />
       {:else}
         <span class="ph">{initials}</span>
       {/if}
-      {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
     </a>
+    {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
+    {#if !compact && actions}<div class="acts">{@render actions()}</div>{/if}
   </Card.Content>
 
   {#if hasScores}
-    <Card.Content class="scores">
-      <SimBadges {similarity} {rating} />
-      {#if actions}<span class="acts">{@render actions()}</span>{/if}
-    </Card.Content>
+    <Card.Content><SimBadges {similarity} {rating} /></Card.Content>
   {/if}
 
   <Card.Content class="ident">
-    <a class="nm" {href} title={name}>{name}</a>
-    {#if !compact && facts}
-      <div class="facts">
-        {#if year}<span>{year}</span>{/if}
-        {@render facts()}
-      </div>
-    {:else if year}
-      <span class="yr">{year}</span>
-    {/if}
+    <a class="nm" {href} title={name}>{name}{#if year}<span class="yr">{year}</span>{/if}</a>
+    {#if !compact && facts}<div class="facts">{@render facts()}</div>{/if}
   </Card.Content>
 </Card.Root>
 
@@ -107,9 +98,12 @@
   :global(.tile:has(a:hover)) {
     --tw-ring-color: var(--primary);
   }
+  /* The frame holds the art and, on its corners, the marker and the actions. */
+  :global(.tile .frame) {
+    position: relative;
+  }
   /* A fixed 4:3 frame: the cover sits inside at its own shape, never scaled past its size. */
   .art {
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -136,22 +130,19 @@
     font-size: 1.1rem;
     font-weight: 700;
   }
-  /* On the frame's corner, so it never takes a line from the parts below. */
-  .art :global(.marker) {
+  /* On the frame's corners, so neither takes a line from the parts below. The card's own
+     padding is --card-spacing; these sit just inside it. */
+  :global(.tile .frame > .marker) {
     position: absolute;
     top: 0;
-    left: 0;
-  }
-  /* Scores on the left, the tile's icon actions on the right: one line. */
-  :global(.tile .scores) {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    left: var(--card-spacing);
   }
   .acts {
-    margin-left: auto;
+    position: absolute;
+    top: 0;
+    right: var(--card-spacing);
     display: inline-flex;
-    gap: 0.15rem;
+    gap: 0.25rem;
   }
   :global(.tile .ident) {
     display: flex;
@@ -180,20 +171,21 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
-  /* Whole facts wrap; a fact never breaks inside itself. */
+  /* One line of short facts. */
   .facts {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem 0.6rem;
+    gap: 0.6rem;
     font-size: 0.8rem;
     color: var(--muted-foreground);
-  }
-  .facts > :global(*) {
     white-space: nowrap;
+    overflow: hidden;
   }
+  /* A margin, not a text space: a space inside the span is collapsed away. */
   .yr {
+    margin-left: 0.4em;
     font-size: 0.8rem;
+    font-weight: 400;
     color: var(--muted-foreground);
   }
 
