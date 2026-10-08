@@ -179,8 +179,9 @@
   /* A game's two icon actions, on the art's corner: solid enough to read over any cover. */
   .sec :global(.act) { color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / 0.35); }
   .sec :global(.act:hover), .sec :global(.act[aria-expanded='true']) { color: var(--primary); }
-  /* An icon and its number, kept together. */
-  .sec :global(.fact) { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+  /* An icon and its number, kept together. Positioned, so its screen-reader label (absolute)
+     is placed inside it, not against the page, where it would stretch the document. */
+  .sec :global(.fact) { position: relative; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
   .sec :global(.fact svg) { width: 0.85rem; height: 0.85rem; flex: none; }
   /* The list's facts: whole facts wrap, never mid-fact. */
   .row-facts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; }
