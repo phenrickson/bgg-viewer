@@ -116,3 +116,31 @@ describe('whyLine', () => {
 		expect(whyLine(w)).toEqual(['1h–1h 30']);
 	});
 });
+
+describe('explain — each side', () => {
+	it('lists each game’s tags, shared first (rarest first), then its own', () => {
+		const f = freq({ A: 20, B: 50, C: 30, D: 40 });
+		const w = explain(row({ mechanics: ['B', 'C', 'A'] }), row({ mechanics: ['D', 'A', 'B'] }), f);
+		expect(w.sides.mechanics.a).toEqual([
+			{ tag: 'A', shared: true },
+			{ tag: 'B', shared: true },
+			{ tag: 'C', shared: false }
+		]);
+		expect(w.sides.mechanics.b).toEqual([
+			{ tag: 'A', shared: true },
+			{ tag: 'B', shared: true },
+			{ tag: 'D', shared: false }
+		]);
+	});
+
+	it('applies the model’s filters to each side too', () => {
+		const f = freq({ 'Players: Solo': 20, 'Theme: Cats': 20, Rare: 3 });
+		const w = explain(
+			row({ families: ['Players: Solo', 'Theme: Cats'], mechanics: ['Rare'] }),
+			row({ families: [], mechanics: [] }),
+			f
+		);
+		expect(w.sides.families.a).toEqual([{ tag: 'Players: Solo', shared: false }]);
+		expect(w.sides.mechanics.a).toEqual([]);
+	});
+});

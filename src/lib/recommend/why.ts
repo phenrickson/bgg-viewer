@@ -66,12 +66,21 @@ export interface SpanCompare {
 	overlap: Span | null;
 }
 
+/** One tag on one game's side of the comparison. */
+export interface SideTag {
+	tag: string;
+	shared: boolean;
+}
+
 export interface Why {
 	complexity: { a: number; b: number; close: boolean } | null;
 	players: SpanCompare | null;
 	playtime: SpanCompare | null;
 	/** Shared tags per kind, rarest first. */
 	shared: Record<TagKind, string[]>;
+	/** Each game's own tags per kind (the model's view of them): shared first, then the rest,
+	 *  each rarest first — the side-by-side "why". */
+	sides: Record<TagKind, { a: SideTag[]; b: SideTag[] }>;
 }
 
 /** A row's min–max as a span. A missing end takes the other's value; nothing → null. */
@@ -91,20 +100,35 @@ function compareSpans(a: Span | null, b: Span | null): SpanCompare | null {
 	return { a, b, overlap: lo <= hi ? [lo, hi] : null };
 }
 
-function sharedTags(
-	a: readonly string[] | null,
-	b: readonly string[] | null,
+/** A game's tags as the model reads them — the kept ones, rarest first. */
+function modelTags(
+	tags: readonly string[] | null,
 	freq: ReadonlyMap<string, number>,
 	keep: (tag: string) => boolean = () => true
 ): string[] {
-	if (!a?.length || !b?.length) return [];
-	const inB = new Set(b);
 	// An empty map means the counts haven't loaded: show the tags unfiltered rather than none.
 	const counted = freq.size > 0;
-	return [...new Set(a)]
-		.filter((t) => inB.has(t) && keep(t))
-		.filter((t) => !counted || (freq.get(t) ?? 0) >= MIN_TAG_GAMES)
+	return [...new Set(tags ?? [])]
+		.filter((t) => keep(t) && (!counted || (freq.get(t) ?? 0) >= MIN_TAG_GAMES))
 		.sort((x, y) => (freq.get(x) ?? 0) - (freq.get(y) ?? 0) || x.localeCompare(y));
+}
+
+function compareTags(
+	a: readonly string[] | null,
+	b: readonly string[] | null,
+	freq: ReadonlyMap<string, number>,
+	keep?: (tag: string) => boolean
+): { shared: string[]; a: SideTag[]; b: SideTag[] } {
+	const ta = modelTags(a, freq, keep);
+	const tb = modelTags(b, freq, keep);
+	const inB = new Set(tb);
+	const shared = ta.filter((t) => inB.has(t));
+	const both = new Set(shared);
+	const side = (mine: string[]): SideTag[] => [
+		...shared.map((tag) => ({ tag, shared: true })),
+		...mine.filter((t) => !both.has(t)).map((tag) => ({ tag, shared: false }))
+	];
+	return { shared, a: side(ta), b: side(tb) };
 }
 
 export const isEmbeddingFamily = (family: string): boolean =>
@@ -114,15 +138,19 @@ export const isEmbeddingFamily = (family: string): boolean =>
 export function explain(a: WhyRow, b: WhyRow, freq: TagFrequencies): Why {
 	const ca = a.predicted_complexity;
 	const cb = b.predicted_complexity;
+	const mechanics = compareTags(a.mechanics, b.mechanics, freq.mechanics);
+	const categories = compareTags(a.categories, b.categories, freq.categories);
+	const families = compareTags(a.families, b.families, freq.families, isEmbeddingFamily);
 	return {
 		complexity:
 			ca != null && cb != null ? { a: ca, b: cb, close: Math.abs(ca - cb) <= COMPLEXITY_CLOSE } : null,
 		players: compareSpans(span(a.min_players, a.max_players), span(b.min_players, b.max_players)),
 		playtime: compareSpans(span(a.min_playtime, a.max_playtime), span(b.min_playtime, b.max_playtime)),
-		shared: {
-			mechanics: sharedTags(a.mechanics, b.mechanics, freq.mechanics),
-			categories: sharedTags(a.categories, b.categories, freq.categories),
-			families: sharedTags(a.families, b.families, freq.families, isEmbeddingFamily)
+		shared: { mechanics: mechanics.shared, categories: categories.shared, families: families.shared },
+		sides: {
+			mechanics: { a: mechanics.a, b: mechanics.b },
+			categories: { a: categories.a, b: categories.b },
+			families: { a: families.a, b: families.b }
 		}
 	};
 }

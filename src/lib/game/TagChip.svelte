@@ -16,11 +16,13 @@
    *
    * Categories take `--primary`, mechanics `--chart-1`: two kinds of tag, not one grey wall.
    * Families stay neutral.
+   *
+   * `quiet` steps a chip back (Recommend's "why": a tag only one of the two games has).
    */
-  let { kind, tag }: { kind: TagKind; tag: string } = $props();
+  let { kind, tag, quiet = false }: { kind: TagKind; tag: string; quiet?: boolean } = $props();
 </script>
 
-<a class="chip {kind}" href="/games?{PARAM[kind]}={encodeURIComponent(tag)}">{tag}</a>
+<a class="chip {kind}" class:quiet href="/games?{PARAM[kind]}={encodeURIComponent(tag)}">{tag}</a>
 
 <style>
   .chip {
@@ -43,5 +45,14 @@
   .chip.mech {
     border-color: color-mix(in oklch, var(--chart-1) 40%, var(--border));
     color: var(--chart-1);
+  }
+  .chip.quiet {
+    border-color: var(--border);
+    border-style: dashed;
+    color: var(--muted-foreground);
+  }
+  .chip.quiet:hover {
+    border-color: var(--primary);
+    color: var(--primary);
   }
 </style>

@@ -165,6 +165,7 @@
     display: flex; flex-direction: column; gap: var(--space-sm);
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--card);
+    container-type: inline-size;
   }
   .why-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
   .why-title { margin: 0; font-size: 0.95rem; font-weight: 650; }
