@@ -8,17 +8,40 @@
    * Shared by `SimilarRow` and `GameTile` so a match reads the same wherever it appears.
    * The sim badge is left out when `similarity` is null. The rating badge is left out when
    * `rating` isn't passed at all; passed as null it shows "—" (no rating yet).
+   *
+   * `onsim` makes the sim badge a button (Recommend opens "why this match" from it), with
+   * `simOpen` as its pressed state.
    */
   import { similarityPct, similarityColor, ratingColor } from './similarity';
 
-  let { similarity = null, rating }: { similarity?: number | null; rating?: number | null } = $props();
+  let {
+    similarity = null,
+    rating,
+    onsim,
+    simOpen = false
+  }: {
+    similarity?: number | null;
+    rating?: number | null;
+    onsim?: () => void;
+    simOpen?: boolean;
+  } = $props();
 </script>
 
 <span class="badges">
-  {#if similarity != null}
-    <span class="badge" style:color={similarityColor(similarity)}>
-      <span class="bl">sim</span>{Math.round(similarityPct(similarity))}%
-    </span>
+  {#snippet sim(s: number)}<span class="bl">sim</span>{Math.round(similarityPct(s))}%{/snippet}
+  {#if similarity != null && onsim}
+    <!-- PLACEHOLDER copy (Phil): the button's label. -->
+    <button
+      type="button"
+      class="badge btn"
+      class:open={simOpen}
+      style:color={similarityColor(similarity)}
+      aria-expanded={simOpen}
+      aria-label="Why this match"
+      onclick={onsim}>{@render sim(similarity)}</button
+    >
+  {:else if similarity != null}
+    <span class="badge" style:color={similarityColor(similarity)}>{@render sim(similarity)}</span>
   {/if}
   {#if rating !== undefined}
     <span class="badge" style:color={ratingColor(rating)}>
@@ -45,6 +68,25 @@
     border-radius: 999px;
     border: 1px solid color-mix(in oklch, currentColor 30%, transparent);
     background: color-mix(in oklch, currentColor 12%, transparent);
+  }
+  /* A clickable score: same badge, a stronger ring on hover, the primary ring while its
+     "why" is open. */
+  .btn {
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .btn:hover {
+    border-color: currentColor;
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  .btn.open {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
   }
   .bl {
     font-size: 0.58rem;

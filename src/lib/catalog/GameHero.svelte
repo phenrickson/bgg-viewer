@@ -2,13 +2,14 @@
   /**
    * One game shown large: its art beside its name, a meta line, the actions you can take on
    * it, then whatever the caller wants to say about it. For the moments a page puts a single
-   * game forward — Recommend's Surprise pick and "Pick one for me".
+   * game forward — Recommend's seed ("Games like …") and its Surprise pick.
    *
    * The shell only. What goes in `meta` (year, badges, shelf status), `actions` (buttons) and
    * `children` (a "why", a description) is the caller's.
    *
    * `onclose` adds a × in the corner, for a hero that sits over other content and can be
-   * dismissed.
+   * dismissed. `kicker` is a short line over the name ("Games like"); `artTransition` names
+   * the art for a view transition.
    *
    * The art is usually BGG's thumbnail (~200px on its long side), so it sits on the left at
    * its own size and the space goes to the text beside it. Stacks only when the hero itself
@@ -23,7 +24,9 @@
     meta,
     actions,
     children,
-    onclose
+    onclose,
+    kicker = '',
+    artTransition = null
   }: {
     href: string;
     name: string;
@@ -33,6 +36,8 @@
     actions?: Snippet;
     children?: Snippet;
     onclose?: () => void;
+    kicker?: string;
+    artTransition?: string | null;
   } = $props();
 </script>
 
@@ -41,10 +46,11 @@
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
   <div class="row">
-    <a class="art" {href} tabindex="-1" aria-hidden="true">
+    <a class="art" {href} tabindex="-1" aria-hidden="true" style:view-transition-name={artTransition}>
       {#if image}<img src={image} alt="" decoding="async" />{/if}
     </a>
     <div class="body">
+      {#if kicker}<p class="kicker">{kicker}</p>{/if}
       <h2><a {href}>{name}</a></h2>
       {#if meta}<div class="meta">{@render meta()}</div>{/if}
       {#if actions}<div class="actions">{@render actions()}</div>{/if}
@@ -124,6 +130,11 @@
     margin: 0;
     padding-right: 2rem;
     text-wrap: balance;
+  }
+  .kicker {
+    margin: 0 0 -0.25rem;
+    font-size: 0.95rem;
+    color: var(--muted-foreground);
   }
   h2 a {
     color: inherit;

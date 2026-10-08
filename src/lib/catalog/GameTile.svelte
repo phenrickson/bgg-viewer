@@ -9,8 +9,12 @@
    *
    * `compact` drops everything below the name and year, for a row of small picks.
    *
-   * The art and name are one link. `line` sits outside it, so it can hold its own control
-   * (Recommend's one-line "why" is a button) without nesting interactive elements.
+   * The art and name are one link. `line` and `actions` sit outside it, so they can hold
+   * controls of their own without nesting interactive elements; `actions` sits at the foot,
+   * so a row of tiles lines its actions up. `onsim` makes the sim badge a button.
+   *
+   * `artTransition` names the art for a view transition (Recommend's walk moves it into the
+   * hero).
    */
   import type { Snippet } from 'svelte';
   import SimBadges from '$lib/game/SimBadges.svelte';
@@ -27,6 +31,11 @@
     compact = false,
     /** One line under the badges. */
     line,
+    /** Controls at the foot of the tile. */
+    actions,
+    onsim,
+    simOpen = false,
+    artTransition = null,
     class: className = '',
     style = ''
   }: {
@@ -38,6 +47,10 @@
     rating?: number | null;
     compact?: boolean;
     line?: Snippet;
+    actions?: Snippet;
+    onsim?: () => void;
+    simOpen?: boolean;
+    artTransition?: string | null;
     class?: string;
     style?: string;
   } = $props();
@@ -57,7 +70,7 @@
 
 <article class="tile {className}" class:compact {style}>
   <a class="main" {href}>
-    <span class="art">
+    <span class="art" style:view-transition-name={artTransition}>
       {#if thumbnail}
         <img src={thumbnail} alt="" loading="lazy" decoding="async" />
       {:else}
@@ -67,10 +80,13 @@
     <span class="nm">{name}{#if year}<span class="yr">{year}</span>{/if}</span>
   </a>
   {#if !compact && hasBadges}
-    <SimBadges {similarity} {rating} />
+    <SimBadges {similarity} {rating} {onsim} {simOpen} />
   {/if}
   {#if !compact && line}
     <div class="line">{@render line()}</div>
+  {/if}
+  {#if !compact && actions}
+    <div class="acts">{@render actions()}</div>
   {/if}
 </article>
 
@@ -101,14 +117,18 @@
     outline-offset: 3px;
     border-radius: 4px;
   }
-  /* The art is BGG's thumbnail, ~200px on its long side, so it's never scaled up: a fixed-height
-     band (so tiles in a row line up and a slow image never reflows one), with the cover at its
-     own shape inside it — no letterbox panel. */
+  /* The art is BGG's thumbnail, ~200px on its long side, so it's never scaled up: a fixed-height,
+     full-width well (so tiles in a row line up, a slow image never reflows one, and the well's
+     edges are the text's edges), with the cover at its own shape centred inside it. */
   .art {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 7.5rem;
+    height: 8.5rem;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    border-radius: calc(var(--radius) - 3px);
+    background: color-mix(in oklch, var(--muted) 45%, var(--card));
   }
   .art img {
     max-width: 100%;
@@ -122,6 +142,7 @@
   .compact .art {
     display: block;
     height: auto;
+    padding: 0;
     aspect-ratio: 4 / 3;
     border-radius: calc(var(--radius) - 3px);
     overflow: hidden;
@@ -154,6 +175,10 @@
     line-height: 1.25;
     padding: 0 0.15rem;
   }
+  /* Two lines kept for the name, so the badges under it line up across a row. */
+  .tile:not(.compact) .nm {
+    min-height: 2.5em;
+  }
   .main:hover .nm {
     color: var(--primary);
   }
@@ -171,6 +196,15 @@
     font-size: 0.8rem;
     line-height: 1.35;
     color: var(--muted-foreground);
+    padding: 0 0.15rem;
+  }
+
+  /* The foot: pushed to the bottom, so a row's actions share a line. */
+  .acts {
+    margin-top: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
     padding: 0 0.15rem;
   }
 
