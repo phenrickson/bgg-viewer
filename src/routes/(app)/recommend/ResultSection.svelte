@@ -129,8 +129,9 @@
           onsim={() => onwhy(g.game_id)}
           simOpen={whyId === g.game_id}
           artTransition={walking === g.game_id ? 'seed-art' : null}
+          marker={markOwned && owned.has(g.game_id) ? 'On your shelf' : ''}
         >
-          {#snippet line()}{@render whyText(g)}{/snippet}
+          {#snippet line()}{whyLine(whyOf(g)).join(' · ')}{/snippet}
           {#snippet actions()}{@render walkButton(g)}{/snippet}
         </GameTile>
       {/each}
