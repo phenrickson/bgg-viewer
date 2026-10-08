@@ -1,24 +1,21 @@
 <script lang="ts">
   /**
-   * One game as a TILE: the art (the tile's actions on its top-right corner), the scores, then
-   * the name with its year and the game's facts on one line. The visual unit for a short list you browse by picture: a handful of
-   * recommendations, a shelf to start from.
+   * One game as a TILE: the art, the name and year, then at its foot the scores, the game's
+   * facts and the tile's actions. The visual unit for a short list you browse by picture: a
+   * handful of recommendations, a shelf to start from.
    *
    * Not `GameCard`: that is a dense list row that has run out of width, art beside text, laid
    * out to scan down. A tile is laid out to scan across: a few in a row, art first.
    *
-   * Built on the shared `Card`. The fixed-size parts come first (the art in a 4:3 frame, the
-   * scores), so they line up across a row by construction; the name, which varies (up to two
-   * lines), comes after them, and the facts last, so any spare height falls at the foot of a
-   * tile, not in the middle of it. BGG's ~200px thumbnail sits inside the frame at
-   * its own shape and is never scaled up.
+   * Built on the shared `Card`. The art is a fixed 4:3 frame (BGG's ~200px thumbnail inside at
+   * its own shape, never scaled up); the name follows, up to two lines; the scores, facts and
+   * actions are anchored to the foot, so they line up across a row whatever the names' lengths.
    *
    * `compact` keeps only the art, name and year, for a row of small picks.
    *
    * The art and the name link to `href`. `actions` (small icon buttons, each with its label as a
-   * tooltip) sit on the art's top-right corner, beside the link rather than inside it. `marker`
-   * is a badge on the top-left ("On your shelf"). `facts` should be short (an icon and a
-   * number), so they hold one line.
+   * tooltip) sit outside the links, in the foot. `marker` is a badge on the art's top-left
+   * ("On your shelf"). `facts` should be short (an icon and a number), so they hold one line.
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -39,7 +36,7 @@
     marker = '',
     /** The game's facts under the name: short, one line. */
     facts,
-    /** Icon buttons on the art's top-right corner. */
+    /** Icon buttons at the foot. */
     actions,
     class: className = '',
     style = ''
@@ -81,24 +78,27 @@
       {/if}
     </a>
     {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
-    {#if !compact && actions}<div class="acts">{@render actions()}</div>{/if}
   </Card.Content>
 
-  {#if hasScores}
-    <Card.Content><SimBadges {similarity} {rating} /></Card.Content>
-  {/if}
-
-  <Card.Content class="ident">
+  <Card.Content>
     <a class="nm" {href} title={name}>{name}{#if year}<span class="yr">{year}</span>{/if}</a>
-    {#if !compact && facts}<div class="facts">{@render facts()}</div>{/if}
   </Card.Content>
+
+  {#if !compact && (hasScores || facts || actions)}
+    <!-- Anchored to the foot, so these line up across a row whatever the names' lengths. -->
+    <Card.Content class="foot">
+      {#if hasScores}<SimBadges {similarity} {rating} />{/if}
+      {#if facts}<div class="facts">{@render facts()}</div>{/if}
+      {#if actions}<div class="acts">{@render actions()}</div>{/if}
+    </Card.Content>
+  {/if}
 </Card.Root>
 
 <style>
   :global(.tile:has(a:hover)) {
     --tw-ring-color: var(--primary);
   }
-  /* The frame holds the art and, on its corners, the marker and the actions. */
+  /* The frame holds the art and, on its corner, the marker. */
   :global(.tile .frame) {
     position: relative;
   }
@@ -130,24 +130,24 @@
     font-size: 1.1rem;
     font-weight: 700;
   }
-  /* On the frame's corners, so neither takes a line from the parts below. The card's own
-     padding is --card-spacing; these sit just inside it. */
+  /* On the frame's corner, so it never takes a line from the parts below. The card's own
+     padding is --card-spacing; it sits just inside it. */
   :global(.tile .frame > .marker) {
     position: absolute;
     top: 0;
     left: var(--card-spacing);
   }
-  .acts {
-    position: absolute;
-    top: 0;
-    right: var(--card-spacing);
-    display: inline-flex;
-    gap: 0.25rem;
-  }
-  :global(.tile .ident) {
+  /* Scores, facts and the actions, pushed to the foot of the tile. */
+  :global(.tile .foot) {
+    margin-top: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.5rem;
+  }
+  .acts {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
   }
   /* The name, capped at two lines (the full name on hover). */
   .nm {

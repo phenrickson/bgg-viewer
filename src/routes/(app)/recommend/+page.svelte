@@ -175,6 +175,8 @@
   let seed = $state<Game | null>(null);
   $effect(() => {
     const id = seedId;
+    // Box art loads after the catalog: read the seed again once it's in.
+    catalog.thumbnailsReady;
     if (catalog.status !== 'ready' || id == null) {
       seed = null;
       return;
@@ -302,6 +304,7 @@
   let rowsToken = 0;
   $effect(() => {
     const ids = [...new Set(sections.flatMap((s) => s.hits.map((h) => h.id)))];
+    catalog.thumbnailsReady;
     const mine = ++rowsToken;
     games(ids).then((m) => mine === rowsToken && (rows = m));
   });
