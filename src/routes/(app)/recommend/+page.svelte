@@ -6,10 +6,10 @@
    * With no seed it's the Start screen: a search, a row of well-known games, and (with a
    * collection) a row of your top-rated owned games.
    *
-   * One page, not two: the search stays at the top. Picking a game loads its answer underneath,
-   * in place — the search box then shows that game and still searches — with the pool ("from
-   * my shelf | games I don't own | anywhere") and Surprise me beneath it, and the trail of
-   * games walked through. Each result opens its game page; its match score opens "why";
+   * One page, not two: the search stays at the top, always just a search. Picking a game loads
+   * its answer underneath, in place: the game itself (a hero: what it is, a link to its page),
+   * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
+   * and Surprise me — and the trail of games walked through. Each result opens its game page; its match score opens "why";
    * "Games like this" walks on from it. The answer is stacked sections: the three precomputed
    * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
@@ -32,6 +32,9 @@
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
   import { explain, type TagFrequencies } from '$lib/recommend/why';
+  import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
+  import { boxPlayersLabel } from '$lib/catalog/players';
+  import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import {
     sourceFor,
     sectionsFor,
@@ -401,7 +404,7 @@
       </div>
 
       <Stack gap="sm">
-        <GameSearch onpick={(id) => set({ id })} current={seed ? { name: seed.name, thumbnail: seed.thumbnail } : null} />
+        <GameSearch onpick={(id) => set({ id })} />
 
         {#if seedId == null}
           <!-- PLACEHOLDER copy (Phil): both row labels. -->
@@ -417,6 +420,18 @@
       </Stack>
 
       {#if seedId != null}
+        <!-- ── The chosen game ─────────────────────────────────────────────────── -->
+        {#if seed}
+          {@const sd = seed}
+          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail}>
+            {#snippet meta()}
+              {#if sd.year_published}<span>{sd.year_published}</span>{/if}
+              <ComplexityBadge weight={sd.predicted_complexity} />
+              {#each [boxPlayersLabel(sd.min_players, sd.max_players), boxPlaytimeLabel(sd.min_playtime, sd.max_playtime)].filter(Boolean) as f (f)}<span>{f}</span>{/each}
+            {/snippet}
+          </GameHero>
+        {/if}
+
         <!-- ── The question: the pool, Surprise me, and where you've walked ───────── -->
         <div class="controls">
           {#if hasShelf}

@@ -174,17 +174,3 @@ export function playersText(p: SpanCompare): string {
 export function playtimeText(p: SpanCompare): string {
 	return p.overlap ? `both fit ${minutes(p.overlap)}` : `${minutes(p.a)} vs ${minutes(p.b)}`;
 }
-
-/**
- * The one-line why: the first two scalar traits that match, then the rarest shared
- * mechanic (or category, when no mechanic is shared). Only what they have IN COMMON — the
- * differences belong to the full panel.
- */
-export function whyLine(w: Why): string[] {
-	const parts: string[] = [];
-	if (w.complexity?.close) parts.push(`Both ~${weight((w.complexity.a + w.complexity.b) / 2)}`);
-	if (w.players?.overlap) parts.push(`${players(w.players.overlap)} players`);
-	if (w.playtime?.overlap) parts.push(minutes(w.playtime.overlap));
-	const tag = w.shared.mechanics[0] ?? w.shared.categories[0];
-	return tag ? [...parts.slice(0, 2), tag] : parts.slice(0, 2);
-}

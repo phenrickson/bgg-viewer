@@ -16,9 +16,8 @@
    *
    * `compact` keeps only the art, name and year, for a row of small picks (not a subgrid).
    *
-   * The art and the name link to `href`. Badges, `line` and `actions` sit outside the links, so
-   * they can hold controls of their own. `onsim` makes the sim badge a button; `marker` is a
-   * badge on the art's corner ("On your shelf").
+   * The art and the name link to `href`. `line` and `actions` sit outside the links, so they can
+   * hold controls of their own. `marker` is a badge on the art's corner ("On your shelf").
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -37,12 +36,10 @@
     compact = false,
     /** A short badge on the art's corner. */
     marker = '',
-    /** One line of context under the badges (two at most). */
+    /** One line about the game under the badges (two at most). */
     line,
     /** Controls in the footer. */
     actions,
-    onsim,
-    simOpen = false,
     class: className = '',
     style = ''
   }: {
@@ -56,8 +53,6 @@
     marker?: string;
     line?: Snippet;
     actions?: Snippet;
-    onsim?: () => void;
-    simOpen?: boolean;
     class?: string;
     style?: string;
   } = $props();
@@ -100,7 +95,7 @@
   </Card.Content>
 
   {#if hasBadges}
-    <Card.Content><SimBadges {similarity} {rating} {onsim} {simOpen} /></Card.Content>
+    <Card.Content><SimBadges {similarity} {rating} /></Card.Content>
   {/if}
 
   {#if !compact && line}
@@ -108,7 +103,7 @@
   {/if}
 
   {#if !compact && actions}
-    <Card.Footer class="gap-2">{@render actions()}</Card.Footer>
+    <Card.Footer class="justify-between gap-2">{@render actions()}</Card.Footer>
   {/if}
 </Card.Root>
 

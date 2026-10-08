@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	explain,
-	whyLine,
 	complexityText,
 	playersText,
 	playtimeText,
@@ -94,26 +93,6 @@ describe('explain — shared tags', () => {
 	it('shows tags unfiltered while the counts have not loaded', () => {
 		const w = explain(row({ mechanics: ['A'] }), row({ mechanics: ['A'] }), freq());
 		expect(w.shared.mechanics).toEqual(['A']);
-	});
-});
-
-describe('whyLine', () => {
-	it('takes two matching traits then the rarest shared mechanic', () => {
-		const w = explain(
-			row({ predicted_complexity: 3.7, mechanics: ['Hand Management', 'Network and Route Building'] }),
-			row({ predicted_complexity: 3.9, mechanics: ['Hand Management', 'Network and Route Building'] }),
-			freq({ 'Hand Management': 9000, 'Network and Route Building': 700 })
-		);
-		expect(whyLine(w)).toEqual(['Both ~3.8', '2–4 players', 'Network and Route Building']);
-	});
-
-	it('skips traits that do not match', () => {
-		const w = explain(
-			row({ predicted_complexity: 1.5, min_players: 1, max_players: 1 }),
-			row({ predicted_complexity: 4, min_players: 3, max_players: 5 }),
-			freq()
-		);
-		expect(whyLine(w)).toEqual(['1h–1h 30']);
 	});
 });
 

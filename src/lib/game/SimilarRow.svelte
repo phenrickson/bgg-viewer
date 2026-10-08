@@ -22,9 +22,7 @@
     similarity,
     rating = null,
     children,
-    action,
-    onsim,
-    simOpen = false
+    action
   }: {
     href: string;
     name: string;
@@ -34,9 +32,6 @@
     rating?: number | null;
     children?: Snippet;
     action?: Snippet;
-    /** Makes the sim badge a button (see `SimBadges`). */
-    onsim?: () => void;
-    simOpen?: boolean;
   } = $props();
 </script>
 
@@ -52,7 +47,7 @@
       {#if children}<span class="sub">{@render children()}</span>{/if}
     </span>
   </a>
-  <span class="end"><SimBadges {similarity} {rating} {onsim} {simOpen} />{#if action}{@render action()}{/if}</span>
+  <span class="end"><SimBadges {similarity} {rating} />{#if action}{@render action()}{/if}</span>
 </div>
 
 <style>

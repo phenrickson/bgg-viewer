@@ -20,16 +20,21 @@
    * one shelf list: a heading and blurb, then its games — as tiles (the first few, "All" for
    * the rest) or as the game page's similar-games rows (all of them).
    *
-   * Each game does three things, kept apart: the game itself opens its page; its match score
-   * opens "why" (one at a time across the page, so the page owns which, via `whyId`; the panel
-   * opens under the section holding that game); "Games like this" walks on from it.
+   * Each game says what it IS — complexity, players, play time — not what it shares with the
+   * seed; the comparison is an action. Three things, kept apart: the game opens its page; "Why
+   * this match" opens the side-by-side analysis (one at a time across the page, so the page
+   * owns which, via `whyId`; it opens under the section holding that game); "Games like this"
+   * walks on from it.
    */
   import type { Snippet } from 'svelte';
   import { AutoGrid } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import GameTile from '$lib/catalog/GameTile.svelte';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
-  import { explain, whyLine, type TagFrequencies } from '$lib/recommend/why';
+  import { explain, type TagFrequencies } from '$lib/recommend/why';
+  import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
+  import { boxPlayersLabel } from '$lib/catalog/players';
+  import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import { similarityPct } from '$lib/game/similarity';
   import WhyMatch from './WhyMatch.svelte';
 
@@ -87,12 +92,18 @@
     {#if headEnd}{@render headEnd()}{/if}
   </header>
 
-  {#snippet whyText(g: Item)}
-    {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span> · {/if}{whyLine(whyOf(g)).join(' · ')}
+  {#snippet facts(g: Item)}
+    <ComplexityBadge weight={g.predicted_complexity} />
+    {[boxPlayersLabel(g.min_players, g.max_players), boxPlaytimeLabel(g.min_playtime, g.max_playtime)]
+      .filter(Boolean)
+      .join(' · ')}
   {/snippet}
-  {#snippet walkButton(g: Item)}
-    <!-- PLACEHOLDER copy (Phil) -->
-    <Button variant="link" size="xs" class="walk" onclick={() => onwalk(g.game_id)}>Games like this</Button>
+  {#snippet gameActions(g: Item)}
+    <!-- PLACEHOLDER copy (Phil): both labels. -->
+    <Button variant="link" size="xs" class="act" aria-expanded={whyId === g.game_id} onclick={() => onwhy(g.game_id)}>
+      Why this match
+    </Button>
+    <Button variant="link" size="xs" class="act" onclick={() => onwalk(g.game_id)}>Games like this</Button>
   {/snippet}
 
   {#if display === 'list'}
@@ -105,11 +116,9 @@
           thumbnail={g.thumbnail}
           similarity={g.similarity}
           rating={g.average_rating}
-          onsim={() => onwhy(g.game_id)}
-          simOpen={whyId === g.game_id}
         >
-          {@render whyText(g)}
-          {#snippet action()}{@render walkButton(g)}{/snippet}
+          {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span> · {/if}{@render facts(g)}
+          {#snippet action()}{@render gameActions(g)}{/snippet}
         </SimilarRow>
       {/each}
     </div>
@@ -123,12 +132,10 @@
           thumbnail={g.thumbnail}
           similarity={g.similarity}
           rating={g.average_rating}
-          onsim={() => onwhy(g.game_id)}
-          simOpen={whyId === g.game_id}
           marker={markOwned && owned.has(g.game_id) ? 'On your shelf' : ''}
         >
-          {#snippet line()}{whyLine(whyOf(g)).join(' · ')}{/snippet}
-          {#snippet actions()}{@render walkButton(g)}{/snippet}
+          {#snippet line()}{@render facts(g)}{/snippet}
+          {#snippet actions()}{@render gameActions(g)}{/snippet}
         </GameTile>
       {/each}
     </AutoGrid>
@@ -153,9 +160,9 @@
   h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
   header p { font-size: 0.85rem; color: var(--muted-foreground); margin: 0.15rem 0 0; }
   .own { color: var(--primary); font-weight: 600; }
-  /* "Games like this": quiet until pointed at, so a page of them doesn't shout. */
-  .sec :global(.walk) { height: auto; padding: 0; color: var(--muted-foreground); }
-  .sec :global(.walk:hover) { color: var(--primary); }
+  /* A game's two actions: quiet until pointed at (or open), so a page of them doesn't shout. */
+  .sec :global(.act) { height: auto; padding: 0; color: var(--muted-foreground); }
+  .sec :global(.act:hover), .sec :global(.act[aria-expanded='true']) { color: var(--primary); }
   /* The game page's similar-games list: rows a little apart. */
   .list { display: flex; flex-direction: column; gap: 0.4rem; }
   .why {
