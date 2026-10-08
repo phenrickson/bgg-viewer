@@ -3,17 +3,25 @@
    * Jump-to-a-game search — a name type-ahead over the in-browser catalog that navigates
    * to the game's detail page. Used big on the landing and compact in the app header, so
    * you can reach any game's page from anywhere. Warms the catalog on first focus.
+   *
+   * `current`, when set, is the game the box is "on": while nothing is typed it shows that
+   * game (thumbnail and name, in the text colour) instead of a placeholder, and typing
+   * searches for another. Recommend uses it so the search stays put and always says which
+   * game the page is answering for.
    */
   import { goto } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
 
   let {
     compact = false,
-    onpick
+    onpick,
+    current = null
   }: {
     compact?: boolean;
     /** When set, a pick calls this instead of navigating to the game's page. */
     onpick?: (id: number, name: string) => void;
+    /** The game the box is currently on — shown while nothing is typed. */
+    current?: { name: string; thumbnail?: string | null } | null;
   } = $props();
 
   type Hit = { game_id: number; name: string; year_published: number | null };
@@ -52,18 +60,24 @@
   }
 
   const placeholder = $derived(
-    catalog.status === 'ready' || catalog.status === 'idle'
-      ? onpick ? 'Pick a game…' : 'Jump to a game…'
-      : 'Warming the catalog…'
+    current
+      ? current.name
+      : catalog.status === 'ready' || catalog.status === 'idle'
+        ? onpick ? 'Pick a game…' : 'Jump to a game…'
+        : 'Warming the catalog…'
   );
 </script>
 
-<div class="gs" class:compact>
+<div class="gs" class:compact class:has-current={!!current}>
   <div class="box">
+    {#if current?.thumbnail}
+      <img class="cur" src={current.thumbnail} alt="" />
+    {/if}
     <svg width={compact ? 15 : 18} height={compact ? 15 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
     <input
       type="text"
       {placeholder}
+      aria-label={current ? `Search for a game other than ${current.name}` : undefined}
       bind:value={q}
       onfocus={warm}
       onblur={() => setTimeout(() => (active = false), 120)}
@@ -88,6 +102,10 @@
   .box { display: flex; align-items: center; gap: 0.6rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.9rem; color: var(--muted-foreground); }
   .box input { flex: 1; min-width: 0; border: none; background: none; color: var(--foreground); font: inherit; font-size: 1rem; }
   .box input:focus { outline: none; }
+  /* The current game reads as the box's value, not as a hint, until you start typing. */
+  .has-current .box input::placeholder { color: var(--foreground); font-weight: 650; opacity: 1; }
+  .has-current .box input:focus::placeholder { color: var(--muted-foreground); font-weight: 400; }
+  .cur { height: 1.9rem; width: auto; max-width: 2.6rem; border-radius: 4px; margin: -0.3rem 0; }
 
   .compact .box { border-radius: 8px; padding: 0.32rem 0.6rem; }
   .compact .box input { font-size: 0.85rem; }

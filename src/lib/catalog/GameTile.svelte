@@ -7,17 +7,18 @@
    * Not `GameCard`: that is a dense list row that has run out of width, art beside text, laid
    * out to scan down. A tile is laid out to scan across — a few in a row, art first.
    *
-   * Built on the shared `Card`, with every slot a fixed size so tiles in a row line up by
-   * construction rather than by luck: the art a fixed 4:3 frame (BGG's ~200px thumbnail sits
-   * inside at its own shape, never scaled up), the name clamped to two lines (the full name on
-   * hover), the badges one line, the context line clamped to two, the actions in the footer.
+   * Built on the shared `Card`. Its parts — art, name and year, badges, the context line, the
+   * footer — are rows of a CSS SUBGRID, shared with every tile in the same grid row: each part
+   * is as tall as the tallest tile's in that row, so a row lines up without reserving blank
+   * space, and a one-line name keeps its year right under it. The parent must be a grid
+   * (`AutoGrid`). The art is a 4:3 frame (BGG's ~200px thumbnail inside at its own shape, never
+   * scaled up); the name is capped at two lines, the context line at two.
    *
-   * `compact` keeps only the art and the name, for a row of small picks.
+   * `compact` keeps only the art, name and year, for a row of small picks (not a subgrid).
    *
-   * The art and name are one link. Badges, `line` and `actions` sit outside it, so they can
-   * hold controls of their own without nesting interactive elements. `onsim` makes the sim
-   * badge a button; `marker` is a badge of the caller's beside it ("On your shelf").
-   * `artTransition` names the art for a view transition.
+   * The art and the name link to `href`. Badges, `line` and `actions` sit outside the links, so
+   * they can hold controls of their own. `onsim` makes the sim badge a button; `marker` is a
+   * badge on the art's corner ("On your shelf").
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -34,7 +35,7 @@
     /** Average rating — shows the rating badge. Omit to leave it out; null shows "—". */
     rating,
     compact = false,
-    /** A short badge beside the scores. */
+    /** A short badge on the art's corner. */
     marker = '',
     /** One line of context under the badges (two at most). */
     line,
@@ -42,7 +43,6 @@
     actions,
     onsim,
     simOpen = false,
-    artTransition = null,
     class: className = '',
     style = ''
   }: {
@@ -58,12 +58,13 @@
     actions?: Snippet;
     onsim?: () => void;
     simOpen?: boolean;
-    artTransition?: string | null;
     class?: string;
     style?: string;
   } = $props();
 
-  const hasBadges = $derived(similarity != null || rating !== undefined || !!marker);
+  const hasBadges = $derived(!compact && (similarity != null || rating !== undefined));
+  /** How many subgrid rows this tile spans: art, name, then whichever parts it has. */
+  const rows = $derived(2 + (hasBadges ? 1 : 0) + (!compact && line ? 1 : 0) + (!compact && actions ? 1 : 0));
   /** Initials stand in for missing box art. */
   const initials = $derived(
     name
@@ -76,31 +77,34 @@
   );
 </script>
 
-<Card.Root size="sm" class="tile min-w-0 {className}" data-compact={compact || undefined} {style}>
-  <Card.Content class="flex flex-col gap-2">
-    <a class="main" {href} title={name}>
-      <span class="art" style:view-transition-name={artTransition}>
-        {#if thumbnail}
-          <img src={thumbnail} alt="" loading="lazy" decoding="async" />
-        {:else}
-          <span class="ph" aria-hidden="true">{initials}</span>
-        {/if}
-      </span>
-      <span class="nm">{name}</span>
+<Card.Root
+  size="sm"
+  class="tile min-w-0 {compact ? '' : 'grid grid-rows-subgrid'} {className}"
+  data-compact={compact || undefined}
+  style="{compact ? '' : `grid-row: span ${rows};`} {style}"
+>
+  <Card.Content>
+    <a class="art" {href} tabindex="-1" aria-hidden="true">
+      {#if thumbnail}
+        <img src={thumbnail} alt="" loading="lazy" decoding="async" />
+      {:else}
+        <span class="ph">{initials}</span>
+      {/if}
+      {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
     </a>
+  </Card.Content>
+
+  <Card.Content class="ident">
+    <a class="nm" {href} title={name}>{name}</a>
     {#if year}<span class="yr">{year}</span>{/if}
   </Card.Content>
 
-  {#if !compact && (hasBadges || line)}
-    <Card.Content class="flex flex-1 flex-col gap-2">
-      {#if hasBadges}
-        <div class="badges">
-          <SimBadges {similarity} {rating} {onsim} {simOpen} />
-          {#if marker}<Badge variant="secondary">{marker}</Badge>{/if}
-        </div>
-      {/if}
-      {#if line}<p class="line">{@render line()}</p>{/if}
-    </Card.Content>
+  {#if hasBadges}
+    <Card.Content><SimBadges {similarity} {rating} {onsim} {simOpen} /></Card.Content>
+  {/if}
+
+  {#if !compact && line}
+    <Card.Content><p class="line">{@render line()}</p></Card.Content>
   {/if}
 
   {#if !compact && actions}
@@ -109,24 +113,12 @@
 </Card.Root>
 
 <style>
-  :global(.tile:has(.main:hover)) {
+  :global(.tile:has(a:hover)) {
     --tw-ring-color: var(--primary);
-  }
-  .main {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    color: inherit;
-    text-decoration: none;
-    min-width: 0;
-  }
-  .main:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 3px;
-    border-radius: 4px;
   }
   /* A fixed 4:3 frame: the cover sits inside at its own shape, never scaled past its size. */
   .art {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -153,49 +145,56 @@
     font-size: 1.1rem;
     font-weight: 700;
   }
-  /* Two lines, always: a short name keeps the space, a long one is cut with an ellipsis. */
+  /* On the frame's corner, so it never takes a line from the parts below. */
+  .art :global(.marker) {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  /* Name and year together; the name capped at two lines (full name on hover). */
+  :global(.tile .ident) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
   .nm {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     overflow: hidden;
-    min-height: calc(2 * 1.3em);
+    color: inherit;
+    text-decoration: none;
     font-size: 0.95rem;
     font-weight: 650;
     line-height: 1.3;
     letter-spacing: -0.01em;
   }
-  .main:hover .nm {
+  .nm:hover {
     color: var(--primary);
+  }
+  .nm:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
   .yr {
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
-  /* One line of badges. */
-  .badges {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.3rem;
-    overflow: hidden;
-  }
-  /* Two lines, always, so the footers of a row line up. */
   .line {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     overflow: hidden;
-    min-height: calc(2 * 1.4em);
     margin: 0;
     font-size: 0.8rem;
     line-height: 1.4;
     color: var(--muted-foreground);
   }
 
-  /* Compact: art and name only, smaller. */
+  /* Compact: smaller name. */
   :global(.tile[data-compact]) .nm {
     font-size: 0.8rem;
     font-weight: 600;

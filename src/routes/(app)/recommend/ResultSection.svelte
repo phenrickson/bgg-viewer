@@ -49,8 +49,6 @@
     whyId,
     onwhy,
     onwalk,
-    /** The game whose art is mid-walk into the hero (named for the view transition). */
-    walking = null,
     /** Extra controls at the end of the header (the page puts Cards | List on the first). */
     headEnd
   }: {
@@ -65,7 +63,6 @@
     whyId: number | null;
     onwhy: (id: number) => void;
     onwalk: (id: number) => void;
-    walking?: number | null;
     headEnd?: Snippet;
   } = $props();
 
@@ -128,7 +125,6 @@
           rating={g.average_rating}
           onsim={() => onwhy(g.game_id)}
           simOpen={whyId === g.game_id}
-          artTransition={walking === g.game_id ? 'seed-art' : null}
           marker={markOwned && owned.has(g.game_id) ? 'On your shelf' : ''}
         >
           {#snippet line()}{whyLine(whyOf(g)).join(' · ')}{/snippet}

@@ -7,11 +7,10 @@
    * collection) a row of your top-rated owned games.
    *
    * One page, not two: the search stays at the top. Picking a game loads its answer underneath,
-   * in place: the game as a hero ("Games like …", with the pool — "from my shelf | games I
-   * don't own | anywhere" — and Surprise me), the trail of games walked through, then the
-   * answer. Each result opens its game page; its match score opens "why"; "Games like this"
-   * walks on, the result's art moving into the hero (a view transition) so the change of
-   * seed is seen, not just swapped. The answer is stacked sections: the three precomputed
+   * in place — the search box then shows that game and still searches — with the pool ("from
+   * my shelf | games I don't own | anywhere") and Surprise me beneath it, and the trail of
+   * games walked through. Each result opens its game page; its match score opens "why";
+   * "Games like this" walks on from it. The answer is stacked sections: the three precomputed
    * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
    * fetched (collection artifact, precomputed lists, the live pooled query) is
@@ -20,7 +19,7 @@
    * Every match carries a "why" (`$lib/recommend/why.ts`): what the two games share on the
    * embedding's own inputs.
    */
-  import { untrack, tick } from 'svelte';
+  import { untrack } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { initCatalog, catalog, query, loadArrowTable } from '$lib/catalog/catalog.svelte';
@@ -33,7 +32,6 @@
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
   import { explain, type TagFrequencies } from '$lib/recommend/why';
-  import { formatMinutes } from '$lib/catalog/playtime';
   import {
     sourceFor,
     sectionsFor,
@@ -170,26 +168,6 @@
   // Where you've been this visit, as a breadcrumb. Walking back to a game cuts the trail there.
   let trail = $state<{ id: number; name: string }[]>([]);
   let seed = $state<Game | null>(null);
-  /** A walk waiting for its new seed to load, so the view transition's "after" has it. */
-  let seedWait: { id: number; done: () => void } | null = null;
-
-  /** The seed's facts, for the hero: the traits the "why" compares. */
-  const seedFacts = $derived.by(() => {
-    if (!seed) return '';
-    const g = seed;
-    const range = (lo: number | null, hi: number | null, f: (n: number) => string) =>
-      lo && hi && lo !== hi ? `${f(lo)}–${f(hi)}` : lo || hi ? f((lo || hi)!) : '';
-    const players = range(g.min_players, g.max_players, String);
-    const time = range(g.min_playtime, g.max_playtime, formatMinutes);
-    return [
-      g.predicted_complexity != null ? `Complexity ~${g.predicted_complexity.toFixed(1)}` : '',
-      players ? `${players} players` : '',
-      time
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  });
-
   $effect(() => {
     const id = seedId;
     if (catalog.status !== 'ready' || id == null) {
@@ -200,10 +178,6 @@
       const g = m.get(id) ?? null;
       if (id !== seedId) return;
       seed = g;
-      if (seedWait?.id === id) {
-        seedWait.done();
-        seedWait = null;
-      }
       if (!g) return;
       const at = untrack(() => trail.findIndex((s) => s.id === id));
       trail = at >= 0 ? untrack(() => trail.slice(0, at + 1)) : [...untrack(() => trail), { id, name: g.name }];
@@ -284,30 +258,9 @@
   });
 
   // --- The walk: "Games like this" -----------------------------------------------------------
-  /** The result mid-walk, by section: a game can sit in two sections, and only the clicked one
-   *  may carry the transition's name. */
-  let walking = $state<{ id: number; key: SectionKey } | null>(null);
-  async function walk(id: number, key: SectionKey) {
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || !document.startViewTransition) {
-      await set({ id });
-      window.scrollTo({ top: 0 });
-      return;
-    }
-    walking = { id, key };
-    await tick();
-    const loaded = new Promise<void>((done) => {
-      seedWait = { id, done };
-      // Never hold the page frozen on a slow load.
-      setTimeout(done, 1500);
-    });
-    document.startViewTransition(async () => {
-      await set({ id });
-      await loaded;
-      walking = null;
-      await tick();
-      window.scrollTo({ top: 0 });
-    });
+  async function walk(id: number) {
+    await set({ id });
+    window.scrollTo({ top: 0 });
   }
 
   // --- Surprise me: one game drawn from a wider list, shown above the sections ---------------
@@ -448,7 +401,7 @@
       </div>
 
       <Stack gap="sm">
-        <GameSearch onpick={(id) => set({ id })} />
+        <GameSearch onpick={(id) => set({ id })} current={seed ? { name: seed.name, thumbnail: seed.thumbnail } : null} />
 
         {#if seedId == null}
           <!-- PLACEHOLDER copy (Phil): both row labels. -->
@@ -464,46 +417,28 @@
       </Stack>
 
       {#if seedId != null}
-        <!-- ── The seed ──────────────────────────────────────────────────────── -->
-        {#if seed}
-          {@const sd = seed}
-          <Stack gap="sm">
-            <!-- PLACEHOLDER copy (Phil): "Games like". -->
-            <GameHero
-              href="/games/{sd.game_id}"
-              name={sd.name}
-              image={sd.thumbnail}
-              kicker="Games like"
-              artTransition={walking ? null : 'seed-art'}
-            >
-              {#snippet meta()}
-                {#if sd.year_published}<span>{sd.year_published}</span>{/if}
-                {#if seedFacts}<span>{seedFacts}</span>{/if}
-              {/snippet}
-              {#snippet actions()}
-                {#if hasShelf}
-                  <!-- PLACEHOLDER copy (Phil) -->
-                  <span class="from">from</span>
-                  <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
-                {/if}
-                {#if status === 'ready' && surprisePool.length}
-                  <Button variant="outline" onclick={surprise}>Surprise me</Button>
-                {/if}
-              {/snippet}
-            </GameHero>
-            {#if trail.length > 1}
-              <nav class="trail" aria-label="Games you have walked through">
-                {#each trail as t, i (t.id)}
-                  {#if i > 0}<span aria-hidden="true">›</span>{/if}
-                  {#if t.id === seedId}
-                    <span aria-current="page">{t.name}</span>
-                  {:else}
-                    <a href={ask({ id: t.id })}>{t.name}</a>
-                  {/if}
-                {/each}
-              </nav>
-            {/if}
-          </Stack>
+        <!-- ── The question: the pool, Surprise me, and where you've walked ───────── -->
+        <div class="controls">
+          {#if hasShelf}
+            <!-- PLACEHOLDER copy (Phil) -->
+            <span class="from">from</span>
+            <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
+          {/if}
+          {#if status === 'ready' && surprisePool.length}
+            <Button variant="outline" onclick={surprise}>Surprise me</Button>
+          {/if}
+        </div>
+        {#if trail.length > 1}
+          <nav class="trail" aria-label="Games you have walked through">
+            {#each trail as t, i (t.id)}
+              {#if i > 0}<span aria-hidden="true">›</span>{/if}
+              {#if t.id === seedId}
+                <span aria-current="page">{t.name}</span>
+              {:else}
+                <a href={ask({ id: t.id })}>{t.name}</a>
+              {/if}
+            {/each}
+          </nav>
         {/if}
 
         <!-- ── Surprise me ───────────────────────────────────────────────────── -->
@@ -545,8 +480,7 @@
               markOwned={pool === 'all'}
               {whyId}
               onwhy={toggleWhy}
-              onwalk={(id) => walk(id, s.key)}
-              walking={walking?.key === s.key ? walking.id : null}
+              onwalk={walk}
             >
               {#snippet headEnd()}
                 {#if i === 0}
@@ -599,6 +533,7 @@
   }
   .lede { margin: 0; max-width: 40ch; font-size: 1.05rem; color: var(--muted-foreground); }
   .sub { margin: var(--space-sm) 0 0; font-size: 0.9rem; color: var(--muted-foreground); }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .trail {
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem;
@@ -613,11 +548,6 @@
     font-size: 0.8rem; color: var(--muted-foreground);
   }
   .as { display: inline-flex; align-items: center; gap: var(--space-xs); }
-  /* The walk: the result's art moves into the hero; the rest cross-fades. */
-  :global(::view-transition-group(seed-art)) {
-    animation-duration: 420ms;
-    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-  }
   .admin {
     font: inherit; font-size: 0.78rem; padding: 0.2rem 0.45rem; border-radius: 6px;
     border: 1px solid var(--border); background: var(--card); color: var(--foreground);
