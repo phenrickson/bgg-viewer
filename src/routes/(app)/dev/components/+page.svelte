@@ -87,11 +87,11 @@
 
     <section>
       <h2>GameTile</h2>
-      <p class="note">Full: badges and a one-line slot. Sample line text.</p>
+      <p class="note">Full: badges, then the name and a facts slot. Sample fact text.</p>
       <AutoGrid min="md" gap="md">
         {#each games.slice(0, 4) as g, i (g.id)}
           <GameTile href="/games/{g.id}" name={g.name} year={g.year} thumbnail={g.thumb} similarity={sims[i]} rating={g.rating}>
-            {#snippet line()}{why}{/snippet}
+            {#snippet facts()}<span>{why}</span>{/snippet}
           </GameTile>
         {/each}
       </AutoGrid>
@@ -99,12 +99,12 @@
       <AutoGrid min="md" gap="md">
         {#if noArt}
           <GameTile href="/games/{noArt.id}" name={noArt.name} year={noArt.year} thumbnail={null} similarity={0.7} rating={noArt.rating}>
-            {#snippet line()}{why}{/snippet}
+            {#snippet facts()}<span>{why}</span>{/snippet}
           </GameTile>
         {/if}
         {#if longName}
           <GameTile href="/games/{longName.id}" name={longName.name} year={longName.year} thumbnail={longName.thumb} similarity={0.78} rating={longName.rating}>
-            {#snippet line()}{why}{/snippet}
+            {#snippet facts()}<span>{why}</span>{/snippet}
           </GameTile>
         {/if}
         {#if games[1]}

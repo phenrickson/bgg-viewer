@@ -1,23 +1,24 @@
 <script lang="ts">
   /**
-   * One game as a TILE — art on top, then name and year, then (optionally) its match badges,
-   * one line of context and a footer of actions. The visual unit for a short list you browse by
-   * picture: a handful of recommendations, a shelf to start from.
+   * One game as a TILE: the art, a row of scores with the tile's actions, then the name and the
+   * game's facts. The visual unit for a short list you browse by picture: a handful of
+   * recommendations, a shelf to start from.
    *
    * Not `GameCard`: that is a dense list row that has run out of width, art beside text, laid
-   * out to scan down. A tile is laid out to scan across — a few in a row, art first.
+   * out to scan down. A tile is laid out to scan across: a few in a row, art first.
    *
-   * Built on the shared `Card`. Its parts — art, name and year, badges, the context line, the
-   * footer — are rows of a CSS SUBGRID, shared with every tile in the same grid row: each part
-   * is as tall as the tallest tile's in that row, so a row lines up without reserving blank
-   * space, and a one-line name keeps its year right under it. The parent must be a grid
-   * (`AutoGrid`). The art is a 4:3 frame (BGG's ~200px thumbnail inside at its own shape, never
-   * scaled up); the name is capped at two lines, the context line at two.
+   * Built on the shared `Card`. The fixed-size parts come first (the art in a 4:3 frame, the
+   * score row), so they line up across a row by construction; the parts whose length varies
+   * (the name, up to two lines, and the facts) come last, so any spare height falls at the
+   * foot of a tile, not in the middle of it. BGG's ~200px thumbnail sits inside the frame at
+   * its own shape and is never scaled up.
    *
-   * `compact` keeps only the art, name and year, for a row of small picks (not a subgrid).
+   * `compact` keeps only the art, name and year, for a row of small picks.
    *
-   * The art and the name link to `href`. `line` and `actions` sit outside the links, so they can
-   * hold controls of their own. `marker` is a badge on the art's corner ("On your shelf").
+   * The art and the name link to `href`. `actions` (icon buttons) and `facts` sit outside the
+   * links, so they can hold controls of their own. `marker` is a badge on the art's corner
+   * ("On your shelf"). Each item in `facts` should be one unbreakable fact; they wrap as whole
+   * items, never mid-fact.
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -36,9 +37,9 @@
     compact = false,
     /** A short badge on the art's corner. */
     marker = '',
-    /** One line about the game under the badges (two at most). */
-    line,
-    /** Controls in the footer. */
+    /** The game's facts under the name, after its year. */
+    facts,
+    /** Icon buttons at the end of the score row. */
     actions,
     class: className = '',
     style = ''
@@ -51,15 +52,13 @@
     rating?: number | null;
     compact?: boolean;
     marker?: string;
-    line?: Snippet;
+    facts?: Snippet;
     actions?: Snippet;
     class?: string;
     style?: string;
   } = $props();
 
-  const hasBadges = $derived(!compact && (similarity != null || rating !== undefined));
-  /** How many subgrid rows this tile spans: art, name, then whichever parts it has. */
-  const rows = $derived(2 + (hasBadges ? 1 : 0) + (!compact && line ? 1 : 0) + (!compact && actions ? 1 : 0));
+  const hasScores = $derived(!compact && (similarity != null || rating !== undefined || !!actions));
   /** Initials stand in for missing box art. */
   const initials = $derived(
     name
@@ -72,12 +71,7 @@
   );
 </script>
 
-<Card.Root
-  size="sm"
-  class="tile min-w-0 {compact ? '' : 'grid grid-rows-subgrid'} {className}"
-  data-compact={compact || undefined}
-  style="{compact ? '' : `grid-row: span ${rows};`} {style}"
->
+<Card.Root size="sm" class="tile min-w-0 {className}" data-compact={compact || undefined} {style}>
   <Card.Content>
     <a class="art" {href} tabindex="-1" aria-hidden="true">
       {#if thumbnail}
@@ -89,22 +83,24 @@
     </a>
   </Card.Content>
 
+  {#if hasScores}
+    <Card.Content class="scores">
+      <SimBadges {similarity} {rating} />
+      {#if actions}<span class="acts">{@render actions()}</span>{/if}
+    </Card.Content>
+  {/if}
+
   <Card.Content class="ident">
     <a class="nm" {href} title={name}>{name}</a>
-    {#if year}<span class="yr">{year}</span>{/if}
+    {#if !compact && facts}
+      <div class="facts">
+        {#if year}<span>{year}</span>{/if}
+        {@render facts()}
+      </div>
+    {:else if year}
+      <span class="yr">{year}</span>
+    {/if}
   </Card.Content>
-
-  {#if hasBadges}
-    <Card.Content><SimBadges {similarity} {rating} /></Card.Content>
-  {/if}
-
-  {#if !compact && line}
-    <Card.Content><p class="line">{@render line()}</p></Card.Content>
-  {/if}
-
-  {#if !compact && actions}
-    <Card.Footer class="justify-between gap-2">{@render actions()}</Card.Footer>
-  {/if}
 </Card.Root>
 
 <style>
@@ -146,12 +142,23 @@
     top: 0;
     left: 0;
   }
-  /* Name and year together; the name capped at two lines (full name on hover). */
+  /* Scores on the left, the tile's icon actions on the right: one line. */
+  :global(.tile .scores) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .acts {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 0.15rem;
+  }
   :global(.tile .ident) {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.3rem;
   }
+  /* The name, capped at two lines (the full name on hover). */
   .nm {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -173,19 +180,20 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
-  .yr {
+  /* Whole facts wrap; a fact never breaks inside itself. */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.6rem;
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
-  .line {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    margin: 0;
+  .facts > :global(*) {
+    white-space: nowrap;
+  }
+  .yr {
     font-size: 0.8rem;
-    line-height: 1.4;
     color: var(--muted-foreground);
   }
 

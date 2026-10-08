@@ -33,6 +33,7 @@
   import SimBadges from '$lib/game/SimBadges.svelte';
   import { explain, type TagFrequencies } from '$lib/recommend/why';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
+  import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import {
@@ -140,7 +141,7 @@
     const rows = await query<Record<string, unknown>>(
       `SELECT c.game_id, c.name, c.year_published, c.average_rating, c.predicted_complexity,
               c.min_players, c.max_players, c.min_playtime, c.max_playtime,
-              c.mechanics, c.categories, c.families, t.thumbnail
+              c.mechanics, c.categories, c.families, c.designers, t.thumbnail
        FROM catalog c LEFT JOIN thumbnails t USING (game_id)
        WHERE c.game_id IN (${ids.join(',')})`
     );
@@ -160,7 +161,8 @@
           max_playtime: num(r.max_playtime),
           mechanics: arr(r.mechanics),
           categories: arr(r.categories),
-          families: arr(r.families)
+          families: arr(r.families),
+          designers: arr(r.designers)
         };
         return [g.game_id, g];
       })
@@ -318,6 +320,9 @@
     shelf: { title: 'On your shelf', blurb: 'The games you own closest to this one.' }
   };
 
+  /** Categories, and mechanics, shown on the chosen game: the first few of each. */
+  const SEED_TAGS = 4;
+
   // PLACEHOLDER copy (Phil): the pool labels.
   const POOL_OPTIONS: { value: Pool; label: string }[] = [
     { value: 'shelf', label: 'my shelf' },
@@ -426,9 +431,22 @@
           <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail}>
             {#snippet meta()}
               {#if sd.year_published}<span>{sd.year_published}</span>{/if}
+              <SimBadges rating={sd.average_rating} />
               <ComplexityBadge weight={sd.predicted_complexity} />
               {#each [boxPlayersLabel(sd.min_players, sd.max_players), boxPlaytimeLabel(sd.min_playtime, sd.max_playtime)].filter(Boolean) as f (f)}<span>{f}</span>{/each}
             {/snippet}
+            <!-- PLACEHOLDER copy (Phil): "by". -->
+            <div class="about">
+              {#if sd.designers?.length}
+                <p class="by">by {sd.designers.slice(0, 3).join(', ')}{sd.designers.length > 3 ? ` +${sd.designers.length - 3}` : ''}</p>
+              {/if}
+              {#if sd.categories?.length || sd.mechanics?.length}
+                <div class="tags">
+                  {#each (sd.categories ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="cat" tag={t} />{/each}
+                  {#each (sd.mechanics ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="mech" tag={t} />{/each}
+                </div>
+              {/if}
+            </div>
           </GameHero>
         {/if}
 
@@ -548,6 +566,9 @@
   }
   .lede { margin: 0; max-width: 40ch; font-size: 1.05rem; color: var(--muted-foreground); }
   .sub { margin: var(--space-sm) 0 0; font-size: 0.9rem; color: var(--muted-foreground); }
+  .about { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .trail {

@@ -7,6 +7,7 @@
     name: string;
     year_published: number | null;
     average_rating: number | null;
+    designers: readonly string[] | null;
     thumbnail: string | null;
   };
   export type Item = Game & { similarity: number };
@@ -35,6 +36,8 @@
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
+  import InfoIcon from '@lucide/svelte/icons/info';
+  import ScanSearchIcon from '@lucide/svelte/icons/scan-search';
   import { similarityPct } from '$lib/game/similarity';
   import WhyMatch from './WhyMatch.svelte';
 
@@ -92,18 +95,26 @@
     {#if headEnd}{@render headEnd()}{/if}
   </header>
 
-  {#snippet facts(g: Item)}
+  {#snippet factsOf(g: Item)}
     <ComplexityBadge weight={g.predicted_complexity} />
-    {[boxPlayersLabel(g.min_players, g.max_players), boxPlaytimeLabel(g.min_playtime, g.max_playtime)]
-      .filter(Boolean)
-      .join(' · ')}
+    {#each [boxPlayersLabel(g.min_players, g.max_players), boxPlaytimeLabel(g.min_playtime, g.max_playtime)].filter(Boolean) as f (f)}
+      <span>{f}</span>
+    {/each}
   {/snippet}
   {#snippet gameActions(g: Item)}
-    <!-- PLACEHOLDER copy (Phil): both labels. -->
-    <Button variant="link" size="xs" class="act" aria-expanded={whyId === g.game_id} onclick={() => onwhy(g.game_id)}>
-      Why this match
-    </Button>
-    <Button variant="link" size="xs" class="act" onclick={() => onwalk(g.game_id)}>Games like this</Button>
+    <!-- PLACEHOLDER copy (Phil): both labels (tooltip and screen reader). -->
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      class="act"
+      title="Why this match"
+      aria-label="Why this match"
+      aria-expanded={whyId === g.game_id}
+      onclick={() => onwhy(g.game_id)}><InfoIcon /></Button
+    >
+    <Button variant="ghost" size="icon-xs" class="act" title="Games like this" aria-label="Games like this" onclick={() => onwalk(g.game_id)}
+      ><ScanSearchIcon /></Button
+    >
   {/snippet}
 
   {#if display === 'list'}
@@ -117,7 +128,9 @@
           similarity={g.similarity}
           rating={g.average_rating}
         >
-          {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span> · {/if}{@render facts(g)}
+          <span class="row-facts">
+            {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span>{/if}{@render factsOf(g)}
+          </span>
           {#snippet action()}{@render gameActions(g)}{/snippet}
         </SimilarRow>
       {/each}
@@ -134,7 +147,7 @@
           rating={g.average_rating}
           marker={markOwned && owned.has(g.game_id) ? 'On your shelf' : ''}
         >
-          {#snippet line()}{@render facts(g)}{/snippet}
+          {#snippet facts()}{@render factsOf(g)}{/snippet}
           {#snippet actions()}{@render gameActions(g)}{/snippet}
         </GameTile>
       {/each}
@@ -160,9 +173,12 @@
   h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
   header p { font-size: 0.85rem; color: var(--muted-foreground); margin: 0.15rem 0 0; }
   .own { color: var(--primary); font-weight: 600; }
-  /* A game's two actions: quiet until pointed at (or open), so a page of them doesn't shout. */
-  .sec :global(.act) { height: auto; padding: 0; color: var(--muted-foreground); }
+  /* A game's two icon actions: quiet until pointed at (or open), so a page of them doesn't shout. */
+  .sec :global(.act) { color: var(--muted-foreground); }
   .sec :global(.act:hover), .sec :global(.act[aria-expanded='true']) { color: var(--primary); }
+  /* The list's facts: whole facts wrap, never mid-fact. */
+  .row-facts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; }
+  .row-facts > :global(*) { white-space: nowrap; }
   /* The game page's similar-games list: rows a little apart. */
   .list { display: flex; flex-direction: column; gap: 0.4rem; }
   .why {
