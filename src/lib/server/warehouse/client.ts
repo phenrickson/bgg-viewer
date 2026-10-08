@@ -36,7 +36,7 @@ export interface WarehouseClient {
 	getTableSchema(id: string): Promise<TableSchema>;
 	/**
 	 * Every profile's neighbours for one game within a pool, computed live (~3 s). POSTed, so a
-	 * pool of ids can be as long as the catalog (Help me find a game sends every match).
+	 * pool of ids can be as long as the catalog.
 	 */
 	getSimilarPooled(gameId: number, pool: SimilarPool): Promise<Record<string, SimilarWireRow[]>>;
 }

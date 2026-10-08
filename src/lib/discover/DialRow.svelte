@@ -1,14 +1,5 @@
 <script lang="ts" module>
-  export type DialChip = {
-    label: string;
-    on: boolean;
-    onclick: () => void;
-    ariaLabel?: string;
-    /** A pre-selected answer ("Anywhere") — on, but not a choice the reader made. */
-    isDefault?: boolean;
-    /** "Doesn't matter": when on, outlined and neutral rather than filled — not an answer. */
-    quiet?: boolean;
-  };
+  export type DialChip = { label: string; on: boolean; onclick: () => void; ariaLabel?: string };
 </script>
 
 <script lang="ts">
@@ -19,18 +10,12 @@
    * and turned the page into a filter toolbar.
    *
    * Stateless: each chip says whether it's on and what clicking it does. `DialStrip` builds its
-   * four questions from this; Recommend's "Where from?" is one more. `centered` centres the
-   * question and its chips (Recommend, under its centred headline).
+   * four questions from this; Recommend's "Where from?" is one more.
    */
-  let {
-    id,
-    question,
-    chips,
-    centered = false
-  }: { id: string; question: string; chips: DialChip[]; centered?: boolean } = $props();
+  let { id, question, chips }: { id: string; question: string; chips: DialChip[] } = $props();
 </script>
 
-<div class="row" class:centered>
+<div class="row">
   <p class="q" {id}>{question}</p>
   <div class="chips" role="group" aria-labelledby={id}>
     {#each chips as c (c.label)}
@@ -38,7 +23,6 @@
         type="button"
         class="chip"
         class:on={c.on}
-        class:quiet={c.quiet}
         aria-pressed={c.on}
         aria-label={c.ariaLabel}
         onclick={c.onclick}>{c.label}</button
@@ -58,8 +42,6 @@
   }
 
   .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .centered { align-items: center; text-align: center; }
-  .centered .chips { justify-content: center; }
 
   /* Matches the landing page's `.chip`, as a button rather than a link. */
   .chip {
@@ -79,14 +61,6 @@
     border-color: var(--primary);
     color: var(--primary-foreground, var(--card));
     font-weight: 600;
-  }
-
-  /* A chosen "Doesn't matter" is a non-answer: neutral, outlined, not filled. */
-  .chip.on.quiet {
-    background: transparent;
-    border-color: color-mix(in oklch, var(--foreground) 45%, var(--border));
-    color: var(--foreground);
-    font-weight: 500;
   }
 
   /* Touch sizing: padding AND type together, not `min-height` alone — a touch control

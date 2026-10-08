@@ -7,8 +7,7 @@
    * underneath, which is why "see all N in Explore" is a link and not a translation: the
    * user carries their question into the bigger room instead of restating it.
    *
-   * The questions are `DialStrip` and the list is `DiscoverResults` — the same two pieces
-   * Recommend's "Help me find a game" is built from.
+   * The questions are `DialStrip` and the list is `DiscoverResults`.
    *
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */

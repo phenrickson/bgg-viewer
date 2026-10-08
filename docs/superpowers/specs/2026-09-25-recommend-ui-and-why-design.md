@@ -307,3 +307,19 @@ matches → Discover's table" above.
 - **More like this** still opens I want games like… with that game as the seed; carrying the
   answers across waits on the filtered neighbours endpoint.
 - `/discover` keeps its table (`GameRow`, now without the complexity bar).
+
+## Help me find a game: removed (2026-10-08)
+
+Phil didn't like the "Help me find a game" tab, so it's gone. `/recommend` is now only "I want
+games like…", with a subtitle under the headline (PLACEHOLDER copy, Phil). Sections 1–5 above
+that describe the tab, and the v3 section, are history.
+
+Removed with it: the tab switcher and `tab=find`, `GameResult`, DialStrip's `lead` / `stepwise` /
+`centered` / `collapsible` modes, DiscoverResults' cards/list variants and `extraWhere`, the
+filtered "More like this" panel, and `POST /api/similar` with its id-pool parsing. `/discover`
+keeps the plain DialStrip and DiscoverResults it already used. The warehouse's POST
+`/games/{id}/similar` stays deployed, and the viewer's client still POSTs pooled searches.
+
+**To get it back:** the tag `archive/recommend-find-tab` (at `e960fc1`) is the last commit with
+the tab in place, e.g. `git show archive/recommend-find-tab:src/routes/(app)/recommend/+page.svelte`
+or `git checkout archive/recommend-find-tab -- <path>`.
