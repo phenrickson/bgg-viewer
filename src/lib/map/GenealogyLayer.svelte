@@ -10,9 +10,9 @@
    *   as lines meeting at the chosen game. Thick with similarity; solid = similarity only,
    *   dashed = same family, double = reimplementation / expansion. Same-year games get no
    *   edge — sitting on the centre's row already says it;
-   * - ⊕N (unfold, N waiting) and +N (more past the cap) as tokens at the end of the game's
-   *   label, so the label placer reserves their room, with an HTML button laid over each.
-   *   The centre's own overflow lives in the page's controls, not on the canvas;
+   * - ⊕N (unfold, N waiting) and ⊖ (fold) as a token at the end of the game's label, so
+   *   the label placer reserves its room, with an HTML button laid over it. "+N more" past
+   *   the cap, and the centre's own overflow, live in the side panel and the controls;
    * - year or generation labels down the left edge.
    *
    * The data square is stretched over the whole canvas (`stretch`), so the tree uses the
@@ -36,7 +36,7 @@
     selected = -1,
     onselect,
     onunfold,
-    onmore
+    onfold
   }: {
     coords: CoordinateSet;
     facts: GameFacts;
@@ -45,7 +45,7 @@
     selected?: number;
     onselect?: (i: number) => void;
     onunfold?: (i: number) => void;
-    onmore?: (i: number, dir: Dir) => void;
+    onfold?: (i: number) => void;
   } = $props();
 
   const surface = useSurface();
@@ -139,10 +139,11 @@
   const byIndex = $derived(new Map(g.nodes.map((nd) => [nd.i, nd])));
 
   const yearOf = (i: number) => facts.year[i] || '—';
-  /** The badge token a game's label ends with, or null: ⊕N folded, +N past the cap. One word, so it never wraps apart. */
+  /** The badge token a game's label ends with, or null: ⊕N to unfold, ⊖ to fold. One word, so it never wraps apart. */
   function token(nd: GenealogyNode): string | null {
-    if ((nd.side !== 'up' && nd.side !== 'down') || nd.hidden <= 0) return null;
-    return nd.unfolded ? `+${nd.hidden}` : `⊕${nd.hidden}`;
+    if (nd.side !== 'up' && nd.side !== 'down') return null;
+    if (nd.unfolded) return '⊖';
+    return nd.hidden > 0 ? `⊕${nd.hidden}` : null;
   }
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
@@ -211,10 +212,9 @@
       const box = boxes.get(nd.i);
       if (!tk || !box || (nd.side !== 'up' && nd.side !== 'down')) continue;
       const [x, y] = badgeCentre(box, measure, tk, LABEL_METRICS);
-      const dir = nd.side;
       next.push({
-        key: `${nd.unfolded ? 'm' : 'u'}${nd.i}`, x, y, label: tk,
-        act: nd.unfolded ? () => onmore?.(nd.i, dir) : () => onunfold?.(nd.i)
+        key: `${nd.unfolded ? 'f' : 'u'}${nd.i}`, x, y, label: tk,
+        act: nd.unfolded ? () => onfold?.(nd.i) : () => onunfold?.(nd.i)
       });
     }
     const hp = api.hovered >= 0 && byIndex.has(api.hovered) ? at.get(api.hovered) : undefined;
@@ -258,7 +258,7 @@
         {yearOf(nd.i)} · {facts.usersRated[nd.i].toLocaleString()} ratings{#if nd.side !== 'centre'} · {nd.sim.toFixed(2)} to {facts.name(coords.ids[nd.via])}{/if}
       </div>
       {#if (nd.side === 'up' || nd.side === 'down') && nd.hidden > 0}
-        <div class="meta">{nd.unfolded ? `+${nd.hidden} more past the cap` : `⊕${nd.hidden} ${nd.side === 'up' ? 'earlier' : 'later'} to unfold`}</div>
+        <div class="meta">{nd.unfolded ? `+${nd.hidden} more past the cap — select to show` : `⊕${nd.hidden} ${nd.side === 'up' ? 'earlier' : 'later'} to unfold`}</div>
       {/if}
     </div>
   {/if}

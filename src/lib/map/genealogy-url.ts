@@ -4,6 +4,7 @@
  * dataset indices, so a URL survives a rebuilt artifact. Junk is dropped, never thrown.
  */
 import type { YMode } from './genealogy-layout';
+import type { Dir, Genealogy } from './genealogy';
 
 export interface GenealogyState {
 	game: number | null;
@@ -73,4 +74,25 @@ export function currentState(pageState: { genealogy?: GenealogyState }, url: URL
 export function trailView(trail: number[], expanded: boolean, keep = 3): { hidden: number; shown: { id: number; k: number }[] } {
 	const from = expanded ? 0 : Math.max(0, trail.length - keep);
 	return { hidden: from, shown: trail.slice(from).map((id, i) => ({ id, k: from + i })) };
+}
+
+/**
+ * Fold game `i` (a tree index): forget its unfold and every unfold and expansion beneath
+ * it, so unfolding again starts at one generation rather than springing back to a subtree.
+ */
+export function fold(s: GenealogyState, tree: Genealogy, ids: Int32Array, i: number): GenealogyState {
+	const under = new Set<number>([i]);
+	// `nodes` is breadth-first, so a parent is always met before its children.
+	for (const nd of tree.nodes) if (under.has(nd.via) && nd.side !== 'same') under.add(nd.i);
+	const gone = new Set([...under].map((j) => ids[j]));
+	return {
+		...s,
+		unfolded: s.unfolded.filter((id) => !gone.has(id)),
+		expanded: s.expanded.filter((k) => !gone.has(Number(k.split(':')[0])))
+	};
+}
+
+/** Undo a "+N more": back to the strongest `cap` for that game and direction. */
+export function showFewer(s: GenealogyState, gameId: number, dir: Dir): GenealogyState {
+	return { ...s, expanded: s.expanded.filter((k) => k !== `${gameId}:${dir}`) };
 }

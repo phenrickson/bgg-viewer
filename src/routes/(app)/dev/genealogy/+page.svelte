@@ -20,7 +20,7 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, trailView, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, trailView, fold, showFewer, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
@@ -98,6 +98,9 @@
   }
   const unfold = (i: number) => commit({ ...s, unfolded: [...s.unfolded, idOf(i)] });
   const more = (i: number, dir: Dir) => commit({ ...s, expanded: [...s.expanded, `${idOf(i)}:${dir}`] });
+  const isExpanded = (i: number, dir: Dir) => s.expanded.includes(`${idOf(i)}:${dir}`);
+  const fewer = (i: number, dir: Dir) => commit(showFewer(s, idOf(i), dir));
+  const foldAt = (i: number) => { if (tree) commit(fold(s, tree, coords!.ids, i)); };
 
   // PLACEHOLDER COPY (Phil)
   const DIRS = ['up', 'down', 'same'] as const;
@@ -147,7 +150,9 @@
       <span class="muted">{tree.nodes.length} games</span>
       <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
       {#each DIRS as dir (dir)}
-        {#if tree.centreHidden[dir] > 0}
+        {#if isExpanded(tree.centre, dir)}
+          <Button size="xs" variant="outline" onclick={() => fewer(tree.centre, dir)}>Show fewer {MORE_LABEL[dir]}</Button>
+        {:else if tree.centreHidden[dir] > 0}
           <Button size="xs" variant="outline" onclick={() => more(tree.centre, dir)}>+{tree.centreHidden[dir]} {MORE_LABEL[dir]}</Button>
         {/if}
       {/each}
@@ -166,7 +171,7 @@
         <div class="state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
       {:else if layout}
         <PointCanvas lasso={false}>
-          <GenealogyLayer {coords} {facts} {layout} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onmore={more} />
+          <GenealogyLayer {coords} {facts} {layout} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
         </PointCanvas>
         {#if noEarlier}<p class="empty above">No earlier games above this similarity.</p>{/if}
         {#if noLater}<p class="empty below">No later games above this similarity.</p>{/if}
@@ -185,12 +190,17 @@
         {/if}
         <div class="actions">
           {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
-          {#if (selNode.side === 'up' || selNode.side === 'down') && selNode.hidden > 0}
+          {#if selNode.side === 'up' || selNode.side === 'down'}
             {@const dir = selNode.side}
             {@const i = selNode.i}
             {#if selNode.unfolded}
-              <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
-            {:else}
+              <Button size="sm" variant="outline" onclick={() => foldAt(i)}>Fold</Button>
+              {#if isExpanded(i, dir)}
+                <Button size="sm" variant="outline" onclick={() => fewer(i, dir)}>Show fewer</Button>
+              {:else if selNode.hidden > 0}
+                <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
+              {/if}
+            {:else if selNode.hidden > 0}
               <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
             {/if}
           {/if}

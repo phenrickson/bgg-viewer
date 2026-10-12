@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { fromParams, toParams, currentState, trailView, DEFAULT_THRESHOLD, type GenealogyState } from './genealogy-url';
+import { fromParams, toParams, currentState, trailView, fold, showFewer, DEFAULT_THRESHOLD, type GenealogyState } from './genealogy-url';
+import type { Genealogy, GenealogyNode } from './genealogy';
 
 describe('genealogy URL state', () => {
 	it('defaults from an empty URL', () => {
@@ -43,5 +44,26 @@ describe('trailView', () => {
 	it('shows everything when expanded or short', () => {
 		expect(trailView([1, 2, 3, 4, 5], true, 3).hidden).toBe(0);
 		expect(trailView([1, 2], false, 3)).toEqual({ hidden: 0, shown: [{ id: 1, k: 0 }, { id: 2, k: 1 }] });
+	});
+});
+
+describe('fold / showFewer', () => {
+	// Indices 0..5 are game ids 100..105. Tree: 0 centre; 1 up (unfolded) → 2 up (unfolded) → 3 up;
+	// 4 down (unfolded) → 5 down.
+	const node = (i: number, side: GenealogyNode['side'], via: number, unfolded = false): GenealogyNode =>
+		({ i, side, gen: 0, via, sim: 0.9, kind: 'influence', unfolded, hidden: 0 });
+	const tree: Genealogy = {
+		centre: 0, placeable: true, centreHidden: { up: 0, down: 0, same: 0 },
+		nodes: [node(0, 'centre', -1, true), node(1, 'up', 0, true), node(2, 'up', 1, true), node(3, 'up', 2), node(4, 'down', 0, true), node(5, 'down', 4)]
+	};
+	const ids = Int32Array.from([100, 101, 102, 103, 104, 105]);
+	const s: GenealogyState = {
+		game: 100, t: 0.8, y: 'year', unfolded: [101, 102, 104], expanded: ['101:up', '102:up', '104:down', '100:up'], trail: []
+	};
+	it('folding a game forgets it and every unfold beneath it, on its side only', () => {
+		expect(fold(s, tree, ids, 1)).toEqual({ ...s, unfolded: [104], expanded: ['104:down', '100:up'] });
+	});
+	it('showFewer drops one expansion and nothing else', () => {
+		expect(showFewer(s, 100, 'up')).toEqual({ ...s, expanded: ['101:up', '102:up', '104:down'] });
 	});
 });
