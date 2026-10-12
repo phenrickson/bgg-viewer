@@ -20,7 +20,7 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, trailView, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
@@ -89,6 +89,9 @@
     selected = -1;
     commit({ ...s, game: id, unfolded: [], expanded: [], trail: [...s.trail, centreId] }, true);
   }
+  /** Breadcrumb: the last few centres, the rest behind "… N more" until opened. */
+  let trailOpen = $state(false);
+  const crumbs = $derived(trailView(s.trail, trailOpen));
   function crumb(k: number) {
     selected = -1;
     commit({ ...s, game: s.trail[k], unfolded: [], expanded: [], trail: s.trail.slice(0, k) }, true);
@@ -111,10 +114,13 @@
       <h1>Genealogy</h1>
       {#if facts}
         <nav class="trail" aria-label="Trail">
-          {#each s.trail as id, k (k)}
-            <button type="button" onclick={() => crumb(k)}>{facts.name(id)}</button><span aria-hidden="true">›</span>
+          {#if crumbs.hidden}
+            <button type="button" class="more" onclick={() => (trailOpen = true)}>… {crumbs.hidden} more</button><span aria-hidden="true">›</span>
+          {/if}
+          {#each crumbs.shown as c (c.k)}
+            <button type="button" title={facts.name(c.id)} onclick={() => crumb(c.k)}>{facts.name(c.id)}</button><span aria-hidden="true">›</span>
           {/each}
-          <strong>{facts.name(centreId)}</strong>
+          <strong title={facts.name(centreId)}>{facts.name(centreId)}</strong>
         </nav>
       {/if}
     </div>
@@ -194,6 +200,8 @@
   h1 { margin: 0; }
   .trail { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
   .trail button { color: var(--muted-foreground); text-decoration: underline; text-underline-offset: 2px; }
+  .trail button.more { text-decoration: none; }
+  .trail button, .trail strong { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .trail span { color: var(--muted-foreground); }
   .search { min-width: min(20rem, 100%); }
   .controls { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; font-size: 0.9rem; }

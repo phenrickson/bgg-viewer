@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fromParams, toParams, currentState, DEFAULT_THRESHOLD, type GenealogyState } from './genealogy-url';
+import { fromParams, toParams, currentState, trailView, DEFAULT_THRESHOLD, type GenealogyState } from './genealogy-url';
 
 describe('genealogy URL state', () => {
 	it('defaults from an empty URL', () => {
@@ -33,5 +33,15 @@ describe('currentState', () => {
 	});
 	it('falls back to the URL on a fresh load or a pasted link', () => {
 		expect(currentState({}, new URL('http://x/dev/genealogy?game=102794')).game).toBe(102794);
+	});
+});
+
+describe('trailView', () => {
+	it('shows the last few previous centres and counts the rest', () => {
+		expect(trailView([1, 2, 3, 4, 5], false, 3)).toEqual({ hidden: 2, shown: [{ id: 3, k: 2 }, { id: 4, k: 3 }, { id: 5, k: 4 }] });
+	});
+	it('shows everything when expanded or short', () => {
+		expect(trailView([1, 2, 3, 4, 5], true, 3).hidden).toBe(0);
+		expect(trailView([1, 2], false, 3)).toEqual({ hidden: 0, shown: [{ id: 1, k: 0 }, { id: 2, k: 1 }] });
 	});
 });

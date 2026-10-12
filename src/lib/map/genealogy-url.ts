@@ -65,3 +65,12 @@ export function toParams(s: GenealogyState): URLSearchParams {
 export function currentState(pageState: { genealogy?: GenealogyState }, url: URL): GenealogyState {
 	return pageState.genealogy ?? fromParams(url.searchParams);
 }
+
+/**
+ * Which previous centres the breadcrumb shows: the last `keep`, unless expanded. `k` is
+ * each one's position in the full trail, which is what clicking it navigates by.
+ */
+export function trailView(trail: number[], expanded: boolean, keep = 3): { hidden: number; shown: { id: number; k: number }[] } {
+	const from = expanded ? 0 : Math.max(0, trail.length - keep);
+	return { hidden: from, shown: trail.slice(from).map((id, i) => ({ id, k: from + i })) };
+}
