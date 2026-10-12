@@ -23,6 +23,8 @@ export function ring(ctx: CanvasRenderingContext2D, x: number, y: number, rad: n
 }
 
 const LINE_HEIGHT = 14, PAD_X = 4, PAD_Y = 2, MAX_WIDTH = 150;
+/** The label box geometry `labels` uses, for a caller placing things against a placed label. */
+export const LABEL_METRICS = { lineHeight: LINE_HEIGHT, padX: PAD_X, padY: PAD_Y } as const;
 
 /** Place `want` so labels avoid each other and the edges (see labels.ts), then paint each
  * as wrapped text: on a translucent chip (legible over dense dots without hiding them),

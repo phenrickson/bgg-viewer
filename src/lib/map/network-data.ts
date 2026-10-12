@@ -4,19 +4,17 @@
  * artifact's order so a graph index is a map index. Dev-only by construction — that
  * dataset is ~9 MB and never ships.
  */
-import { tableFromIPC } from 'apache-arrow';
+import { tableFromIPC, type Table } from 'apache-arrow';
 import type { CoordinateSet } from './coordinates';
 import type { GameFacts } from './facts';
 import type { NetworkData } from './network';
 
-export async function loadNetworkData(
-	coords: CoordinateSet,
-	facts: GameFacts,
-	minRatings: () => number
-): Promise<NetworkData> {
-	const res = await fetch('/dev/similar/dataset');
-	if (!res.ok) throw new Error(`embedding dataset fetch failed (${res.status})`);
-	const t = tableFromIPC(new Uint8Array(await res.arrayBuffer()));
+/**
+ * The dataset's vectors, L2-normalised and placed at their coordinates-artifact row.
+ * `have[i]` marks rows that got a vector; games the dataset has but the coordinates
+ * don't are skipped. Shared with the genealogy loader.
+ */
+export function alignVectors(t: Table, coords: CoordinateSet): { emb: Float32Array; dim: number; have: Uint8Array } {
 	const ids = t.getChild('game_id')!.toArray() as Int32Array;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const col = t.getChild('embedding') as any;
@@ -36,8 +34,20 @@ export async function loadNetworkData(
 		for (let d = 0; d < dim; d++) emb[i * dim + d] = v[d] / norm;
 		have[i] = 1;
 	}
+	return { emb, dim, have };
+}
+
+export async function loadNetworkData(
+	coords: CoordinateSet,
+	facts: GameFacts,
+	minRatings: () => number
+): Promise<NetworkData> {
+	const res = await fetch('/dev/similar/dataset');
+	if (!res.ok) throw new Error(`embedding dataset fetch failed (${res.status})`);
+	const t = tableFromIPC(new Uint8Array(await res.arrayBuffer()));
+	const { emb, dim, have } = alignVectors(t, coords);
 	return {
-		n, dim, emb,
+		n: coords.ids.length, dim, emb,
 		eligible: (i) => have[i] === 1 && facts.upcoming[i] === 0 && facts.usersRated[i] >= minRatings()
 	};
 }
