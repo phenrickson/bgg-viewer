@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutGenealogy, ndcToScreenY, comb, badgeAt, dashed, offset } from './genealogy-layout';
+import { layoutGenealogy, ndcToScreenY, badgeCentre, dashed, offset } from './genealogy-layout';
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 const node = (i: number, side: GenealogyNode['side'], gen: number, via: number): GenealogyNode =>
@@ -38,10 +38,12 @@ describe('layoutGenealogy', () => {
 		expect((l.x[j(4)] + l.x[j(5)]) / 2).toBeCloseTo(l.x[j(0)]);
 		expect(l.x[j(4)]).not.toBeCloseTo(l.x[j(5)]);
 	});
-	it("puts same-year games on the centre's row, either side, apart", () => {
+	it("puts same-year games on the centre's row, either side, two slots out for their labels", () => {
 		const l = layoutGenealogy(g, year, 'year');
 		expect(l.y[j(6)]).toBeCloseTo(l.y[j(0)]);
 		expect(Math.sign(l.x[j(6)] - l.x[j(0)])).toBe(-Math.sign(l.x[j(7)] - l.x[j(0)]));
+		const slot = Math.abs(l.x[j(4)] - l.x[j(5)]); // 4 and 5 are adjacent leaves
+		expect(Math.abs(l.x[j(6)] - l.x[j(0)])).toBeCloseTo(2 * slot);
 	});
 	it('fits within [-0.9, 0.9] and handles a lone centre without NaN', () => {
 		const l = layoutGenealogy(g, year, 'year');
@@ -73,22 +75,12 @@ describe('geometry', () => {
 		expect(f(-0.5)).toBe(150);
 		expect(ndcToScreenY({ y: 0.2, py: 1 }, { y: 0.2, py: 9 })).toBeNull();
 	});
-	it('comb: a trunk from the parent, one bar across, a drop to each child', () => {
-		const c = comb([0, 0], [[-1, -2], [0, -1], [1, -3]], 0.5);
-		expect(c.trunk).toEqual([[0, 0], [0, -0.5]]); // halfway to the nearest child
-		expect(c.bar).toEqual([[-1, -0.5], [1, -0.5]]);
-		expect(c.drops).toEqual([[[-1, -0.5], [-1, -2]], [[0, -0.5], [0, -1]], [[1, -0.5], [1, -3]]]);
-	});
-	it('comb mirrors upward for ancestors, and skips the bar for a single child straight above', () => {
-		const c = comb([0, 0], [[0, 2]], 0.5);
-		expect(c.trunk).toEqual([[0, 0], [0, 1]]);
-		expect(c.bar).toBeNull();
-		expect(c.drops).toEqual([[[0, 1], [0, 2]]]);
-	});
-	it('badgeAt sits just past the end of a label box, stacking further badges below', () => {
-		const box = { bx: 100, by: 40, bw: 80, bh: 16 };
-		expect(badgeAt(box, 0)).toEqual([186, 48]);
-		expect(badgeAt(box, 1)).toEqual([186, 68]);
+	it('badgeCentre finds the badge token at the end of the last label line', () => {
+		const measure = (t: string) => t.length * 10;
+		const m = { lineHeight: 14, padX: 4, padY: 2 };
+		const box = { bx: 100, by: 40, lines: ['Resurgence', '(2022) ⊕54'] };
+		// last line is 100px wide; the 3-char token is its final 30px → centre 15px in from the end
+		expect(badgeCentre(box, measure, '⊕54', m)).toEqual([100 + 4 + 100 - 15, 40 + 2 + 14 * 1.5]);
 	});
 	it('dashed cuts a line into on/off runs', () => {
 		const ds = dashed([[0, 0], [1, 0]], 0.2, 0.1);

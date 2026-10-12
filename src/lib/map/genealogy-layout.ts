@@ -79,7 +79,8 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 	nodes.forEach((nd, j) => {
 		if (nd.side !== 'same') return;
 		k++;
-		lx[j] = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * SLOT;
+		// Two slots apart, not one: same-year games sit beside the centre's own label.
+		lx[j] = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 2 * SLOT;
 	});
 
 	const cy = year[g.centre];
@@ -123,33 +124,20 @@ export function ndcToScreenY(a: { y: number; py: number }, b: { y: number; py: n
 	return (y) => a.py + k * (y - a.y);
 }
 
-type Pt = [number, number];
-
 /**
- * A family-tree comb from a parent to its children: a trunk out of the parent, one bar
- * across, and a drop into each child. The bar sits `frac` of the way to the nearest child,
- * so siblings visibly share a parent instead of all converging on one point. Works either
- * way up — ancestors comb upward. No bar when there's nothing to span.
+ * Centre of a badge token (⊕12 / +12) that was appended to its game's label, so the label
+ * placer reserved room for it — the HTML button is laid exactly over the drawn token. The
+ * token is the end of the label's last line.
  */
-export function comb(parent: Pt, children: Pt[], frac = 0.4): { trunk: Pt[]; bar: Pt[] | null; drops: Pt[][] } {
-	const [px, py] = parent;
-	const nearest = children.reduce((best, c) => (Math.abs(c[1] - py) < Math.abs(best - py) ? c[1] : best), children[0][1]);
-	const bus = py + (nearest - py) * frac;
-	const xs = [px, ...children.map((c) => c[0])];
-	const lo = Math.min(...xs), hi = Math.max(...xs);
-	return {
-		trunk: [[px, py], [px, bus]],
-		bar: hi > lo ? [[lo, bus], [hi, bus]] : null,
-		drops: children.map(([cx, cy]) => [[cx, bus], [cx, cy]])
-	};
-}
-
-/** Badge spacing, CSS px: gap after the label's end, first-line centre, step between badges. */
-const BADGE_GAP = 6, BADGE_MID = 8, BADGE_STEP = 20;
-
-/** Where the `k`th badge (⊕ / "+N more") goes: just past the end of its game's label box. */
-export function badgeAt(box: { bx: number; by: number; bw: number; bh: number }, k: number): [number, number] {
-	return [box.bx + box.bw + BADGE_GAP, box.by + BADGE_MID + k * BADGE_STEP];
+export function badgeCentre(
+	box: { bx: number; by: number; lines: string[] },
+	measure: (s: string) => number,
+	token: string,
+	m: { lineHeight: number; padX: number; padY: number }
+): [number, number] {
+	const k = box.lines.length - 1;
+	const end = box.bx + m.padX + measure(box.lines[k]);
+	return [end - measure(token) / 2, box.by + m.padY + m.lineHeight * (k + 0.5)];
 }
 
 /** Cut a polyline into dashes: `on` drawn, `off` skipped, in the polyline's own units. */

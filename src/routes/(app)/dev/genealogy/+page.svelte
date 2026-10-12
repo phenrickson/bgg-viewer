@@ -97,6 +97,8 @@
   const more = (i: number, dir: Dir) => commit({ ...s, expanded: [...s.expanded, `${idOf(i)}:${dir}`] });
 
   // PLACEHOLDER COPY (Phil)
+  const DIRS = ['up', 'down', 'same'] as const;
+  const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
   const KIND_LABEL = { related: 'reimplementation / expansion', family: 'same family', influence: 'similarity only' } as const;
   const noEarlier = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'up') && tree.centreHidden.up === 0);
   const noLater = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'down') && tree.centreHidden.down === 0);
@@ -135,7 +137,15 @@
         onchange={(e) => commit({ ...s, t: Number(e.currentTarget.value) })} />
       {s.t.toFixed(2)}
     </label>
-    {#if tree}<span class="muted">{tree.nodes.length} games</span>{/if}
+    {#if tree}
+      <span class="muted">{tree.nodes.length} games</span>
+      <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
+      {#each DIRS as dir (dir)}
+        {#if tree.centreHidden[dir] > 0}
+          <Button size="xs" variant="outline" onclick={() => more(tree.centre, dir)}>+{tree.centreHidden[dir]} {MORE_LABEL[dir]}</Button>
+        {/if}
+      {/each}
+    {/if}
   </div>
 
   <div class="body">

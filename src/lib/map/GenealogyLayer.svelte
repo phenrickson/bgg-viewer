@@ -6,12 +6,14 @@
    *   upcoming games hollow (background fill, dashed ring) at a fixed size — they have no
    *   ratings yet;
    * - size by ratings (log), so an obscure game reads as obscure without being filtered;
-   * - edges as a family-tree comb (trunk, bar, a drop to each child), so siblings visibly
-   *   share a parent. Each drop carries its link: thick with similarity; solid = similarity
-   *   only, dashed = same family, double = reimplementation / expansion. Same-year games
-   *   get no edge — sitting on the centre's row already says it;
-   * - ⊕ (unfold, with how many are waiting) and "+N more" as HTML buttons placed just past
-   *   their game's label; year or generation labels down the left edge.
+   * - edges curve from parent to child, leaving and arriving vertically, so the view reads
+   *   as lines meeting at the chosen game. Thick with similarity; solid = similarity only,
+   *   dashed = same family, double = reimplementation / expansion. Same-year games get no
+   *   edge — sitting on the centre's row already says it;
+   * - ⊕N (unfold, N waiting) and +N (more past the cap) as tokens at the end of the game's
+   *   label, so the label placer reserves their room, with an HTML button laid over each.
+   *   The centre's own overflow lives in the page's controls, not on the canvas;
+   * - year or generation labels down the left edge.
    *
    * The data square is stretched over the whole canvas (`stretch`), so the tree uses the
    * canvas's width rather than a centred square.
@@ -21,10 +23,10 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { Dir, GenealogyNode } from './genealogy';
-  import { ndcToScreenY, comb, badgeAt, dashed, offset, type GenealogyLayout } from './genealogy-layout';
+  import { ndcToScreenY, badgeCentre, dashed, offset, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
   import { toRgb } from './palette';
-  import { ring, glow, labels } from './ink';
+  import { ring, glow, labels, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
 
   let {
@@ -87,6 +89,19 @@
   });
   const visible = $derived(g.nodes.map((nd) => nd.i));
 
+  /** An edge from parent `a` to child `b`: a cubic with vertical tangents at both ends. */
+  const SEGMENTS = 16;
+  function edgePath(a: number, b: number): [number, number][] {
+    const x1 = pos.x[a], y1 = pos.y[a], x2 = pos.x[b], y2 = pos.y[b], ym = (y1 + y2) / 2;
+    const pts: [number, number][] = [];
+    for (let k = 0; k <= SEGMENTS; k++) {
+      const t = k / SEGMENTS, u = 1 - t;
+      const w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t;
+      pts.push([(w0 + w1) * x1 + (w2 + w3) * x2, w0 * y1 + (w1 + w2) * ym + w3 * y2]);
+    }
+    return pts;
+  }
+
   /** Dash and double-line spacing, NDC. */
   const DASH_ON = 0.018, DASH_OFF = 0.012, DOUBLE_GAP = 0.004;
   const lines = $derived.by<Line[]>(() => {
@@ -99,37 +114,19 @@
     const layers: Line[][] = PASSES.map(() => []);
     const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
       PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
-
-    // Children grouped by parent and direction; same-year games get no edge.
-    const groups = new Map<string, GenealogyNode[]>();
-    for (const nd of g.nodes) {
-      if (nd.side !== 'up' && nd.side !== 'down') continue;
-      const key = `${nd.via}:${nd.side}`;
-      const list = groups.get(key);
-      if (list) list.push(nd); else groups.set(key, [nd]);
-    }
     const edges = g.nodes.filter((nd) => nd.side === 'up' || nd.side === 'down');
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
-
-    for (const kids of groups.values()) {
-      const parent = kids[0].via;
-      const c = comb([pos.x[parent], pos.y[parent]], kids.map((k) => [pos.x[k.i], pos.y[k.i]] as [number, number]));
-      const litParent = parent === selected;
-      // Trunk and bar belong to the family, not to one link: neutral weight.
-      stroke(c.trunk, litParent ? accent : ink, litParent ? 1 : 0.5, 1.4);
-      if (c.bar) stroke(c.bar, litParent ? accent : ink, litParent ? 1 : 0.5, 1.4);
-      kids.forEach((e, k) => {
-        const lit = litParent || e.i === selected;
-        const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-        const alpha = lit ? 1 : 0.35 + 0.5 * r;
-        const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
-        const rgb = lit ? accent : ink;
-        const drop = c.drops[k];
-        if (e.kind === 'family') for (const d of dashed(drop, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
-        else if (e.kind === 'related') { stroke(offset(drop, DOUBLE_GAP), rgb, alpha, width * 0.7); stroke(offset(drop, -DOUBLE_GAP), rgb, alpha, width * 0.7); }
-        else stroke(drop, rgb, alpha, width);
-      });
+    for (const e of edges) {
+      const lit = e.i === selected || e.via === selected;
+      const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
+      const alpha = lit ? 1 : 0.35 + 0.5 * r;
+      const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
+      const rgb = lit ? accent : ink;
+      const path = edgePath(e.via, e.i);
+      if (e.kind === 'family') for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
+      else if (e.kind === 'related') { stroke(offset(path, DOUBLE_GAP), rgb, alpha, width * 0.7); stroke(offset(path, -DOUBLE_GAP), rgb, alpha, width * 0.7); }
+      else stroke(path, rgb, alpha, width);
     }
     return layers.flat();
   });
@@ -139,8 +136,11 @@
   let marks = $state.raw<Mark[]>([]);
 
   const yearOf = (i: number) => facts.year[i] || '—';
-  // PLACEHOLDER COPY (Phil): the centre's overflow badges.
-  const CENTRE_MORE: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
+  /** The badge token a game's label ends with, or null: ⊕N folded, +N past the cap. One word, so it never wraps apart. */
+  function token(nd: GenealogyNode): string | null {
+    if ((nd.side !== 'up' && nd.side !== 'down') || nd.hidden <= 0) return null;
+    return nd.unfolded ? `+${nd.hidden}` : `⊕${nd.hidden}`;
+  }
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
@@ -185,42 +185,33 @@
         ctx.restore();
       }
       if (nd.i === selected) ring(ctx, p[0], p[1], r + 3, theme.accent, theme.background, 2);
-      want.push({ x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})`, gap: r + 4 });
+      const tk = token(nd);
+      want.push({ x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})${tk ? ` ${tk}` : ''}`, gap: r + 4 });
       wanted.set(`${p[0]},${p[1]}`, nd.i);
     }
     // Priority: the centre, the selected game, then tree order (strongest first per unfold).
     const sel = selected >= 0 ? at.get(selected) : undefined;
     if (sel) want.sort((l, r) => Number(r.x === sel[0] && r.y === sel[1]) - Number(l.x === sel[0] && l.y === sel[1]));
-    const boxes = new Map<number, { bx: number; by: number; bw: number; bh: number }>();
+    const boxes = new Map<number, { bx: number; by: number; lines: string[] }>();
     for (const pl of labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true })) {
       const i = wanted.get(`${pl.x},${pl.y}`);
       if (i != null) boxes.set(i, pl);
     }
 
-    // Badges go just past their game's label; a game whose label was dropped keeps them by its dot.
+    // A button over each label's badge token; a game whose label was dropped keeps its badge by the dot.
     const next: Mark[] = [];
-    const place = (i: number, k: number): [number, number] | null => {
-      const box = boxes.get(i);
-      if (box) return badgeAt(box, k);
-      const p = at.get(i);
-      return p ? [p[0] + rad(i) + 6, p[1] + k * 20] : null;
-    };
-    let k = 0;
-    for (const dir of ['up', 'down', 'same'] as const) {
-      const count = g.centreHidden[dir];
-      const xy = count > 0 ? place(centre.i, k) : null;
-      if (!xy) continue;
-      next.push({ key: `m${centre.i}:${dir}`, x: xy[0], y: xy[1], label: `+${count} ${CENTRE_MORE[dir]}`, act: () => onmore?.(centre.i, dir) });
-      k++;
-    }
+    const measure = (t: string) => ctx.measureText(t).width;
     for (const nd of g.nodes) {
-      if ((nd.side !== 'up' && nd.side !== 'down') || nd.hidden <= 0) continue;
-      const xy = place(nd.i, 0);
+      const tk = token(nd);
+      if (!tk || (nd.side !== 'up' && nd.side !== 'down')) continue;
+      const box = boxes.get(nd.i), p = at.get(nd.i);
+      const xy = box ? badgeCentre(box, measure, tk, LABEL_METRICS) : p ? [p[0] + rad(nd.i) + 18, p[1]] : null;
       if (!xy) continue;
       const dir = nd.side;
-      next.push(nd.unfolded
-        ? { key: `m${nd.i}:${dir}`, x: xy[0], y: xy[1], label: `+${nd.hidden} more`, act: () => onmore?.(nd.i, dir) }
-        : { key: `u${nd.i}`, x: xy[0], y: xy[1], label: `⊕ ${nd.hidden}`, act: () => onunfold?.(nd.i) });
+      next.push({
+        key: `${nd.unfolded ? 'm' : 'u'}${nd.i}`, x: xy[0], y: xy[1], label: tk,
+        act: nd.unfolded ? () => onmore?.(nd.i, dir) : () => onunfold?.(nd.i)
+      });
     }
     marks = next;
   }
@@ -265,10 +256,11 @@
 </div>
 
 <style>
+  /* Laid over the canvas-drawn token, same type, so it covers it exactly. */
   .mark {
-    position: absolute; transform: translateY(-50%); padding: 0.05rem 0.4rem;
+    position: absolute; transform: translate(-50%, -50%); padding: 0 0.3rem;
     border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--foreground);
-    font-size: 0.72rem; line-height: 1.3; white-space: nowrap; cursor: pointer;
+    font-size: 12px; font-weight: 600; line-height: 1.25; white-space: nowrap; cursor: pointer;
   }
   .mark:hover, .mark:focus-visible { border-color: var(--primary); }
   .legend {
