@@ -7,9 +7,9 @@
    *   ratings yet;
    * - size by ratings (log), so an obscure game reads as obscure without being filtered;
    * - edges curve from parent to child, leaving and arriving vertically, so the view reads
-   *   as lines meeting at the chosen game. Thick with similarity; solid = similarity only,
-   *   dashed = same family, double = reimplementation / expansion. Same-year games get no
-   *   edge — sitting on the centre's row already says it;
+   *   as lines meeting at the chosen game; same-year games hang off shallow arcs along the
+   *   centre's row. Thick with similarity; solid = similarity only, dashed = same family,
+   *   double = reimplementation / expansion;
    * - ⊕N (unfold, N waiting) and ⊖ (fold) as a token at the end of the game's label, so
    *   the label placer reserves its room, with an HTML button laid over it. "+N more" past
    *   the cap, and the centre's own overflow, live in the side panel and the controls;
@@ -23,7 +23,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { Dir, GenealogyNode } from './genealogy';
-  import { ndcToScreenY, badgeCentre, labelOrder, dashed, offset, type GenealogyLayout } from './genealogy-layout';
+  import { ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, offset, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
   import { toRgb } from './palette';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
@@ -114,7 +114,7 @@
     const layers: Line[][] = PASSES.map(() => []);
     const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
       PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
-    const edges = g.nodes.filter((nd) => nd.side === 'up' || nd.side === 'down');
+    const edges = g.nodes.filter((nd) => nd.side !== 'centre');
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
@@ -123,7 +123,9 @@
       const alpha = lit ? 1 : 0.35 + 0.5 * r;
       const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
       const rgb = lit ? accent : ink;
-      const path = edgePath(e.via, e.i);
+      const path = e.side === 'same'
+        ? sameYearArc([pos.x[e.via], pos.y[e.via]], [pos.x[e.i], pos.y[e.i]])
+        : edgePath(e.via, e.i);
       if (e.kind === 'family') for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
       else if (e.kind === 'related') { stroke(offset(path, DOUBLE_GAP), rgb, alpha, width * 0.7); stroke(offset(path, -DOUBLE_GAP), rgb, alpha, width * 0.7); }
       else stroke(path, rgb, alpha, width);

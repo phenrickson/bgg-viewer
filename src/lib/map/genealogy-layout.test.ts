@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutGenealogy, ndcToScreenY, badgeCentre, labelOrder, dashed, offset } from './genealogy-layout';
+import { layoutGenealogy, ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, offset } from './genealogy-layout';
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 const node = (i: number, side: GenealogyNode['side'], gen: number, via: number): GenealogyNode =>
@@ -102,5 +102,19 @@ describe('labelOrder', () => {
 	it('an unfolded game keeps its label (and its ⊖) ahead of more-rated children', () => {
 		const rated = Int32Array.from([500, 40, 90000, 1200, 7]);
 		expect(labelOrder([0, 1, 2, 3, 4], 0, -1, -1, rated, new Set([1]))).toEqual([0, 1, 2, 3, 4]);
+	});
+});
+
+describe('sameYearArc', () => {
+	const top = (pts: [number, number][]) => Math.max(...pts.map((p) => p[1]));
+	it('runs between the two games and bows just above their row', () => {
+		const a = sameYearArc([0, 0], [0.2, 0]);
+		expect(a[0]).toEqual([0, 0]);
+		expect(a[a.length - 1]).toEqual([0.2, 0]);
+		expect(top(a)).toBeGreaterThan(0);
+	});
+	it('a farther game arcs higher, so it clears the nearer one, up to a cap', () => {
+		expect(top(sameYearArc([0, 0], [0.4, 0]))).toBeGreaterThan(top(sameYearArc([0, 0], [0.2, 0])));
+		expect(top(sameYearArc([0, 0], [1.8, 0]))).toBeLessThanOrEqual(0.06);
 	});
 });
