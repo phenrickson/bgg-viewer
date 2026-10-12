@@ -1,13 +1,17 @@
 <script lang="ts">
   /**
    * Jump-to-a-game search — a name type-ahead over the in-browser catalog that navigates
-   * to the game's detail page. Used big on the landing and compact in the app header, so
+   * to the game's detail page, or hands the pick to `onpick`. Used big on the landing and compact in the app header, so
    * you can reach any game's page from anywhere. Warms the catalog on first focus.
    */
   import { goto } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
 
-  let { compact = false }: { compact?: boolean } = $props();
+  let { compact = false, onpick }: {
+    compact?: boolean;
+    /** Pick a game in place instead of opening its page (e.g. /dev/genealogy's centre). */
+    onpick?: (id: number) => void;
+  } = $props();
 
   type Hit = { game_id: number; name: string; year_published: number | null };
   let q = $state('');
@@ -40,7 +44,8 @@
     q = '';
     hits = [];
     active = false;
-    goto(`/games/${id}`);
+    if (onpick) onpick(id);
+    else goto(`/games/${id}`);
   }
 
   const placeholder = $derived(
