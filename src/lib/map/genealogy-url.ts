@@ -1,6 +1,7 @@
 /**
  * `/dev/genealogy`'s state, all of it in the URL, so a tree can be linked and Back
- * restores the one before (the page pushes a history entry per re-centre). Game ids, not
+ * restores the one before (the page pushes a history entry per re-centre, which starts a
+ * fresh tree). Game ids, not
  * dataset indices, so a URL survives a rebuilt artifact. Junk is dropped, never thrown.
  */
 import type { YMode } from './genealogy-layout';
@@ -16,8 +17,6 @@ export interface GenealogyState {
 	unfolded: number[];
 	/** `${gameId}:${dir}` — shown past the cap. */
 	expanded: string[];
-	/** Previous centres, oldest first. */
-	trail: number[];
 }
 
 /** Starting similarity floor. A tuning value: revisit after the first look at real trees. */
@@ -44,8 +43,7 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
 		same: p.get('same') === '1',
 		unfolded: ids(p.get('u')),
-		expanded: (p.get('a') ?? '').split(',').filter((k) => KEY.test(k)),
-		trail: ids(p.get('trail'))
+		expanded: (p.get('a') ?? '').split(',').filter((k) => KEY.test(k))
 	};
 }
 
@@ -57,7 +55,6 @@ export function toParams(s: GenealogyState): URLSearchParams {
 	if (s.same) p.set('same', '1');
 	if (s.unfolded.length) p.set('u', s.unfolded.join(','));
 	if (s.expanded.length) p.set('a', s.expanded.join(','));
-	if (s.trail.length) p.set('trail', s.trail.join(','));
 	return p;
 }
 
@@ -71,13 +68,9 @@ export function currentState(pageState: { genealogy?: GenealogyState }, url: URL
 	return pageState.genealogy ?? fromParams(url.searchParams);
 }
 
-/**
- * Which previous centres the breadcrumb shows: the last `keep`, unless expanded. `k` is
- * each one's position in the full trail, which is what clicking it navigates by.
- */
-export function trailView(trail: number[], expanded: boolean, keep = 3): { hidden: number; shown: { id: number; k: number }[] } {
-	const from = expanded ? 0 : Math.max(0, trail.length - keep);
-	return { hidden: from, shown: trail.slice(from).map((id, i) => ({ id, k: from + i })) };
+/** A fresh tree: on `game` (default the current one), nothing unfolded or expanded, settings kept. */
+export function startAt(s: GenealogyState, game: number | null = s.game): GenealogyState {
+	return { ...s, game, unfolded: [], expanded: [] };
 }
 
 /**

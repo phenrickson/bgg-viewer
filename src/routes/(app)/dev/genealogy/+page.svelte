@@ -20,7 +20,7 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, trailView, fold, showFewer, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, startAt, fold, showFewer, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
@@ -84,17 +84,16 @@
   const selNode = $derived(tree?.nodes.find((nd) => nd.i === selected) ?? null);
   const idOf = (i: number) => coords!.ids[i];
 
+  /** A new centre is a fresh tree; Back steps to the previous one. */
   function recentre(id: number) {
     if (id === centreId) return;
     selected = -1;
-    commit({ ...s, game: id, unfolded: [], expanded: [], trail: [...s.trail, centreId] }, true);
+    commit(startAt(s, id), true);
   }
-  /** Breadcrumb: the last few centres, the rest behind "… N more" until opened. */
-  let trailOpen = $state(false);
-  const crumbs = $derived(trailView(s.trail, trailOpen));
-  function crumb(k: number) {
+  /** Fold everything back to the centre's starting view. */
+  function reset() {
     selected = -1;
-    commit({ ...s, game: s.trail[k], unfolded: [], expanded: [], trail: s.trail.slice(0, k) }, true);
+    commit(startAt(s, centreId));
   }
   const unfold = (i: number) => commit({ ...s, unfolded: [...s.unfolded, idOf(i)] });
   const more = (i: number, dir: Dir) => commit({ ...s, expanded: [...s.expanded, `${idOf(i)}:${dir}`] });
@@ -115,17 +114,7 @@
     <div>
       <p class="eyebrow">Dev only — prototype</p>
       <h1>Genealogy</h1>
-      {#if facts}
-        <nav class="trail" aria-label="Trail">
-          {#if crumbs.hidden}
-            <button type="button" class="more" onclick={() => (trailOpen = true)}>… {crumbs.hidden} more</button><span aria-hidden="true">›</span>
-          {/if}
-          {#each crumbs.shown as c (c.k)}
-            <button type="button" title={facts.name(c.id)} onclick={() => crumb(c.k)}>{facts.name(c.id)}</button><span aria-hidden="true">›</span>
-          {/each}
-          <strong title={facts.name(centreId)}>{facts.name(centreId)}</strong>
-        </nav>
-      {/if}
+      {#if facts}<p class="current">{facts.name(centreId)}</p>{/if}
     </div>
     <div class="search"><GameSearch compact onpick={recentre} /></div>
   </header>
@@ -150,6 +139,9 @@
     </label>
     {#if tree}
       <span class="muted">{tree.nodes.length} games</span>
+      {#if s.unfolded.length || s.expanded.length}
+        <Button size="xs" variant="outline" onclick={reset}>Reset</Button>
+      {/if}
       <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
       {#each DIRS as dir (dir)}
         {#if isExpanded(tree.centre, dir)}
@@ -219,11 +211,7 @@
   .top { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; }
   .eyebrow { color: var(--muted-foreground); font-size: 0.8rem; margin: 0; }
   h1 { margin: 0; }
-  .trail { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
-  .trail button { color: var(--muted-foreground); text-decoration: underline; text-underline-offset: 2px; }
-  .trail button.more { text-decoration: none; }
-  .trail button, .trail strong { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .trail span { color: var(--muted-foreground); }
+  .current { margin: 0; font-weight: 600; }
   .search { min-width: min(20rem, 100%); }
   .controls { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; font-size: 0.9rem; }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
