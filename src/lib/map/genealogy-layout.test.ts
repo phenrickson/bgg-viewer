@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutGenealogy, ndcToScreen, dashed, offset } from './genealogy-layout';
+import { layoutGenealogy, ndcToScreenY, comb, badgeAt, dashed, offset } from './genealogy-layout';
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 const node = (i: number, side: GenealogyNode['side'], gen: number, via: number): GenealogyNode =>
@@ -68,10 +68,27 @@ describe('layoutGenealogy with a BC ancestor', () => {
 });
 
 describe('geometry', () => {
-	it('ndcToScreen recovers a translate + uniform scale (screen y runs down)', () => {
-		const f = ndcToScreen({ ndc: [0, 0], px: [100, 100] }, { ndc: [0.5, 0.5], px: [150, 50] })!;
-		expect(f(-0.5, -0.5)).toEqual([50, 150]);
-		expect(ndcToScreen({ ndc: [0, 0], px: [1, 1] }, { ndc: [0, 0], px: [1, 1] })).toBeNull();
+	it('ndcToScreenY recovers the y map alone (screen y runs down), whatever x does', () => {
+		const f = ndcToScreenY({ y: 0, py: 100 }, { y: 0.5, py: 50 })!;
+		expect(f(-0.5)).toBe(150);
+		expect(ndcToScreenY({ y: 0.2, py: 1 }, { y: 0.2, py: 9 })).toBeNull();
+	});
+	it('comb: a trunk from the parent, one bar across, a drop to each child', () => {
+		const c = comb([0, 0], [[-1, -2], [0, -1], [1, -3]], 0.5);
+		expect(c.trunk).toEqual([[0, 0], [0, -0.5]]); // halfway to the nearest child
+		expect(c.bar).toEqual([[-1, -0.5], [1, -0.5]]);
+		expect(c.drops).toEqual([[[-1, -0.5], [-1, -2]], [[0, -0.5], [0, -1]], [[1, -0.5], [1, -3]]]);
+	});
+	it('comb mirrors upward for ancestors, and skips the bar for a single child straight above', () => {
+		const c = comb([0, 0], [[0, 2]], 0.5);
+		expect(c.trunk).toEqual([[0, 0], [0, 1]]);
+		expect(c.bar).toBeNull();
+		expect(c.drops).toEqual([[[0, 1], [0, 2]]]);
+	});
+	it('badgeAt sits just past the end of a label box, stacking further badges below', () => {
+		const box = { bx: 100, by: 40, bw: 80, bh: 16 };
+		expect(badgeAt(box, 0)).toEqual([186, 48]);
+		expect(badgeAt(box, 1)).toEqual([186, 68]);
 	});
 	it('dashed cuts a line into on/off runs', () => {
 		const ds = dashed([[0, 0], [1, 0]], 0.2, 0.1);

@@ -120,12 +120,16 @@
   </header>
 
   <div class="controls">
-    <SegGroup
-      ariaLabel="Vertical axis"
-      options={[{ value: 'year', label: 'Year' }, { value: 'gen', label: 'Generation' }]}
-      value={s.y}
-      onchange={(y) => commit({ ...s, y })}
-    />
+    <!-- SegGroup's buttons share their container's width (built for the rail column), so
+         inline in a row it needs a width to share. -->
+    <div class="axis">
+      <SegGroup
+        ariaLabel="Vertical axis"
+        options={[{ value: 'year', label: 'Year' }, { value: 'gen', label: 'Generation' }]}
+        value={s.y}
+        onchange={(y) => commit({ ...s, y })}
+      />
+    </div>
     <label>Similarity ≥
       <input type="range" min={T_MIN} max={T_MAX} step="0.01" value={s.t}
         onchange={(e) => commit({ ...s, t: Number(e.currentTarget.value) })} />
@@ -184,6 +188,7 @@
   .search { min-width: min(20rem, 100%); }
   .controls { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; font-size: 0.9rem; }
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .axis { width: 12rem; }
   .muted { color: var(--muted-foreground); font-size: 0.85rem; }
   .body { flex: 1 1 auto; min-height: 0; display: flex; gap: var(--space-md); }
   .canvas { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }

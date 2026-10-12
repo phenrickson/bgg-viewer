@@ -3,19 +3,25 @@
    * One game's genealogy as a layer on a `PointCanvas` — a sibling of `NetworkLayer` with
    * its own encodings (see the genealogy spec):
    * - colour by side: ancestors, descendants, same-year, the centre in the accent;
-   *   upcoming games hollow (background fill, dashed ring);
+   *   upcoming games hollow (background fill, dashed ring) at a fixed size — they have no
+   *   ratings yet;
    * - size by ratings (log), so an obscure game reads as obscure without being filtered;
-   * - edges thick with similarity; solid = similarity only, dashed = same family, double =
-   *   reimplementation / expansion; the selected game's edges in the accent;
-   * - ⊕ (unfold, with how many are waiting) and "+N more" as HTML buttons placed from the
-   *   overlay's screen positions; axis ticks (years or generations) painted on the overlay.
+   * - edges as a family-tree comb (trunk, bar, a drop to each child), so siblings visibly
+   *   share a parent. Each drop carries its link: thick with similarity; solid = similarity
+   *   only, dashed = same family, double = reimplementation / expansion. Same-year games
+   *   get no edge — sitting on the centre's row already says it;
+   * - ⊕ (unfold, with how many are waiting) and "+N more" as HTML buttons placed just past
+   *   their game's label; year or generation labels down the left edge.
+   *
+   * The data square is stretched over the whole canvas (`stretch`), so the tree uses the
+   * canvas's width rather than a centred square.
    *
    * All copy PLACEHOLDER.
    */
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
-  import type { Dir } from './genealogy';
-  import { ndcToScreen, dashed, offset, type GenealogyLayout } from './genealogy-layout';
+  import type { Dir, GenealogyNode } from './genealogy';
+  import { ndcToScreenY, comb, badgeAt, dashed, offset, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
   import { toRgb } from './palette';
   import { ring, glow, labels } from './ink';
@@ -59,15 +65,18 @@
     const t = surface.theme;
     return t ? [t.chart[0], t.chart[1], t.muted, t.accent, t.background] : [];
   });
+  const isUpcoming = (nd: GenealogyNode) => nd.side !== 'centre' && facts.upcoming[nd.i] === 1;
   const colour = $derived.by(() => {
     const c = new Uint8Array(n);
-    for (const nd of g.nodes) c[nd.i] = nd.side !== 'centre' && facts.upcoming[nd.i] ? UPCOMING : BUCKET[nd.side];
+    for (const nd of g.nodes) c[nd.i] = isUpcoming(nd) ? UPCOMING : BUCKET[nd.side];
     return c;
   });
 
-  /** Diameter from ratings on a log scale: 30 ratings → 5px, 100k → 18px. */
+  /** Diameter from ratings on a log scale: 30 ratings → 5px, 100k → 18px. Upcoming: fixed. */
   const LOG_LO = Math.log10(30), LOG_HI = 5;
+  const UPCOMING_DIAMETER = 10;
   function diameter(i: number): number {
+    if (facts.upcoming[i] === 1 && i !== g.centre) return UPCOMING_DIAMETER;
     const t = (Math.log10(Math.max(1, facts.usersRated[i])) - LOG_LO) / (LOG_HI - LOG_LO);
     return Math.round(5 + Math.min(1, Math.max(0, t)) * 13);
   }
@@ -77,26 +86,6 @@
     return s;
   });
   const visible = $derived(g.nodes.map((nd) => nd.i));
-
-  /**
-   * An edge from `a` (nearer the centre) to `b`. Up/down edges leave and arrive vertically
-   * (a cubic with vertical tangents), so a tree reads as a tree. Same-year edges arc below
-   * the row instead, or every one would run straight through the games between.
-   */
-  const SEGMENTS = 16;
-  function edgePath(a: number, b: number, same: boolean): [number, number][] {
-    const x1 = pos.x[a], y1 = pos.y[a], x2 = pos.x[b], y2 = pos.y[b];
-    const h = same ? 0.25 * Math.abs(x2 - x1) : 0;
-    const c1: [number, number] = same ? [x1, y1 - h] : [x1, (y1 + y2) / 2];
-    const c2: [number, number] = same ? [x2, y2 - h] : [x2, (y1 + y2) / 2];
-    const pts: [number, number][] = [];
-    for (let k = 0; k <= SEGMENTS; k++) {
-      const t = k / SEGMENTS, u = 1 - t;
-      const w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t;
-      pts.push([w0 * x1 + w1 * c1[0] + w2 * c2[0] + w3 * x2, w0 * y1 + w1 * c1[1] + w2 * c2[1] + w3 * y2]);
-    }
-    return pts;
-  }
 
   /** Dash and double-line spacing, NDC. */
   const DASH_ON = 0.018, DASH_OFF = 0.012, DOUBLE_GAP = 0.004;
@@ -108,24 +97,39 @@
     // Feathered like NetworkLayer's: regl's line shader has no anti-aliasing of its own.
     const PASSES: [number, number][] = [[2.2, 0.08], [1.6, 0.2], [1, 1]];
     const layers: Line[][] = PASSES.map(() => []);
-    const edges = g.nodes.slice(1);
+    const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
+      PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
+
+    // Children grouped by parent and direction; same-year games get no edge.
+    const groups = new Map<string, GenealogyNode[]>();
+    for (const nd of g.nodes) {
+      if (nd.side !== 'up' && nd.side !== 'down') continue;
+      const key = `${nd.via}:${nd.side}`;
+      const list = groups.get(key);
+      if (list) list.push(nd); else groups.set(key, [nd]);
+    }
+    const edges = g.nodes.filter((nd) => nd.side === 'up' || nd.side === 'down');
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
-    for (const e of edges) {
-      const lit = e.i === selected || e.via === selected;
-      const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-      const alpha = lit ? 1 : 0.35 + 0.5 * r;
-      const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
-      const rgb = lit ? accent : ink;
-      const path = edgePath(e.via, e.i, e.side === 'same');
-      const strokes =
-        e.kind === 'family' ? dashed(path, DASH_ON, DASH_OFF)
-        : e.kind === 'related' ? [offset(path, DOUBLE_GAP), offset(path, -DOUBLE_GAP)]
-        : [path];
-      const w = e.kind === 'related' ? width * 0.7 : width;
-      for (const points of strokes) {
-        PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: w * wm }));
-      }
+
+    for (const kids of groups.values()) {
+      const parent = kids[0].via;
+      const c = comb([pos.x[parent], pos.y[parent]], kids.map((k) => [pos.x[k.i], pos.y[k.i]] as [number, number]));
+      const litParent = parent === selected;
+      // Trunk and bar belong to the family, not to one link: neutral weight.
+      stroke(c.trunk, litParent ? accent : ink, litParent ? 1 : 0.5, 1.4);
+      if (c.bar) stroke(c.bar, litParent ? accent : ink, litParent ? 1 : 0.5, 1.4);
+      kids.forEach((e, k) => {
+        const lit = litParent || e.i === selected;
+        const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
+        const alpha = lit ? 1 : 0.35 + 0.5 * r;
+        const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
+        const rgb = lit ? accent : ink;
+        const drop = c.drops[k];
+        if (e.kind === 'family') for (const d of dashed(drop, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
+        else if (e.kind === 'related') { stroke(offset(drop, DOUBLE_GAP), rgb, alpha, width * 0.7); stroke(offset(drop, -DOUBLE_GAP), rgb, alpha, width * 0.7); }
+        else stroke(drop, rgb, alpha, width);
+      });
     }
     return layers.flat();
   });
@@ -135,6 +139,8 @@
   let marks = $state.raw<Mark[]>([]);
 
   const yearOf = (i: number) => facts.year[i] || '—';
+  // PLACEHOLDER COPY (Phil): the centre's overflow badges.
+  const CENTRE_MORE: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
@@ -143,26 +149,20 @@
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
-    // Axis: ticks need NDC → screen, which two placed nodes at distinct NDC pin down.
+    // Axis labels down the left edge; the y map comes from two placed nodes at distinct y.
     const placed = g.nodes.map((nd, j) => ({ j, p: at.get(nd.i) })).filter((v) => v.p);
     const a = placed[0];
-    const b = placed.find((v) => layout.x[v.j] !== layout.x[a?.j ?? 0] || layout.y[v.j] !== layout.y[a?.j ?? 0]);
-    const map = a && b
-      ? ndcToScreen({ ndc: [layout.x[a.j], layout.y[a.j]], px: a.p! }, { ndc: [layout.x[b.j], layout.y[b.j]], px: b.p! })
-      : null;
-    if (map) {
+    const b = a && placed.find((v) => layout.y[v.j] !== layout.y[a.j]);
+    const toPy = a && b ? ndcToScreenY({ y: layout.y[a.j], py: a.p![1] }, { y: layout.y[b.j], py: b.p![1] }) : null;
+    if (toPy) {
       ctx.save();
       ctx.font = '11px system-ui, sans-serif';
       ctx.textBaseline = 'middle';
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = theme.foreground;
       for (const tk of layout.ticks) {
-        const [, sy] = map(0, tk.y);
-        if (sy < 0 || sy > api.height) continue;
-        ctx.globalAlpha = 0.12;
-        ctx.strokeStyle = theme.foreground;
-        ctx.beginPath(); ctx.moveTo(40, sy); ctx.lineTo(api.width, sy); ctx.stroke();
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = theme.foreground;
-        ctx.fillText(tk.label, 6, sy);
+        const sy = toPy(tk.y);
+        if (sy >= 0 && sy <= api.height) ctx.fillText(tk.label, 6, sy);
       }
       ctx.restore();
     }
@@ -173,36 +173,55 @@
     if (cp) glow(ctx, cp[0], cp[1], rad(centre.i) * 3, theme.accent, 0.35);
 
     const want: LabelInput[] = [];
+    const wanted = new Map<string, number>(); // label anchor → node index, to find each game's box
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
       const r = rad(nd.i);
       if (nd.side === 'centre') ring(ctx, p[0], p[1], r + 2, theme.foreground, theme.background, 2.5);
-      if (nd.side !== 'centre' && facts.upcoming[nd.i]) {
+      if (isUpcoming(nd)) {
         ctx.save(); ctx.setLineDash([2, 2]);
         ring(ctx, p[0], p[1], r, theme.foreground, theme.background, 1.2);
         ctx.restore();
       }
       if (nd.i === selected) ring(ctx, p[0], p[1], r + 3, theme.accent, theme.background, 2);
       want.push({ x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})`, gap: r + 4 });
+      wanted.set(`${p[0]},${p[1]}`, nd.i);
     }
     // Priority: the centre, the selected game, then tree order (strongest first per unfold).
     const sel = selected >= 0 ? at.get(selected) : undefined;
     if (sel) want.sort((l, r) => Number(r.x === sel[0] && r.y === sel[1]) - Number(l.x === sel[0] && l.y === sel[1]));
-    labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true });
+    const boxes = new Map<number, { bx: number; by: number; bw: number; bh: number }>();
+    for (const pl of labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true })) {
+      const i = wanted.get(`${pl.x},${pl.y}`);
+      if (i != null) boxes.set(i, pl);
+    }
 
+    // Badges go just past their game's label; a game whose label was dropped keeps them by its dot.
     const next: Mark[] = [];
-    const push = (i: number, dir: Dir, count: number, folded: boolean) => {
+    const place = (i: number, k: number): [number, number] | null => {
+      const box = boxes.get(i);
+      if (box) return badgeAt(box, k);
       const p = at.get(i);
-      if (!p || count <= 0) return;
-      const r = rad(i) + 12;
-      const [x, y] = dir === 'up' ? [p[0], p[1] - r] : dir === 'down' ? [p[0], p[1] + r] : [p[0] + r + 24, p[1]];
-      next.push(folded
-        ? { key: `u${i}`, x, y, label: `⊕ ${count}`, act: () => onunfold?.(i) }
-        : { key: `m${i}:${dir}`, x, y, label: `+${count} more`, act: () => onmore?.(i, dir) });
+      return p ? [p[0] + rad(i) + 6, p[1] + k * 20] : null;
     };
-    for (const dir of ['up', 'down', 'same'] as const) push(centre.i, dir, g.centreHidden[dir], false);
-    for (const nd of g.nodes) if (nd.side === 'up' || nd.side === 'down') push(nd.i, nd.side, nd.hidden, !nd.unfolded);
+    let k = 0;
+    for (const dir of ['up', 'down', 'same'] as const) {
+      const count = g.centreHidden[dir];
+      const xy = count > 0 ? place(centre.i, k) : null;
+      if (!xy) continue;
+      next.push({ key: `m${centre.i}:${dir}`, x: xy[0], y: xy[1], label: `+${count} ${CENTRE_MORE[dir]}`, act: () => onmore?.(centre.i, dir) });
+      k++;
+    }
+    for (const nd of g.nodes) {
+      if ((nd.side !== 'up' && nd.side !== 'down') || nd.hidden <= 0) continue;
+      const xy = place(nd.i, 0);
+      if (!xy) continue;
+      const dir = nd.side;
+      next.push(nd.unfolded
+        ? { key: `m${nd.i}:${dir}`, x: xy[0], y: xy[1], label: `+${nd.hidden} more`, act: () => onmore?.(nd.i, dir) }
+        : { key: `u${nd.i}`, x: xy[0], y: xy[1], label: `⊕ ${nd.hidden}`, act: () => onunfold?.(nd.i) });
+    }
     marks = next;
   }
 
@@ -216,6 +235,7 @@
     // Refit after every change: an unfold can grow the tree past the current view.
     get focus() { return visible; },
     get lines() { return lines; },
+    stretch: true,
     opacity: 0.95,
     onselect: (points) => { if (points.length === 1) onselect?.(points[0]); },
     overlay: paint
@@ -246,7 +266,7 @@
 
 <style>
   .mark {
-    position: absolute; transform: translate(-50%, -50%); padding: 0.05rem 0.4rem;
+    position: absolute; transform: translateY(-50%); padding: 0.05rem 0.4rem;
     border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--foreground);
     font-size: 0.72rem; line-height: 1.3; white-space: nowrap; cursor: pointer;
   }

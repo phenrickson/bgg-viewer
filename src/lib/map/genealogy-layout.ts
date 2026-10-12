@@ -32,11 +32,13 @@ const ROW = 1.6;
 const YEAR = 0.35;
 const FIT = 1.8;
 /**
- * Widest a slot is allowed to get in NDC, and the floor x is held to otherwise. A uniform
- * fit keeps the tree's proportions, but a long Year-mode span (a 1990 game whose ancestor
- * is Go, −2200) would crush x to a hairline; x then keeps this width per slot instead.
+ * The layer stretches the data square over the whole canvas, so x and y are fitted
+ * separately: y always fills the height, x fills the width up to this many NDC per slot,
+ * so a two-game tree stays a tree instead of splaying across the screen. Fitting each
+ * axis on its own also keeps a long Year-mode span (a 1990 game whose ancestor is Go,
+ * −2200) from crushing x to a hairline.
  */
-const SLOT_NDC = 0.25;
+const SLOT_NDC_MAX = 0.3;
 /** Year tick steps, smallest that keeps the axis to `MAX_TICKS`. */
 const YEAR_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
 const MAX_TICKS = 12;
@@ -90,13 +92,12 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 		x0 = Math.min(x0, lx[j]); x1 = Math.max(x1, lx[j]);
 		y0 = Math.min(y0, ly[j]); y1 = Math.max(y1, ly[j]);
 	}
-	const span = Math.max(x1 - x0, y1 - y0);
-	const s = span > 0 ? FIT / span : 1;
-	const sx = x1 > x0 ? Math.max(s, Math.min(FIT / (x1 - x0), SLOT_NDC / SLOT)) : s;
+	const sx = x1 > x0 ? Math.min(FIT / (x1 - x0), SLOT_NDC_MAX / SLOT) : 1;
+	const sy = y1 > y0 ? FIT / (y1 - y0) : 1;
 	const ox = (x0 + x1) / 2, oy = (y0 + y1) / 2;
 	const x = new Float32Array(m), y = new Float32Array(m);
-	for (let j = 0; j < m; j++) { x[j] = (lx[j] - ox) * sx; y[j] = (ly[j] - oy) * s; }
-	const toY = (v: number) => (v - oy) * s;
+	for (let j = 0; j < m; j++) { x[j] = (lx[j] - ox) * sx; y[j] = (ly[j] - oy) * sy; }
+	const toY = (v: number) => (v - oy) * sy;
 
 	const ticks: Tick[] = [];
 	if (mode === 'gen') {
@@ -112,19 +113,43 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 }
 
 /**
- * The canvas camera is a translate plus a uniform scale (the data square is never
- * stretched on this page; `layoutGenealogy`'s own x stretch happens before NDC), so two points with distinct NDC fix the NDC → screen map. The
- * overlay only gets screen positions of points; this lets it place axis ticks too.
+ * The canvas camera is a translate plus a per-axis scale (the layer stretches the data
+ * square to the canvas), so two points at distinct NDC y fix the y → screen map. The
+ * overlay only gets screen positions of points; this lets it place the year ticks too.
  */
-export function ndcToScreen(
-	a: { ndc: [number, number]; px: [number, number] },
-	b: { ndc: [number, number]; px: [number, number] }
-): ((x: number, y: number) => [number, number]) | null {
-	const dx = b.ndc[0] - a.ndc[0], dy = b.ndc[1] - a.ndc[1];
-	const d2 = dx * dx + dy * dy;
-	if (d2 < 1e-12) return null;
-	const k = ((b.px[0] - a.px[0]) * dx - (b.px[1] - a.px[1]) * dy) / d2;
-	return (x, y) => [a.px[0] + k * (x - a.ndc[0]), a.px[1] - k * (y - a.ndc[1])];
+export function ndcToScreenY(a: { y: number; py: number }, b: { y: number; py: number }): ((y: number) => number) | null {
+	if (Math.abs(b.y - a.y) < 1e-9) return null;
+	const k = (b.py - a.py) / (b.y - a.y);
+	return (y) => a.py + k * (y - a.y);
+}
+
+type Pt = [number, number];
+
+/**
+ * A family-tree comb from a parent to its children: a trunk out of the parent, one bar
+ * across, and a drop into each child. The bar sits `frac` of the way to the nearest child,
+ * so siblings visibly share a parent instead of all converging on one point. Works either
+ * way up — ancestors comb upward. No bar when there's nothing to span.
+ */
+export function comb(parent: Pt, children: Pt[], frac = 0.4): { trunk: Pt[]; bar: Pt[] | null; drops: Pt[][] } {
+	const [px, py] = parent;
+	const nearest = children.reduce((best, c) => (Math.abs(c[1] - py) < Math.abs(best - py) ? c[1] : best), children[0][1]);
+	const bus = py + (nearest - py) * frac;
+	const xs = [px, ...children.map((c) => c[0])];
+	const lo = Math.min(...xs), hi = Math.max(...xs);
+	return {
+		trunk: [[px, py], [px, bus]],
+		bar: hi > lo ? [[lo, bus], [hi, bus]] : null,
+		drops: children.map(([cx, cy]) => [[cx, bus], [cx, cy]])
+	};
+}
+
+/** Badge spacing, CSS px: gap after the label's end, first-line centre, step between badges. */
+const BADGE_GAP = 6, BADGE_MID = 8, BADGE_STEP = 20;
+
+/** Where the `k`th badge (⊕ / "+N more") goes: just past the end of its game's label box. */
+export function badgeAt(box: { bx: number; by: number; bw: number; bh: number }, k: number): [number, number] {
+	return [box.bx + box.bw + BADGE_GAP, box.by + BADGE_MID + k * BADGE_STEP];
 }
 
 /** Cut a polyline into dashes: `on` drawn, `off` skipped, in the polyline's own units. */
