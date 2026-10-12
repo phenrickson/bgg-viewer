@@ -7,9 +7,10 @@
  *
  * Same Arrow-IPC-then-gzip path the catalog and thumbnails artifacts use; the embedding and
  * id columns are `List<…>` so the schema is spelled out explicitly (Arrow can't infer list
- * element types), mirroring `catalog/serialize.ts`.
+ * element types), mirroring `catalog/serialize.ts`. The embedding run is stamped in the
+ * schema metadata (`META_VERSION`, `META_MODEL`).
  */
-import { Table, vectorFromArray, tableToIPC, Utf8, Int32, Float32, List, Field } from 'apache-arrow';
+import { Table, Schema, vectorFromArray, tableToIPC, Utf8, Int32, Float32, List, Field } from 'apache-arrow';
 
 export type ExplorerRow = Record<string, unknown>;
 
@@ -19,6 +20,13 @@ function num(v: unknown): number | null {
 	if (typeof v === 'object' && 'value' in v) return Number((v as { value: unknown }).value);
 	return Number(v);
 }
+
+/**
+ * Model identity rides in the schema metadata, as the coordinates artifact's does
+ * (`coordinates/serialize.ts`), so a page reading both can refuse to mix embedding runs.
+ */
+export const META_VERSION = 'embedding_version';
+export const META_MODEL = 'embedding_model';
 
 const floatListType = () => new List(new Field('item', new Float32(), true));
 const intListType = () => new List(new Field('item', new Int32(), true));
@@ -77,5 +85,18 @@ export function rowsToArrowIPC(rows: ExplorerRow[]): Uint8Array {
 			new Int32()
 		)
 	});
-	return tableToIPC(table, 'stream');
+	const versions = new Set(rows.map((r) => num(r.embedding_version)).filter((v): v is number => v != null));
+	const models = new Set(rows.map((r) => r.embedding_model).filter((m) => m != null).map(String));
+	if (versions.size > 1 || models.size > 1) {
+		throw new Error(`similarity dataset spans ${versions.size} embedding versions / ${models.size} models`);
+	}
+	const metadata = new Map<string, string>([
+		[META_VERSION, versions.size ? String([...versions][0]) : ''],
+		[META_MODEL, models.size ? [...models][0] : '']
+	]);
+	const schema = new Schema(
+		table.schema.fields.map((f) => new Field(f.name, f.type, f.nullable)),
+		metadata
+	);
+	return tableToIPC(new Table(schema, table.batches), 'stream');
 }
