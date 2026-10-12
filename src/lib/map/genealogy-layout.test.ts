@@ -51,6 +51,22 @@ describe('layoutGenealogy', () => {
 	});
 });
 
+describe('layoutGenealogy with a BC ancestor', () => {
+	// Go (−2200) under a 1990 centre: a 4,190-year span must not crush the tree into a line
+	// or draw hundreds of ticks.
+	const bcYear = Int16Array.from([1990, -2200, 1985, 1995, 1998]);
+	const bc = tree([node(0, 'centre', 0, -1), node(1, 'up', -1, 0), node(2, 'up', -1, 0), node(3, 'down', 1, 0), node(4, 'down', 1, 0)]);
+	it('keeps the tree spread across', () => {
+		const l = layoutGenealogy(bc, bcYear, 'year');
+		expect(Math.max(...l.x) - Math.min(...l.x)).toBeGreaterThan(0.2);
+	});
+	it('keeps the year ticks to a readable number', () => {
+		const l = layoutGenealogy(bc, bcYear, 'year');
+		expect(l.ticks.length).toBeGreaterThanOrEqual(2);
+		expect(l.ticks.length).toBeLessThanOrEqual(12);
+	});
+});
+
 describe('geometry', () => {
 	it('ndcToScreen recovers a translate + uniform scale (screen y runs down)', () => {
 		const f = ndcToScreen({ ndc: [0, 0], px: [100, 100] }, { ndc: [0.5, 0.5], px: [150, 50] })!;

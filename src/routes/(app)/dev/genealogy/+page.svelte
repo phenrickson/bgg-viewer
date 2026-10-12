@@ -5,7 +5,8 @@
    * re-centring. Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md.
    *
    * All tree state lives in the URL: a re-centre is a shallow `pushState` (Back undoes it,
-   * unfolds and all); everything else is a `replaceState`.
+   * unfolds and all); everything else is a `replaceState`. Shallow routing leaves
+   * `page.url` alone and carries the state in `page.state` (see `currentState`).
    *
    * All copy PLACEHOLDER (Phil writes the copy).
    */
@@ -19,7 +20,7 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { fromParams, toParams, DEFAULT_CAP, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
@@ -47,16 +48,21 @@
   });
 
   // --- state (URL) -----------------------------------------------------------------------
-  const s = $derived(fromParams(page.url.searchParams));
+  const s = $derived(currentState(page.state, page.url));
   function commit(next: GenealogyState, push = false) {
     const qs = toParams(next).toString();
-    (push ? pushState : replaceState)(qs ? `?${qs}` : page.url.pathname, {});
+    (push ? pushState : replaceState)(qs ? `?${qs}` : page.url.pathname, { genealogy: next });
   }
 
   const centreId = $derived(s.game ?? GAMES.agricola);
   const centre = $derived(coords?.index.get(centreId) ?? null);
-  /** `linked` memo — valid for one threshold, so a new one per threshold. */
-  const cache = $derived.by(() => { void s.t; return new Map<number, Link[]>(); });
+  /**
+   * `linked` memo — valid for one threshold, so a new one per threshold. Keyed on the
+   * primitive: `s` is a fresh object on every commit, so depending on it would throw the
+   * memo away on every unfold.
+   */
+  const threshold = $derived(s.t);
+  const cache = $derived.by(() => { void threshold; return new Map<number, Link[]>(); });
 
   const tree = $derived.by(() => {
     if (!data || !coords || centre == null) return null;
@@ -121,7 +127,7 @@
       onchange={(y) => commit({ ...s, y })}
     />
     <label>Similarity ≥
-      <input type="range" min="0.5" max="0.99" step="0.01" value={s.t}
+      <input type="range" min={T_MIN} max={T_MAX} step="0.01" value={s.t}
         onchange={(e) => commit({ ...s, t: Number(e.currentTarget.value) })} />
       {s.t.toFixed(2)}
     </label>

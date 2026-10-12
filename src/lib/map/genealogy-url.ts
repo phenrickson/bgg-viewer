@@ -21,6 +21,12 @@ export interface GenealogyState {
 export const DEFAULT_THRESHOLD = 0.8;
 /** Strongest links shown per unfold before "+N more". */
 export const DEFAULT_CAP = 8;
+/**
+ * The slider's range, enforced on hand-edited URLs too: below ~0.5 every game links to
+ * most of the catalog and each rebuild scans and sorts tens of thousands per node.
+ */
+export const T_MIN = 0.5;
+export const T_MAX = 0.99;
 
 const KEY = /^\d+:(up|down|same)$/;
 const ids = (v: string | null) =>
@@ -31,7 +37,7 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 	const t = Number(p.get('t'));
 	return {
 		game: Number.isInteger(game) && game > 0 ? game : null,
-		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? t : DEFAULT_THRESHOLD,
+		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? Math.min(T_MAX, Math.max(T_MIN, t)) : DEFAULT_THRESHOLD,
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
 		unfolded: ids(p.get('u')),
 		expanded: (p.get('a') ?? '').split(',').filter((k) => KEY.test(k)),
@@ -48,4 +54,14 @@ export function toParams(s: GenealogyState): URLSearchParams {
 	if (s.expanded.length) p.set('a', s.expanded.join(','));
 	if (s.trail.length) p.set('trail', s.trail.join(','));
 	return p;
+}
+
+/**
+ * The state to render. SvelteKit's shallow `pushState`/`replaceState` set `page.state` and
+ * leave `page.url` at what was loaded (Back restores `page.state` from the history entry),
+ * so a committed state lives in `page.state.genealogy`; the URL is only read on a fresh
+ * load or a pasted link.
+ */
+export function currentState(pageState: { genealogy?: GenealogyState }, url: URL): GenealogyState {
+	return pageState.genealogy ?? fromParams(url.searchParams);
 }

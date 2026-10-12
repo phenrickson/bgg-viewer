@@ -31,6 +31,15 @@ const SLOT = 1;
 const ROW = 1.6;
 const YEAR = 0.35;
 const FIT = 1.8;
+/**
+ * Widest a slot is allowed to get in NDC, and the floor x is held to otherwise. A uniform
+ * fit keeps the tree's proportions, but a long Year-mode span (a 1990 game whose ancestor
+ * is Go, −2200) would crush x to a hairline; x then keeps this width per slot instead.
+ */
+const SLOT_NDC = 0.25;
+/** Year tick steps, smallest that keeps the axis to `MAX_TICKS`. */
+const YEAR_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+const MAX_TICKS = 12;
 
 const mid = (xs: number[]) => (xs[0] + xs[xs.length - 1]) / 2;
 const genLabel = (g: number) => (g === 0 ? '0' : g > 0 ? `+${g}` : `−${-g}`);
@@ -83,9 +92,10 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 	}
 	const span = Math.max(x1 - x0, y1 - y0);
 	const s = span > 0 ? FIT / span : 1;
+	const sx = x1 > x0 ? Math.max(s, Math.min(FIT / (x1 - x0), SLOT_NDC / SLOT)) : s;
 	const ox = (x0 + x1) / 2, oy = (y0 + y1) / 2;
 	const x = new Float32Array(m), y = new Float32Array(m);
-	for (let j = 0; j < m; j++) { x[j] = (lx[j] - ox) * s; y[j] = (ly[j] - oy) * s; }
+	for (let j = 0; j < m; j++) { x[j] = (lx[j] - ox) * sx; y[j] = (ly[j] - oy) * s; }
 	const toY = (v: number) => (v - oy) * s;
 
 	const ticks: Tick[] = [];
@@ -95,7 +105,7 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 	} else {
 		const ys = nodes.map((nd) => year[nd.i]);
 		const lo = Math.min(...ys), hi = Math.max(...ys);
-		const step = hi - lo <= 12 ? 1 : hi - lo <= 30 ? 5 : 10;
+		const step = YEAR_STEPS.find((st) => Math.floor((hi - lo) / st) + 1 <= MAX_TICKS) ?? YEAR_STEPS[YEAR_STEPS.length - 1];
 		for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ label: String(v), y: toY((cy - v) * YEAR) });
 	}
 	return { genealogy: g, x, y, ticks };
@@ -103,7 +113,7 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 
 /**
  * The canvas camera is a translate plus a uniform scale (the data square is never
- * stretched on this page), so two points with distinct NDC fix the NDC → screen map. The
+ * stretched on this page; `layoutGenealogy`'s own x stretch happens before NDC), so two points with distinct NDC fix the NDC → screen map. The
  * overlay only gets screen positions of points; this lets it place axis ticks too.
  */
 export function ndcToScreen(
