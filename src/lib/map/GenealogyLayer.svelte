@@ -193,7 +193,8 @@
       input.set(nd.i, { x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})${tk ? ` ${tk}` : ''}`, gap: r + 4 });
     }
     // The placer keeps a label only if it fits clear of those before it: see `labelOrder`.
-    const order = labelOrder([...input.keys()], g.centre, selected, api.hovered, facts.usersRated);
+    const unfolded = new Set(g.nodes.filter((nd) => nd.unfolded && nd.side !== 'centre').map((nd) => nd.i));
+    const order = labelOrder([...input.keys()], g.centre, selected, api.hovered, facts.usersRated, unfolded);
     const want = order.map((i) => input.get(i)!);
     const boxes = new Map<number, { bx: number; by: number; lines: string[] }>();
     // Placed labels come back as new objects; their anchor says whose they are.

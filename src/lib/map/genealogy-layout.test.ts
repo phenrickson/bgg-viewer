@@ -96,7 +96,11 @@ describe('geometry', () => {
 describe('labelOrder', () => {
 	it('centre first, then selected, then hovered, then most-rated', () => {
 		const rated = Int32Array.from([500, 40, 90000, 1200, 7]);
-		expect(labelOrder([0, 1, 2, 3, 4], 0, 4, 1, rated)).toEqual([0, 4, 1, 2, 3]);
-		expect(labelOrder([0, 1, 2, 3, 4], 0, -1, -1, rated)).toEqual([0, 2, 3, 1, 4]);
+		expect(labelOrder([0, 1, 2, 3, 4], 0, 4, 1, rated, new Set())).toEqual([0, 4, 1, 2, 3]);
+		expect(labelOrder([0, 1, 2, 3, 4], 0, -1, -1, rated, new Set())).toEqual([0, 2, 3, 1, 4]);
+	});
+	it('an unfolded game keeps its label (and its ⊖) ahead of more-rated children', () => {
+		const rated = Int32Array.from([500, 40, 90000, 1200, 7]);
+		expect(labelOrder([0, 1, 2, 3, 4], 0, -1, -1, rated, new Set([1]))).toEqual([0, 1, 2, 3, 4]);
 	});
 });
