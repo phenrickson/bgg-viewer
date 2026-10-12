@@ -207,9 +207,8 @@
 
   <!-- PLACEHOLDER COPY (Phil): legend labels. Off the canvas so it never covers the tree. -->
   <div class="legend" aria-label="Legend">
-    <span><i style:background="var(--map-cat-1)"></i> earlier</span>
-    <span><i style:background="var(--map-cat-2)"></i> later</span>
-    {#if s.same}<span><i style:background="var(--muted-foreground)"></i> same year</span>{/if}
+    <span><i style:background="var(--primary)"></i> chosen game</span>
+    <span><i style:background="var(--map-cat-1)"></i> related game</span>
     <span><i class="hollow"></i> upcoming</span>
     <span class="sep" aria-hidden="true">|</span>
     <span><b></b> similar</span>

@@ -2,8 +2,8 @@
   /**
    * One game's genealogy as a layer on a `PointCanvas` — a sibling of `NetworkLayer` with
    * its own encodings (see the genealogy spec):
-   * - colour by side: ancestors, descendants, same-year, the centre in the accent;
-   *   upcoming games hollow (background fill, dashed ring) at a fixed size — they have no
+   * - one colour for every related game and the accent for the chosen game alone —
+   *   above/below already says earlier/later, so colour stays free; upcoming games hollow (background fill, dashed ring) at a fixed size — they have no
    *   ratings yet;
    * - size by ratings (log), so an obscure game reads as obscure without being filtered;
    * - edges curve from parent to child, leaving and arriving vertically, so the view reads
@@ -60,12 +60,12 @@
     return { x, y };
   });
 
-  /** Colour buckets, indexing `palette`. */
-  const BUCKET = { up: 0, down: 1, same: 2, centre: 3 } as const;
-  const UPCOMING = 4;
+  /** Colour buckets, indexing `palette`: every related game, the chosen game, upcoming (hollow). */
+  const BUCKET = { up: 0, down: 0, same: 0, centre: 1 } as const;
+  const UPCOMING = 2;
   const palette = $derived.by(() => {
     const t = surface.theme;
-    return t ? [t.chart[0], t.chart[1], t.muted, t.accent, t.background] : [];
+    return t ? [t.chart[0], t.accent, t.background] : [];
   });
   const isUpcoming = (nd: GenealogyNode) => nd.side !== 'centre' && facts.upcoming[nd.i] === 1;
   const colour = $derived.by(() => {
