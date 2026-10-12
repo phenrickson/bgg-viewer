@@ -1,4 +1,4 @@
-# Game lineage — v1 design
+# Game genealogy — v1 design
 
 **Date:** 2026-10-12
 **Status:** Design agreed, ready to plan
@@ -22,9 +22,9 @@ else. The point is **a game's place in time inside its similarity neighbourhood*
 v1 is a one-game tool: choose a game, see its tree, and explore it. A catalog-wide view of
 which games are origins and which spawned flurries is deferred (see *Not doing*).
 
-## What the lineage is
+## What the genealogy is
 
-`buildLineage` is a pure function. It takes the L2-normalised vectors, years, family ids,
+`buildGenealogy` is a pure function. It takes the L2-normalised vectors, years, family ids,
 related ids and the settings, and returns a tree. It knows nothing about rendering.
 
 - **Link:** games A and B are linked when their cosine similarity is at least the
@@ -37,7 +37,7 @@ related ids and the settings, and returns a tree. It knows nothing about renderi
 - **Contemporaries:** linked games from the *same* year as the chosen game sit on its row.
   They are shown but can't be unfolded.
 - **Chained:** a parent's parents are found from that parent (linked to it and earlier
-  than it), with no comparison back to the chosen game. A lineage can drift into another
+  than it), with no comparison back to the chosen game. A genealogy can drift into another
   genre several generations out, and that drift is part of the story.
 - **Two trees, one direction each:** ancestors only unfold upward and descendants only
   unfold downward. Agricola's other children (Caverna's siblings) appear when you re-centre
@@ -58,11 +58,14 @@ related ids and the settings, and returns a tree. It knows nothing about renderi
   year. Upcoming games are in the tree as descendants. Games with no year (about 244) can't
   be placed in time, and they already lack embeddings.
 
-## The page: `/dev/lineage`
+## The page: `/dev/genealogy`
 
-Dev-gated (`if (!dev) error(404)`) like the other `/dev` pages until it's promoted. URL
-state is `?game=<id>&t=<threshold>&y=year|gen`, so a tree can be linked and the back button
-works.
+Named *genealogy*, not *lineage*: `/admin/lineage` is already the data-pipeline lineage
+page.
+
+Dev-gated (`if (!dev) error(404)`) like the other `/dev` pages until it's promoted. All tree
+state is in the URL — `?game=<id>&t=<threshold>&y=year|gen&u=<unfolded ids>&a=<expanded
+id:dir>&trail=<previous centres>` — so a tree can be linked and the back button restores it.
 
 **Layout: top-down.** Ancestors sit above, the chosen game and its contemporaries in the
 middle, descendants below, and you pan vertically. A **Year | Generation** segmented control
@@ -90,7 +93,7 @@ links cross as little as possible.
 
 **Interaction:**
 
-- Clicking a game **selects** it. A `Sheet` side panel shows its facts, the similarity and
+- Clicking a game **selects** it. A non-modal side panel (an `<aside>`, as `/map` uses; `Sheet` is modal and would block the tree) shows its facts, the similarity and
   type of the link that brought it in, **Centre on this**, and its game page link.
 - **⊕** unfolds, and **+N more** expands.
 - **Centre on this** pushes a breadcrumb (Caverna › Agricola › Caylus) and a history entry.
@@ -104,24 +107,24 @@ All copy is PLACEHOLDER; Phil writes the copy.
 
 ## Architecture
 
-Renderer: **`PointCanvas` + a new `LineageLayer`**, the regl path the ego network uses, not
-Sigma. Positions come from the lineage layout rather than a force simulation. The shared
+Renderer: **`PointCanvas` + a new `GenealogyLayer`**, the regl path the ego network uses, not
+Sigma. Positions come from the genealogy layout rather than a force simulation. The shared
 canvas keeps flying from the map open as a follow-up.
 
 | Unit | Does | Depends on |
 |---|---|---|
-| `src/lib/map/lineage.ts` | `buildLineage`, `unfold`; threshold scan (a sibling of `topK` returning everything ≥ t, best first); link typing; appear-once; cap and overflow | `NetworkData` (`dot`, memo cache from `network.ts`), years, `family_ids`, `related_ids` |
-| `src/lib/map/lineage-layout.ts` | `layoutLineage`: tree → positions in the `NetworkLayout` shape; Year/Generation y; tidy x per half; contemporaries on the centre row | lineage tree, years |
-| `src/lib/map/LineageLayer.svelte` | Draws nodes and edges with the encodings above; reports picks and hovers | `useSurface`, regl edge geometry, `ink.ts`, `palette.ts` |
-| `src/lib/map/LineageOverlay.svelte` | ⊕ buttons, "+N more" stubs, axis ticks, as HTML positioned from the canvas projection | canvas projection |
-| `src/routes/(app)/dev/lineage/+page.svelte` (+ `+page.server.ts` dev gate) | Loading, game search, controls, URL state, breadcrumb, `Sheet` panel | all of the above, catalog |
+| `src/lib/map/genealogy.ts` | `buildGenealogy` (state in: centre, threshold, cap, unfolded set, expanded set → tree out; recomputed whole on every change, so a threshold move keeps whatever still qualifies), `linked` (threshold scan, a sibling of `topK`), `linkKind`; appear-once; cap and overflow | `dot` from `network.ts`; vectors, years, `family_ids`, `related_ids` |
+| `src/lib/map/genealogy-layout.ts` | `layoutGenealogy`: tree → positions in the `NetworkLayout` shape; Year/Generation y; tidy x per half; contemporaries on the centre row | genealogy tree, years |
+| `src/lib/map/GenealogyLayer.svelte` | Draws nodes and edges with the encodings above; reports picks and hovers | `useSurface`, regl edge geometry, `ink.ts`, `palette.ts` |
+| (inside `GenealogyLayer`) | ⊕ and "+N more" as HTML buttons positioned from the overlay's screen positions; axis ticks painted on the overlay canvas | `OverlayApi.screen` |
+| `src/routes/(app)/dev/genealogy/+page.svelte` (+ `+page.server.ts` dev gate) | Loading, game search (`GameSearch` gains an `onpick` prop), controls, URL state, breadcrumb, side panel | all of the above, catalog |
 
 It is a sibling of `NetworkLayer` rather than `NetworkLayer` with options, because hop rings,
 the category colour and mutual or one-way edges don't apply here.
 
 **Data flow:** on mount, load the catalog, the coordinates artifact and the dev similarity
-dataset. `network-data.ts` also reads `family_ids` and `related_ids`. Lineage then runs
-entirely in the browser: `buildLineage` → `layoutLineage` → `LineageLayer`. Unfolds and
+dataset. `network-data.ts` also reads `family_ids` and `related_ids`. Genealogy then runs
+entirely in the browser: `buildGenealogy` → `layoutGenealogy` → `GenealogyLayer`. Unfolds and
 threshold changes are recomputed locally, about 2 ms per full scan, memoised per game and
 threshold. There are no server calls after load.
 
@@ -137,29 +140,29 @@ threshold. There are no server calls after load.
 
 ## Testing
 
-- `lineage.test.ts`, on small synthetic vector sets: direction by year; contemporaries;
+- `genealogy.test.ts`, on small synthetic vector sets: direction by year; contemporaries;
   chained unfold not checked against the centre; appear-once; cap and "+N more" count; link
   type precedence; empty halves; ineligible (no-year) games excluded.
-- `lineage-layout.test.ts`: Year mode puts y in year order; Generation mode spaces rows
+- `genealogy-layout.test.ts`: Year mode puts y in year order; Generation mode spaces rows
   evenly; children sit under their parent; contemporaries are on the centre row.
 - A loader test: mismatched embedding versions raise an error.
 - The page is reviewed live on Phil's dev server.
 
 ## Delivery
 
-1. **Step zero:** regenerate the stale coordinates and dev similarity artifacts (they
-   predate the latest data). Confirm with Phil before running.
+1. **Step zero:** regenerate the stale dev similarity dataset (`just similar-rebuild`; it
+   predates the latest data). Confirm with Phil before running. The coordinates artifact is CI-built on the GCS rail; the version check reports if it lags.
 2. Build on `feat/game-lineage`, committing and pushing tested work as it lands.
 3. One PR to `main` with the spec, plan and implementation. Phil merges.
 
 ## Not doing (v1)
 
-- **Per-game genealogy API** and a lineage view on the game detail page. This is the next
-  step; `buildLineage` is kept pure so a server endpoint can reuse it.
+- **Per-game genealogy API** and a genealogy view on the game detail page. This is the next
+  step; `buildGenealogy` is kept pure so a server endpoint can reuse it.
 - **A public vectors artifact.** Shipping beyond `/dev` needs the 64-d vectors in
   production (about 2.3 MB if quantised to int8, lazy-loaded like the coordinates). That
   gets its own spec when the page is promoted.
-- **Flying from the map:** picking a game on `/map` and having its lineage fly into tree
+- **Flying from the map:** picking a game on `/map` and having its genealogy fly into tree
   positions.
 - **A catalog-wide origin/flurry overview:** ranking or plotting every game by precedent vs.
   following. Any such score would also need adjusting for a game's age, since recent games
