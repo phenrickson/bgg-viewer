@@ -23,7 +23,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { Dir, GenealogyNode } from './genealogy';
-  import { ndcToScreenY, badgeCentre, dashed, offset, type GenealogyLayout } from './genealogy-layout';
+  import { ndcToScreenY, badgeCentre, labelOrder, dashed, offset, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
   import { toRgb } from './palette';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
@@ -134,6 +134,9 @@
   type Mark = { key: string; x: number; y: number; label: string; act: () => void };
   /** Written from inside `overlay` (like NetworkLayer's `tip`); raw so the closures aren't proxied. */
   let marks = $state.raw<Mark[]>([]);
+  /** The hovered game and where it is, for the hover card. */
+  let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
+  const byIndex = $derived(new Map(g.nodes.map((nd) => [nd.i, nd])));
 
   const yearOf = (i: number) => facts.year[i] || '—';
   /** The badge token a game's label ends with, or null: ⊕N folded, +N past the cap. One word, so it never wraps apart. */
@@ -145,7 +148,7 @@
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
     // Nothing mid-flight or mid-drag: the 2-D overlay can't keep step with the GL canvas.
-    if (!api.drawn || api.dragging) { marks = []; return; }
+    if (!api.drawn || api.dragging) { marks = []; tip = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
@@ -172,8 +175,7 @@
     const cp = at.get(centre.i);
     if (cp) glow(ctx, cp[0], cp[1], rad(centre.i) * 3, theme.accent, 0.35);
 
-    const want: LabelInput[] = [];
-    const wanted = new Map<string, number>(); // label anchor → node index, to find each game's box
+    const input = new Map<number, LabelInput>();
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
@@ -185,34 +187,38 @@
         ctx.restore();
       }
       if (nd.i === selected) ring(ctx, p[0], p[1], r + 3, theme.accent, theme.background, 2);
+      if (nd.i === api.hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
       const tk = token(nd);
-      want.push({ x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})${tk ? ` ${tk}` : ''}`, gap: r + 4 });
-      wanted.set(`${p[0]},${p[1]}`, nd.i);
+      input.set(nd.i, { x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})${tk ? ` ${tk}` : ''}`, gap: r + 4 });
     }
-    // Priority: the centre, the selected game, then tree order (strongest first per unfold).
-    const sel = selected >= 0 ? at.get(selected) : undefined;
-    if (sel) want.sort((l, r) => Number(r.x === sel[0] && r.y === sel[1]) - Number(l.x === sel[0] && l.y === sel[1]));
+    // The placer keeps a label only if it fits clear of those before it: see `labelOrder`.
+    const order = labelOrder([...input.keys()], g.centre, selected, api.hovered, facts.usersRated);
+    const want = order.map((i) => input.get(i)!);
     const boxes = new Map<number, { bx: number; by: number; lines: string[] }>();
+    // Placed labels come back as new objects; their anchor says whose they are.
+    const owner = new Map(order.map((i) => [`${input.get(i)!.x},${input.get(i)!.y}`, i]));
     for (const pl of labels(ctx, want, api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true })) {
-      const i = wanted.get(`${pl.x},${pl.y}`);
+      const i = owner.get(`${pl.x},${pl.y}`);
       if (i != null) boxes.set(i, pl);
     }
 
-    // A button over each label's badge token; a game whose label was dropped keeps its badge by the dot.
+    // A button over each placed label's badge token. A game without a label gets none — its
+    // unfold is in the side panel, and the hover card names it.
     const next: Mark[] = [];
     const measure = (t: string) => ctx.measureText(t).width;
     for (const nd of g.nodes) {
       const tk = token(nd);
-      if (!tk || (nd.side !== 'up' && nd.side !== 'down')) continue;
-      const box = boxes.get(nd.i), p = at.get(nd.i);
-      const xy = box ? badgeCentre(box, measure, tk, LABEL_METRICS) : p ? [p[0] + rad(nd.i) + 18, p[1]] : null;
-      if (!xy) continue;
+      const box = boxes.get(nd.i);
+      if (!tk || !box || (nd.side !== 'up' && nd.side !== 'down')) continue;
+      const [x, y] = badgeCentre(box, measure, tk, LABEL_METRICS);
       const dir = nd.side;
       next.push({
-        key: `${nd.unfolded ? 'm' : 'u'}${nd.i}`, x: xy[0], y: xy[1], label: tk,
+        key: `${nd.unfolded ? 'm' : 'u'}${nd.i}`, x, y, label: tk,
         act: nd.unfolded ? () => onmore?.(nd.i, dir) : () => onunfold?.(nd.i)
       });
     }
+    const hp = api.hovered >= 0 && byIndex.has(api.hovered) ? at.get(api.hovered) : undefined;
+    tip = hp ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
     marks = next;
   }
 
@@ -242,6 +248,22 @@
   <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" onclick={m.act}>{m.label}</button>
 {/each}
 
+<!-- PLACEHOLDER COPY (Phil): hover card and legend labels. -->
+{#if tip}
+  {@const nd = byIndex.get(tip.i)}
+  {#if nd}
+    <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px">
+      <div class="name">{facts.name(coords.ids[nd.i])}</div>
+      <div class="meta">
+        {yearOf(nd.i)} · {facts.usersRated[nd.i].toLocaleString()} ratings{#if nd.side !== 'centre'} · {nd.sim.toFixed(2)} to {facts.name(coords.ids[nd.via])}{/if}
+      </div>
+      {#if (nd.side === 'up' || nd.side === 'down') && nd.hidden > 0}
+        <div class="meta">{nd.unfolded ? `+${nd.hidden} more past the cap` : `⊕${nd.hidden} ${nd.side === 'up' ? 'earlier' : 'later'} to unfold`}</div>
+      {/if}
+    </div>
+  {/if}
+{/if}
+
 <!-- PLACEHOLDER COPY (Phil): legend labels. -->
 <div class="legend">
   <div class="legend-title">Games</div>
@@ -263,6 +285,13 @@
     font-size: 12px; font-weight: 600; line-height: 1.25; white-space: nowrap; cursor: pointer;
   }
   .mark:hover, .mark:focus-visible { border-color: var(--primary); }
+  .tip {
+    position: absolute; pointer-events: none; max-width: 18rem; padding: 0.4rem 0.6rem; z-index: 1;
+    border: 1px solid var(--border); border-radius: 0.375rem; background: var(--card); color: var(--foreground);
+    box-shadow: 0 2px 8px oklch(0 0 0 / 0.12); font-size: 0.8125rem; line-height: 1.3;
+  }
+  .tip .name { font-weight: 600; }
+  .tip .meta { color: var(--muted-foreground); }
   .legend {
     position: absolute; right: 0.75rem; bottom: 0.75rem; padding: 0.45rem 0.6rem;
     border: 1px solid var(--border); border-radius: 0.375rem;

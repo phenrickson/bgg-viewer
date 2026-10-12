@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutGenealogy, ndcToScreenY, badgeCentre, dashed, offset } from './genealogy-layout';
+import { layoutGenealogy, ndcToScreenY, badgeCentre, labelOrder, dashed, offset } from './genealogy-layout';
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 const node = (i: number, side: GenealogyNode['side'], gen: number, via: number): GenealogyNode =>
@@ -90,5 +90,13 @@ describe('geometry', () => {
 	});
 	it('offset moves a line sideways along its left normal', () => {
 		expect(offset([[0, 0], [1, 0]], 0.1)).toEqual([[0, 0.1], [1, 0.1]]);
+	});
+});
+
+describe('labelOrder', () => {
+	it('centre first, then selected, then hovered, then most-rated', () => {
+		const rated = Int32Array.from([500, 40, 90000, 1200, 7]);
+		expect(labelOrder([0, 1, 2, 3, 4], 0, 4, 1, rated)).toEqual([0, 4, 1, 2, 3]);
+		expect(labelOrder([0, 1, 2, 3, 4], 0, -1, -1, rated)).toEqual([0, 2, 3, 1, 4]);
 	});
 });

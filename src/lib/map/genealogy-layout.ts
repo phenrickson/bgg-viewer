@@ -140,6 +140,17 @@ export function badgeCentre(
 	return [end - measure(token) / 2, box.by + m.padY + m.lineHeight * (k + 0.5)];
 }
 
+/**
+ * The order the label placer takes games in — it keeps a label only if it fits clear of
+ * those already placed, so this is the priority. The centre, then what you're pointing at,
+ * then the most-rated: in a flurry the recognisable games win the space, and zooming in
+ * makes room for the long tail.
+ */
+export function labelOrder(nodes: number[], centre: number, selected: number, hovered: number, usersRated: ArrayLike<number>): number[] {
+	const rank = (i: number) => (i === centre ? 0 : i === selected ? 1 : i === hovered ? 2 : 3);
+	return [...nodes].sort((a, b) => rank(a) - rank(b) || usersRated[b] - usersRated[a] || a - b);
+}
+
 /** Cut a polyline into dashes: `on` drawn, `off` skipped, in the polyline's own units. */
 export function dashed(points: [number, number][], on: number, off: number): [number, number][][] {
 	const out: [number, number][][] = [];

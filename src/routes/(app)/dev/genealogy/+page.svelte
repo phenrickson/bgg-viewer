@@ -185,6 +185,15 @@
         {/if}
         <div class="actions">
           {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+          {#if (selNode.side === 'up' || selNode.side === 'down') && selNode.hidden > 0}
+            {@const dir = selNode.side}
+            {@const i = selNode.i}
+            {#if selNode.unfolded}
+              <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
+            {:else}
+              <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
+            {/if}
+          {/if}
           <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
           <Button size="sm" variant="ghost" onclick={() => (selected = -1)}>Close</Button>
         </div>
