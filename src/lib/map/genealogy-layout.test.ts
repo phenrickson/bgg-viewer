@@ -26,11 +26,13 @@ describe('layoutGenealogy', () => {
 		expect(l.y[j(4)]).toBeCloseTo(l.y[j(5)]);
 		expect(l.ticks.map((t) => t.label)).toEqual(['−2', '−1', '0', '+1']);
 	});
-	it('year mode: y is proportional to the year gap', () => {
+	it('year mode: y runs on log(1 + years from the centre), so far years compress', () => {
 		const l = layoutGenealogy(g, year, 'year');
-		const per = (l.y[j(1)] - l.y[j(0)]) / 6; // 2007 is 6 years before 2013
-		expect(l.y[j(2)] - l.y[j(0)]).toBeCloseTo(per * 3);
-		expect(l.y[j(5)] - l.y[j(0)]).toBeCloseTo(per * -6);
+		const d = (i: number) => l.y[j(i)] - l.y[j(0)];
+		// 2010 is 3 years back, 2007 is 6 back, 2019 is 6 ahead
+		expect(d(2) / d(1)).toBeCloseTo(Math.log1p(3) / Math.log1p(6));
+		expect(d(5)).toBeCloseTo(-d(1));
+		expect(l.ticks.map((t) => t.label)).toEqual(['2008', '2011', '2012', '2013', '2014', '2015', '2018']);
 	});
 	it('puts a parent above the middle of its children', () => {
 		const l = layoutGenealogy(g, year, 'gen');
@@ -65,7 +67,7 @@ describe('layoutGenealogy with a BC ancestor', () => {
 	it('keeps the year ticks to a readable number', () => {
 		const l = layoutGenealogy(bc, bcYear, 'year');
 		expect(l.ticks.length).toBeGreaterThanOrEqual(2);
-		expect(l.ticks.length).toBeLessThanOrEqual(12);
+		expect(l.ticks.length).toBeLessThanOrEqual(16); // log spacing: ticks sit roughly evenly
 	});
 });
 

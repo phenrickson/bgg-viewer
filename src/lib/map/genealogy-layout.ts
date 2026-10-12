@@ -1,7 +1,8 @@
 /**
  * Where a genealogy's games sit: top-down, ancestors above the chosen game, descendants
- * below, same-year games on its row. y is the publication year (a long edge is a long gap,
- * a flurry is a dense band) or the generation (evenly spaced rows). x is a tidy-tree spread
+ * below, same-year games on its row. y is the publication year on a log scale of distance
+ * from the chosen game's year (near years spread, far ones compress), or the generation
+ * (evenly spaced rows). x is a tidy-tree spread
  * per half: leaves take consecutive slots and a parent sits over the middle of its
  * children, so links cross as little as they can.
  *
@@ -29,7 +30,8 @@ export interface GenealogyLayout {
 /** Layout units: one leaf slot across, one generation down, one year down. Only ratios matter. */
 const SLOT = 1;
 const ROW = 1.6;
-const YEAR = 0.35;
+/** Year mode: one unit of log(1 + years from the centre). */
+const YEAR = 1.2;
 const FIT = 1.8;
 /**
  * The layer stretches the data square over the whole canvas, so x and y are fitted
@@ -39,9 +41,17 @@ const FIT = 1.8;
  * −2200) from crushing x to a hairline.
  */
 const SLOT_NDC_MAX = 0.3;
-/** Year tick steps, smallest that keeps the axis to `MAX_TICKS`. */
-const YEAR_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-const MAX_TICKS = 12;
+/** Year ticks: these many years out from the centre, each side, while in range. */
+const TICK_DISTANCES = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+/**
+ * Year mode's y: log(1 + years from the centre), signed so earlier is up. One old outlier
+ * (a 2001 ancestor of a 2024 game) would otherwise stretch the axis and squash every recent
+ * year into a sliver; on a log scale the years near the chosen game keep their room.
+ */
+const yearY = (centreYear: number, y: number) => {
+	const d = centreYear - y;
+	return Math.sign(d) * Math.log1p(Math.abs(d)) * YEAR;
+};
 
 const mid = (xs: number[]) => (xs[0] + xs[xs.length - 1]) / 2;
 const genLabel = (g: number) => (g === 0 ? '0' : g > 0 ? `+${g}` : `−${-g}`);
@@ -85,7 +95,7 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 
 	const cy = year[g.centre];
 	nodes.forEach((nd, j) => {
-		ly[j] = mode === 'gen' ? -nd.gen * ROW : (cy - year[nd.i]) * YEAR;
+		ly[j] = mode === 'gen' ? -nd.gen * ROW : yearY(cy, year[nd.i]);
 	});
 
 	let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -107,8 +117,12 @@ export function layoutGenealogy(g: Genealogy, year: Int16Array, mode: YMode): Ge
 	} else {
 		const ys = nodes.map((nd) => year[nd.i]);
 		const lo = Math.min(...ys), hi = Math.max(...ys);
-		const step = YEAR_STEPS.find((st) => Math.floor((hi - lo) / st) + 1 <= MAX_TICKS) ?? YEAR_STEPS[YEAR_STEPS.length - 1];
-		for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ label: String(v), y: toY((cy - v) * YEAR) });
+		const years = new Set<number>();
+		for (const d of TICK_DISTANCES) {
+			if (cy - d >= lo) years.add(cy - d);
+			if (cy + d <= hi) years.add(cy + d);
+		}
+		for (const v of [...years].sort((a, b) => a - b)) ticks.push({ label: String(v), y: toY(yearY(cy, v)) });
 	}
 	return { genealogy: g, x, y, ticks };
 }
