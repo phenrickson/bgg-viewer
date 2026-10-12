@@ -19,7 +19,7 @@ function input(rows: { a: number; y: number; fam?: number[]; rel?: number[]; has
 	};
 }
 const opts = (o: Partial<GenealogyOpts> = {}): GenealogyOpts =>
-	({ threshold: 0.9, cap: 8, unfolded: new Set(), expanded: new Set(), ...o });
+	({ threshold: 0.9, cap: 8, unfolded: new Set(), expanded: new Set(), same: true, ...o });
 const at = (g: ReturnType<typeof buildGenealogy>, i: number) => g.nodes.find((n) => n.i === i);
 
 describe('buildGenealogy', () => {
@@ -60,6 +60,14 @@ describe('buildGenealogy', () => {
 		const all = buildGenealogy(d, 0, opts({ cap: 2, expanded: new Set([expandKey(0, 'up')]) }));
 		expect(all.nodes.filter((n) => n.side === 'up')).toHaveLength(5);
 		expect(all.centreHidden.up).toBe(0);
+	});
+
+	it('leaves same-year games out entirely when asked', () => {
+		const d = input([{ a: 0, y: 2013 }, { a: 0.1, y: 2007 }, { a: 0.15, y: 2013 }]);
+		const g = buildGenealogy(d, 0, opts({ same: false }));
+		expect(g.nodes.some((n) => n.side === 'same')).toBe(false);
+		expect(g.centreHidden.same).toBe(0);
+		expect(at(g, 1)).toMatchObject({ side: 'up' });
 	});
 
 	it('caps the same-year row too', () => {

@@ -80,6 +80,8 @@ export interface GenealogyOpts {
 	unfolded: ReadonlySet<number>;
 	/** `expandKey(i, dir)`: show every qualifying link past the cap. */
 	expanded: ReadonlySet<string>;
+	/** Include same-year games beside the centre. */
+	same: boolean;
 }
 
 export const expandKey = (i: number, dir: Dir): string => `${i}:${dir}`;
@@ -139,7 +141,7 @@ export function buildGenealogy(d: GenealogyInput, centre: number, o: GenealogyOp
 		});
 	};
 
-	attach(root, 'same', 0);
+	if (o.same) attach(root, 'same', 0);
 	for (const dir of ['up', 'down'] as const) {
 		const step = dir === 'up' ? -1 : 1;
 		let ring = attach(root, dir, step);
@@ -155,7 +157,8 @@ export function buildGenealogy(d: GenealogyInput, centre: number, o: GenealogyOp
 	}
 
 	// Overflow last, against the finished tree: a game already placed elsewhere isn't "more".
-	for (const dir of ['up', 'down', 'same'] as const) g.centreHidden[dir] = candidates(centre, dir).length;
+	for (const dir of ['up', 'down'] as const) g.centreHidden[dir] = candidates(centre, dir).length;
+	if (o.same) g.centreHidden.same = candidates(centre, 'same').length;
 	for (const node of g.nodes) {
 		if (node.side === 'up' || node.side === 'down') node.hidden = candidates(node.i, node.side).length;
 	}

@@ -74,7 +74,7 @@
       const i = index.get(Number(id));
       if (i != null) expanded.add(expandKey(i, dir as Dir));
     }
-    return buildGenealogy({ ...data, cache }, centre, { threshold: s.t, cap: DEFAULT_CAP, unfolded, expanded });
+    return buildGenealogy({ ...data, cache }, centre, { threshold: s.t, cap: DEFAULT_CAP, unfolded, expanded, same: s.same });
   });
   const layout = $derived(tree && facts ? layoutGenealogy(tree, facts.year, s.y) : null);
 
@@ -141,6 +141,8 @@
         onchange={(y) => commit({ ...s, y })}
       />
     </div>
+    <!-- PLACEHOLDER COPY (Phil) -->
+    <label><input type="checkbox" checked={s.same} onchange={(e) => commit({ ...s, same: e.currentTarget.checked })} /> Same year</label>
     <label>Similarity ≥
       <input type="range" min={T_MIN} max={T_MAX} step="0.01" value={s.t}
         onchange={(e) => commit({ ...s, t: Number(e.currentTarget.value) })} />

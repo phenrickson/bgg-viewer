@@ -10,6 +10,8 @@ export interface GenealogyState {
 	game: number | null;
 	t: number;
 	y: YMode;
+	/** Show same-year games beside the centre. Off by default. */
+	same: boolean;
 	/** Game ids whose own direction is unfolded. */
 	unfolded: number[];
 	/** `${gameId}:${dir}` — shown past the cap. */
@@ -40,6 +42,7 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 		game: Number.isInteger(game) && game > 0 ? game : null,
 		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? Math.min(T_MAX, Math.max(T_MIN, t)) : DEFAULT_THRESHOLD,
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
+		same: p.get('same') === '1',
 		unfolded: ids(p.get('u')),
 		expanded: (p.get('a') ?? '').split(',').filter((k) => KEY.test(k)),
 		trail: ids(p.get('trail'))
@@ -51,6 +54,7 @@ export function toParams(s: GenealogyState): URLSearchParams {
 	if (s.game != null) p.set('game', String(s.game));
 	if (s.t !== DEFAULT_THRESHOLD) p.set('t', String(s.t));
 	if (s.y !== 'year') p.set('y', s.y);
+	if (s.same) p.set('same', '1');
 	if (s.unfolded.length) p.set('u', s.unfolded.join(','));
 	if (s.expanded.length) p.set('a', s.expanded.join(','));
 	if (s.trail.length) p.set('trail', s.trail.join(','));
