@@ -1,8 +1,9 @@
 <script lang="ts">
   /**
    * Jump-to-a-game search — a name type-ahead over the in-browser catalog that navigates
-   * to the game's detail page, or hands the pick to `onpick`. Used big on the landing and compact in the app header, so
-   * you can reach any game's page from anywhere. Warms the catalog on first focus.
+   * to the game's detail page, or hands the pick to `onpick`. Used big on the landing and
+   * compact in the app header, so you can reach any game's page from anywhere. Warms the
+   * catalog on first focus.
    */
   import { goto } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
