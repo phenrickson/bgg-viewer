@@ -251,7 +251,7 @@
   <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" onclick={m.act}>{m.label}</button>
 {/each}
 
-<!-- PLACEHOLDER COPY (Phil): hover card and legend labels. -->
+<!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
   {@const nd = byIndex.get(tip.i)}
   {#if nd}
@@ -267,18 +267,6 @@
   {/if}
 {/if}
 
-<!-- PLACEHOLDER COPY (Phil): legend labels. -->
-<div class="legend">
-  <div class="legend-title">Games</div>
-  <div class="swatch-row"><i style:background="var(--map-cat-1)"></i> earlier</div>
-  <div class="swatch-row"><i style:background="var(--map-cat-2)"></i> later</div>
-  <div class="swatch-row"><i style:background="var(--muted-foreground)"></i> same year</div>
-  <div class="swatch-row"><i class="hollow"></i> upcoming</div>
-  <div class="legend-title rule">Links</div>
-  <div class="swatch-row"><b class="solid"></b> similar</div>
-  <div class="swatch-row"><b class="dashed"></b> same family</div>
-  <div class="swatch-row"><b class="double"></b> reimplementation / expansion</div>
-</div>
 
 <style>
   /* Laid over the canvas-drawn token, same type, so it covers it exactly. */
@@ -295,18 +283,4 @@
   }
   .tip .name { font-weight: 600; }
   .tip .meta { color: var(--muted-foreground); }
-  .legend {
-    position: absolute; right: 0.75rem; bottom: 0.75rem; padding: 0.45rem 0.6rem;
-    border: 1px solid var(--border); border-radius: 0.375rem;
-    background: color-mix(in oklch, var(--card) 88%, transparent);
-    color: var(--muted-foreground); font-size: 0.75rem; line-height: 1.4; min-width: 9rem;
-  }
-  .legend-title { color: var(--foreground); font-weight: 600; margin-bottom: 0.25rem; }
-  .legend-title.rule { margin-top: 0.4rem; }
-  .swatch-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
-  .swatch-row i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
-  .swatch-row i.hollow { border: 1px dashed var(--foreground); }
-  .swatch-row b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
-  .swatch-row b.dashed { border-top-style: dashed; }
-  .swatch-row b.double { border-top-style: double; border-top-width: 4px; }
 </style>

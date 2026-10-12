@@ -153,6 +153,18 @@
     {/if}
   </div>
 
+  <!-- PLACEHOLDER COPY (Phil): legend labels. Off the canvas so it never covers the tree. -->
+  <div class="legend" aria-label="Legend">
+    <span><i style:background="var(--map-cat-1)"></i> earlier</span>
+    <span><i style:background="var(--map-cat-2)"></i> later</span>
+    {#if s.same}<span><i style:background="var(--muted-foreground)"></i> same year</span>{/if}
+    <span><i class="hollow"></i> upcoming</span>
+    <span class="sep" aria-hidden="true">|</span>
+    <span><b></b> similar</span>
+    <span><b class="dashed"></b> same family</span>
+    <span><b class="double"></b> reimplementation / expansion</span>
+  </div>
+
   <div class="body">
     <div class="canvas">
       {#if loadError}
@@ -217,6 +229,13 @@
   .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
   .axis { width: 12rem; }
   .muted { color: var(--muted-foreground); font-size: 0.85rem; }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.9rem; color: var(--muted-foreground); font-size: 0.75rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
+  .legend i.hollow { border: 1px dashed var(--foreground); }
+  .legend b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
+  .legend b.dashed { border-top-style: dashed; }
+  .legend b.double { border-top-style: double; border-top-width: 4px; }
   .body { flex: 1 1 auto; min-height: 0; display: flex; gap: var(--space-md); }
   .canvas { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
   .side { flex: 0 0 18rem; display: flex; flex-direction: column; gap: 0.5rem; padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow-y: auto; }
