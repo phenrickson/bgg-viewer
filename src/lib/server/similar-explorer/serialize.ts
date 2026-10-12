@@ -57,7 +57,22 @@ function strList(rows: ExplorerRow[], name: string) {
 	);
 }
 
-export function rowsToArrowIPC(rows: ExplorerRow[]): Uint8Array {
+/**
+ * Keep only the newest embedding run's rows. A refit leaves a few stragglers on the old
+ * version (games BGG dropped or renumbered, which never get re-embedded); comparing their
+ * vectors with the new run's is meaningless, but they're no reason to fail a dev build.
+ */
+function newestRun(rows: ExplorerRow[]): ExplorerRow[] {
+	const versions = new Set(rows.map((r) => num(r.embedding_version)).filter((v): v is number => v != null));
+	if (versions.size <= 1) return rows;
+	const newest = Math.max(...versions);
+	const kept = rows.filter((r) => num(r.embedding_version) === newest);
+	console.warn(`[similar-explorer] dropped ${rows.length - kept.length} rows from embedding versions older than v${newest}`);
+	return kept;
+}
+
+export function rowsToArrowIPC(all: ExplorerRow[]): Uint8Array {
+	const rows = newestRun(all);
 	const table = new Table({
 		game_id: vectorFromArray(
 			rows.map((r) => num(r.game_id)),
@@ -87,9 +102,6 @@ export function rowsToArrowIPC(rows: ExplorerRow[]): Uint8Array {
 	});
 	const versions = new Set(rows.map((r) => num(r.embedding_version)).filter((v): v is number => v != null));
 	const models = new Set(rows.map((r) => r.embedding_model).filter((m) => m != null).map(String));
-	if (versions.size > 1 || models.size > 1) {
-		throw new Error(`similarity dataset spans ${versions.size} embedding versions / ${models.size} models`);
-	}
 	const metadata = new Map<string, string>([
 		[META_VERSION, versions.size ? String([...versions][0]) : ''],
 		[META_MODEL, models.size ? [...models][0] : '']

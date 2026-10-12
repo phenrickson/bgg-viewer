@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { rowsToArrowIPC } from '$lib/server/similar-explorer/serialize';
 import { parseGenealogyDataset } from './genealogy-data';
 import type { CoordinateSet } from './coordinates';
@@ -32,12 +32,18 @@ describe('parseGenealogyDataset', () => {
 		expect(d.has(2)).toBe(false); // id 30 has no vector
 		expect(Array.from(d.year)).toEqual([2007, 2013, 2016]);
 	});
-	it('refuses a dataset from a different embedding version than the coordinates', () => {
+	it('loads anyway, with a warning, when the dataset and coordinates are different runs', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const buf = rowsToArrowIPC([row(10, [1, 0])]);
-		expect(() => parseGenealogyDataset(buf, coords([10], 7), facts([2007]))).toThrow(/v6.*v7/);
+		expect(parseGenealogyDataset(buf, coords([10], 7), facts([2007])).has(0)).toBe(true);
+		expect(String(warn.mock.calls[0]?.[0])).toMatch(/v6.*v7/);
+		warn.mockRestore();
 	});
-	it('refuses a dataset cached before version stamping, naming the fix', () => {
+	it('loads anyway, with a warning naming the fix, when the dataset has no version stamp', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const buf = rowsToArrowIPC([row(10, [1, 0], { embedding_version: null, embedding_model: null })]);
-		expect(() => parseGenealogyDataset(buf, coords([10]), facts([2007]))).toThrow(/similar-rebuild/);
+		expect(parseGenealogyDataset(buf, coords([10]), facts([2007])).has(0)).toBe(true);
+		expect(String(warn.mock.calls[0]?.[0])).toMatch(/similar-rebuild/);
+		warn.mockRestore();
 	});
 });

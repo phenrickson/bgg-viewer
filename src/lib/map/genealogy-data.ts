@@ -5,8 +5,8 @@
  * that dataset is ~9 MB and never ships.
  *
  * The two artifacts are built separately, so they can come from different embedding runs.
- * `alignVectors` would then silently drop every game the older one lacks; instead this
- * refuses to load and says which one to rebuild.
+ * `alignVectors` then quietly drops every game the older one lacks. That's no reason to
+ * block a local session, so this loads anyway and warns, naming which one to rebuild.
  */
 import { tableFromIPC } from 'apache-arrow';
 import type { CoordinateSet } from './coordinates';
@@ -21,11 +21,10 @@ export function parseGenealogyDataset(buf: Uint8Array, coords: CoordinateSet, fa
 	const t = tableFromIPC(buf);
 	const v = t.schema.metadata.get(META_VERSION);
 	if (!v) {
-		throw new Error('The similarity dataset predates version stamping — run `just similar-rebuild` and reload.');
-	}
-	if (Number(v) !== coords.version) {
-		throw new Error(
-			`The similarity dataset is embedding v${v} but the coordinates are v${coords.version} — rebuild the older one (\`just similar-rebuild\` for the dataset).`
+		console.warn('[genealogy] the similarity dataset predates version stamping — `just similar-rebuild` to check it against the coordinates.');
+	} else if (Number(v) !== coords.version) {
+		console.warn(
+			`[genealogy] the similarity dataset is embedding v${v} but the coordinates are v${coords.version}; games only in the newer one are missing. Rebuild the older one (\`just similar-rebuild\` for the dataset).`
 		);
 	}
 	const { emb, dim, have } = alignVectors(t, coords);

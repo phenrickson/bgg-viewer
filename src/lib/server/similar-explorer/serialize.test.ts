@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { tableFromIPC } from 'apache-arrow';
 import { rowsToArrowIPC, META_VERSION, META_MODEL } from './serialize';
 
@@ -24,7 +24,12 @@ describe('rowsToArrowIPC', () => {
 		expect(t.numRows).toBe(2);
 		expect(Array.from(t.getChild('family_ids')!.get(0)!.toArray())).toEqual([7]);
 	});
-	it('refuses rows from more than one embedding version', () => {
-		expect(() => rowsToArrowIPC([row(1, 6), row(2, 7)])).toThrow(/versions/);
+	it('keeps only the newest embedding version, warning about the stragglers', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const t = tableFromIPC(rowsToArrowIPC([row(1, 6), row(2, 5), row(3, 6)]));
+		expect(Array.from(t.getChild('game_id')!.toArray())).toEqual([1, 3]);
+		expect(t.schema.metadata.get(META_VERSION)).toBe('6');
+		expect(warn).toHaveBeenCalledOnce();
+		warn.mockRestore();
 	});
 });
