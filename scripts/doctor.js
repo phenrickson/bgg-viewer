@@ -60,7 +60,10 @@ for (const table of [...CATALOG_TABLES, ...ACCOUNT_TABLES]) {
 		if (!optional) failed = true;
 		if (/Could not load the default credentials|Unable to detect|does not exist, or it is not a file|ENOENT/i.test(msg)) {
 			// Credentials are absent, not table-specific — report once and stop retrying.
-			warn('no ADC found — run `gcloud auth application-default login`');
+			warn(
+				'no ADC found — run `gcloud auth application-default login ' +
+					'--impersonate-service-account=bgg-viewer@bgg-data-warehouse.iam.gserviceaccount.com`'
+			);
 			noCreds = true;
 		} else if (/Permission denied|Access Denied|403/i.test(msg)) {
 			warn(`${table} — no read access${optional}`);

@@ -56,9 +56,18 @@ you'll need `REGISTRATION_CODE` (ask Phil) to create an account in `core.users`.
 project (ask Phil), then log in twice — the two commands produce different credentials:
 
 ```sh
-gcloud auth application-default login   # ADC: BigQuery + GCS reads from the server
-gcloud auth login                       # identity tokens for the gated warehouse API
+# ADC: BigQuery + GCS from the server, as the app's own service account
+gcloud auth application-default login \
+  --impersonate-service-account=bgg-viewer@bgg-data-warehouse.iam.gserviceaccount.com
+
+gcloud auth login   # your own account: identity tokens for the gated warehouse API
 ```
+
+Impersonation is deliberate, not optional polish. The catalog, thumbnails and coordinates
+are CI-built artifacts the *browser* downloads from a private bucket via a signed URL, and
+only a service account can sign one — plain user ADC can read GCS but cannot sign. It also
+means local dev runs with exactly the permissions production has. The impersonation needs
+**Service Account Token Creator** for your account on that service account (ask Phil).
 
 What each part of the app needs:
 
@@ -77,11 +86,18 @@ game pages fail; without BigQuery the app boots and `/api/catalog` returns
 just doctor         # toolchain versions, .env keys, and a dry-run against each BigQuery table
 ```
 
-A note on the catalog: in production it's a CI-built artifact served from a private GCS
-bucket via signed URL. Signing needs a service-account key that user ADC doesn't have, so
-locally the server logs `[catalog] GCS path failed, falling back to BigQuery build` and
-builds it from BigQuery instead (one ~40 MB scan, then cached in-process for 6 hours). That
-log line is expected. Set `CATALOG_SOURCE=bigquery` to skip the attempt and silence it.
+**If GCS isn't working**, two things to check, in this order:
+
+1. **`[catalog] GCS path failed, falling back to BigQuery build`** (or `[thumbnails]`,
+   `[coordinates]`) in the server log means signing failed — almost always ADC set up
+   without `--impersonate-service-account`. The app still works: each artifact is rebuilt
+   from BigQuery and cached in-process, at the cost of a slow first load. Re-run the ADC
+   login above to fix it. `CATALOG_SOURCE=bigquery` skips the catalog's GCS attempt
+   entirely if you want the fallback on purpose.
+2. **The catalog "fails to load" but the server log is clean** and `/api/catalog` returns
+   200: the browser's fetch to `storage.googleapis.com` was blocked by CORS. The bucket's
+   allow-list names `http://localhost:5173` only, so the dev server must run on 5173 —
+   `just dev` does. Check the browser console, not the server.
 
 **No GCP access at all?** If someone gives you a `.cache/catalog.arrow.gz` from a machine that
 has run online, `just dev-offline` serves the catalog from it with no network; game detail
