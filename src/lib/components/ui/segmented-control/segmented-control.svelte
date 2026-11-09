@@ -124,6 +124,12 @@
     text-align: left;
   }
   .cards .lbl { font-weight: 650; }
+  /* As cards, the chosen one is tinted, not just outlined: it has to read as "this is what's
+     showing" at a glance. */
+  .cards button.on {
+    background: color-mix(in oklch, var(--primary) 16%, var(--card));
+    box-shadow: 0 0 0 1.5px color-mix(in oklch, var(--primary) 70%, transparent);
+  }
   .cards .desc { font-size: 0.8em; font-weight: 400; line-height: 1.35; color: var(--muted-foreground); }
   .cards button.on .desc { color: color-mix(in oklch, var(--foreground) 80%, var(--muted-foreground)); }
 

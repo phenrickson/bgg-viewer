@@ -276,6 +276,16 @@
     })
   );
 
+  // PLACEHOLDER copy (Phil): the heading over the answer, naming what the tiles are.
+  const LIST_LEAD: Record<ListKey, string> = {
+    recommender: 'Recommended games like',
+    similar: 'Most similar to',
+    sicko: 'Dark horses like'
+  };
+  const questionLead = $derived(
+    pool === 'shelf' ? 'Games on your shelf like' : LIST_LEAD[listKey]
+  );
+
   /** The one list the page shows, as a section (empty → none). */
   const sections = $derived.by((): Section[] => {
     if (!shown) return [];
@@ -454,7 +464,10 @@
           </GameHero>
         {/if}
 
-        <!-- ── The question: the pool, and where you've walked ───────── -->
+        <!-- ── The question: what the tiles are, the pool, and where you've walked ───── -->
+        {#if seed}
+          <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
+        {/if}
         <div class="controls">
           {#if hasShelf}
             <!-- PLACEHOLDER copy (Phil) -->
@@ -556,6 +569,14 @@
   .about { display: flex; flex-direction: column; gap: var(--space-sm); }
   .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .question {
+    margin: var(--space-sm) 0 0;
+    font-size: var(--text-heading, 1.35rem);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: var(--muted-foreground);
+  }
+  .question .seed-name { color: var(--foreground); }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .controls :global(.show-as) { margin-left: auto; }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
