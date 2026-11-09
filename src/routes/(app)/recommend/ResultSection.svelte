@@ -120,7 +120,7 @@
           <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
         </div>
       </div>
-      <WhyMatch why={whyOf(g)} seed={seed.name} other={g.name} seedImage={seed.thumbnail} otherImage={g.thumbnail} />
+      <WhyMatch why={whyOf(g)} {seed} other={g} />
     </div>
   {/snippet}
 
