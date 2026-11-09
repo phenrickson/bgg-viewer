@@ -9,9 +9,12 @@
 
   let {
     compact = false,
-    onpick
+    onpick,
+    busy
   }: {
     compact?: boolean;
+    /** Something else the page is still loading, said in the box once the catalog is in. */
+    busy?: string;
     /** When set, a pick calls this instead of navigating to the game's page. */
     onpick?: (id: number, name: string) => void;
   } = $props();
@@ -53,7 +56,7 @@
 
   const placeholder = $derived(
     catalog.status === 'ready' || catalog.status === 'idle'
-      ? onpick ? 'Pick a game…' : 'Jump to a game…'
+      ? busy ?? (onpick ? 'Pick a game…' : 'Jump to a game…')
       : 'Warming the catalog…'
   );
 </script>

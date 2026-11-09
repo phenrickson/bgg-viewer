@@ -543,7 +543,8 @@
       </div>
 
       <Stack gap="sm">
-        <GameSearch onpick={pick} />
+        <!-- PLACEHOLDER copy (Phil): the vectors' loading line, after "Warming the catalog…". -->
+        <GameSearch onpick={pick} busy={vectorsState === 'loading' ? 'Warming the game vectors…' : undefined} />
 
         {#if seedId == null}
           <!-- PLACEHOLDER copy (Phil): both row labels. -->
