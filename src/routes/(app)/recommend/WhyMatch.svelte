@@ -28,7 +28,7 @@
   import TagChip, { type TagKind } from '$lib/game/TagChip.svelte';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import type { Why, SideTag, Span } from '$lib/recommend/why';
-  import { formatMinutes } from '$lib/catalog/playtime';
+  import { boxPlaytimeLabel } from '$lib/catalog/playtime';
 
   let {
     why,
@@ -58,7 +58,7 @@
   const CAP = 6;
   let open = $state<Record<string, boolean>>({});
 
-  const span = ([lo, hi]: Span, f: (n: number) => string = String) => (lo === hi ? f(lo) : `${f(lo)}–${f(hi)}`);
+  const span = ([lo, hi]: Span) => (lo === hi ? String(lo) : `${lo}–${hi}`);
   const gameHref = (g: WhyGame) => `/games/${g.game_id}`;
 </script>
 
@@ -113,8 +113,9 @@
   {#if why.playtime}
     {@const t = why.playtime}
     <span class="lbl">Play time</span>
-    <span class="val">{span(t.b, formatMinutes)}</span>
-    <span class="val">{span(t.a, formatMinutes)}</span>
+    <!-- Plain minutes, as the rest of the page writes play time ("40–200 min"). -->
+    <span class="val">{boxPlaytimeLabel(t.b[0], t.b[1])}</span>
+    <span class="val">{boxPlaytimeLabel(t.a[0], t.a[1])}</span>
   {/if}
 
   {#each groups as g (g.key)}
