@@ -10,19 +10,16 @@
 
 <script lang="ts">
   /**
-   * The full "why": how a matched game compares with the game you started from, on the
-   * embedding's own inputs, in Phil's order — complexity, players, play time, then tags.
+   * The full "why": the matched game and the game you started from, side by side, on the
+   * embedding's own inputs in Phil's order — complexity, players, play time, then mechanics,
+   * categories and families.
    *
-   * Built to make likeness easy to SEE, not just to read:
-   *
-   * - each game heads its own column — its box art at a readable size and its name and year,
-   *   together one link to its page — the matched game first, since it's what you clicked;
-   * - complexity, players and play time are a compact table, so each pair of values sits side
-   *   by side rather than a panel's width apart; complexity uses the app's banded badge, so two
-   *   games in the same band look the same; a verdict column says whether they agree, with a
-   *   dot in the positive colour when they do (never colour alone — the words say it too);
-   * - tags both games have are shown ONCE, under "In common", in their usual colours; each
-   *   game's own tags follow, plain and muted, collapsed after a few.
+   * Each game heads its own column: its box art at a readable size and its name and year,
+   * together one link to its page — the matched game first, since it's what you clicked. The
+   * table is width-capped so the two columns stay close enough to compare across. Complexity
+   * uses the app's banded badge, so two games in the same band look the same. Tags both games
+   * have are filled, in their usual colours, and come first in each column; the rest are plain.
+   * The values speak for themselves: no verdicts (Phil).
    *
    * Complexity is the model's PREDICTED complexity, which can differ from the BGG weight a
    * reader knows — hence the ⓘ on its label. The comparison itself is `$lib/recommend/why.ts`.
@@ -30,7 +27,7 @@
   import { Button } from '$lib/components/ui/button';
   import TagChip, { type TagKind } from '$lib/game/TagChip.svelte';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
-  import { playersText, playtimeText, type Why, type Span } from '$lib/recommend/why';
+  import type { Why, SideTag, Span } from '$lib/recommend/why';
   import { formatMinutes } from '$lib/catalog/playtime';
 
   let {
@@ -44,28 +41,21 @@
     other: WhyGame;
   } = $props();
 
-  // PLACEHOLDER copy (Phil): labels, verdicts, section headings and the complexity note.
-  const KINDS = [
-    { key: 'mechanics', label: 'Mechanics', kind: 'mech' },
-    { key: 'categories', label: 'Categories', kind: 'cat' },
-    { key: 'families', label: 'Families', kind: 'fam' }
-  ] as const;
-
-  /** Tags in common, per kind, rarest first. */
-  const common = $derived(
-    KINDS.map((k) => ({ ...k, kind: k.kind as TagKind, tags: why.shared[k.key] })).filter((k) => k.tags.length)
+  // PLACEHOLDER copy (Phil): row labels and the complexity note.
+  const groups = $derived(
+    (
+      [
+        { key: 'mechanics', label: 'Mechanics', kind: 'mech' },
+        { key: 'categories', label: 'Categories', kind: 'cat' },
+        { key: 'families', label: 'Families', kind: 'fam' }
+      ] as const
+    )
+      .map((g) => ({ ...g, kind: g.kind as TagKind, ...why.sides[g.key] }))
+      .filter((g) => g.a.length || g.b.length)
   );
 
-  /** A game's own tags (the ones the other lacks), every kind in order. */
-  const own = (side: 'a' | 'b') =>
-    KINDS.flatMap((k) =>
-      why.sides[k.key][side].filter((t) => !t.shared).map((t) => ({ tag: t.tag, kind: k.kind as TagKind }))
-    );
-  const ownOther = $derived(own('b'));
-  const ownSeed = $derived(own('a'));
-
-  /** Own tags shown before "+n". */
-  const CAP = 8;
+  /** Chips shown per side before "+n". */
+  const CAP = 6;
   let open = $state<Record<string, boolean>>({});
 
   const span = ([lo, hi]: Span, f: (n: number) => string = String) => (lo === hi ? f(lo) : `${f(lo)}–${f(hi)}`);
@@ -84,95 +74,67 @@
   </a>
 {/snippet}
 
-{#snippet verdict(same: boolean, text: string)}
-  <span class="verdict" class:same>{text}</span>
-{/snippet}
-
-{#snippet ownTags(g: WhyGame, tags: { tag: string; kind: TagKind }[], key: string)}
-  {#if tags.length}
-    <div class="own">
-      <span class="own-label" title="Only in {g.name}">Only in {g.name}</span>
-      <div class="chips">
-        {#each open[key] ? tags : tags.slice(0, CAP) as t (t.kind + t.tag)}<TagChip kind={t.kind} tag={t.tag} quiet />{/each}
-        {#if tags.length > CAP}
-          <Button variant="ghost" size="xs" onclick={() => (open[key] = !open[key])}>
-            {open[key] ? 'Show fewer' : `+${tags.length - CAP}`}
-          </Button>
-        {/if}
-      </div>
-    </div>
-  {/if}
-{/snippet}
-
-<div class="why">
-  <div class="table">
-    <span></span>
-    {@render identity(other)}
-    {@render identity(seed)}
-    <span></span>
-
-    {#if why.complexity}
-      {@const c = why.complexity}
-      <span class="lbl">
-        Complexity
-        <button type="button" class="info" aria-label="About complexity" aria-describedby="why-cx-note">
-          i<span class="tip" role="tooltip" id="why-cx-note">PLACEHOLDER: the model's predicted complexity, not BGG's community weight.</span>
-        </button>
-      </span>
-      <span class="val"><span class="num">{c.b.toFixed(1)}</span><ComplexityBadge weight={c.b} /></span>
-      <span class="val"><span class="num">{c.a.toFixed(1)}</span><ComplexityBadge weight={c.a} /></span>
-      {@render verdict(c.close, c.close ? 'Close' : `${Math.abs(c.a - c.b).toFixed(1)} apart`)}
+{#snippet side(tags: SideTag[], kind: TagKind, key: string)}
+  <div class="chips">
+    {#each open[key] ? tags : tags.slice(0, CAP) as t (t.tag)}<TagChip {kind} tag={t.tag} quiet={!t.shared} filled={t.shared} />{/each}
+    {#if tags.length > CAP}
+      <Button variant="ghost" size="xs" onclick={() => (open[key] = !open[key])}>
+        {open[key] ? 'Show fewer' : `+${tags.length - CAP}`}
+      </Button>
     {/if}
-
-    {#if why.players}
-      {@const p = why.players}
-      <span class="lbl">Players</span>
-      <span class="val">{span(p.b)}</span>
-      <span class="val">{span(p.a)}</span>
-      {@render verdict(!!p.overlap, p.overlap ? playersText(p) : 'No overlap')}
-    {/if}
-
-    {#if why.playtime}
-      {@const t = why.playtime}
-      <span class="lbl">Play time</span>
-      <span class="val">{span(t.b, formatMinutes)}</span>
-      <span class="val">{span(t.a, formatMinutes)}</span>
-      {@render verdict(!!t.overlap, t.overlap ? playtimeText(t) : 'No overlap')}
-    {/if}
+    {#if !tags.length}<span class="none">none</span>{/if}
   </div>
+{/snippet}
 
-  {#if common.length}
-    <div class="common">
-      <h4>In common</h4>
-      {#each common as k (k.key)}
-        <span class="lbl">{k.label}</span>
-        <div class="chips">
-          {#each k.tags as tag (tag)}<TagChip kind={k.kind} {tag} filled />{/each}
-        </div>
-      {/each}
-    </div>
+<div class="table">
+  <span></span>
+  {@render identity(other)}
+  {@render identity(seed)}
+
+  {#if why.complexity}
+    {@const c = why.complexity}
+    <span class="lbl">
+      Complexity
+      <button type="button" class="info" aria-label="About complexity" aria-describedby="why-cx-note">
+        i<span class="tip" role="tooltip" id="why-cx-note">PLACEHOLDER: the model's predicted complexity, not BGG's community weight.</span>
+      </button>
+    </span>
+    <span class="val"><span class="num">{c.b.toFixed(1)}</span><ComplexityBadge weight={c.b} /></span>
+    <span class="val"><span class="num">{c.a.toFixed(1)}</span><ComplexityBadge weight={c.a} /></span>
   {/if}
 
-  {@render ownTags(other, ownOther, 'b')}
-  {@render ownTags(seed, ownSeed, 'a')}
+  {#if why.players}
+    {@const p = why.players}
+    <span class="lbl">Players</span>
+    <span class="val">{span(p.b)}</span>
+    <span class="val">{span(p.a)}</span>
+  {/if}
+
+  {#if why.playtime}
+    {@const t = why.playtime}
+    <span class="lbl">Play time</span>
+    <span class="val">{span(t.b, formatMinutes)}</span>
+    <span class="val">{span(t.a, formatMinutes)}</span>
+  {/if}
+
+  {#each groups as g (g.key)}
+    <span class="lbl top">{g.label}</span>
+    {@render side(g.b, g.kind, `${g.key}-b`)}
+    {@render side(g.a, g.kind, `${g.key}-a`)}
+  {/each}
 </div>
 
 <style>
-  .why {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-    font-size: 0.88rem;
-  }
-
-  /* The comparison table. Value columns are capped, so a pair of values sits side by side
-     instead of a panel's width apart; the verdict column takes the rest. */
+  /* One table: a label column and a column per game, width-capped so the two columns stay
+     close enough to compare across. */
   .table {
     display: grid;
-    grid-template-columns: 6.5rem minmax(0, 13rem) minmax(0, 13rem) minmax(0, 1fr);
-    column-gap: var(--space-md);
+    grid-template-columns: 6.5rem minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--space-lg);
     row-gap: 0.7rem;
     align-items: center;
+    max-width: 56rem;
+    font-size: 0.88rem;
   }
 
   /* A game: its art at a size you can see, then name and year — one link to its page. */
@@ -182,6 +144,7 @@
     gap: 0.65rem;
     min-width: 0;
     padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
     color: inherit;
     text-decoration: none;
   }
@@ -234,6 +197,11 @@
     font-size: 0.82rem;
     color: var(--muted-foreground);
   }
+  /* A tag row's label sits level with its first line of chips. */
+  .lbl.top {
+    align-self: start;
+    padding-top: 0.2rem;
+  }
   .val {
     display: inline-flex;
     align-items: center;
@@ -244,47 +212,6 @@
   .num {
     min-width: 1.8rem;
   }
-
-  /* Does this row agree? Words always; the positive colour and dot only when it does. */
-  .verdict {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--muted-foreground);
-  }
-  .verdict::before {
-    content: '';
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    border: 1.5px solid currentColor;
-    flex: none;
-  }
-  .verdict.same {
-    color: var(--color-positive);
-    font-weight: 600;
-  }
-  .verdict.same::before {
-    background: currentColor;
-  }
-
-  /* In common: each kind's shared tags, once, in their usual colours. */
-  .common {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
-    column-gap: var(--space-md);
-    row-gap: 0.5rem;
-    align-items: baseline;
-    padding-top: var(--space-md);
-    border-top: 1px solid var(--border);
-  }
-  .common h4 {
-    grid-column: 1 / -1;
-    margin: 0 0 0.15rem;
-    font-size: 0.85rem;
-    font-weight: 650;
-  }
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -292,20 +219,9 @@
     align-items: center;
     min-width: 0;
   }
-
-  /* Each game's own tags: quiet, after what they share. */
-  .own {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
-    column-gap: var(--space-md);
-    align-items: baseline;
-  }
-  .own-label {
-    font-size: 0.8rem;
+  .none {
     color: var(--muted-foreground);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.8rem;
   }
 
   /* The complexity note: shown on hover or keyboard focus, out of the way otherwise. */
@@ -352,21 +268,16 @@
     display: block;
   }
 
-  /* Narrow: the two games side by side; each row's label above its values, verdict below. */
+  /* Narrow: the two games side by side, each row's label above its values. */
   @container (max-width: 34rem) {
     .table {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
-    .table > span:empty {
+    .table > span:first-child {
       display: none;
     }
-    .table .lbl,
-    .table .verdict {
+    .lbl {
       grid-column: 1 / -1;
-    }
-    .common,
-    .own {
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>
