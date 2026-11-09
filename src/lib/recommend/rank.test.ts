@@ -101,7 +101,7 @@ describe('rankCatalog', () => {
 
 	it('returns empty lists for a seed with no vector', () => {
 		const v = makeSet([SEED, { id: 2, sim: 0.9 }], [OPEN]);
-		expect(rankCatalog(v, 999, none)).toEqual({ kind: 'styles', similar: [], recommender: [], sicko: [] });
+		expect(rankCatalog(v, 999, none)).toEqual({ similar: [], recommender: [], sicko: [] });
 	});
 
 	it('removes excluded games before the cap and top_k, so lists still fill', () => {
@@ -168,6 +168,6 @@ describe('rankShelf', () => {
 	});
 
 	it('returns empty lists for a seed with no vector', () => {
-		expect(rankShelf(shelf, 999, owned)).toEqual({ kind: 'styles', similar: [], recommender: [], sicko: [] });
+		expect(rankShelf(shelf, 999, owned)).toEqual({ similar: [], recommender: [], sicko: [] });
 	});
 });

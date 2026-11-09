@@ -10,11 +10,11 @@
 import type { Hit, Lists } from './sources';
 import { DIMS, type Profile, type VectorSet } from './vectors';
 
-type StyleLists = Extract<Lists, { kind: 'styles' }>;
+type StyleLists = Lists;
 type Style = 'similar' | 'recommender' | 'sicko';
 const STYLES: readonly Style[] = ['similar', 'recommender', 'sicko'];
 
-const empty = (): StyleLists => ({ kind: 'styles', similar: [], recommender: [], sicko: [] });
+const empty = (): StyleLists => ({ similar: [], recommender: [], sicko: [] });
 
 /** Cosine similarity of two rows (unit vectors, so a dot product). */
 function sim(v: VectorSet, a: number, b: number): number {
