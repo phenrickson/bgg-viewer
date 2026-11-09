@@ -2,8 +2,8 @@
  * The shape of Recommend's answer and the small list helpers the page uses.
  *
  * Every pool answers with the same three lists — Recommended, Most similar, Dark horses:
- * *anywhere* from the precomputed `game_neighbors` (via `/api/similar`), *games I don't own* and
- * *my shelf* ranked in the browser (`./rank.ts`). Spec:
+ * all three pools ranked in the browser (`./rank.ts`); *anywhere* falls back to the precomputed
+ * `game_neighbors` (via `/api/similar`) until the vectors are in. Spec:
  * docs/superpowers/specs/2026-11-09-recommend-shelf-in-browser-design.md §2.
  */
 
@@ -22,9 +22,6 @@ export interface Lists {
 	recommender: Hit[];
 	sicko: Hit[];
 }
-
-/** A list shows at most this many. */
-export const SECTION_MAX = 10;
 
 export type SectionKey = keyof Lists;
 

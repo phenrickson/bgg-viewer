@@ -45,7 +45,6 @@
     type Lists,
     type Hit,
     type Section,
-    SECTION_MAX
   } from '$lib/recommend/sources';
   import ResultSection, { type Game, type Item, type Display } from './ResultSection.svelte';
 
@@ -139,13 +138,13 @@
     if (pollTimer) clearTimeout(pollTimer);
   });
 
-  // --- every game's vector, for the shelf pools ----------------------------------------------
-  // Loaded in the background once the catalog is in, and only with a collection to rank against
-  // (spec §2). Raw state: ~38k vectors, never mutated, so no deep proxy.
+  // --- every game's vector: every pool ranks from these ---------------------------------------
+  // Loaded in the background once the catalog is in, for everyone. Raw state: ~38k vectors,
+  // never mutated, so no deep proxy.
   let vectors = $state.raw<VectorSet | null>(null);
   let vectorsState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   $effect(() => {
-    if (catalog.status !== 'ready' || !ownedIds.length || untrack(() => vectorsState) !== 'idle') return;
+    if (catalog.status !== 'ready' || untrack(() => vectorsState) !== 'idle') return;
     vectorsState = 'loading';
     fetchVectors()
       .then((v) => {
@@ -263,6 +262,26 @@
     });
   });
 
+  // --- How many per list: a per-browser preference, like Cards | List ----------------------
+  const COUNT_KEY = 'recommend.count';
+  const COUNTS = [10, 25, 50] as const;
+  let count = $state<number>(10);
+  $effect(() => {
+    try {
+      const v = Number(localStorage.getItem(COUNT_KEY));
+      if ((COUNTS as readonly number[]).includes(v)) count = v;
+    } catch {
+      // Storage unavailable; 10 it is.
+    }
+  });
+  function setCount(v: number) {
+    count = v;
+    try {
+      localStorage.setItem(COUNT_KEY, String(v));
+    } catch {
+      // Not remembered this time; the choice still applies on the page.
+    }
+  }
   // --- the answer --------------------------------------------------------------------------
   let lists = $state<Lists | null>(null);
   let status = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -274,14 +293,18 @@
     sicko: p.sicko ?? []
   });
 
-  /** *Anywhere*: the precomputed lists from the game's warehouse document. */
+  /** Where the answer on screen came from: ranked here, or the warehouse's stored top 10. */
+  let listsSource = $state<'local' | 'warehouse'>('local');
+
+  /** *Anywhere*'s backup, while the vectors load or if they fail: the precomputed lists from
+   *  the game's warehouse document (10 per list). */
   async function fromApi(id: number): Promise<Record<string, Hit[]>> {
     const res = await fetch(`/api/similar?id=${id}&pool=all`);
     if (!res.ok) throw new Error(`couldn’t load matches (${res.status})`);
     return (await res.json()).profiles;
   }
 
-  /** Which question (`seed|pool`) `lists` answers — so a new question never shows the last
+  /** Which question (`seed|pool|count`) `lists` answers — so a new question never shows the last
    *  one's answer as if it were current. */
   let listsFor = $state('');
 
@@ -289,38 +312,39 @@
   $effect(() => {
     const id = seedId;
     const p = pool;
+    const n = count;
     if (id == null || catalog.status !== 'ready') return;
-    // *Anywhere* depends on the seed alone: collection or vectors landing never refetch it
-    // (spec §6.6). The shelf pools rank in the browser once the vectors are in.
-    const v = p === 'all' ? null : vectors;
-    const vs = p === 'all' ? null : vectorsState;
-    const own = p === 'all' ? null : owned;
     const mine = ++token;
     status = 'loading';
-    if (p !== 'all') {
-      if (vs === 'error') {
-        // PLACEHOLDER copy (Phil)
-        failure = 'Couldn’t load your shelf.';
-        status = 'error';
-        return;
-      }
-      if (!v || !own) return; // stays loading until the vectors land
-      lists = p === 'shelf' ? rankShelf(v, id, own) : rankCatalog(v, id, own);
-      listsFor = `${id}|${p}`;
+    const done = (out: Lists, from: 'local' | 'warehouse') => {
+      lists = out;
+      listsSource = from;
+      listsFor = `${id}|${p}|${n}`;
       status = 'ready';
+    };
+    if (p === 'all') {
+      // Ranked here once the vectors are in. Until then (or if they fail) the warehouse answers;
+      // the vectors landing later never replace an answer already on screen, so it's untracked.
+      const v = untrack(() => vectors);
+      if (v) return done(rankCatalog(v, id, new Set(), n), 'local');
+      (async () => {
+        const out = toStyles(await fromApi(id));
+        if (mine === token) done(out, 'warehouse');
+      })().catch((e) => {
+        if (mine !== token) return;
+        failure = e instanceof Error ? e.message : String(e);
+        status = 'error';
+      });
       return;
     }
-    (async () => {
-      const out = toStyles(await fromApi(id));
-      if (mine !== token) return;
-      lists = out;
-      listsFor = `${id}|${p}`;
-      status = 'ready';
-    })().catch((e) => {
-      if (mine !== token) return;
-      failure = e instanceof Error ? e.message : String(e);
+    if (vectorsState === 'error') {
+      // PLACEHOLDER copy (Phil)
+      failure = 'Couldn’t load your shelf.';
       status = 'error';
-    });
+      return;
+    }
+    if (!vectors) return; // stays loading until the vectors land
+    done(p === 'shelf' ? rankShelf(vectors, id, owned, n) : rankCatalog(vectors, id, owned, n), 'local');
   });
 
   // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
@@ -359,7 +383,7 @@
   /** The one list the page shows, as a section (empty → none). */
   const sections = $derived.by((): Section[] => {
     if (!shown) return [];
-    const s: Section = { key: listKey, hits: shown[listKey].slice(0, SECTION_MAX) };
+    const s: Section = { key: listKey, hits: shown[listKey] };
     return s.hits.length ? [s] : [];
   });
 
@@ -386,7 +410,7 @@
     }
   });
   /** The tiles on screen answer some other question (or a newer one is loading). */
-  const pending = $derived(status === 'loading' || listsFor !== `${seedId}|${pool}`);
+  const pending = $derived(status === 'loading' || listsFor !== `${seedId}|${pool}|${count}`);
   /** Changes whenever what the list shows changes — keys the fade-in. */
   const answerKey = $derived(`${listsFor}|${listKey}`);
 
@@ -406,7 +430,7 @@
   $effect(() => {
     // Every list in the answer, not just the one on screen: switching tabs then swaps between
     // games already loaded, instead of collapsing the sheet while the new ones are looked up.
-    const all: Hit[] = shown ? LIST_ORDER.flatMap((k) => shown[k].slice(0, SECTION_MAX)) : [];
+    const all: Hit[] = shown ? LIST_ORDER.flatMap((k) => shown[k]) : [];
     const ids = [...new Set(all.map((h) => h.id))];
     catalog.thumbnailsReady;
     const mine = ++rowsToken;
@@ -453,6 +477,13 @@
     { value: 'cards', label: 'Cards' },
     { value: 'list', label: 'List' }
   ];
+
+  // --- How many per list: the control (options follow the answer's source) --------------
+  /** The warehouse stores 10 per list, so with its answer on screen more can't be had. */
+  const COUNT_OPTIONS = $derived(
+    COUNTS.map((n) => ({ value: n, label: String(n), disabled: listsSource === 'warehouse' && n > 10 }))
+  );
+  const countShown = $derived(listsSource === 'warehouse' ? 10 : count);
 
   // --- Start -------------------------------------------------------------------------------
   /** How many games each Start row offers (the row shows as many as fit, up to this). */
@@ -575,6 +606,7 @@
               <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
             {/if}
             <SegmentedControl class="show-as" label="Show as" size="md" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+            <SegmentedControl label="How many" size="md" options={COUNT_OPTIONS} value={countShown} onchange={setCount} />
           </div>
 
           <!-- The tabs and their sheet are one piece: the chosen tab opens into the sheet below. -->
