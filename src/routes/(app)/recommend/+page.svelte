@@ -19,7 +19,8 @@
    * Every match carries a "why" (`$lib/recommend/why.ts`): what the two games share on the
    * embedding's own inputs.
    */
-  import { untrack } from 'svelte';
+  import { untrack, tick } from 'svelte';
+  import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { initCatalog, catalog, query, loadArrowTable } from '$lib/catalog/catalog.svelte';
@@ -211,6 +212,10 @@
     return part === 'C' ? toStyles(by) : { kind: 'shelf', list: by.shelf ?? [] };
   }
 
+  /** Which question (`seed|pool`) `lists` answers — so a new question never shows the last
+   *  one's answer as if it were current. */
+  let listsFor = $state('');
+
   let token = 0;
   $effect(() => {
     const id = seedId;
@@ -232,6 +237,7 @@
       } else out = toStyles(await fromApi(id, 'all'));
       if (mine !== token) return;
       lists = out;
+      listsFor = `${id}|${p}`;
       status = 'ready';
     })().catch((e) => {
       if (mine !== token) return;
@@ -302,10 +308,33 @@
   });
 
   // --- The walk: "Games like this" -----------------------------------------------------------
-  async function walk(id: number) {
+  // --- Showing that the answer changed ------------------------------------------------------
+  // Answers land in milliseconds, so a change is easy to miss. While one is on its way the
+  // current tiles dim (and stop taking clicks); when it lands the list fades in. Motion answers
+  // the reader's own click, and is off under prefers-reduced-motion.
+  let reduceMotion = $state(false);
+  $effect(() => {
+    try {
+      reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      // No matchMedia: keep the motion.
+    }
+  });
+  /** The tiles on screen answer some other question (or a newer one is loading). */
+  const pending = $derived(status === 'loading' || listsFor !== `${seedId}|${pool}`);
+  /** Changes whenever what the list shows changes — keys the fade-in. */
+  const answerKey = $derived(`${listsFor}|${listKey}`);
+
+  /** The top of the chosen game, so a new pick happens where you're looking. */
+  let chosenTop = $state<HTMLElement | null>(null);
+
+  /** Pick a game — from the search, or "Games like this". (Start tiles are links, at the top already.) */
+  async function pick(id: number) {
     await set({ id });
-    window.scrollTo({ top: 0 });
+    await tick();
+    chosenTop?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   }
+  const walk = pick;
 
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
@@ -411,7 +440,7 @@
       </div>
 
       <Stack gap="sm">
-        <GameSearch onpick={(id) => set({ id })} />
+        <GameSearch onpick={pick} />
 
         {#if seedId == null}
           <!-- PLACEHOLDER copy (Phil): both row labels. -->
@@ -428,6 +457,7 @@
 
       {#if seedId != null}
         <!-- ── The chosen game ─────────────────────────────────────────────────── -->
+        <div class="chosen-top" bind:this={chosenTop}></div>
         {#if seed}
           {@const sd = seed}
           <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
@@ -478,11 +508,13 @@
             <!-- ── The answer ────────────────────────────────────────────────────── -->
             {#if status === 'error'}
               <p class="msg">{failure}</p>
-            {:else if status === 'loading' && !sections.length}
-              <p class="msg">Looking…</p>
-            {:else if seed && status === 'ready' && !sections.length}
+            {:else if pending && !sections.length}
+              <p class="msg">Loading…</p>
+            {:else if seed && !pending && !sections.length}
               <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
             {:else if seed}
+              {#key answerKey}
+              <div class="answer" class:pending aria-busy={pending} inert={pending} in:fade={{ duration: reduceMotion ? 0 : 160 }}>
               {#each sections as s (`${seedId}-${s.key}`)}
                 <!-- The heading above names the list (and the picker which one), so no title here. -->
                 <ResultSection
@@ -497,6 +529,8 @@
                   onwalk={walk}
                 />
               {/each}
+              </div>
+              {/key}
             {/if}
           </Stack>
         </Stack>
@@ -535,6 +569,11 @@
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
+  /* While a new answer is on its way, the old one steps back. */
+  .answer { transition: opacity 120ms ease; }
+  .answer.pending { opacity: 0.45; }
+  @media (prefers-reduced-motion: reduce) { .answer { transition: none; } }
+  .chosen-top { scroll-margin-top: var(--space-md); }
   /* The headline is centred; everything under it shares one column (the page's measure), so
      the search and the answer start at one edge. */
   .start {
