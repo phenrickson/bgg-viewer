@@ -110,9 +110,13 @@ A new in-browser artifact, published like the catalog, thumbnails and coordinate
 
 A pure module, `src/lib/recommend/rank.ts`, unit-tested without a browser.
 
-- **Load:** on the first flip to a shelf pool (not on page load), fetch and parse the vectors
-  artifact once per session into flat typed arrays, vectors L2-normalised so cosine is a dot
-  product. A visit that never leaves *anywhere* never downloads it.
+- **Load (Phil, 2026-11-09):** when `/recommend` is opened, and only there, the vectors
+  artifact starts loading in the background **after the catalog is ready** (so it never
+  competes with the catalog, which the search and *anywhere* need), and **only when there's a
+  collection** (a linked user, or an admin's view-as username once it loads). No other page
+  fetches it. It's parsed once per session into flat typed arrays, vectors L2-normalised so
+  cosine is a dot product. A flip to a shelf pool before it has arrived shows the normal
+  loading state and fills in when it lands.
 - **Not on my shelf:** for each of the shipped profiles, the `game_neighbors` rules with
   candidates = the artifact minus the seed and minus owned games: source floor
   (`source_min_users_rated`), candidate floor (`min_users_rated`), complexity band,
@@ -187,8 +191,8 @@ From the 2026-11-09 review, each confirmed against the branch:
 
 ## Decisions (Phil, 2026-11-09)
 
-1. **The ~8 MB one-time download is acceptable** the first time someone flips to a shelf pool
-   (about 2.5 s at 25 Mbps, 6 s at 10 Mbps; cached after). float32 as designed.
+1. **The ~8 MB one-time download is acceptable** (about 2.5 s at 25 Mbps, 6 s at 10 Mbps;
+   cached after). float32 as designed. It loads in the background when the tool opens (§2).
 2. **Owned games outside the working set are left out** (fewer than 30 ratings, not upcoming).
    They are not in the artifact, never appear in shelf answers, and are also left out of the
    Start screen's "Your shelf" row and of `owned` for ranking purposes, so nothing on the page
@@ -199,7 +203,6 @@ From the 2026-11-09 review, each confirmed against the branch:
 
 - Vectors artifact separate from the catalog; float32; working-set rows; profiles shipped in
   the artifact's metadata.
-- Loaded on the first flip to a shelf pool, not on page load.
 - *Not on my shelf* uses the full `game_neighbors` rules; *on my shelf* keeps plain similarity.
 - Polling (5 s, 3 min cap) for an admin's unseen username, rather than a "sync finished" signal.
 - Keep every embedding version in the artifact, so it matches `game_neighbors` exactly.
