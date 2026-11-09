@@ -17,12 +17,18 @@
    * Categories take `--primary`, mechanics `--chart-1`: two kinds of tag, not one grey wall.
    * Families stay neutral.
    *
-   * `quiet` steps a chip back (Recommend's "why": a tag only one of the two games has).
+   * Recommend's "why" uses two emphases: `filled` brings a chip forward (a tag both games
+   * have), `quiet` steps it back to plain muted text (a tag only one has).
    */
-  let { kind, tag, quiet = false }: { kind: TagKind; tag: string; quiet?: boolean } = $props();
+  let {
+    kind,
+    tag,
+    quiet = false,
+    filled = false
+  }: { kind: TagKind; tag: string; quiet?: boolean; filled?: boolean } = $props();
 </script>
 
-<a class="chip {kind}" class:quiet href="/games?{PARAM[kind]}={encodeURIComponent(tag)}">{tag}</a>
+<a class="chip {kind}" class:quiet class:filled href="/games?{PARAM[kind]}={encodeURIComponent(tag)}">{tag}</a>
 
 <style>
   .chip {
@@ -46,9 +52,14 @@
     border-color: color-mix(in oklch, var(--chart-1) 40%, var(--border));
     color: var(--chart-1);
   }
+  .chip.filled {
+    background: var(--muted);
+    color: var(--foreground);
+    font-weight: 600;
+  }
   .chip.quiet {
-    border-color: var(--border);
-    border-style: dashed;
+    border-color: transparent;
+    background: none;
     color: var(--muted-foreground);
   }
   .chip.quiet:hover {

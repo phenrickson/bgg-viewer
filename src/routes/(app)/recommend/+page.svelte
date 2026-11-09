@@ -481,6 +481,11 @@
         {#if pickGame && seed}
           {@const g = pickGame}
           <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => set({ pick: null })}>
+            {#snippet kicker()}
+              <!-- PLACEHOLDER copy (Phil) -->
+              <span class="kick">Surprise pick</span>
+              <Button variant="outline" size="sm" onclick={surprise}>Another one ↻</Button>
+            {/snippet}
             {#snippet meta()}
               {#if g.year_published}<span>{g.year_published}</span>{/if}
               <SimBadges similarity={pickSim} rating={g.average_rating} />
@@ -488,11 +493,10 @@
             {/snippet}
             {#snippet actions()}
               <!-- PLACEHOLDER copy (Phil) -->
-              <Button onclick={surprise}>Another one</Button>
               <Button variant="outline" href={ask({ id: g.game_id })}>Games like this</Button>
               <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
             {/snippet}
-            <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} />
+            <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} seedImage={seed.thumbnail} otherImage={g.thumbnail} />
           </GameHero>
         {/if}
 
@@ -561,6 +565,7 @@
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
+  .kick { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-foreground); }
   /* The headline is centred; everything under it shares one column (the page's measure), so
      the search and the answer start at one edge. */
   .start {

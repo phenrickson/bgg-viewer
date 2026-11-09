@@ -164,7 +164,7 @@
         <p class="why-title">Why {open.name} is a {Math.round(similarityPct(open.similarity))}% match</p>
         <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(open.game_id)}>×</Button>
       </div>
-      <WhyMatch why={whyOf(open)} seed={seed.name} other={open.name} />
+      <WhyMatch why={whyOf(open)} seed={seed.name} other={open.name} seedImage={seed.thumbnail} otherImage={open.thumbnail} />
     </div>
   {/if}
 </section>
