@@ -25,7 +25,8 @@
     actions,
     children,
     onclose,
-    compact = false
+    compact = false,
+    bare = false
   }: {
     href: string;
     name: string;
@@ -36,10 +37,12 @@
     children?: Snippet;
     onclose?: () => void;
     compact?: boolean;
+    /** No box: the game sits on the page as its header (Recommend's chosen game). */
+    bare?: boolean;
   } = $props();
 </script>
 
-<section class="hero" class:compact aria-label={name}>
+<section class="hero" class:compact class:bare aria-label={name}>
   {#if onclose}
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
@@ -111,6 +114,13 @@
     .row { flex-direction: column; gap: var(--space-md); }
     .art { width: auto; justify-content: flex-start; }
     .art img { max-height: 9rem; }
+  }
+  /* Wins over a size's padding (`.compact`), whatever their order. */
+  .hero.bare {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
   }
   .compact {
     padding: var(--space-md);
