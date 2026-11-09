@@ -198,7 +198,7 @@
             <div class="pop" role="menu">
               <a href="/recommend" role="menuitem" class:on={onRecommend}>
                 <b>Recommend</b>
-                <span>PLACEHOLDER(Phil): one-line description</span>
+                <span>Find games similar to ones you like</span>
               </a>
               <a href="/map" role="menuitem" class:on={onMap}>
                 <b>Map</b>
