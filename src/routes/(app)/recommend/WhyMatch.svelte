@@ -33,12 +33,15 @@
   let {
     why,
     seed,
-    other
+    other,
+    onwalk
   }: {
     /** `explain(seed, other)`: side `a` is the seed, side `b` the matched game. */
     why: Why;
     seed: WhyGame;
     other: WhyGame;
+    /** "Games like this" for the matched game — shown under its name, where it belongs. */
+    onwalk?: () => void;
   } = $props();
 
   // PLACEHOLDER copy (Phil): row labels and the complexity note.
@@ -62,16 +65,20 @@
   const gameHref = (g: WhyGame) => `/games/${g.game_id}`;
 </script>
 
-{#snippet identity(g: WhyGame)}
-  <a class="game" href={gameHref(g)}>
-    <span class="art">
-      {#if g.thumbnail}<img src={g.thumbnail} alt="" decoding="async" />{/if}
-    </span>
-    <span class="title">
-      <span class="name">{g.name}</span>
-      {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
-    </span>
-  </a>
+{#snippet identity(g: WhyGame, walk?: () => void)}
+  <div class="head">
+    <a class="game" href={gameHref(g)}>
+      <span class="art">
+        {#if g.thumbnail}<img src={g.thumbnail} alt="" decoding="async" />{/if}
+      </span>
+      <span class="title">
+        <span class="name">{g.name}</span>
+        {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
+      </span>
+    </a>
+    <!-- PLACEHOLDER copy (Phil) -->
+    {#if walk}<Button variant="outline" size="xs" class="walk" onclick={walk}>Games like this</Button>{/if}
+  </div>
 {/snippet}
 
 {#snippet side(tags: SideTag[], kind: TagKind, key: string)}
@@ -88,7 +95,7 @@
 
 <div class="table">
   <span></span>
-  {@render identity(other)}
+  {@render identity(other, onwalk)}
   {@render identity(seed)}
 
   {#if why.complexity}
@@ -138,14 +145,25 @@
     font-size: 0.88rem;
   }
 
-  /* A game: its art at a size you can see, then name and year — one link to its page. */
+  /* A game's head: its art at a size you can see, then name and year — one link to its page —
+     and, for the matched game, "Games like this" beside it. */
+  .head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .head :global(.walk) {
+    margin-left: auto;
+    flex: none;
+  }
   .game {
     display: flex;
     align-items: center;
     gap: 0.65rem;
     min-width: 0;
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--border);
     color: inherit;
     text-decoration: none;
   }

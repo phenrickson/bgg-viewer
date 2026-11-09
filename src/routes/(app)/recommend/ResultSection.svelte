@@ -22,7 +22,7 @@
    *
    * Each game says what it IS — complexity, players, play time — not what it shares with the
    * seed; the comparison is an action. Clicking a game opens its "why" (the side-by-side
-   * analysis) right under it, with "Open game page" and "Games like this" at its head. One open
+   * analysis) right under it, where the game's art and name link to its page and "Games like this" sits beside them. One open
    * at a time, so the page owns which, via `whyId`. The magnifier on a tile is the shortcut
    * for "Games like this" without opening it.
    */
@@ -113,14 +113,9 @@
       <div class="why-head">
         <!-- PLACEHOLDER copy (Phil) -->
         <p class="why-title">Why {g.name} is a {Math.round(similarityPct(g.similarity))}% match</p>
-        <!-- PLACEHOLDER copy (Phil): both actions. -->
-        <div class="why-acts">
-          <Button variant="outline" size="sm" href={gameHref(g.game_id)}>Open game page ↗</Button>
-          <Button variant="outline" size="sm" onclick={() => onwalk(g.game_id)}>Games like this</Button>
-          <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
-        </div>
+        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
       </div>
-      <WhyMatch why={whyOf(g)} {seed} other={g} />
+      <WhyMatch why={whyOf(g)} {seed} other={g} onwalk={() => onwalk(g.game_id)} />
     </div>
   {/snippet}
 
@@ -196,6 +191,5 @@
     container-type: inline-size;
   }
   .why-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-  .why-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs, 0.4rem); }
   .why-title { margin: 0; font-size: 0.95rem; font-weight: 650; }
 </style>
