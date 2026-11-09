@@ -79,3 +79,9 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
         run: pnpm dlx tsx@4 scripts/build-coordinates-artifact.ts
+
+      # Recommend's shelf pools rank in the browser from these (spec 2026-11-09).
+      - name: Build and upload vectors
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: pnpm dlx tsx@4 scripts/build-vectors-artifact.ts
