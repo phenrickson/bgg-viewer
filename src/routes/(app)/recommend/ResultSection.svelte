@@ -77,6 +77,11 @@
   const shown = $derived(items);
   const whyOf = (g: Item) => explain(seed, g, freq);
   const gameHref = (id: number) => `/games/${id}`;
+  /** "an 84% match", "a 72% match": "an" before a number said with a vowel (8, 11, 18, 80s). */
+  function matchText(similarity: number): string {
+    const pct = Math.round(similarityPct(similarity));
+    return `${/^(8|11|18)/.test(String(pct)) ? 'an' : 'a'} ${pct}% match`;
+  }
 </script>
 
 <section class="sec">
@@ -111,8 +116,9 @@
   {#snippet whyPanel(g: Item)}
     <div class="why" data-full>
       <div class="why-head">
-        <!-- PLACEHOLDER copy (Phil) -->
-        <p class="why-title">Why {g.name} is a {Math.round(similarityPct(g.similarity))}% match</p>
+        <!-- PLACEHOLDER copy (Phil). Muted, with only the game's name at full colour, like the
+             page's "Recommended games like …" heading. -->
+        <p class="why-title">Why <span class="nm">{g.name}</span> is {matchText(g.similarity)}</p>
         <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
       </div>
       <WhyMatch why={whyOf(g)} {seed} other={g} onwalk={() => onwalk(g.game_id)} />
@@ -190,6 +196,7 @@
     background: var(--card);
     container-type: inline-size;
   }
+  .why-title { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--muted-foreground); }
+  .why-title .nm { color: var(--foreground); }
   .why-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-  .why-title { margin: 0; font-size: 0.95rem; font-weight: 650; }
 </style>

@@ -67,17 +67,19 @@
 
 {#snippet identity(g: WhyGame, walk?: () => void)}
   <div class="head">
-    <a class="game" href={gameHref(g)}>
-      <span class="art">
-        {#if g.thumbnail}<img src={g.thumbnail} alt="" decoding="async" />{/if}
-      </span>
-      <span class="title">
-        <span class="name">{g.name}</span>
-        {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
-      </span>
+    <a class="art" href={gameHref(g)} tabindex="-1" aria-hidden="true">
+      {#if g.thumbnail}<img src={g.thumbnail} alt="" decoding="async" />{/if}
     </a>
-    <!-- PLACEHOLDER copy (Phil) -->
-    {#if walk}<Button variant="outline" size="xs" class="walk" onclick={walk}>Games like this</Button>{/if}
+    <div class="title">
+      <a class="name" href={gameHref(g)}>{g.name}</a>
+      {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
+      <!-- What you can do with this game, as the app's links, so it reads as clickable.
+           PLACEHOLDER copy (Phil) -->
+      <div class="links">
+        <Button variant="link" size="xs" class="lnk" href={gameHref(g)}>Game page ↗</Button>
+        {#if walk}<Button variant="link" size="xs" class="lnk" onclick={walk}>Games like this</Button>{/if}
+      </div>
+    </div>
   </div>
 {/snippet}
 
@@ -145,27 +147,15 @@
     font-size: 0.88rem;
   }
 
-  /* A game's head: its art at a size you can see, then name and year — one link to its page —
-     and, for the matched game, "Games like this" beside it. */
+  /* A game's head: its art at a size you can see, its name (a link) and year, then what you
+     can do with it as links underneath. */
   .head {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: 0.75rem;
     min-width: 0;
     padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--border);
-  }
-  .head :global(.walk) {
-    margin-left: auto;
-    flex: none;
-  }
-  .game {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
-    color: inherit;
-    text-decoration: none;
   }
   .art {
     flex: none;
@@ -185,28 +175,41 @@
   .title {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     min-width: 0;
   }
   .name {
     font-weight: 650;
     line-height: 1.25;
+    color: inherit;
+    text-decoration: none;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     overflow: hidden;
   }
+  .name:hover {
+    color: var(--primary);
+  }
+  .name:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
   .year {
     font-size: 0.78rem;
     color: var(--muted-foreground);
   }
-  .game:hover .name {
-    color: var(--primary);
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.9rem;
+    margin-top: 0.15rem;
   }
-  .game:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: 6px;
+  .links :global(.lnk) {
+    height: auto;
+    padding: 0;
   }
 
   .lbl {
