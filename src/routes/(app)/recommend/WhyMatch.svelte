@@ -198,10 +198,11 @@
     font-size: 0.82rem;
     color: var(--muted-foreground);
   }
-  /* A tag row's label sits level with its first line of chips. */
+  /* Tag rows: label and both sides hang from the same top line, the label one chip tall, so
+     a side that wraps to two lines never pulls the others off level. */
   .lbl.top {
     align-self: start;
-    padding-top: 0.2rem;
+    min-height: 1.4rem;
   }
   .val {
     display: inline-flex;
@@ -214,11 +215,13 @@
     min-width: 1.8rem;
   }
   .chips {
+    align-self: start;
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
     align-items: center;
     min-width: 0;
+    min-height: 1.4rem;
   }
   .none {
     color: var(--muted-foreground);
