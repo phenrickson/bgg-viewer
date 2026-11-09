@@ -53,7 +53,7 @@ function capAndTake(v: VectorSet, scored: Scored[], cap: number | null, topK: nu
 }
 
 /** One catalog profile's list for the seed row, candidates minus `exclude`. */
-function rankProfile(v: VectorSet, seed: number, p: Profile, exclude: ReadonlySet<number>): Hit[] {
+function rankProfile(v: VectorSet, seed: number, p: Profile, exclude: ReadonlySet<number>, topK: number): Hit[] {
 	if (v.usersRated[seed] < p.source_min_users_rated || Number.isNaN(v.complexity[seed])) return [];
 	const scored: Scored[] = [];
 	for (let i = 0; i < v.ids.length; i++) {
@@ -69,17 +69,25 @@ function rankProfile(v: VectorSet, seed: number, p: Profile, exclude: ReadonlySe
 		if (p.max_rating_pct !== 1 && g >= p.max_rating_pct) continue;
 		scored.push({ row: i, similarity: s, score: p.weight * s + (1 - p.weight) * g });
 	}
-	return capAndTake(v, scored, p.max_per_family, p.top_k);
+	return capAndTake(v, scored, p.max_per_family, topK);
 }
 
-/** *Games I don't own*: the three catalog styles for `seedId`, never returning `exclude`. */
-export function rankCatalog(v: VectorSet, seedId: number, exclude: ReadonlySet<number>): StyleLists {
+/**
+ * The three catalog styles for `seedId`, never returning `exclude` (*games I don't own*; an empty
+ * set is *anywhere*). Up to `topK` per list; without it, each profile's own `top_k`.
+ */
+export function rankCatalog(
+	v: VectorSet,
+	seedId: number,
+	exclude: ReadonlySet<number>,
+	topK?: number
+): StyleLists {
 	const out = empty();
 	const seed = v.index.get(seedId);
 	if (seed == null) return out;
 	for (const style of STYLES) {
 		const p = v.profiles.find((x) => x.name === style);
-		if (p) out[style] = rankProfile(v, seed, p, exclude);
+		if (p) out[style] = rankProfile(v, seed, p, exclude, topK ?? p.top_k);
 	}
 	return out;
 }
@@ -109,8 +117,13 @@ function shelfPercentiles(v: VectorSet, rows: number[]): Map<number, number> {
 	return out;
 }
 
-/** *My shelf*: the three shelf styles for `seedId` among `owned` (the seed never included). */
-export function rankShelf(v: VectorSet, seedId: number, owned: ReadonlySet<number>): StyleLists {
+/** *My shelf*: the three shelf styles for `seedId` among `owned` (the seed never included), up to `topK`. */
+export function rankShelf(
+	v: VectorSet,
+	seedId: number,
+	owned: ReadonlySet<number>,
+	topK: number = SHELF_TOP_K
+): StyleLists {
 	const out = empty();
 	const seed = v.index.get(seedId);
 	if (seed == null) return out;
@@ -122,7 +135,7 @@ export function rankShelf(v: VectorSet, seedId: number, owned: ReadonlySet<numbe
 		const scored: Scored[] = rows
 			.filter((r) => maxShelfPct == null || shelfPct.get(r)! < maxShelfPct)
 			.map((r) => ({ row: r, similarity: sims.get(r)!, score: weight * sims.get(r)! + (1 - weight) * shelfPct.get(r)! }));
-		out[style] = capAndTake(v, scored, SHELF_CAP, SHELF_TOP_K);
+		out[style] = capAndTake(v, scored, SHELF_CAP, topK);
 	}
 	return out;
 }

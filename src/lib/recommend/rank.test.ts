@@ -125,6 +125,30 @@ describe('rankCatalog', () => {
 	});
 });
 
+describe('topK', () => {
+	const many = makeSet(
+		[SEED, ...Array.from({ length: 60 }, (_, i) => ({ id: 10 + i, sim: 0.95 - i * 0.01 }))],
+		[profile({ top_k: 10 })]
+	);
+
+	it('rankCatalog returns up to topK, over the profile top_k, best first', () => {
+		const out = rankCatalog(many, 1, none, 25).similar;
+		expect(out).toHaveLength(25);
+		expect(ids(out).slice(0, 3)).toEqual([10, 11, 12]);
+		expect(rankCatalog(many, 1, none, 50).similar).toHaveLength(50);
+	});
+
+	it('rankCatalog without topK keeps the profile top_k', () => {
+		expect(rankCatalog(many, 1, none).similar).toHaveLength(10);
+	});
+
+	it('rankShelf returns up to topK', () => {
+		const owned = new Set(many.ids);
+		expect(rankShelf(many, 1, owned, 25).similar).toHaveLength(25);
+		expect(rankShelf(many, 1, owned).similar).toHaveLength(10);
+	});
+});
+
 describe('rankShelf', () => {
 	// Owned: 2, 3, 4 (and the seed). geek_pct 0.1 / 0.9 / 0.5 → shelf_pct 0 / 1 / 0.5.
 	const shelf = makeSet(
