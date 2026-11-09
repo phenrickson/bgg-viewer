@@ -7,9 +7,6 @@
    * The shell only. What goes in `meta` (year, badges, shelf status), `actions` (buttons) and
    * `children` (a "why", a description) is the caller's.
    *
-   * `kicker` is a line above the art and name that says what this hero is, with any control
-   * that belongs to that rather than to the game (Recommend's "Surprise pick · Another one").
-   *
    * `onclose` adds a × in the corner, for a hero that sits over other content and can be
    * dismissed. `compact` is the small size: ~96px art and a heading-size name (Recommend's
    * chosen game).
@@ -24,7 +21,6 @@
     href,
     name,
     image = null,
-    kicker,
     meta,
     actions,
     children,
@@ -35,7 +31,6 @@
     name: string;
     /** The largest art the caller has — the catalog's thumbnail, or a game document's image. */
     image?: string | null;
-    kicker?: Snippet;
     meta?: Snippet;
     actions?: Snippet;
     children?: Snippet;
@@ -48,7 +43,6 @@
   {#if onclose}
     <button type="button" class="close" aria-label="Close" onclick={onclose}>×</button>
   {/if}
-  {#if kicker}<div class="kicker">{@render kicker()}</div>{/if}
   <div class="row">
     <a class="art" {href} tabindex="-1" aria-hidden="true">
       {#if image}<img src={image} alt="" decoding="async" />{/if}
@@ -92,13 +86,6 @@
   }
   .close:focus-visible {
     outline: 2px solid var(--primary);
-  }
-  .kicker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-sm);
-    margin: 0 2.5rem var(--space-md) 0;
   }
   .row {
     display: flex;

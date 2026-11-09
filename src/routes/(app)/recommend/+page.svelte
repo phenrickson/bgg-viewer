@@ -9,7 +9,7 @@
    * One page, not two: the search stays at the top, always just a search. Picking a game loads
    * its answer underneath, in place: the game itself (a hero: what it is, a link to its page),
    * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
-   * and Surprise me — and the trail of games walked through. Each result opens its game page; its match score opens "why";
+   * and the trail of games walked through. Each result opens its game page; its match score opens "why";
    * "Games like this" walks on from it. The answer is stacked sections: the three precomputed
    * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
@@ -31,7 +31,7 @@
   import { Container, Stack } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
-  import { explain, type TagFrequencies } from '$lib/recommend/why';
+  import type { TagFrequencies } from '$lib/recommend/why';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
@@ -39,8 +39,6 @@
   import {
     sourceFor,
     sectionsFor,
-    surpriseFrom,
-    drawFrom,
     withoutIds,
     tooThin,
     type Pool,
@@ -49,7 +47,6 @@
     type SectionKey
   } from '$lib/recommend/sources';
   import ResultSection, { type Game, type Item, type Display } from './ResultSection.svelte';
-  import WhyMatch from './WhyMatch.svelte';
 
   let { data } = $props();
 
@@ -113,16 +110,11 @@
     return p === 'shelf' || p === 'unowned' ? p : 'all';
   });
 
-  /** An open Surprise pick (nice-to-have URL state, spec §1). */
-  const pickId = $derived(Number(params.get('pick')) || null);
-
   /**
    * A link to this page with some of the question changed — how every option and walk moves.
-   * A new seed closes any open Surprise pick unless the patch says otherwise.
    */
-  function ask(patch: { id?: number | null; from?: Pool; pick?: number | null }): string {
+  function ask(patch: { id?: number | null; from?: Pool }): string {
     const q = new URLSearchParams(params);
-    if ('id' in patch && !('pick' in patch)) q.delete('pick');
     for (const [k, v] of Object.entries(patch)) {
       if (v == null) q.delete(k);
       else q.set(k, String(v));
@@ -269,36 +261,6 @@
     await set({ id });
     window.scrollTo({ top: 0 });
   }
-
-  // --- Surprise me: one game drawn from a wider list, shown above the sections ---------------
-  const surprisePool = $derived(lists ? surpriseFrom(withoutIds(lists, walked)) : []);
-  let seen = $state<Set<number>>(new Set());
-  $effect(() => {
-    // A new question starts the draw afresh.
-    [seedId, pool];
-    seen = new Set();
-  });
-  function surprise() {
-    const r = drawFrom(surprisePool, seen);
-    seen = r.seen;
-    // Opening pushes a history entry; redrawing replaces it, so Back closes the pick.
-    if (r.hit) set({ pick: r.hit.id }, pickId != null);
-  }
-  let pickGame = $state<Game | null>(null);
-  $effect(() => {
-    const id = pickId;
-    if (id == null || catalog.status !== 'ready') {
-      pickGame = null;
-      return;
-    }
-    games([id]).then((m) => id === pickId && (pickGame = m.get(id) ?? null));
-  });
-  /** The pick's match to the seed — from the list it was drawn from, if it's still there. */
-  const pickSim = $derived(
-    surprisePool.find((h) => h.id === pickId)?.similarity ??
-      sections.flatMap((s) => s.hits).find((h) => h.id === pickId)?.similarity ??
-      null
-  );
 
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
@@ -453,15 +415,12 @@
           </GameHero>
         {/if}
 
-        <!-- ── The question: the pool, Surprise me, and where you've walked ───────── -->
+        <!-- ── The question: the pool, and where you've walked ───────── -->
         <div class="controls">
           {#if hasShelf}
             <!-- PLACEHOLDER copy (Phil) -->
             <span class="from">from</span>
             <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
-          {/if}
-          {#if status === 'ready' && surprisePool.length}
-            <Button variant="outline" onclick={surprise}>Surprise me</Button>
           {/if}
         </div>
         {#if trail.length > 1}
@@ -475,29 +434,6 @@
               {/if}
             {/each}
           </nav>
-        {/if}
-
-        <!-- ── Surprise me ───────────────────────────────────────────────────── -->
-        {#if pickGame && seed}
-          {@const g = pickGame}
-          <GameHero href="/games/{g.game_id}" name={g.name} image={g.thumbnail} onclose={() => set({ pick: null })}>
-            {#snippet kicker()}
-              <!-- PLACEHOLDER copy (Phil) -->
-              <span class="kick">Surprise pick</span>
-              <Button variant="outline" size="sm" onclick={surprise}>Another one ↻</Button>
-            {/snippet}
-            {#snippet meta()}
-              {#if g.year_published}<span>{g.year_published}</span>{/if}
-              <SimBadges similarity={pickSim} rating={g.average_rating} />
-              {#if hasShelf}<span>{owned.has(g.game_id) ? 'On your shelf' : 'Not on your shelf'}</span>{/if}
-            {/snippet}
-            {#snippet actions()}
-              <!-- PLACEHOLDER copy (Phil) -->
-              <Button variant="outline" href={ask({ id: g.game_id })}>Games like this</Button>
-              <Button variant="link" href="/games/{g.game_id}">Open game ↗</Button>
-            {/snippet}
-            <WhyMatch why={explain(seed, g, freq)} seed={seed.name} other={g.name} seedImage={seed.thumbnail} otherImage={g.thumbnail} />
-          </GameHero>
         {/if}
 
         <!-- ── The answer ────────────────────────────────────────────────────── -->
@@ -565,7 +501,6 @@
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
-  .kick { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-foreground); }
   /* The headline is centred; everything under it shares one column (the page's measure), so
      the search and the answer start at one edge. */
   .start {
