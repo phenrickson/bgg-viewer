@@ -43,7 +43,6 @@
     type Pool,
     type Lists,
     type Hit,
-    type SectionKey,
     type Section,
     SECTION_MAX
   } from '$lib/recommend/sources';
@@ -326,14 +325,6 @@
       return g ? [{ ...g, similarity: h.similarity }] : [];
     });
 
-  // PLACEHOLDER copy (Phil): the shelf section's heading and blurb.
-  const SECTION_TEXT: Record<SectionKey, { title: string; blurb: string }> = {
-    recommender: { title: SIMILAR_PROFILE_LABELS.recommender, blurb: SIMILAR_PROFILE_BLURBS.recommender },
-    similar: { title: SIMILAR_PROFILE_LABELS.similar, blurb: SIMILAR_PROFILE_BLURBS.similar },
-    sicko: { title: SIMILAR_PROFILE_LABELS.sicko, blurb: SIMILAR_PROFILE_BLURBS.sicko },
-    shelf: { title: 'On your shelf', blurb: 'The games you own closest to this one.' }
-  };
-
   /** Categories, and mechanics, shown on the chosen game: the first few of each. */
   const SEED_TAGS = 4;
 
@@ -464,64 +455,64 @@
           </GameHero>
         {/if}
 
-        <!-- ── The question: what the tiles are, the pool, and where you've walked ───── -->
-        {#if seed}
-          <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
-        {/if}
-        <div class="controls">
-          {#if hasShelf}
-            <!-- PLACEHOLDER copy (Phil) -->
-            <span class="from">from</span>
-            <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
+        <!-- Question and answer as one block, on one medium rhythm. -->
+        <Stack gap="md">
+          <!-- ── The question: what the tiles are, the pool, and where you've walked ───── -->
+          {#if seed}
+            <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
           {/if}
-          <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
-        </div>
-        {#if trail.length > 1}
-          <nav class="trail" aria-label="Games you have walked through">
-            {#each trail as t, i (t.id)}
-              {#if i > 0}<span aria-hidden="true">›</span>{/if}
-              {#if t.id === seedId}
-                <span aria-current="page">{t.name}</span>
-              {:else}
-                <a href={ask({ id: t.id })}>{t.name}</a>
-              {/if}
-            {/each}
-          </nav>
-        {/if}
-
-        <!-- The picker and its list read as one piece: a tight gap, not the page's. -->
-        <Stack gap="sm">
-          <!-- ── Which list ──────────────────────────────────────────────────────── -->
-          {#if shown?.kind === 'styles'}
-            <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
+          <div class="controls">
+            {#if hasShelf}
+              <!-- PLACEHOLDER copy (Phil) -->
+              <span class="from">from</span>
+              <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
+            {/if}
+            <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+          </div>
+          {#if trail.length > 1}
+            <nav class="trail" aria-label="Games you have walked through">
+              {#each trail as t, i (t.id)}
+                {#if i > 0}<span aria-hidden="true">›</span>{/if}
+                {#if t.id === seedId}
+                  <span aria-current="page">{t.name}</span>
+                {:else}
+                  <a href={ask({ id: t.id })}>{t.name}</a>
+                {/if}
+              {/each}
+            </nav>
           {/if}
 
-          <!-- ── The answer ────────────────────────────────────────────────────── -->
-          {#if status === 'error'}
-            <p class="msg">{failure}</p>
-          {:else if status === 'loading' && !sections.length}
-            <p class="msg">Looking…</p>
-          {:else if seed && status === 'ready' && !sections.length}
-            <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
-          {:else if seed}
-            {#each sections as s (`${seedId}-${s.key}`)}
-              <!-- The picker names the three lists; only the shelf list needs its own heading. -->
-              <ResultSection
-                title={s.key === 'shelf' ? SECTION_TEXT.shelf.title : ''}
-                blurb={s.key === 'shelf' ? SECTION_TEXT.shelf.blurb : ''}
-                items={toItems(s.hits)}
-                {seed}
-                {freq}
-                {owned}
-                {display}
-                markOwned={pool === 'all'}
-                {whyId}
-                onwhy={toggleWhy}
-                onwalk={walk}
-              >
-              </ResultSection>
-            {/each}
-          {/if}
+          <!-- The picker and its list read as one piece: a tight gap, not the page's. -->
+          <Stack gap="sm">
+            <!-- ── Which list ──────────────────────────────────────────────────────── -->
+            {#if shown?.kind === 'styles'}
+              <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
+            {/if}
+
+            <!-- ── The answer ────────────────────────────────────────────────────── -->
+            {#if status === 'error'}
+              <p class="msg">{failure}</p>
+            {:else if status === 'loading' && !sections.length}
+              <p class="msg">Looking…</p>
+            {:else if seed && status === 'ready' && !sections.length}
+              <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
+            {:else if seed}
+              {#each sections as s (`${seedId}-${s.key}`)}
+                <!-- The heading above names the list (and the picker which one), so no title here. -->
+                <ResultSection
+                  items={toItems(s.hits)}
+                  {seed}
+                  {freq}
+                  {owned}
+                  {display}
+                  markOwned={pool === 'all'}
+                  {whyId}
+                  onwhy={toggleWhy}
+                  onwalk={walk}
+                />
+              {/each}
+            {/if}
+          </Stack>
         </Stack>
       {/if}
 
@@ -570,7 +561,7 @@
   .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .question {
-    margin: var(--space-sm) 0 0;
+    margin: 0;
     font-size: var(--text-heading, 1.35rem);
     font-weight: 650;
     letter-spacing: -0.015em;
