@@ -279,13 +279,15 @@
   );
 
   // PLACEHOLDER copy (Phil): the heading over the answer, naming what the tiles are.
-  const LIST_LEAD: Record<ListKey, string> = {
-    recommender: 'Recommended games like',
-    similar: 'Most similar to',
-    sicko: 'Dark horses like'
+  // The heading is the question's three choices: the list, the game and the pool. The list's
+  // word takes its selected card's colour, so it reads as a choice, like the game's name.
+  const LIST_LEAD: Record<ListKey, { param: string; rest: string }> = {
+    recommender: { param: 'Recommended', rest: 'games like' },
+    similar: { param: 'Most similar', rest: 'to' },
+    sicko: { param: 'Dark horses', rest: 'like' }
   };
   const questionLead = $derived(
-    pool === 'shelf' ? 'Games on your shelf like' : LIST_LEAD[listKey]
+    pool === 'shelf' ? { param: '', rest: 'Games on your shelf like' } : LIST_LEAD[listKey]
   );
 
   /** The one list the page shows, as a section (empty → none). */
@@ -488,7 +490,7 @@
           <!-- The heading and the pool are one question: "Recommended games like X from …". -->
           <div class="controls">
             {#if seed}
-              <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
+              <h2 class="question">{#if questionLead.param}<span class="list-name">{questionLead.param}</span> {/if}{questionLead.rest} <span class="seed-name">{seed.name}</span></h2>
             {/if}
             {#if hasShelf}
               <!-- PLACEHOLDER copy (Phil) -->
@@ -593,6 +595,7 @@
     color: var(--muted-foreground);
   }
   .question .seed-name { color: var(--foreground); }
+  .question .list-name { color: var(--primary); }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .controls :global(.show-as) { margin-left: auto; }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
