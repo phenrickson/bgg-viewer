@@ -562,9 +562,9 @@
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .question {
     margin: 0;
-    font-size: var(--text-heading, 1.35rem);
+    font-size: 1.05rem;
     font-weight: 650;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.01em;
     color: var(--muted-foreground);
   }
   .question .seed-name { color: var(--foreground); }
