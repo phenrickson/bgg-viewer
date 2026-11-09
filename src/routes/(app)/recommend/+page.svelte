@@ -23,7 +23,7 @@
   import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { initCatalog, catalog, query, loadArrowTable } from '$lib/catalog/catalog.svelte';
+  import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import GameHero from '$lib/catalog/GameHero.svelte';
   import GameTileRow from '$lib/catalog/GameTileRow.svelte';
@@ -37,10 +37,10 @@
   import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
+  import { fetchVectors, type VectorSet } from '$lib/recommend/vectors';
+  import { rankCatalog, rankShelf } from '$lib/recommend/rank';
   import {
-    sourceFor,
     withoutIds,
-    tooThin,
     type Pool,
     type Lists,
     type Hit,
@@ -55,25 +55,68 @@
   // Seeded from the signed-in user; an admin can look at anyone's, so it's state, not derived.
   let username = $state<string>(untrack(() => data.user?.bgg_username ?? ''));
   let adminInput = $state('');
-  let art = $state<'none' | 'loading' | 'ready' | 'missing' | 'error'>('none');
-  let owned = $state<Set<number>>(new Set());
-  let nearMiss = $state<Set<number>>(new Set());
-  const hasShelf = $derived(art === 'ready' && owned.size > 0);
+  /** The collection's owned ids, as synced into the warehouse (`/api/collection`). */
+  let ownedIds = $state<number[]>([]);
+  let collection = $state<'none' | 'loading' | 'ready' | 'syncing' | 'missing' | 'error'>('none');
 
+  // An admin's view-as on a username the warehouse hasn't seen: sync it, then ask again every
+  // POLL_MS until its games land, for at most POLL_FOR_MS (spec §4).
+  const POLL_MS = 5_000;
+  const POLL_FOR_MS = 180_000;
+  let collectionToken = 0;
+  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function readOwned(u: string): Promise<number[]> {
+    const res = await fetch(`/api/collection?username=${encodeURIComponent(u)}`);
+    if (!res.ok) throw new Error(`couldn’t load the collection (${res.status})`);
+    return ((await res.json()).game_ids as number[]).map(Number);
+  }
+
+  /** Load `u`'s collection. A newer call wins: an older one's late answer is dropped, and
+   *  nothing of the previous collection survives the switch (spec §6.2–6.3). */
   async function loadCollection(u: string) {
-    art = 'loading';
+    const mine = ++collectionToken;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = null;
+    ownedIds = [];
+    shelfSeeds = [];
+    collection = 'loading';
     try {
-      await loadArrowTable('collection_neighbors', `/api/collection-neighbors?username=${encodeURIComponent(u)}`);
-      const o = await query<{ id: number }>(
-        `SELECT DISTINCT seed_id AS id FROM collection_neighbors WHERE part = 'A'
-         UNION SELECT DISTINCT neighbor_id FROM collection_neighbors WHERE part = 'A'`
-      );
-      const d = await query<{ id: number }>(`SELECT DISTINCT seed_id AS id FROM collection_neighbors WHERE part = 'D'`);
-      owned = new Set(o.map((r) => Number(r.id)));
-      nearMiss = new Set(d.map((r) => Number(r.id)));
-      art = 'ready';
+      const ids = await readOwned(u);
+      if (mine !== collectionToken) return;
+      if (ids.length) {
+        ownedIds = ids;
+        collection = 'ready';
+        return;
+      }
+      if (!data.isAdmin) {
+        collection = 'missing';
+        return;
+      }
+      collection = 'syncing';
+      await fetch(`/api/collection/sync?username=${encodeURIComponent(u)}`, { method: 'POST' });
+      const until = Date.now() + POLL_FOR_MS;
+      const poll = async () => {
+        if (mine !== collectionToken) return;
+        try {
+          const got = await readOwned(u);
+          if (mine !== collectionToken) return;
+          if (got.length) {
+            ownedIds = got;
+            collection = 'ready';
+            return;
+          }
+        } catch {
+          // Keep asking until the time runs out.
+        }
+        if (Date.now() >= until) collection = 'missing';
+        else pollTimer = setTimeout(poll, POLL_MS);
+      };
+      pollTimer = setTimeout(poll, POLL_MS);
     } catch (e) {
-      art = String(e).includes('(404)') ? 'missing' : 'error';
+      if (mine !== collectionToken) return;
+      console.error('collection failed', e);
+      collection = 'error';
     }
   }
 
@@ -83,6 +126,34 @@
   $effect(() => {
     if (catalog.status === 'ready' && username) loadCollection(username);
   });
+  $effect(() => () => {
+    if (pollTimer) clearTimeout(pollTimer);
+  });
+
+  // --- every game's vector, for the shelf pools ----------------------------------------------
+  // Loaded in the background once the catalog is in, and only with a collection to rank against
+  // (spec §2). Raw state: ~38k vectors, never mutated, so no deep proxy.
+  let vectors = $state.raw<VectorSet | null>(null);
+  let vectorsState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  $effect(() => {
+    if (catalog.status !== 'ready' || !ownedIds.length || untrack(() => vectorsState) !== 'idle') return;
+    vectorsState = 'loading';
+    fetchVectors()
+      .then((v) => {
+        vectors = v;
+        vectorsState = 'ready';
+      })
+      .catch((e) => {
+        console.error('vectors failed', e);
+        vectorsState = 'error';
+      });
+  });
+
+  /** Owned games the browser can rank: in the collection AND in the artifact. Games outside it
+   *  (fewer than 30 ratings, not upcoming) are left out everywhere on the page (decision 2). */
+  const owned = $derived(vectors ? new Set(ownedIds.filter((id) => vectors!.index.has(id))) : new Set<number>());
+  /** A collection is linked: the pool control shows. */
+  const hasShelf = $derived(ownedIds.length > 0);
 
   // --- tag frequencies, for rarest-first and the model's 10-game floor --------------------
   let freq = $state<TagFrequencies>({ mechanics: new Map(), categories: new Map(), families: new Map() });
@@ -189,27 +260,16 @@
   let failure = $state('');
 
   const toStyles = (p: Record<string, Hit[] | undefined>): Lists => ({
-    kind: 'styles',
     similar: p.similar ?? [],
     recommender: p.recommender ?? [],
     sicko: p.sicko ?? []
   });
 
-  async function fromApi(id: number, apiPool: 'all' | 'collection' | 'exclude'): Promise<Record<string, Hit[]>> {
-    const user = apiPool === 'all' ? '' : `&username=${encodeURIComponent(username)}`;
-    const res = await fetch(`/api/similar?id=${id}&pool=${apiPool}${user}`);
+  /** *Anywhere*: the precomputed lists from the game's warehouse document. */
+  async function fromApi(id: number): Promise<Record<string, Hit[]>> {
+    const res = await fetch(`/api/similar?id=${id}&pool=all`);
     if (!res.ok) throw new Error(`couldn’t load matches (${res.status})`);
     return (await res.json()).profiles;
-  }
-
-  async function fromArtifact(part: 'A' | 'C' | 'D', id: number): Promise<Lists> {
-    const rows = await query<{ style: string; id: number; similarity: number }>(
-      `SELECT style, neighbor_id AS id, similarity FROM collection_neighbors
-       WHERE part = '${part}' AND seed_id = ${id} ORDER BY style, rank`
-    );
-    const by: Record<string, Hit[]> = {};
-    for (const r of rows) (by[r.style] ??= []).push({ id: Number(r.id), similarity: Number(r.similarity) });
-    return part === 'C' ? toStyles(by) : { kind: 'shelf', list: by.shelf ?? [] };
   }
 
   /** Which question (`seed|pool`) `lists` answers — so a new question never shows the last
@@ -220,21 +280,29 @@
   $effect(() => {
     const id = seedId;
     const p = pool;
-    const shelfReady = art === 'ready';
-    const isOwned = id != null && owned.has(id);
-    const isNear = id != null && nearMiss.has(id);
     if (id == null || catalog.status !== 'ready') return;
+    // *Anywhere* depends on the seed alone: collection or vectors landing never refetch it
+    // (spec §6.6). The shelf pools rank in the browser once the vectors are in.
+    const v = p === 'all' ? null : vectors;
+    const vs = p === 'all' ? null : vectorsState;
+    const own = p === 'all' ? null : owned;
     const mine = ++token;
     status = 'loading';
+    if (p !== 'all') {
+      if (vs === 'error') {
+        // PLACEHOLDER copy (Phil)
+        failure = 'Couldn’t load your shelf.';
+        status = 'error';
+        return;
+      }
+      if (!v || !own) return; // stays loading until the vectors land
+      lists = p === 'shelf' ? rankShelf(v, id, own) : rankCatalog(v, id, own);
+      listsFor = `${id}|${p}`;
+      status = 'ready';
+      return;
+    }
     (async () => {
-      const src = sourceFor(p, isOwned, isNear);
-      let out: Lists;
-      if (src.kind === 'artifact' && shelfReady) out = await fromArtifact(src.part, id);
-      else if (src.kind === 'live') out = { kind: 'shelf', list: (await fromApi(id, 'collection')).similar ?? [] };
-      else if (src.kind === 'catalog-minus-owned') {
-        out = withoutIds(toStyles(await fromApi(id, 'all')), owned);
-        if (tooThin(out)) out = withoutIds(toStyles(await fromApi(id, 'exclude')), owned);
-      } else out = toStyles(await fromApi(id, 'all'));
+      const out = toStyles(await fromApi(id));
       if (mine !== token) return;
       lists = out;
       listsFor = `${id}|${p}`;
@@ -246,10 +314,9 @@
     });
   });
 
-
   // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
   // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
-  // (`?list=`), like the pool. The shelf pool has one list, so no picker there.
+  // (`?list=`), like the pool. Every pool answers with the same three lists.
   const LIST_ORDER = ['recommender', 'similar', 'sicko'] as const;
   type ListKey = (typeof LIST_ORDER)[number];
   const DEFAULT_LIST: ListKey = 'recommender';
@@ -261,14 +328,14 @@
   const listKey = $derived.by((): ListKey => {
     const asked = params.get('list');
     const want = LIST_ORDER.find((k) => k === asked) ?? DEFAULT_LIST;
-    if (shown?.kind !== 'styles' || shown[want].length) return want;
+    if (!shown || shown[want].length) return want;
     return [DEFAULT_LIST, ...LIST_ORDER].find((k) => shown[k].length) ?? want;
   });
 
   // PLACEHOLDER copy (Phil): the empty-list line.
   const listOptions = $derived(
     LIST_ORDER.map((k) => {
-      const empty = shown?.kind === 'styles' && !shown[k].length;
+      const empty = !!shown && !shown[k].length;
       return {
         value: k,
         label: SIMILAR_PROFILE_LABELS[k],
@@ -283,10 +350,7 @@
   /** The one list the page shows, as a section (empty → none). */
   const sections = $derived.by((): Section[] => {
     if (!shown) return [];
-    const s: Section =
-      shown.kind === 'shelf'
-        ? { key: 'shelf', hits: shown.list.slice(0, SECTION_MAX) }
-        : { key: listKey, hits: shown[listKey].slice(0, SECTION_MAX) };
+    const s: Section = { key: listKey, hits: shown[listKey].slice(0, SECTION_MAX) };
     return s.hits.length ? [s] : [];
   });
 
@@ -333,11 +397,7 @@
   $effect(() => {
     // Every list in the answer, not just the one on screen: switching tabs then swaps between
     // games already loaded, instead of collapsing the sheet while the new ones are looked up.
-    const all: Hit[] = !shown
-      ? []
-      : shown.kind === 'shelf'
-        ? shown.list.slice(0, SECTION_MAX)
-        : LIST_ORDER.flatMap((k) => shown[k].slice(0, SECTION_MAX));
+    const all: Hit[] = shown ? LIST_ORDER.flatMap((k) => shown[k].slice(0, SECTION_MAX)) : [];
     const ids = [...new Set(all.map((h) => h.id))];
     catalog.thumbnailsReady;
     const mine = ++rowsToken;
@@ -415,7 +475,8 @@
 
   let shelfSeeds = $state<Game[]>([]);
   $effect(() => {
-    if (!hasShelf) return;
+    // Only games the shelf pools can answer for (in the artifact).
+    if (!owned.size) return;
     rowsFor(
       `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
        ORDER BY geek_rating DESC NULLS LAST LIMIT ${SEEDS_PER_ROW}`
@@ -507,11 +568,11 @@
           <!-- The tabs and their sheet are one piece: the chosen tab opens into the sheet below. -->
           <div class="tabbed">
             <!-- ── Which list ──────────────────────────────────────────────────────── -->
-            {#if shown?.kind === 'styles'}
+            {#if shown}
               <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
             {/if}
 
-            <div class="sheet" class:open={shown?.kind === 'styles'}>
+            <div class="sheet" class:open={!!shown}>
               <!-- ── The answer ────────────────────────────────────────────────────── -->
               {#if status === 'error'}
                 <p class="msg">{failure}</p>
@@ -544,13 +605,16 @@
         </Stack>
       {/if}
 
-      {#if (username && (art === 'missing' || art === 'error')) || data.isAdmin}
+      {#if (username && (collection === 'syncing' || collection === 'missing' || collection === 'error')) || data.isAdmin}
         <!-- Shelf status and the admin's "view as": out of the reading path, at the foot. -->
         <div class="who">
-          {#if art === 'missing'}
-            <span>PLACEHOLDER: no shelf neighbours built for {username} yet.</span>
-          {:else if art === 'error'}
-            <span>Couldn’t load {username}’s shelf.</span>
+          <!-- PLACEHOLDER copy (Phil): the three collection states. -->
+          {#if collection === 'syncing'}
+            <span>Fetching {username}’s collection from BGG…</span>
+          {:else if collection === 'missing'}
+            <span>Couldn’t get {username}’s collection — try again later.</span>
+          {:else if collection === 'error'}
+            <span>Couldn’t load {username}’s collection.</span>
           {/if}
           {#if data.isAdmin}
             <label class="as">
