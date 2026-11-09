@@ -9,7 +9,7 @@
    * One page, not two: the search stays at the top, always just a search. Picking a game loads
    * its answer underneath, in place: the game itself (a hero: what it is, a link to its page),
    * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
-   * and the trail of games walked through. Each result opens its game page; its match score opens "why";
+   * and the list picker. Each result opens its game page; its match score opens "why";
    * "Games like this" walks on from it. The answer is one list, picked from cards: the three precomputed
    * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
@@ -163,9 +163,9 @@
     );
   }
 
-  // --- the walk ----------------------------------------------------------------------------
-  // Where you've been this visit, as a breadcrumb. Walking back to a game cuts the trail there.
-  let trail = $state<{ id: number; name: string }[]>([]);
+  // --- the chosen game ---------------------------------------------------------------------
+  // Walking from game to game is the URL's history: Back steps through it (Phil, 2026-11-09:
+  // no breadcrumb trail).
   let seed = $state<Game | null>(null);
   $effect(() => {
     const id = seedId;
@@ -179,9 +179,6 @@
       const g = m.get(id) ?? null;
       if (id !== seedId) return;
       seed = g;
-      if (!g) return;
-      const at = untrack(() => trail.findIndex((s) => s.id === id));
-      trail = at >= 0 ? untrack(() => trail.slice(0, at + 1)) : [...untrack(() => trail), { id, name: g.name }];
     });
   });
 
@@ -243,8 +240,6 @@
     });
   });
 
-  /** The seed and the games already walked through — left out of every answer. */
-  const walked = $derived(new Set([...(seedId == null ? [] : [seedId]), ...trail.map((s) => s.id)]));
 
   // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
   // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
@@ -253,8 +248,8 @@
   type ListKey = (typeof LIST_ORDER)[number];
   const DEFAULT_LIST: ListKey = 'recommender';
 
-  /** The answer, minus the seed and the games already walked through. */
-  const shown = $derived(lists && seedId != null ? withoutIds(lists, walked) : null);
+  /** The answer, minus the seed itself. */
+  const shown = $derived(lists && seedId != null ? withoutIds(lists, new Set([seedId])) : null);
 
   /** The list asked for, or — when that one has no games for this seed — the first that does. */
   const listKey = $derived.by((): ListKey => {
@@ -459,7 +454,7 @@
 
         <!-- Question and answer as one block, on one medium rhythm. -->
         <Stack gap="md">
-          <!-- ── The question: what the tiles are, the pool, and where you've walked ───── -->
+          <!-- ── The question: what the tiles are, and the pool ──────────────────────── -->
           <!-- The heading and the pool are one question: "Recommended games like X from …". -->
           <div class="controls">
             {#if seed}
@@ -472,18 +467,6 @@
             {/if}
             <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
           </div>
-          {#if trail.length > 1}
-            <nav class="trail" aria-label="Games you have walked through">
-              {#each trail as t, i (t.id)}
-                {#if i > 0}<span aria-hidden="true">›</span>{/if}
-                {#if t.id === seedId}
-                  <span aria-current="page">{t.name}</span>
-                {:else}
-                  <a href={ask({ id: t.id })}>{t.name}</a>
-                {/if}
-              {/each}
-            </nav>
-          {/if}
 
           <!-- The picker and its list read as one piece: a tight gap, not the page's. -->
           <Stack gap="sm">
@@ -574,13 +557,6 @@
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .controls :global(.show-as) { margin-left: auto; }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
-  .trail {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem;
-    padding: 0 0.25rem; font-size: 0.85rem; color: var(--muted-foreground);
-  }
-  .trail a { color: inherit; text-decoration: none; }
-  .trail a:hover { color: var(--primary); }
-  .trail [aria-current] { color: var(--foreground); font-weight: 600; }
   .who {
     display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
     margin-top: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--border);
