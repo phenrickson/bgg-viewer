@@ -58,6 +58,8 @@ function rankProfile(v: VectorSet, seed: number, p: Profile, exclude: ReadonlySe
 	const scored: Scored[] = [];
 	for (let i = 0; i < v.ids.length; i++) {
 		if (i === seed || exclude.has(v.ids[i])) continue;
+		// game_neighbors only ranks candidates with a complexity, whatever the profile's band.
+		if (Number.isNaN(v.complexity[i])) continue;
 		if (v.usersRated[i] < p.min_users_rated) continue;
 		if (p.complexity_band != null && Math.abs(v.complexity[i] - v.complexity[seed]) > p.complexity_band) continue;
 		const s = sim(v, seed, i);

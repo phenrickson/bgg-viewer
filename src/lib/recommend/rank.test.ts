@@ -94,6 +94,11 @@ describe('rankCatalog', () => {
 		expect(ids(rankCatalog(makeSet(games, [profile({ max_per_family: 0 })]), 1, none).similar)).toEqual([4]);
 	});
 
+	it('never returns a game with no complexity, even with no band', () => {
+		const v = makeSet([SEED, { id: 2, sim: 0.9, cx: NaN }, { id: 3, sim: 0.8 }], [profile({ name: 'sicko' })]);
+		expect(ids(rankCatalog(v, 1, none).sicko)).toEqual([3]);
+	});
+
 	it('returns nothing for a seed under source_min_users_rated', () => {
 		const v = makeSet([{ ...SEED, ur: 10 }, { id: 2, sim: 0.9 }], [profile({ source_min_users_rated: 30 })]);
 		expect(rankCatalog(v, 1, none).similar).toEqual([]);

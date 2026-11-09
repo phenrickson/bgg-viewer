@@ -94,7 +94,14 @@
         return;
       }
       collection = 'syncing';
-      await fetch(`/api/collection/sync?username=${encodeURIComponent(u)}`, { method: 'POST' });
+      const res = await fetch(`/api/collection/sync?username=${encodeURIComponent(u)}`, { method: 'POST' });
+      if (mine !== collectionToken) return;
+      // The sync couldn't start (no service configured, or BGG refused): nothing to wait for.
+      if (!res.ok || !(await res.json()).synced) {
+        if (mine === collectionToken) collection = 'missing';
+        return;
+      }
+      if (mine !== collectionToken) return;
       const until = Date.now() + POLL_FOR_MS;
       const poll = async () => {
         if (mine !== collectionToken) return;
@@ -109,6 +116,8 @@
         } catch {
           // Keep asking until the time runs out.
         }
+        // A newer load owns the timer and the status now.
+        if (mine !== collectionToken) return;
         if (Date.now() >= until) collection = 'missing';
         else pollTimer = setTimeout(poll, POLL_MS);
       };
@@ -474,14 +483,17 @@
   });
 
   let shelfSeeds = $state<Game[]>([]);
+  let shelfToken = 0;
   $effect(() => {
-    // Only games the shelf pools can answer for (in the artifact).
+    // Only games the shelf pools can answer for (in the artifact). A newer collection (or none)
+    // drops an older query's late answer, so a switched-away shelf never comes back.
+    const mine = ++shelfToken;
     if (!owned.size) return;
     rowsFor(
       `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
        ORDER BY geek_rating DESC NULLS LAST LIMIT ${SEEDS_PER_ROW}`
     )
-      .then((g) => (shelfSeeds = g))
+      .then((g) => mine === shelfToken && (shelfSeeds = g))
       .catch((e) => console.error('shelf seeds failed', e));
   });
 
