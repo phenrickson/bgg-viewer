@@ -23,7 +23,7 @@
    * Each game says what it IS — complexity, players, play time — not what it shares with the
    * seed; the comparison is an action. Clicking a game opens its "why" (the side-by-side
    * analysis) right under it, where the game's art and name link to its page and "Games like this" sits beside them. One open
-   * at a time, so the page owns which, via `whyId`. Walking on ("Find games like …") lives in
+   * at a time, so the page owns which, via `whyId`. Walking on ("Find games like this") lives in
    * the why only, so a tile does one thing.
    */
   import type { Snippet } from 'svelte';

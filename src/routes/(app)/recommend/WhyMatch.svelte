@@ -40,7 +40,7 @@
     why: Why;
     seed: WhyGame;
     other: WhyGame;
-    /** "Find games like …" for the matched game — shown under its name, where it belongs. */
+    /** "Find games like this" for the matched game — shown under its name, where it belongs. */
     onwalk?: () => void;
   } = $props();
 
@@ -73,11 +73,13 @@
     <div class="title">
       <a class="name" href={gameHref(g)}>{g.name}</a>
       {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
-      <!-- What you can do with this game, as the app's links, so it reads as clickable.
+      <!-- What you can do with this game, stacked, as the game page's "View on BGG ↗" link:
+           primary text, underlined on hover. The ↗ is forced to its text glyph (U+FE0E), not
+           the emoji some systems draw.
            PLACEHOLDER copy (Phil) -->
       <div class="links">
-        <Button variant="link" size="xs" class="lnk" href={gameHref(g)}>Game page ↗</Button>
-        {#if walk}<Button variant="link" size="xs" class="lnk" onclick={walk}>Find games like {g.name}</Button>{/if}
+        <a class="act" href={gameHref(g)}>Go to game page <span aria-hidden="true">↗︎</span></a>
+        {#if walk}<button type="button" class="act" onclick={walk}>Find games like this</button>{/if}
       </div>
     </div>
   </div>
@@ -148,11 +150,11 @@
   }
 
   /* A game's head: its art at a size you can see, its name (a link) and year, then what you
-     can do with it as links underneath. */
+     can do with it as links underneath — hung from the top of the art, not centred on it. */
   .head {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    align-items: flex-start;
+    gap: 0.9rem;
     min-width: 0;
     padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--border);
@@ -176,6 +178,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.2rem;
     min-width: 0;
   }
   .name {
@@ -203,13 +206,30 @@
   }
   .links {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.9rem;
-    margin-top: 0.15rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    margin-top: 0.35rem;
   }
-  .links :global(.lnk) {
-    height: auto;
+  /* The game page's "View on BGG ↗" link (`.crumbs .bgg`), so a link here looks like one there. */
+  .act {
     padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--primary);
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+  }
+  .act:hover {
+    text-decoration: underline;
+  }
+  .act:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 
   .lbl {
