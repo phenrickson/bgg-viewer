@@ -1,17 +1,12 @@
 /**
- * PROTOTYPE: the Recommend tool's warehouse-backed neighbour lists, for the cases the
- * collection artifact can't answer locally.
- *
- *   pool=all                      — the precomputed catalog lists (`game_neighbors`, via the
- *                                   game document). Fast.
- *   pool=collection&username=     — live: neighbours within that user's owned games (~3 s).
- *   pool=exclude&username=        — live: neighbours among games that user does NOT own.
+ * Recommend's *anywhere* answer: a game's precomputed neighbour lists (`game_neighbors`, via
+ * its warehouse document). The shelf pools rank in the browser instead (`$lib/recommend/rank`).
  *
  * Returns `{ profiles: { similar, recommender, sicko } }` of `{ id, similarity }`, best first.
- * Username access matches `/api/collection`: your own, or any for an admin.
+ * `pool` is accepted only as `all` (the default), so a stale client asking for a live pool gets
+ * a clear 400 rather than a silent catalog answer.
  */
 import { error, json } from '@sveltejs/kit';
-import { isAdmin } from '$lib/server/auth/admin';
 import { warehouseClient, GameNotFoundError, type SimilarWireRow } from '$lib/server/warehouse';
 import type { RequestHandler } from './$types';
 
@@ -26,28 +21,14 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const id = Number(url.searchParams.get('id'));
 	if (!Number.isInteger(id) || id <= 0) throw error(400, 'id is required.');
 	const pool = url.searchParams.get('pool') ?? 'all';
+	if (pool !== 'all') throw error(400, `unknown pool: ${pool}`);
 
-	const client = warehouseClient();
-	if (pool === 'all') {
-		try {
-			const doc = await client.getGame(id);
-			const p = doc.similar_profiles ?? { similar: doc.similar };
-			return json({ profiles: toProfiles(p) });
-		} catch (e) {
-			if (e instanceof GameNotFoundError) throw error(404, `game ${id} not found`);
-			throw e;
-		}
+	try {
+		const doc = await warehouseClient().getGame(id);
+		const p = doc.similar_profiles ?? { similar: doc.similar };
+		return json({ profiles: toProfiles(p) });
+	} catch (e) {
+		if (e instanceof GameNotFoundError) throw error(404, `game ${id} not found`);
+		throw e;
 	}
-
-	if (pool !== 'collection' && pool !== 'exclude') throw error(400, `unknown pool: ${pool}`);
-	const username = url.searchParams.get('username')?.trim();
-	if (!username) throw error(400, 'username is required for this pool.');
-	const isSelf = locals.user.bgg_username != null && username === locals.user.bgg_username;
-	if (!isAdmin(locals.user) && !isSelf) throw error(403, 'Not authorized for this username.');
-
-	const p = await client.getSimilarPooled(
-		id,
-		pool === 'collection' ? { collection: username } : { excludeCollection: username }
-	);
-	return json({ profiles: toProfiles(p) });
 };

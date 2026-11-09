@@ -15,7 +15,6 @@ import {
 	type Lineage,
 	type NewGameRow,
 	type PipelineStatus,
-	type SimilarWireRow,
 	type TableSchema
 } from './types';
 
@@ -34,19 +33,6 @@ export interface WarehouseClient {
 	getPipelineStatus(days?: number): Promise<PipelineStatus>;
 	getLineage(): Promise<Lineage>;
 	getTableSchema(id: string): Promise<TableSchema>;
-	/**
-	 * Every profile's neighbours for one game within a pool, computed live (~3 s). POSTed, so a
-	 * pool of ids can be as long as the catalog.
-	 */
-	getSimilarPooled(gameId: number, pool: SimilarPool): Promise<Record<string, SimilarWireRow[]>>;
-}
-
-/** A pool for the live similarity search; forms combine with AND on the warehouse side. */
-export interface SimilarPool {
-	collection?: string;
-	excludeCollection?: string;
-	yearMin?: number;
-	ids?: number[];
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -60,28 +46,15 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 		});
 	}
 
-	async function authedPost(path: string, body: unknown): Promise<Response> {
-		const token = await deps.getIdToken();
-		return doFetch(`${base}${path}`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: 'application/json',
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(body)
-		});
-	}
-
 	/** A WarehouseError carrying the API's `detail` (missing token, no access, …), shown on admin pages. */
-	async function failure(res: Response, path: string, method = 'GET'): Promise<WarehouseError> {
+	async function failure(res: Response, path: string): Promise<WarehouseError> {
 		const detail = await res
 			.json()
 			.then((b: { detail?: string }) => b.detail ?? '')
 			.catch(() => '');
 		return new WarehouseError(
 			res.status,
-			`warehouse ${method} ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`
+			`warehouse GET ${path} failed (${res.status})${detail ? `: ${detail}` : ''}`
 		);
 	}
 
@@ -120,18 +93,6 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 			const res = await authedGet(path);
 			if (!res.ok) throw await failure(res, path);
 			return (await res.json()) as TableSchema;
-		},
-
-		async getSimilarPooled(gameId: number, pool: SimilarPool) {
-			const path = `/games/${gameId}/similar`;
-			const res = await authedPost(path, {
-				...(pool.ids ? { ids: pool.ids } : {}),
-				...(pool.collection ? { collection: pool.collection } : {}),
-				...(pool.excludeCollection ? { exclude_collection: pool.excludeCollection } : {}),
-				...(pool.yearMin != null ? { year_min: pool.yearMin } : {})
-			});
-			if (!res.ok) throw await failure(res, path, 'POST');
-			return (await res.json()) as Record<string, SimilarWireRow[]>;
 		}
 	};
 }
