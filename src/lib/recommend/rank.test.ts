@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankCatalog } from './rank';
+import { rankCatalog, rankShelf } from './rank';
 import { DIMS, type Profile, type VectorSet } from './vectors';
 
 /** A game for a fixture: `sim` is its cosine similarity to the seed (game 1, at angle 0). */
@@ -117,5 +117,57 @@ describe('rankCatalog', () => {
 		const [hit] = rankCatalog(v, 1, none).similar;
 		expect(hit.id).toBe(2);
 		expect(hit.similarity).toBeCloseTo(0.9, 5);
+	});
+});
+
+describe('rankShelf', () => {
+	// Owned: 2, 3, 4 (and the seed). geek_pct 0.1 / 0.9 / 0.5 → shelf_pct 0 / 1 / 0.5.
+	const shelf = makeSet(
+		[
+			SEED,
+			{ id: 2, sim: 0.9, pct: 0.1 },
+			{ id: 3, sim: 0.8, pct: 0.9 },
+			{ id: 4, sim: 0.7, pct: 0.5 },
+			{ id: 5, sim: 0.99, pct: 0.99 } // not owned
+		],
+		[OPEN]
+	);
+	const owned = new Set([1, 2, 3, 4]);
+
+	it('ranks only owned games, never the seed', () => {
+		const out = rankShelf(shelf, 1, owned);
+		for (const list of [out.similar, out.recommender, out.sicko]) {
+			expect(ids(list).every((id) => [2, 3, 4].includes(id))).toBe(true);
+		}
+	});
+
+	it('Most Similar is plain similarity, one per product line, top 10', () => {
+		expect(ids(rankShelf(shelf, 1, owned).similar)).toEqual([2, 3, 4]);
+		const many = makeSet(
+			[SEED, ...Array.from({ length: 14 }, (_, i) => ({ id: 10 + i, sim: 0.9 - i * 0.01, line: i < 2 ? 7 : undefined }))],
+			[OPEN]
+		);
+		const out = rankShelf(many, 1, new Set(many.ids)).similar;
+		expect(out).toHaveLength(10);
+		expect(ids(out).filter((id) => id === 10 || id === 11)).toEqual([10]);
+	});
+
+	it('Recommended blends 0.6·sim + 0.4·shelf_pct', () => {
+		// 2: 0.54 + 0 = 0.54; 3: 0.48 + 0.4 = 0.88; 4: 0.42 + 0.2 = 0.62
+		expect(ids(rankShelf(shelf, 1, owned).recommender)).toEqual([3, 4, 2]);
+	});
+
+	it('Dark Horses keeps only the lower half of the shelf by rating', () => {
+		expect(ids(rankShelf(shelf, 1, owned).sicko)).toEqual([2]);
+	});
+
+	it('computes shelf_pct within the shelf, 0 for a one-game shelf', () => {
+		const out = rankShelf(shelf, 1, new Set([2]));
+		expect(ids(out.sicko)).toEqual([2]);
+		for (const h of [...out.similar, ...out.recommender, ...out.sicko]) expect(Number.isNaN(h.similarity)).toBe(false);
+	});
+
+	it('returns empty lists for a seed with no vector', () => {
+		expect(rankShelf(shelf, 999, owned)).toEqual({ kind: 'styles', similar: [], recommender: [], sicko: [] });
 	});
 });

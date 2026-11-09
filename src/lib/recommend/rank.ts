@@ -81,3 +81,46 @@ export function rankCatalog(v: VectorSet, seedId: number, exclude: ReadonlySet<n
 	}
 	return out;
 }
+
+/**
+ * *My shelf*'s three styles (Phil, 2026-11-09). The catalog profiles collapse on a ~160-game
+ * shelf (Dark Horses empty, Recommended == Most Similar), so a shelf gets its own rules, a first
+ * cut to tune against real collections: no floors and no band, so a small pool never empties;
+ * `shelf_pct` is a game's rating percentile within the shelf, not the catalog.
+ */
+export const SHELF_STYLES: Record<Style, { weight: number; maxShelfPct: number | null }> = {
+	similar: { weight: 1, maxShelfPct: null },
+	recommender: { weight: 0.6, maxShelfPct: null },
+	sicko: { weight: 1, maxShelfPct: 0.5 }
+};
+const SHELF_CAP = 1;
+const SHELF_TOP_K = 10;
+
+/** Each owned row's `PERCENT_RANK` of `geekPct` within the shelf: (rank − 1) / (n − 1), 0 when n = 1. */
+function shelfPercentiles(v: VectorSet, rows: number[]): Map<number, number> {
+	const pcts = rows.map((r) => v.geekPct[r]);
+	const out = new Map<number, number>();
+	for (const r of rows) {
+		const below = pcts.filter((p) => p < v.geekPct[r]).length;
+		out.set(r, rows.length > 1 ? below / (rows.length - 1) : 0);
+	}
+	return out;
+}
+
+/** *My shelf*: the three shelf styles for `seedId` among `owned` (the seed never included). */
+export function rankShelf(v: VectorSet, seedId: number, owned: ReadonlySet<number>): StyleLists {
+	const out = empty();
+	const seed = v.index.get(seedId);
+	if (seed == null) return out;
+	const rows = [...owned].map((id) => v.index.get(id)).filter((r): r is number => r != null && r !== seed);
+	const shelfPct = shelfPercentiles(v, rows);
+	const sims = new Map(rows.map((r) => [r, sim(v, seed, r)]));
+	for (const style of STYLES) {
+		const { weight, maxShelfPct } = SHELF_STYLES[style];
+		const scored: Scored[] = rows
+			.filter((r) => maxShelfPct == null || shelfPct.get(r)! < maxShelfPct)
+			.map((r) => ({ row: r, similarity: sims.get(r)!, score: weight * sims.get(r)! + (1 - weight) * shelfPct.get(r)! }));
+		out[style] = capAndTake(v, scored, SHELF_CAP, SHELF_TOP_K);
+	}
+	return out;
+}
