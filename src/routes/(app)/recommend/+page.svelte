@@ -506,7 +506,7 @@
     <Stack gap="lg">
       <div class="start">
         <!-- PLACEHOLDER copy (Phil) -->
-        <h1>Find your next game</h1>
+        <h1>Like a game? Find its <em>neighbors</em></h1>
         <!-- PLACEHOLDER copy (Phil): the subtitle. -->
         <p class="lede">Pick a game you love and find others like it.</p>
       </div>
@@ -652,6 +652,8 @@
     font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem));
     font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 0;
   }
+  /* One word in the accent, as Discover's and the landing page's titles do. */
+  h1 em { font-style: normal; color: var(--primary); }
   .msg { color: var(--muted-foreground); font-size: 0.9rem; margin: 0; }
   /* While a new answer is on its way, the old one steps back. */
   .answer { transition: opacity 120ms ease; }
@@ -667,13 +669,13 @@
     border-radius: 0 0 var(--radius) var(--radius);
   }
   .chosen-top { scroll-margin-top: var(--space-md); }
-  /* The headline is centred; everything under it shares one column (the page's measure), so
-     the search and the answer start at one edge. */
+  /* The page's title, set as the app's other pages set theirs (Discover, What's New): left-aligned
+     over left-aligned content, the subtitle tight under it. */
   .start {
-    display: flex; flex-direction: column; align-items: center; gap: var(--space-md);
-    padding-top: var(--space-lg); text-align: center;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    padding-top: var(--space-lg);
   }
-  .lede { margin: 0; max-width: 40ch; font-size: 1.05rem; color: var(--muted-foreground); }
+  .lede { margin: 0; max-width: 42rem; font-size: 1.1rem; color: var(--muted-foreground); }
   .sub { margin: var(--space-sm) 0 0; font-size: 0.9rem; color: var(--muted-foreground); }
   .about { display: flex; flex-direction: column; gap: var(--space-sm); }
   .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
