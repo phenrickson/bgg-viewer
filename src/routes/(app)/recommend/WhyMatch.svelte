@@ -40,7 +40,7 @@
     why: Why;
     seed: WhyGame;
     other: WhyGame;
-    /** "Games like this" for the matched game — shown under its name, where it belongs. */
+    /** "Find games like …" for the matched game — shown under its name, where it belongs. */
     onwalk?: () => void;
   } = $props();
 
@@ -77,7 +77,7 @@
            PLACEHOLDER copy (Phil) -->
       <div class="links">
         <Button variant="link" size="xs" class="lnk" href={gameHref(g)}>Game page ↗</Button>
-        {#if walk}<Button variant="link" size="xs" class="lnk" onclick={walk}>Games like this</Button>{/if}
+        {#if walk}<Button variant="link" size="xs" class="lnk" onclick={walk}>Find games like {g.name}</Button>{/if}
       </div>
     </div>
   </div>

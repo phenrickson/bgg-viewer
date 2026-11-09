@@ -23,8 +23,8 @@
    * Each game says what it IS — complexity, players, play time — not what it shares with the
    * seed; the comparison is an action. Clicking a game opens its "why" (the side-by-side
    * analysis) right under it, where the game's art and name link to its page and "Games like this" sits beside them. One open
-   * at a time, so the page owns which, via `whyId`. The magnifier on a tile is the shortcut
-   * for "Games like this" without opening it.
+   * at a time, so the page owns which, via `whyId`. Walking on ("Find games like …") lives in
+   * the why only, so a tile does one thing.
    */
   import type { Snippet } from 'svelte';
   import { AutoGrid } from '$lib/components/ui/layout';
@@ -35,7 +35,6 @@
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
-  import ScanSearchIcon from '@lucide/svelte/icons/scan-search';
   import UsersIcon from '@lucide/svelte/icons/users';
   import ClockIcon from '@lucide/svelte/icons/clock';
   import { similarityPct } from '$lib/game/similarity';
@@ -103,12 +102,6 @@
     {#if players}<span class="fact" title="Players"><UsersIcon aria-hidden="true" /><span class="sr-only">Players</span>{players}</span>{/if}
     {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
   {/snippet}
-  {#snippet gameActions(g: Item)}
-    <!-- PLACEHOLDER copy (Phil): the label (tooltip and screen reader). -->
-    <Button variant="secondary" size="icon-sm" class="act" title="Games like this" aria-label="Games like this" onclick={() => onwalk(g.game_id)}
-      ><ScanSearchIcon /></Button
-    >
-  {/snippet}
 
   <!-- The "why" opens right under the game it's about: after its row in the list, and as a
        full-width grid item after its tile (the grid packs densely, so the tiles after it
@@ -141,7 +134,6 @@
           <span class="row-facts">
             {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span>{/if}{@render factsOf(g)}
           </span>
-          {#snippet action()}{@render gameActions(g)}{/snippet}
         </SimilarRow>
         {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
@@ -161,7 +153,6 @@
           expanded={whyId === g.game_id}
         >
           {#snippet facts()}{@render factsOf(g)}{/snippet}
-          {#snippet actions()}{@render gameActions(g)}{/snippet}
         </GameTile>
         {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
@@ -177,9 +168,6 @@
   h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
   header p { font-size: 0.85rem; color: var(--muted-foreground); margin: 0.15rem 0 0; }
   .own { color: var(--primary); font-weight: 600; }
-  /* A game's two icon actions, on the art's corner: solid enough to read over any cover. */
-  .sec :global(.act) { color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / 0.35); }
-  .sec :global(.act:hover), .sec :global(.act[aria-expanded='true']) { color: var(--primary); }
   /* An icon and its number, kept together. Positioned, so its screen-reader label (absolute)
      is placed inside it, not against the page, where it would stretch the document. */
   .sec :global(.fact) { position: relative; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
