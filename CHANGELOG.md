@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.28](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.27...bgg-viewer-v0.0.28) (2026-11-09)
+
+
+### Features
+
+* **recommend:** Recommend tool with shelf answers ranked in the browser ([#90](https://github.com/phenrickson/bgg-viewer/issues/90)) ([8a90859](https://github.com/phenrickson/bgg-viewer/commit/8a908597825b0fc76dc5b1ddd46b7a93328052ac))
+
 ## [0.0.27](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.26...bgg-viewer-v0.0.27) (2026-10-06)
 
 
