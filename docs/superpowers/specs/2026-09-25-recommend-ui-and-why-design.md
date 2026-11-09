@@ -1,5 +1,10 @@
 # Recommend: one tool for finding a game — design
 
+> **Superseded in part (2026-11-09):** §2 "Where each list comes from", §5's shelf states and §6
+> "Productionizing" are replaced by `2026-11-09-recommend-shelf-in-browser-design.md` (shelf
+> pools ranked in the browser; no per-collection artifact), which also records the page as
+> built (its §7).
+
 **Date:** 2026-09-25 (revised the same day after the first build and the v2 sketches)
 **Status:** Built on `feat/recommend-tool` (local), 2026-09-25; awaiting Phil's review. See "Build notes" at the end.
 **Branch:** `feat/recommend-tool` (local; rebased on `main` at 0.0.25)

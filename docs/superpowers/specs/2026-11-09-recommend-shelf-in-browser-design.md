@@ -1,7 +1,7 @@
 # Recommend: shelf answers ranked in the browser — design
 
 **Date:** 2026-11-09
-**Status:** Draft, awaiting Phil's approval
+**Status:** Built on `feat/recommend-tool`, 2026-11-09 (plan: `docs/superpowers/plans/2026-11-09-recommend-shelf-in-browser.md`). Measured on the real data: 37,765 rows, 9.45 MB gzipped (the working set includes this year's and upcoming games); `rankCatalog` reproduces `game_neighbors` on 15/15 test lists.
 **Branch:** `feat/recommend-tool` (pushed, no PR yet; branched from `main` at 0.0.27)
 **Builds on:** `2026-09-25-recommend-ui-and-why-design.md` (the page, the three lists, "why").
 **Replaces:** that spec's §2 "Where each list comes from" for the two shelf pools, and its §6
@@ -201,25 +201,33 @@ From the 2026-11-09 review, each confirmed against the branch:
    `PLACEHOLDER(Phil): one-line description`. Phil writes it; it's flagged here, not a blocker
    for building, but it must be filled before the PR is merged.
 
-### 7. Page changes made on the branch (2026-11-09, reviewed live by Phil)
+### 7. The page as built (2026-11-09, reviewed live by Phil)
 
-Already built on `feat/recommend-tool`; recorded here so the design matches the branch.
-
-- **One list at a time.** Recommended / Most Similar / Dark Horses are a row of cards (name +
-  blurb) above a single list — `SegmentedControl` with per-option descriptions — Recommended
-  first and default, the pick in `?list=`, an empty list's card disabled with "No matches for
-  this game.", falling back to the first list with games.
-- **A heading names what the tiles are:** "Recommended games like **Gloomhaven**", "Most
-  similar to …", "Dark horses like …" (placeholder copy, Phil's to write).
-- **All 10 by default**; the "All / Fewer" toggle is gone. Cards | List sits at the right of the
-  pool row. Heading, pool row, trail and answer share one medium gap; the picker sits tight on
-  its list.
-- **"Why" panel:** the matched game's column first, then the seed's, each headed by thumbnail +
-  name; complexity, players and play time as plain values with the verdict under the row
-  label; the complexity note behind an ⓘ; shared tags filled, the rest plain. It opens directly
-  under the game it's about (a full-width grid item in a densely packed grid; under the row in
-  List).
-- **Surprise me is off the page for now.** Its draw logic stays in `sources.ts` (tested).
+- **Two labelled sections.** "Selected game" over the chosen game's card, and a fixed, muted
+  "Games like **X**" over the answer, followed by the pool control ("from my shelf | games I
+  don't own | anywhere") and Cards | List on the same line. Small labels tight on their boxes;
+  the page's gap between the two sections.
+- **One list at a time, as tabs onto a sheet.** Recommended (first, the default) / Most Similar /
+  Dark Horses are tabs — `SegmentedControl` with per-option descriptions renders as tabs on a
+  baseline — and the chosen tab opens into the bordered sheet holding the games. The pick is in
+  `?list=`; a new chosen game starts on Recommended. A list with no games for this seed has a
+  disabled tab ("No matches for this game."). Every pool, *my shelf* included, has the same three.
+- **All 10 by default**; no "All / Fewer". All three lists' games are looked up together when an
+  answer lands, so switching tabs never collapses the sheet.
+- **A tile does one thing: it opens its "why"**, right under it (a full-width grid item in a
+  densely packed grid; under the row in List). No icon buttons on tiles.
+- **The "why":** "Why **X** is an 84% match" (muted, name at full colour), then the matched game
+  and the chosen game side by side, each headed by its box art (96 px) with name, year and
+  stacked text links under it in the game page's "View on BGG ↗" style — "Go to game page ↗",
+  and for the matched game "Find games like this". Complexity (number + the app's banded badge,
+  with an ⓘ for the predicted-complexity note), players and play time (plain minutes, as the
+  rest of the page) as plain values; mechanics, categories and families side by side, shared
+  tags filled in their usual colours, the rest plain. No verdicts.
+- **Showing that the answer changed.** While an answer is on its way the current tiles dim and
+  stop taking clicks; when it lands, or the tab changes, the list fades in (off under
+  prefers-reduced-motion). A new pick scrolls the chosen game into view.
+- **Removed:** Surprise me (its draw logic stays in `sources.ts`, tested), the breadcrumb trail
+  (Back walks the history; only the chosen game is left out of its own answer).
 
 ## Decisions (Phil, 2026-11-09)
 
