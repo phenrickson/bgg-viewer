@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.29](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.28...bgg-viewer-v0.0.29) (2026-11-09)
+
+
+### Features
+
+* **recommend:** rank anywhere locally, 10/25/50 per list ([#92](https://github.com/phenrickson/bgg-viewer/issues/92)) ([922c5ab](https://github.com/phenrickson/bgg-viewer/commit/922c5abb8bf2bfa711d883494ff98d41a2ae1db4))
+
 ## [0.0.28](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.27...bgg-viewer-v0.0.28) (2026-11-09)
 
 
