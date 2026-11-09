@@ -279,16 +279,6 @@
   );
 
   // PLACEHOLDER copy (Phil): the heading over the answer, naming what the tiles are.
-  // The heading is the question's choices: the list and the game, at full colour, with the
-  // words between them muted (then the pool control).
-  const LIST_LEAD: Record<ListKey, { param: string; rest: string }> = {
-    recommender: { param: 'Recommended games', rest: 'like' },
-    similar: { param: 'Most similar', rest: 'to' },
-    sicko: { param: 'Dark horses', rest: 'like' }
-  };
-  const questionLead = $derived(
-    pool === 'shelf' ? { param: '', rest: 'Games on your shelf like' } : LIST_LEAD[listKey]
-  );
 
   /** The one list the page shows, as a section (empty → none). */
   const sections = $derived.by((): Section[] => {
@@ -466,30 +456,34 @@
 
       {#if seedId != null}
         <!-- ── The chosen game ─────────────────────────────────────────────────── -->
-        <div class="chosen-top" bind:this={chosenTop}></div>
-        {#if seed}
-          {@const sd = seed}
-          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
-            {#snippet meta()}
-              {#if sd.year_published}<span>{sd.year_published}</span>{/if}
-              <SimBadges rating={sd.average_rating} />
-              <ComplexityBadge weight={sd.predicted_complexity} />
-              {#each [boxPlayersLabel(sd.min_players, sd.max_players), boxPlaytimeLabel(sd.min_playtime, sd.max_playtime)].filter(Boolean) as f (f)}<span>{f}</span>{/each}
-            {/snippet}
-            <!-- PLACEHOLDER copy (Phil): "by". -->
-            <div class="about">
-              {#if sd.designers?.length}
-                <p class="by">by {sd.designers.slice(0, 3).join(', ')}{sd.designers.length > 3 ? ` +${sd.designers.length - 3}` : ''}</p>
-              {/if}
-              {#if sd.categories?.length || sd.mechanics?.length}
-                <div class="tags">
-                  {#each (sd.categories ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="cat" tag={t} />{/each}
-                  {#each (sd.mechanics ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="mech" tag={t} />{/each}
-                </div>
-              {/if}
-            </div>
-          </GameHero>
-        {/if}
+        <!-- Each section is a small label tight on its box: "Selected game", then "Games like …". -->
+        <Stack gap="sm">
+          <!-- PLACEHOLDER copy (Phil) -->
+          <h2 class="question chosen-top" bind:this={chosenTop}>Selected game</h2>
+          {#if seed}
+            {@const sd = seed}
+            <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
+              {#snippet meta()}
+                {#if sd.year_published}<span>{sd.year_published}</span>{/if}
+                <SimBadges rating={sd.average_rating} />
+                <ComplexityBadge weight={sd.predicted_complexity} />
+                {#each [boxPlayersLabel(sd.min_players, sd.max_players), boxPlaytimeLabel(sd.min_playtime, sd.max_playtime)].filter(Boolean) as f (f)}<span>{f}</span>{/each}
+              {/snippet}
+              <!-- PLACEHOLDER copy (Phil): "by". -->
+              <div class="about">
+                {#if sd.designers?.length}
+                  <p class="by">by {sd.designers.slice(0, 3).join(', ')}{sd.designers.length > 3 ? ` +${sd.designers.length - 3}` : ''}</p>
+                {/if}
+                {#if sd.categories?.length || sd.mechanics?.length}
+                  <div class="tags">
+                    {#each (sd.categories ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="cat" tag={t} />{/each}
+                    {#each (sd.mechanics ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="mech" tag={t} />{/each}
+                  </div>
+                {/if}
+              </div>
+            </GameHero>
+          {/if}
+        </Stack>
 
         <!-- Question and answer as one block, on one medium rhythm. -->
         <!-- The question sits close on the sheet it describes; the page's gap above it keeps it
@@ -499,7 +493,8 @@
           <!-- The heading and the pool are one question: "Recommended games like X from …". -->
           <div class="controls">
             {#if seed}
-              <h2 class="question">{#if questionLead.param}<span class="list-name">{questionLead.param}</span>{" "}{/if}{questionLead.rest}{" "}<span class="seed-name">{seed.name}</span></h2>
+              <!-- PLACEHOLDER copy (Phil). Fixed: the tabs and the pool control say which list. -->
+              <h2 class="question">Games like{" "}<span class="seed-name">{seed.name}</span></h2>
             {/if}
             {#if hasShelf}
               <!-- PLACEHOLDER copy (Phil) -->
@@ -607,19 +602,18 @@
   .about { display: flex; flex-direction: column; gap: var(--space-sm); }
   .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  /* A label for the answer, clearly below the chosen game's name — not a size in between. */
   .question {
     margin: 0;
-    font-size: 1.05rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    font-size: 0.9rem;
+    font-weight: 600;
     color: var(--muted-foreground);
   }
   .question .seed-name { color: var(--foreground); }
-  .question .list-name { color: var(--foreground); }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .controls :global(.show-as) { margin-left: auto; }
   /* "from" is part of the heading's sentence: the same size and weight as its muted words. */
-  .from { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; color: var(--muted-foreground); }
+  .from { font-size: 0.9rem; font-weight: 600; color: var(--muted-foreground); }
   .who {
     display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
     margin-top: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--border);

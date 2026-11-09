@@ -177,6 +177,9 @@
   .row-facts > :global(*) { white-space: nowrap; }
   /* The game page's similar-games list: rows a little apart. */
   .list { display: flex; flex-direction: column; gap: 0.4rem; }
+  /* Rows on the card surface, like the tiles. (SimilarRow's own background is the page's, for
+     the game page, where its rows sit inside a card.) */
+  .list :global(.row) { background: var(--card); }
   .sec :global(.why-grid) { grid-auto-flow: row dense; }
   .why {
     display: flex; flex-direction: column; gap: var(--space-sm);
