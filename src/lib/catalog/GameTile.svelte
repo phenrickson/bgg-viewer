@@ -13,7 +13,8 @@
    *
    * `compact` keeps only the art, name and year, for a row of small picks.
    *
-   * The art and the name link to `href`. `actions` (small icon buttons, each with its label as a
+   * The art and the name link to `href` — or, with `onopen`, are buttons that call it instead
+   * (Recommend: a tile opens its "why"; `expanded` marks the open one). `actions` (small icon buttons, each with its label as a
    * tooltip) sit outside the links, in the foot. `marker` is a badge on the art's top-left
    * ("On your shelf"). `facts` should be short (an icon and a number), so they hold one line.
    */
@@ -38,6 +39,8 @@
     facts,
     /** Icon buttons at the foot. */
     actions,
+    onopen,
+    expanded,
     class: className = '',
     style = ''
   }: {
@@ -51,6 +54,10 @@
     marker?: string;
     facts?: Snippet;
     actions?: Snippet;
+    /** Makes the art and name buttons that call this, instead of links to `href`. */
+    onopen?: () => void;
+    /** With `onopen`: whether what it opens is open (aria-expanded on the name). */
+    expanded?: boolean;
     class?: string;
     style?: string;
   } = $props();
@@ -70,18 +77,36 @@
 
 <Card.Root size="sm" class="tile min-w-0 {className}" data-compact={compact || undefined} {style}>
   <Card.Content class="frame">
-    <a class="art" {href} tabindex="-1" aria-hidden="true">
+    <svelte:element
+      this={onopen ? 'button' : 'a'}
+      class="art"
+      href={onopen ? undefined : href}
+      type={onopen ? 'button' : undefined}
+      role={onopen ? 'button' : undefined}
+      onclick={onopen}
+      tabindex="-1"
+      aria-hidden="true"
+    >
       {#if thumbnail}
         <img src={thumbnail} alt="" loading="lazy" decoding="async" />
       {:else}
         <span class="ph">{initials}</span>
       {/if}
-    </a>
+    </svelte:element>
     {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
   </Card.Content>
 
   <Card.Content>
-    <a class="nm" {href} title={name}>{name}{#if year}<span class="yr">{year}</span>{/if}</a>
+    <svelte:element
+      this={onopen ? 'button' : 'a'}
+      class="nm"
+      href={onopen ? undefined : href}
+      type={onopen ? 'button' : undefined}
+      role={onopen ? 'button' : undefined}
+      onclick={onopen}
+      aria-expanded={onopen ? !!expanded : undefined}
+      title={name}>{name}{#if year}<span class="yr">{year}</span>{/if}</svelte:element
+    >
   </Card.Content>
 
   {#if !compact && (hasScores || facts || actions)}
@@ -103,6 +128,17 @@
     position: relative;
   }
   /* A fixed 4:3 frame: the cover sits inside at its own shape, never scaled past its size. */
+  /* As buttons (`onopen`), the art and name look exactly as the links do. */
+  button.art,
+  button.nm {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+  }
   .art {
     display: flex;
     align-items: center;

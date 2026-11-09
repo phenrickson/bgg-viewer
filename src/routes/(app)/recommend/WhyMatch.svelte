@@ -156,7 +156,7 @@
   }
   .lbl-row { display: inline-flex; align-items: center; gap: 0.35rem; }
   .verdict { font-size: 0.75rem; color: var(--foreground); }
-  .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .val { font-variant-numeric: tabular-nums; }
   .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; min-width: 0; }
   .none { color: var(--muted-foreground); font-size: 0.8rem; }
 

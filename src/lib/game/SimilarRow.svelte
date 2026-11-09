@@ -22,7 +22,9 @@
     similarity,
     rating = null,
     children,
-    action
+    action,
+    onopen,
+    expanded
   }: {
     href: string;
     name: string;
@@ -32,11 +34,23 @@
     rating?: number | null;
     children?: Snippet;
     action?: Snippet;
+    /** Makes the art and name a button that calls this, instead of a link to `href`. */
+    onopen?: () => void;
+    /** With `onopen`: whether what it opens is open. */
+    expanded?: boolean;
   } = $props();
 </script>
 
 <div class="row">
-  <a class="main" {href}>
+  <svelte:element
+    this={onopen ? 'button' : 'a'}
+    class="main"
+    href={onopen ? undefined : href}
+    type={onopen ? 'button' : undefined}
+    role={onopen ? 'button' : undefined}
+    onclick={onopen}
+    aria-expanded={onopen ? !!expanded : undefined}
+  >
     {#if thumbnail}
       <img class="mono" src={thumbnail} alt="" loading="lazy" />
     {:else}
@@ -46,7 +60,7 @@
       <span class="nmw"><span class="nm">{name}</span> {#if year}<span class="yr">{year}</span>{/if}</span>
       {#if children}<span class="sub">{@render children()}</span>{/if}
     </span>
-  </a>
+  </svelte:element>
   <span class="end"><SimBadges {similarity} {rating} />{#if action}{@render action()}{/if}</span>
 </div>
 
@@ -73,6 +87,14 @@
     gap: 0.65rem;
     text-decoration: none;
     color: inherit;
+  }
+  button.main {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .main:focus-visible {
     outline: 2px solid var(--primary);

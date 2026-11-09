@@ -21,10 +21,10 @@
    * picker chooses which), or the one shelf list: an optional heading and blurb, then its games — as tiles or as the game page's similar-games rows (all of them).
    *
    * Each game says what it IS — complexity, players, play time — not what it shares with the
-   * seed; the comparison is an action. Three things, kept apart: the game opens its page; "Why
-   * this match" opens the side-by-side analysis (one at a time across the page, so the page
-   * owns which, via `whyId`; it opens under the section holding that game); "Games like this"
-   * walks on from it.
+   * seed; the comparison is an action. Clicking a game opens its "why" (the side-by-side
+   * analysis) right under it, with "Open game page" and "Games like this" at its head. One open
+   * at a time, so the page owns which, via `whyId`. The magnifier on a tile is the shortcut
+   * for "Games like this" without opening it.
    */
   import type { Snippet } from 'svelte';
   import { AutoGrid } from '$lib/components/ui/layout';
@@ -35,7 +35,6 @@
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
-  import InfoIcon from '@lucide/svelte/icons/info';
   import ScanSearchIcon from '@lucide/svelte/icons/scan-search';
   import UsersIcon from '@lucide/svelte/icons/users';
   import ClockIcon from '@lucide/svelte/icons/clock';
@@ -100,16 +99,7 @@
     {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
   {/snippet}
   {#snippet gameActions(g: Item)}
-    <!-- PLACEHOLDER copy (Phil): both labels (tooltip and screen reader). -->
-    <Button
-      variant="secondary"
-      size="icon-sm"
-      class="act"
-      title="Why this match"
-      aria-label="Why this match"
-      aria-expanded={whyId === g.game_id}
-      onclick={() => onwhy(g.game_id)}><InfoIcon /></Button
-    >
+    <!-- PLACEHOLDER copy (Phil): the label (tooltip and screen reader). -->
     <Button variant="secondary" size="icon-sm" class="act" title="Games like this" aria-label="Games like this" onclick={() => onwalk(g.game_id)}
       ><ScanSearchIcon /></Button
     >
@@ -123,7 +113,12 @@
       <div class="why-head">
         <!-- PLACEHOLDER copy (Phil) -->
         <p class="why-title">Why {g.name} is a {Math.round(similarityPct(g.similarity))}% match</p>
-        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
+        <!-- PLACEHOLDER copy (Phil): both actions. -->
+        <div class="why-acts">
+          <Button variant="outline" size="sm" href={gameHref(g.game_id)}>Open game page ↗</Button>
+          <Button variant="outline" size="sm" onclick={() => onwalk(g.game_id)}>Games like this</Button>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
+        </div>
       </div>
       <WhyMatch why={whyOf(g)} seed={seed.name} other={g.name} seedImage={seed.thumbnail} otherImage={g.thumbnail} />
     </div>
@@ -139,6 +134,8 @@
           thumbnail={g.thumbnail}
           similarity={g.similarity}
           rating={g.average_rating}
+          onopen={() => onwhy(g.game_id)}
+          expanded={whyId === g.game_id}
         >
           <span class="row-facts">
             {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span>{/if}{@render factsOf(g)}
@@ -159,6 +156,8 @@
           similarity={g.similarity}
           rating={g.average_rating}
           marker={markOwned && owned.has(g.game_id) ? 'On your shelf' : ''}
+          onopen={() => onwhy(g.game_id)}
+          expanded={whyId === g.game_id}
         >
           {#snippet facts()}{@render factsOf(g)}{/snippet}
           {#snippet actions()}{@render gameActions(g)}{/snippet}
@@ -197,5 +196,6 @@
     container-type: inline-size;
   }
   .why-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+  .why-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs, 0.4rem); }
   .why-title { margin: 0; font-size: 0.95rem; font-weight: 650; }
 </style>

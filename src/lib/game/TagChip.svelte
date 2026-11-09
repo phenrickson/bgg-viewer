@@ -52,10 +52,13 @@
     border-color: color-mix(in oklch, var(--chart-1) 40%, var(--border));
     color: var(--chart-1);
   }
+  /* Brought forward by a fill only: a filled tag keeps its kind's colour (blue mechanics,
+     orange categories), so a row of shared tags reads like tags everywhere else in the app. */
   .chip.filled {
     background: var(--muted);
+  }
+  .chip.fam.filled {
     color: var(--foreground);
-    font-weight: 600;
   }
   .chip.quiet {
     border-color: transparent;
