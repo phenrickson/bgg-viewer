@@ -40,8 +40,8 @@ So: **ship the inputs once, rank in the browser.**
 
 ## Non-goals
 
-- Collection-mode profiles (tuned rules for a shelf). *On my shelf* keeps the prototype's plain
-  similarity; the seam stays where the 2026-09-25 spec put it.
+- Tuning the shelf styles (§2) beyond a first cut. They ship as a starting point and get tuned
+  against real collections afterwards.
 - Changing *anywhere*. It stays on the precomputed lists from the game document.
 - Warehouse changes. The warehouse's pooled `POST /games/{id}/similar` stays deployed; the
   viewer just stops calling it for shelf answers.
@@ -123,8 +123,20 @@ A pure module, `src/lib/recommend/rank.ts`, unit-tested without a browser.
   similarity floor, rating-percentile floor/ceiling, score `weight·sim + (1−weight)·geek_pct`,
   product-line cap (`max_per_family`; 0 drops games in any line), `top_k`. Returns the three
   styles, so the page shows Recommended / Most similar / Dark horses as it does now.
-- **On my shelf:** the seed against owned games only: plain similarity, product-line cap 1,
-  top 20 (ranks 5–20 feed Surprise me). This is the prototype's "collection mode", unchanged.
+- **On my shelf: the same three choices** (Phil, 2026-11-09), with rules for a small pool. The
+  catalog profiles collapse on a ~160-game shelf (warehouse measurement 2026-09-24: Dark Horses
+  empty, Recommended == Most Similar, lists short from the complexity band and similarity
+  floor), so the shelf gets its own, as a starting point to tune:
+  - **Most Similar:** owned games by plain similarity, product-line cap 1, top 10. (Today's
+    shelf list.)
+  - **Recommended:** `0.6·sim + 0.4·shelf_pct`, where `shelf_pct` is the game's geek-rating
+    percentile *within the shelf*; no floors, no band; product-line cap 1, top 10.
+  - **Dark Horses:** owned games with `shelf_pct < 0.5` (the less-celebrated half of the shelf),
+    by plain similarity; product-line cap 1, top 10.
+
+  So `Lists` for a shelf answer carries the three styles like the catalog lists do, and the
+  page's picker works the same in every pool. The shelf rules live in `rank.ts` beside the
+  catalog port, as one constant, not scattered.
 - **Any seed works.** The near-miss (part D) and live `pool=collection` cases disappear: every
   seed in the working set has a vector, so both shelf pools rank any seed the same way.
 - **Seed outside the artifact** (can only happen via a hand-edited `?id=`): the shelf pools
@@ -178,8 +190,8 @@ From the 2026-11-09 review, each confirmed against the branch:
 4. **The trail.** A fresh pick from the search or a Start tile starts a new trail; only "Games
    like this" and the breadcrumb extend or cut it. Games from an unrelated earlier trail are
    never filtered out of an answer.
-5. **One "why" at a time.** A game listed in two sections opens its panel in one place only
-   (the first section it appears in).
+5. **One "why" at a time.** Solved by the page change below: one list shows at a time, and the
+   panel opens under the game it's about.
 6. **No duplicate fetches.** The *anywhere* answer doesn't re-run because collection state
    changed; it depends only on the seed.
 7. **One access rule.** The "own username or admin" check moves into one helper
@@ -188,6 +200,26 @@ From the 2026-11-09 review, each confirmed against the branch:
 8. **Nav copy.** The Tools-menu entry's description is
    `PLACEHOLDER(Phil): one-line description`. Phil writes it; it's flagged here, not a blocker
    for building, but it must be filled before the PR is merged.
+
+### 7. Page changes made on the branch (2026-11-09, reviewed live by Phil)
+
+Already built on `feat/recommend-tool`; recorded here so the design matches the branch.
+
+- **One list at a time.** Recommended / Most Similar / Dark Horses are a row of cards (name +
+  blurb) above a single list — `SegmentedControl` with per-option descriptions — Recommended
+  first and default, the pick in `?list=`, an empty list's card disabled with "No matches for
+  this game.", falling back to the first list with games.
+- **A heading names what the tiles are:** "Recommended games like **Gloomhaven**", "Most
+  similar to …", "Dark horses like …" (placeholder copy, Phil's to write).
+- **All 10 by default**; the "All / Fewer" toggle is gone. Cards | List sits at the right of the
+  pool row. Heading, pool row, trail and answer share one medium gap; the picker sits tight on
+  its list.
+- **"Why" panel:** the matched game's column first, then the seed's, each headed by thumbnail +
+  name; complexity, players and play time as plain values with the verdict under the row
+  label; the complexity note behind an ⓘ; shared tags filled, the rest plain. It opens directly
+  under the game it's about (a full-width grid item in a densely packed grid; under the row in
+  List).
+- **Surprise me is off the page for now.** Its draw logic stays in `sources.ts` (tested).
 
 ## Decisions (Phil, 2026-11-09)
 
@@ -203,10 +235,11 @@ From the 2026-11-09 review, each confirmed against the branch:
 
 - Vectors artifact separate from the catalog; float32; working-set rows; profiles shipped in
   the artifact's metadata.
-- *Not on my shelf* uses the full `game_neighbors` rules; *on my shelf* keeps plain similarity.
+- *Not on my shelf* uses the full `game_neighbors` rules.
+- The shelf styles' first-cut rules (§2): within-shelf rating percentile, 0.6/0.4 blend for
+  Recommended, bottom half of the shelf for Dark Horses, no floors or band.
 - Polling (5 s, 3 min cap) for an admin's unseen username, rather than a "sync finished" signal.
 - Keep every embedding version in the artifact, so it matches `game_neighbors` exactly.
-- A game in two sections opens "why" in the first section only.
 
 ## Verification
 
