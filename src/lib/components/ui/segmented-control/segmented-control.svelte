@@ -113,18 +113,47 @@
 
   /* Cards: equal-width, label over description, filling the row; they wrap to fewer per row
      when the container is too narrow for all of them. */
-  .seg.cards { display: flex; flex-wrap: wrap; width: 100%; }
+  /* With descriptions it's a row of TABS: no track; the chosen tab joins the sheet under it
+     (the caller draws the sheet — a bordered panel with no top edge, see Recommend), the
+     others sit behind it as plain labels. */
+  .seg.cards {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 0.25rem;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    border-bottom: 1px solid var(--border);
+  }
   .cards button {
+    position: relative;
     flex: 1 1 11rem;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.15rem;
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: none;
     white-space: normal;
     text-align: left;
   }
   .cards .lbl { font-weight: 650; }
   .cards .desc { font-size: 0.8em; font-weight: 400; line-height: 1.35; color: var(--muted-foreground); }
+  .cards button:hover:not(.on):not(:disabled) {
+    background: color-mix(in oklch, var(--card) 60%, transparent);
+  }
+  /* The chosen tab: the sheet's own background and border, with no bottom edge, so it and the
+     sheet are one piece. */
+  .cards button.on {
+    border-color: var(--border);
+    background: var(--background);
+    box-shadow: none;
+  }
   .cards button.on .desc { color: color-mix(in oklch, var(--foreground) 80%, var(--muted-foreground)); }
 
   /* Touch sizing: padding AND type together, not min-height alone — a touch control should

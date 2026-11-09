@@ -341,7 +341,14 @@
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
   $effect(() => {
-    const ids = [...new Set(sections.flatMap((s) => s.hits.map((h) => h.id)))];
+    // Every list in the answer, not just the one on screen: switching tabs then swaps between
+    // games already loaded, instead of collapsing the sheet while the new ones are looked up.
+    const all: Hit[] = !shown
+      ? []
+      : shown.kind === 'shelf'
+        ? shown.list.slice(0, SECTION_MAX)
+        : LIST_ORDER.flatMap((k) => shown[k].slice(0, SECTION_MAX));
+    const ids = [...new Set(all.map((h) => h.id))];
     catalog.thumbnailsReady;
     const mine = ++rowsToken;
     games(ids).then((m) => mine === rowsToken && (rows = m));
@@ -500,41 +507,43 @@
             <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
           </div>
 
-          <!-- The picker and its list read as one piece: a tight gap, not the page's. -->
-          <Stack gap="sm">
+          <!-- The tabs and their sheet are one piece: the chosen tab opens into the sheet below. -->
+          <div class="tabbed">
             <!-- ── Which list ──────────────────────────────────────────────────────── -->
             {#if shown?.kind === 'styles'}
               <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
             {/if}
 
-            <!-- ── The answer ────────────────────────────────────────────────────── -->
-            {#if status === 'error'}
-              <p class="msg">{failure}</p>
-            {:else if pending && !sections.length}
-              <p class="msg">Loading…</p>
-            {:else if seed && !pending && !sections.length}
-              <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
-            {:else if seed}
-              {#key answerKey}
-              <div class="answer" class:pending aria-busy={pending} inert={pending} in:fade={{ duration: reduceMotion ? 0 : 160 }}>
-              {#each sections as s (`${seedId}-${s.key}`)}
-                <!-- The heading above names the list (and the picker which one), so no title here. -->
-                <ResultSection
-                  items={toItems(s.hits)}
-                  {seed}
-                  {freq}
-                  {owned}
-                  {display}
-                  markOwned={pool === 'all'}
-                  {whyId}
-                  onwhy={toggleWhy}
-                  onwalk={walk}
-                />
-              {/each}
-              </div>
-              {/key}
-            {/if}
-          </Stack>
+            <div class="sheet" class:open={shown?.kind === 'styles'}>
+              <!-- ── The answer ────────────────────────────────────────────────────── -->
+              {#if status === 'error'}
+                <p class="msg">{failure}</p>
+              {:else if pending && !sections.length}
+                <p class="msg">Loading…</p>
+              {:else if seed && !pending && !sections.length}
+                <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
+              {:else if seed}
+                {#key answerKey}
+                <div class="answer" class:pending aria-busy={pending} inert={pending} in:fade={{ duration: reduceMotion ? 0 : 160 }}>
+                {#each sections as s (`${seedId}-${s.key}`)}
+                  <!-- The heading above names the list (and the picker which one), so no title here. -->
+                  <ResultSection
+                    items={toItems(s.hits)}
+                    {seed}
+                    {freq}
+                    {owned}
+                    {display}
+                    markOwned={pool === 'all'}
+                    {whyId}
+                    onwhy={toggleWhy}
+                    onwalk={walk}
+                  />
+                {/each}
+                </div>
+                {/key}
+              {/if}
+            </div>
+          </div>
         </Stack>
       {/if}
 
@@ -575,6 +584,15 @@
   .answer { transition: opacity 120ms ease; }
   .answer.pending { opacity: 0.45; }
   @media (prefers-reduced-motion: reduce) { .answer { transition: none; } }
+  /* The list's tabs and the sheet they open onto. With no tabs (the shelf pool) the sheet is
+     just the list. */
+  .tabbed { display: flex; flex-direction: column; }
+  .sheet.open {
+    padding: var(--space-md);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
   .chosen-top { scroll-margin-top: var(--space-md); }
   /* The headline is centred; everything under it shares one column (the page's measure), so
      the search and the answer start at one edge. */
