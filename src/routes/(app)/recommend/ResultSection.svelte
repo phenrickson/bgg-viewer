@@ -18,8 +18,7 @@
 <script lang="ts">
   /**
    * The list Recommend's answer shows — Recommended, Most similar, Dark horses (the page's
-   * picker chooses which), or the one shelf list: an optional heading and blurb, then its games — as tiles (the first few, "All" for
-   * the rest) or as the game page's similar-games rows (all of them).
+   * picker chooses which), or the one shelf list: an optional heading and blurb, then its games — as tiles or as the game page's similar-games rows (all of them).
    *
    * Each game says what it IS — complexity, players, play time — not what it shares with the
    * seed; the comparison is an action. Three things, kept apart: the game opens its page; "Why
@@ -42,9 +41,6 @@
   import ClockIcon from '@lucide/svelte/icons/clock';
   import { similarityPct } from '$lib/game/similarity';
   import WhyMatch from './WhyMatch.svelte';
-
-  /** Tiles shown before "All". */
-  const TILES_SHOWN = 4;
 
   let {
     /** Heading and blurb; left out when something above already names the list (the
@@ -78,26 +74,24 @@
     headEnd?: Snippet;
   } = $props();
 
-  let all = $state(false);
-  // A list is compact enough to show every game; tiles show a few until "All".
-  const shown = $derived(display === 'list' || all ? items : items.slice(0, TILES_SHOWN));
+  // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
+  const shown = $derived(items);
   const whyOf = (g: Item) => explain(seed, g, freq);
   const open = $derived(items.find((g) => g.game_id === whyId) ?? null);
   const gameHref = (id: number) => `/games/${id}`;
 </script>
 
 <section class="sec">
-  <header>
-    <div>
-      {#if title}<h2>{title}</h2>{/if}
-      {#if blurb}<p>{blurb}</p>{/if}
-    </div>
-    {#if display === 'cards' && items.length > TILES_SHOWN}
-      <!-- PLACEHOLDER copy (Phil) -->
-      <Button variant="link" size="sm" onclick={() => (all = !all)}>{all ? 'Fewer' : `All ${items.length}`}</Button>
-    {/if}
-    {#if headEnd}{@render headEnd()}{/if}
-  </header>
+  <!-- No header at all when nothing names the list, so it starts right under the picker. -->
+  {#if title || blurb || headEnd}
+    <header>
+      <div>
+        {#if title}<h2>{title}</h2>{/if}
+        {#if blurb}<p>{blurb}</p>{/if}
+      </div>
+      {#if headEnd}{@render headEnd()}{/if}
+    </header>
+  {/if}
 
   {#snippet factsOf(g: Item)}
     {@const players = boxPlayersLabel(g.min_players, g.max_players, true)}

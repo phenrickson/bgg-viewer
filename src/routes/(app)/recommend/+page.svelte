@@ -461,6 +461,7 @@
             <span class="from">from</span>
             <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
           {/if}
+          <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
         </div>
         {#if trail.length > 1}
           <nav class="trail" aria-label="Games you have walked through">
@@ -505,9 +506,6 @@
                 onwhy={toggleWhy}
                 onwalk={walk}
               >
-                {#snippet headEnd()}
-                  <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
-                {/snippet}
               </ResultSection>
             {/each}
           {/if}
@@ -559,6 +557,7 @@
   .by { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+  .controls :global(.show-as) { margin-left: auto; }
   .from { font-size: 0.95rem; color: var(--muted-foreground); }
   .trail {
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem;
