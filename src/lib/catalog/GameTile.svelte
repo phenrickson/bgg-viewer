@@ -128,13 +128,15 @@
     position: relative;
   }
   /* A fixed 4:3 frame: the cover sits inside at its own shape, never scaled past its size. */
-  /* As buttons (`onopen`), the art and name look exactly as the links do. */
+  /* As buttons (`onopen`), the art and name look exactly as the links do. Only the family is
+     reset here: the name's own size and weight (`.nm`) must still apply. */
   button.art,
   button.nm {
     border: none;
     background: none;
     padding: 0;
-    font: inherit;
+    font-family: inherit;
+    color: inherit;
     text-align: left;
     cursor: pointer;
     width: 100%;

@@ -115,6 +115,8 @@
    */
   function ask(patch: { id?: number | null; from?: Pool; list?: string }): string {
     const q = new URLSearchParams(params);
+    // A new game starts on the default list (Recommended), not the last one picked.
+    if ('id' in patch && !('list' in patch)) q.delete('list');
     for (const [k, v] of Object.entries(patch)) {
       if (v == null) q.delete(k);
       else q.set(k, String(v));
@@ -458,10 +460,11 @@
         <!-- Question and answer as one block, on one medium rhythm. -->
         <Stack gap="md">
           <!-- ── The question: what the tiles are, the pool, and where you've walked ───── -->
-          {#if seed}
-            <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
-          {/if}
+          <!-- The heading and the pool are one question: "Recommended games like X from …". -->
           <div class="controls">
+            {#if seed}
+              <h2 class="question">{questionLead} <span class="seed-name">{seed.name}</span></h2>
+            {/if}
             {#if hasShelf}
               <!-- PLACEHOLDER copy (Phil) -->
               <span class="from">from</span>

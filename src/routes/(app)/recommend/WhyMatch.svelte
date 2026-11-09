@@ -159,8 +159,8 @@
   }
   .art {
     flex: none;
-    width: 4rem;
-    height: 4rem;
+    width: 6rem;
+    height: 6rem;
     display: grid;
     place-items: center;
     border-radius: 6px;
