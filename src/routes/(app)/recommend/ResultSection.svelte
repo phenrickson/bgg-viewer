@@ -77,7 +77,6 @@
   // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
   const shown = $derived(items);
   const whyOf = (g: Item) => explain(seed, g, freq);
-  const open = $derived(items.find((g) => g.game_id === whyId) ?? null);
   const gameHref = (id: number) => `/games/${id}`;
 </script>
 
@@ -116,6 +115,20 @@
     >
   {/snippet}
 
+  <!-- The "why" opens right under the game it's about: after its row in the list, and as a
+       full-width grid item after its tile (the grid packs densely, so the tiles after it
+       backfill their row and the panel lands under that row). -->
+  {#snippet whyPanel(g: Item)}
+    <div class="why" data-full>
+      <div class="why-head">
+        <!-- PLACEHOLDER copy (Phil) -->
+        <p class="why-title">Why {g.name} is a {Math.round(similarityPct(g.similarity))}% match</p>
+        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
+      </div>
+      <WhyMatch why={whyOf(g)} seed={seed.name} other={g.name} seedImage={seed.thumbnail} otherImage={g.thumbnail} />
+    </div>
+  {/snippet}
+
   {#if display === 'list'}
     <div class="list">
       {#each shown as g (g.game_id)}
@@ -132,10 +145,11 @@
           </span>
           {#snippet action()}{@render gameActions(g)}{/snippet}
         </SimilarRow>
+        {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
     </div>
   {:else}
-    <AutoGrid min="md" gap="md">
+    <AutoGrid min="md" gap="md" class="why-grid">
       {#each shown as g (g.game_id)}
         <GameTile
           href={gameHref(g.game_id)}
@@ -149,20 +163,11 @@
           {#snippet facts()}{@render factsOf(g)}{/snippet}
           {#snippet actions()}{@render gameActions(g)}{/snippet}
         </GameTile>
+        {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
     </AutoGrid>
   {/if}
 
-  {#if open}
-    <div class="why">
-      <div class="why-head">
-        <!-- PLACEHOLDER copy (Phil) -->
-        <p class="why-title">Why {open.name} is a {Math.round(similarityPct(open.similarity))}% match</p>
-        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(open.game_id)}>×</Button>
-      </div>
-      <WhyMatch why={whyOf(open)} seed={seed.name} other={open.name} seedImage={seed.thumbnail} otherImage={open.thumbnail} />
-    </div>
-  {/if}
 </section>
 
 <style>
@@ -184,6 +189,7 @@
   .row-facts > :global(*) { white-space: nowrap; }
   /* The game page's similar-games list: rows a little apart. */
   .list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .sec :global(.why-grid) { grid-auto-flow: row dense; }
   .why {
     display: flex; flex-direction: column; gap: var(--space-sm);
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
