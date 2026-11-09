@@ -7,7 +7,7 @@
  * Vectors are L2-normalised on the way in, so cosine similarity is a dot product.
  */
 import { tableFromIPC, type Table } from 'apache-arrow';
-import { fetchArtifactBytes } from '$lib/catalog/artifact-fetch';
+import { fetchArtifactBytes } from '../catalog/artifact-fetch';
 
 export const DIMS = 64;
 
