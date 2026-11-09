@@ -10,7 +10,7 @@
    * its answer underneath, in place: the game itself (a hero: what it is, a link to its page),
    * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
    * and the trail of games walked through. Each result opens its game page; its match score opens "why";
-   * "Games like this" walks on from it. The answer is stacked sections: the three precomputed
+   * "Games like this" walks on from it. The answer is one list, picked from cards: the three precomputed
    * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
    * fetched (collection artifact, precomputed lists, the live pooled query) is
@@ -38,13 +38,14 @@
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import {
     sourceFor,
-    sectionsFor,
     withoutIds,
     tooThin,
     type Pool,
     type Lists,
     type Hit,
-    type SectionKey
+    type SectionKey,
+    type Section,
+    SECTION_MAX
   } from '$lib/recommend/sources';
   import ResultSection, { type Game, type Item, type Display } from './ResultSection.svelte';
 
@@ -113,7 +114,7 @@
   /**
    * A link to this page with some of the question changed — how every option and walk moves.
    */
-  function ask(patch: { id?: number | null; from?: Pool }): string {
+  function ask(patch: { id?: number | null; from?: Pool; list?: string }): string {
     const q = new URLSearchParams(params);
     for (const [k, v] of Object.entries(patch)) {
       if (v == null) q.delete(k);
@@ -244,8 +245,46 @@
   /** The seed and the games already walked through — left out of every answer. */
   const walked = $derived(new Set([...(seedId == null ? [] : [seedId]), ...trail.map((s) => s.id)]));
 
-  /** The stacked sections. */
-  const sections = $derived(lists && seedId != null ? sectionsFor(withoutIds(lists, walked)) : []);
+  // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
+  // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
+  // (`?list=`), like the pool. The shelf pool has one list, so no picker there.
+  const LIST_ORDER = ['similar', 'recommender', 'sicko'] as const;
+  type ListKey = (typeof LIST_ORDER)[number];
+  const DEFAULT_LIST: ListKey = 'recommender';
+
+  /** The answer, minus the seed and the games already walked through. */
+  const shown = $derived(lists && seedId != null ? withoutIds(lists, walked) : null);
+
+  /** The list asked for, or — when that one has no games for this seed — the first that does. */
+  const listKey = $derived.by((): ListKey => {
+    const asked = params.get('list');
+    const want = LIST_ORDER.find((k) => k === asked) ?? DEFAULT_LIST;
+    if (shown?.kind !== 'styles' || shown[want].length) return want;
+    return [DEFAULT_LIST, ...LIST_ORDER].find((k) => shown[k].length) ?? want;
+  });
+
+  // PLACEHOLDER copy (Phil): the empty-list line.
+  const listOptions = $derived(
+    LIST_ORDER.map((k) => {
+      const empty = shown?.kind === 'styles' && !shown[k].length;
+      return {
+        value: k,
+        label: SIMILAR_PROFILE_LABELS[k],
+        description: empty ? 'No matches for this game.' : SIMILAR_PROFILE_BLURBS[k],
+        disabled: empty
+      };
+    })
+  );
+
+  /** The one list the page shows, as a section (empty → none). */
+  const sections = $derived.by((): Section[] => {
+    if (!shown) return [];
+    const s: Section =
+      shown.kind === 'shelf'
+        ? { key: 'shelf', hits: shown.list.slice(0, SECTION_MAX) }
+        : { key: listKey, hits: shown[listKey].slice(0, SECTION_MAX) };
+    return s.hits.length ? [s] : [];
+  });
 
   // --- Why: one open at a time, across every section -----------------------------------------
   let whyId = $state<number | null>(null);
@@ -436,6 +475,11 @@
           </nav>
         {/if}
 
+        <!-- ── Which list ──────────────────────────────────────────────────────── -->
+        {#if shown?.kind === 'styles'}
+          <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
+        {/if}
+
         <!-- ── The answer ────────────────────────────────────────────────────── -->
         {#if status === 'error'}
           <p class="msg">{failure}</p>
@@ -444,10 +488,11 @@
         {:else if seed && status === 'ready' && !sections.length}
           <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
         {:else if seed}
-          {#each sections as s, i (`${seedId}-${s.key}`)}
+          {#each sections as s (`${seedId}-${s.key}`)}
+            <!-- The picker names the three lists; only the shelf list needs its own heading. -->
             <ResultSection
-              title={SECTION_TEXT[s.key].title}
-              blurb={SECTION_TEXT[s.key].blurb}
+              title={s.key === 'shelf' ? SECTION_TEXT.shelf.title : ''}
+              blurb={s.key === 'shelf' ? SECTION_TEXT.shelf.blurb : ''}
               items={toItems(s.hits)}
               {seed}
               {freq}
@@ -459,9 +504,7 @@
               onwalk={walk}
             >
               {#snippet headEnd()}
-                {#if i === 0}
-                  <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
-                {/if}
+                <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
               {/snippet}
             </ResultSection>
           {/each}

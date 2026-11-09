@@ -17,8 +17,8 @@
 
 <script lang="ts">
   /**
-   * One stacked section of Recommend's answer — Recommended, Most similar, Dark horses, or the
-   * one shelf list: a heading and blurb, then its games — as tiles (the first few, "All" for
+   * The list Recommend's answer shows — Recommended, Most similar, Dark horses (the page's
+   * picker chooses which), or the one shelf list: an optional heading and blurb, then its games — as tiles (the first few, "All" for
    * the rest) or as the game page's similar-games rows (all of them).
    *
    * Each game says what it IS — complexity, players, play time — not what it shares with the
@@ -47,7 +47,9 @@
   const TILES_SHOWN = 4;
 
   let {
-    title,
+    /** Heading and blurb; left out when something above already names the list (the
+     *  page's Recommended / Most Similar / Dark Horses picker). */
+    title = '',
     blurb = '',
     items,
     seed,
@@ -62,7 +64,7 @@
     /** Extra controls at the end of the header (the page puts Cards | List on the first). */
     headEnd
   }: {
-    title: string;
+    title?: string;
     blurb?: string;
     items: Item[];
     seed: Game;
@@ -87,7 +89,7 @@
 <section class="sec">
   <header>
     <div>
-      <h2>{title}</h2>
+      {#if title}<h2>{title}</h2>{/if}
       {#if blurb}<p>{blurb}</p>{/if}
     </div>
     {#if display === 'cards' && items.length > TILES_SHOWN}

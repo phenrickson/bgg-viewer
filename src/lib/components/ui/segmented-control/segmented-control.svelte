@@ -4,6 +4,9 @@
     label: string;
     /** Tooltip — what choosing this does. */
     title?: string;
+    /** A line under the label. When any option has one, the group becomes a row of
+     *  equal-width cards (label over description) that fills its container. */
+    description?: string;
     disabled?: boolean;
   };
 </script>
@@ -21,6 +24,10 @@
    * rail's filter language and stays there. This one is for choosing a view or a question —
    * from a compact chart toggle (`sm`, the size those two used) up to a page's main choice
    * (`lg`).
+   *
+   * With descriptions it's a row of cards rather than a pill track: the same choice, for when
+   * the options need a line each to be told apart (Recommend's Recommended / Most Similar /
+   * Dark Horses).
    *
    * `aria-pressed` buttons in a labelled group: they apply immediately, which is what a toggle
    * button in a group carries.
@@ -41,9 +48,11 @@
     size?: 'sm' | 'md' | 'lg';
     class?: string;
   } = $props();
+
+  const described = $derived(options.some((o) => o.description));
 </script>
 
-<div class="seg {size} {className}" role="group" aria-label={label}>
+<div class="seg {size} {className}" class:cards={described} role="group" aria-label={label}>
   {#each options as o (String(o.value))}
     {@const on = o.value === value}
     <button
@@ -52,7 +61,8 @@
       aria-pressed={on}
       title={o.title}
       disabled={o.disabled}
-      onclick={() => onchange(o.value)}>{o.label}</button
+      onclick={() => onchange(o.value)}
+      >{#if described}<span class="lbl">{o.label}</span>{#if o.description}<span class="desc">{o.description}</span>{/if}{:else}{o.label}{/if}</button
     >
   {/each}
 </div>
@@ -100,6 +110,22 @@
   .md button { font-size: 0.875rem; padding: 0.35rem 0.8rem; border-radius: 7px; }
   .lg { gap: 0.25rem; padding: 0.25rem; border-radius: 12px; }
   .lg button { font-size: 1rem; padding: 0.6rem 1.25rem; border-radius: 9px; }
+
+  /* Cards: equal-width, label over description, filling the row; they wrap to fewer per row
+     when the container is too narrow for all of them. */
+  .seg.cards { display: flex; flex-wrap: wrap; width: 100%; }
+  .cards button {
+    flex: 1 1 11rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    white-space: normal;
+    text-align: left;
+  }
+  .cards .lbl { font-weight: 650; }
+  .cards .desc { font-size: 0.8em; font-weight: 400; line-height: 1.35; color: var(--muted-foreground); }
+  .cards button.on .desc { color: color-mix(in oklch, var(--foreground) 80%, var(--muted-foreground)); }
 
   /* Touch sizing: padding AND type together, not min-height alone — a touch control should
      look touch-sized, not be a desktop control in a taller box. The shape strip already did
