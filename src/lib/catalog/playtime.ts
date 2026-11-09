@@ -43,3 +43,20 @@ export function playtimeRangeLabel(min: number | null, max: number | null): stri
 	if (max == null) return `${formatMinutes(min)}+`;
 	return `${formatMinutes(min)} – ${formatMinutes(max)}`;
 }
+
+/**
+ * A box's play time as printed on it: "45 min", "30–120 min"; null when it lists none.
+ * `short` drops the word for beside a clock icon: "45m", "30–120m".
+ */
+export function boxPlaytimeLabel(
+	min: number | null | undefined,
+	max: number | null | undefined,
+	short = false
+): string | null {
+	const lo = min || null;
+	const hi = max || null;
+	if (lo == null && hi == null) return null;
+	const unit = short ? 'm' : ' min';
+	if (lo == null || hi == null || lo === hi) return `${lo ?? hi}${unit}`;
+	return `${lo}–${hi}${unit}`;
+}

@@ -6,7 +6,7 @@
  * synchronous BGG fetch here (see docs/superpowers/specs/2026-08-26-collection-filter-design.md).
  */
 import { error, json } from '@sveltejs/kit';
-import { isAdmin } from '$lib/server/auth/admin';
+import { canReadCollection } from '$lib/server/auth/collection-access';
 import { fetchOwnedCollection } from '$lib/server/collections/read';
 import type { RequestHandler } from './$types';
 
@@ -16,8 +16,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const username = url.searchParams.get('username')?.trim();
 	if (!username) throw error(400, 'username is required.');
 
-	const isSelf = locals.user.bgg_username != null && username === locals.user.bgg_username;
-	if (!isAdmin(locals.user) && !isSelf) throw error(403, 'Not authorized for this username.');
+	if (!canReadCollection(locals.user, username)) throw error(403, 'Not authorized for this username.');
 
 	return json(await fetchOwnedCollection(username));
 };
