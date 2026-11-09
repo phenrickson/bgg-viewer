@@ -475,40 +475,43 @@
           </nav>
         {/if}
 
-        <!-- ── Which list ──────────────────────────────────────────────────────── -->
-        {#if shown?.kind === 'styles'}
-          <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
-        {/if}
+        <!-- The picker and its list read as one piece: a tight gap, not the page's. -->
+        <Stack gap="sm">
+          <!-- ── Which list ──────────────────────────────────────────────────────── -->
+          {#if shown?.kind === 'styles'}
+            <SegmentedControl label="Which list" size="md" options={listOptions} value={listKey} onchange={(v) => set({ list: v })} />
+          {/if}
 
-        <!-- ── The answer ────────────────────────────────────────────────────── -->
-        {#if status === 'error'}
-          <p class="msg">{failure}</p>
-        {:else if status === 'loading' && !sections.length}
-          <p class="msg">Looking…</p>
-        {:else if seed && status === 'ready' && !sections.length}
-          <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
-        {:else if seed}
-          {#each sections as s (`${seedId}-${s.key}`)}
-            <!-- The picker names the three lists; only the shelf list needs its own heading. -->
-            <ResultSection
-              title={s.key === 'shelf' ? SECTION_TEXT.shelf.title : ''}
-              blurb={s.key === 'shelf' ? SECTION_TEXT.shelf.blurb : ''}
-              items={toItems(s.hits)}
-              {seed}
-              {freq}
-              {owned}
-              {display}
-              markOwned={pool === 'all'}
-              {whyId}
-              onwhy={toggleWhy}
-              onwalk={walk}
-            >
-              {#snippet headEnd()}
-                <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
-              {/snippet}
-            </ResultSection>
-          {/each}
-        {/if}
+          <!-- ── The answer ────────────────────────────────────────────────────── -->
+          {#if status === 'error'}
+            <p class="msg">{failure}</p>
+          {:else if status === 'loading' && !sections.length}
+            <p class="msg">Looking…</p>
+          {:else if seed && status === 'ready' && !sections.length}
+            <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
+          {:else if seed}
+            {#each sections as s (`${seedId}-${s.key}`)}
+              <!-- The picker names the three lists; only the shelf list needs its own heading. -->
+              <ResultSection
+                title={s.key === 'shelf' ? SECTION_TEXT.shelf.title : ''}
+                blurb={s.key === 'shelf' ? SECTION_TEXT.shelf.blurb : ''}
+                items={toItems(s.hits)}
+                {seed}
+                {freq}
+                {owned}
+                {display}
+                markOwned={pool === 'all'}
+                {whyId}
+                onwhy={toggleWhy}
+                onwalk={walk}
+              >
+                {#snippet headEnd()}
+                  <SegmentedControl label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+                {/snippet}
+              </ResultSection>
+            {/each}
+          {/if}
+        </Stack>
       {/if}
 
       {#if (username && (art === 'missing' || art === 'error')) || data.isAdmin}
