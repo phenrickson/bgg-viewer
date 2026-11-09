@@ -469,7 +469,7 @@
         <div class="chosen-top" bind:this={chosenTop}></div>
         {#if seed}
           {@const sd = seed}
-          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
+          <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact bare>
             {#snippet meta()}
               {#if sd.year_published}<span>{sd.year_published}</span>{/if}
               <SimBadges rating={sd.average_rating} />
