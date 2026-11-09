@@ -248,7 +248,7 @@
   // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
   // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
   // (`?list=`), like the pool. The shelf pool has one list, so no picker there.
-  const LIST_ORDER = ['similar', 'recommender', 'sicko'] as const;
+  const LIST_ORDER = ['recommender', 'similar', 'sicko'] as const;
   type ListKey = (typeof LIST_ORDER)[number];
   const DEFAULT_LIST: ListKey = 'recommender';
 
