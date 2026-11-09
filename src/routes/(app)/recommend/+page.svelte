@@ -492,7 +492,9 @@
         {/if}
 
         <!-- Question and answer as one block, on one medium rhythm. -->
-        <Stack gap="md">
+        <!-- The question sits close on the sheet it describes; the page's gap above it keeps it
+             clear of the chosen game. -->
+        <Stack gap="sm">
           <!-- ── The question: what the tiles are, and the pool ──────────────────────── -->
           <!-- The heading and the pool are one question: "Recommended games like X from …". -->
           <div class="controls">
@@ -504,7 +506,7 @@
               <span class="from">from</span>
               <SegmentedControl label="From" size="md" options={POOL_OPTIONS} value={pool} onchange={(v) => set({ from: v })} />
             {/if}
-            <SegmentedControl class="show-as" label="Show as" size="sm" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
+            <SegmentedControl class="show-as" label="Show as" size="md" options={DISPLAY_OPTIONS} value={display} onchange={setDisplay} />
           </div>
 
           <!-- The tabs and their sheet are one piece: the chosen tab opens into the sheet below. -->
@@ -616,7 +618,8 @@
   .question .list-name { color: var(--foreground); }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
   .controls :global(.show-as) { margin-left: auto; }
-  .from { font-size: 0.95rem; color: var(--muted-foreground); }
+  /* "from" is part of the heading's sentence: the same size and weight as its muted words. */
+  .from { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; color: var(--muted-foreground); }
   .who {
     display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
     margin-top: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--border);

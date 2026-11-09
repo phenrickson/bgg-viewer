@@ -8,7 +8,7 @@
    * `children` (a "why", a description) is the caller's.
    *
    * `onclose` adds a × in the corner, for a hero that sits over other content and can be
-   * dismissed. `compact` is the small size: ~96px art and a heading-size name (Recommend's
+   * dismissed. `compact` is the small size: ~128px art and a heading-size name (Recommend's
    * chosen game).
    *
    * The art is usually BGG's thumbnail (~200px on its long side), so it sits on the left at
@@ -119,10 +119,10 @@
     gap: var(--space-md);
   }
   .compact .art {
-    width: 6rem;
+    width: 8rem;
   }
   .compact .art img {
-    max-height: 6rem;
+    max-height: 8rem;
   }
   .compact h2 {
     font-size: 1.35rem;
