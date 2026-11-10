@@ -426,13 +426,21 @@
   /** The top of the chosen game, so a new pick happens where you're looking. */
   let chosenTop = $state<HTMLElement | null>(null);
 
-  /** Pick a game — from the search, or "Games like this". (Start tiles are links, at the top already.) */
+  /** Pick a game from the search. (Start tiles are links, at the top already.) */
   async function pick(id: number) {
     await set({ id });
     await tick();
     chosenTop?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   }
-  const walk = pick;
+
+  /** The top of the page. */
+  let pageTop = $state<HTMLElement | null>(null);
+  /** "Games like this": back to the top of the page first — at once, so the answer changing
+   *  under it can't cut the scroll short — then the new game, which rises in from there. */
+  async function walk(id: number) {
+    pageTop?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    await set({ id });
+  }
 
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
@@ -567,7 +575,7 @@
 
 <svelte:head><title>Recommend · Boardgame-Viz</title></svelte:head>
 
-<div class="page">
+<div class="page" bind:this={pageTop}>
   <Container size="list">
     <Stack gap="lg">
       <div class="start">
