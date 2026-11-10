@@ -115,7 +115,8 @@
      when the container is too narrow for all of them. */
   /* With descriptions it's a row of TABS: no track; the chosen tab joins the sheet under it
      (the caller draws the sheet — a bordered panel with no top edge, see Recommend), the
-     others sit behind it as plain labels. */
+     others are the same outlined shape on a muted fill, sitting behind it — so the row is even
+     and every tab looks pressable, not just the chosen one. */
   .seg.cards {
     position: relative;
     display: flex;
@@ -135,17 +136,17 @@
     align-items: flex-start;
     gap: 0.15rem;
     margin-bottom: -1px;
-    border: 1px solid transparent;
+    border: 1px solid var(--border);
     border-bottom: none;
     border-radius: var(--radius) var(--radius) 0 0;
-    background: none;
+    background: var(--muted);
     white-space: normal;
     text-align: left;
   }
   .cards .lbl { font-weight: 650; }
   .cards .desc { font-size: 0.8em; font-weight: 400; line-height: 1.35; color: var(--muted-foreground); }
   .cards button:hover:not(.on):not(:disabled) {
-    background: color-mix(in oklch, var(--card) 60%, transparent);
+    background: var(--card);
   }
   /* The chosen tab: the sheet's own background and border, with no bottom edge, so it and the
      sheet are one piece. */
