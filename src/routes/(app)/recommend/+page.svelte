@@ -78,7 +78,7 @@
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
     ownedIds = [];
-    shelfSeeds = [];
+    shelfIds = [];
     collection = 'loading';
     try {
       const ids = await readOwned(u);
@@ -491,40 +491,66 @@
   /** The favourites row draws from this many of the catalog's best-rated games. */
   const FAVOURITES_FROM = 100;
 
-  /** Ids from a query, as catalog rows in the same order. */
-  async function rowsFor(sql: string): Promise<Game[]> {
-    const ids = (await query<{ id: number }>(sql)).map((x) => Number(x.id));
+  // Each Start row is two steps: which games (once), then their catalog rows. Box art lands
+  // after the catalog, so only the second step re-runs when it does — the row fills in with
+  // the same games instead of re-drawing (the favourites are random).
+
+  /** Ids from a query, in its order. */
+  async function idsFor(sql: string): Promise<number[]> {
+    return (await query<{ id: number }>(sql)).map((x) => Number(x.id));
+  }
+
+  /** Catalog rows for `ids`, in the same order. */
+  async function inOrder(ids: number[]): Promise<Game[]> {
     const m = await games(ids);
     return ids.flatMap((id) => m.get(id) ?? []);
   }
 
   // I want games like…: a random handful of well-known games for everyone, drawn once per
   // visit from the catalog's best-rated — and, with a collection, your top-rated owned games.
-  let favourites = $state<Game[]>([]);
+  let favouriteIds = $state.raw<number[]>([]);
   $effect(() => {
     if (catalog.status !== 'ready') return;
-    rowsFor(
+    idsFor(
       `SELECT game_id AS id FROM (
          SELECT game_id FROM catalog WHERE geek_rating IS NOT NULL
          ORDER BY geek_rating DESC LIMIT ${FAVOURITES_FROM}
        ) ORDER BY random() LIMIT ${SEEDS_PER_ROW}`
     )
-      .then((g) => (favourites = g))
+      .then((ids) => (favouriteIds = ids))
       .catch((e) => console.error('favourites failed', e));
   });
 
-  let shelfSeeds = $state<Game[]>([]);
+  let favourites = $state.raw<Game[]>([]);
+  $effect(() => {
+    const ids = favouriteIds;
+    catalog.thumbnailsReady;
+    inOrder(ids)
+      .then((g) => ids === favouriteIds && (favourites = g))
+      .catch((e) => console.error('favourites failed', e));
+  });
+
+  let shelfIds = $state.raw<number[]>([]);
   let shelfToken = 0;
   $effect(() => {
     // Only games the shelf pools can answer for (in the artifact). A newer collection (or none)
     // drops an older query's late answer, so a switched-away shelf never comes back.
     const mine = ++shelfToken;
     if (!owned.size) return;
-    rowsFor(
+    idsFor(
       `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
        ORDER BY geek_rating DESC NULLS LAST LIMIT ${SEEDS_PER_ROW}`
     )
-      .then((g) => mine === shelfToken && (shelfSeeds = g))
+      .then((ids) => mine === shelfToken && (shelfIds = ids))
+      .catch((e) => console.error('shelf seeds failed', e));
+  });
+
+  let shelfSeeds = $state.raw<Game[]>([]);
+  $effect(() => {
+    const ids = shelfIds;
+    catalog.thumbnailsReady;
+    inOrder(ids)
+      .then((g) => ids === shelfIds && (shelfSeeds = g))
       .catch((e) => console.error('shelf seeds failed', e));
   });
 
