@@ -27,6 +27,7 @@
    * the why only, so a tile does one thing.
    */
   import type { Snippet } from 'svelte';
+  import { slide } from 'svelte/transition';
   import { AutoGrid } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import GameTile from '$lib/catalog/GameTile.svelte';
@@ -115,8 +116,28 @@
     ro.observe(node);
     return { destroy: () => ro.disconnect() };
   }
+  /** How long the why takes to slide open — none for anyone who asks for less motion. */
+  let openMs = $state(220);
+  let smooth = $state<ScrollBehavior>('smooth');
+  $effect(() => {
+    try {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        openMs = 0;
+        smooth = 'auto';
+      }
+    } catch {
+      // No matchMedia: keep the motion.
+    }
+  });
+  /** Once open, the panel scrolls into view if any of it is off screen — as little as it takes. */
+  function reveal(body: EventTarget & HTMLElement) {
+    body.closest('.why')?.scrollIntoView({ block: 'nearest', behavior: smooth });
+  }
+
   // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
   const shown = $derived(items);
+  /** A why is open on one of these games: the rest step back. */
+  const focused = $derived(whyId != null && items.some((g) => g.game_id === whyId));
   const whyOf = (g: Item) => explain(seed, g, freq);
   const gameHref = (id: number) => `/games/${id}`;
   /** "an 84% match", "a 72% match": "an" before a number said with a vowel (8, 11, 18, 80s). */
@@ -126,7 +147,7 @@
   }
 </script>
 
-<section class="sec">
+<section class="sec" class:focused>
   <!-- No header at all when nothing names the list, so it starts right under the picker. -->
   {#if title || blurb || headEnd}
     <header>
@@ -150,9 +171,10 @@
        full-width grid item after its tile (the grid packs densely, so the tiles after it
        backfill their row and the panel lands under that row). -->
   {#snippet whyPanel(g: Item)}
-    <!-- Joined to its game. -->
+    <!-- Joined to its game. The box appears at once; its contents slide it open, then the page
+         brings the whole of it into view. -->
     <div class="why" data-full use:join>
-      <div class="why-body">
+      <div class="why-body" transition:slide|global={{ duration: openMs }} onintroend={(e) => reveal(e.currentTarget)}>
         <div class="why-head">
           <!-- PLACEHOLDER copy (Phil). Muted, with only the game's name at full colour, like the
                page's "Recommended games like …" heading. -->
@@ -241,6 +263,15 @@
     container-type: inline-size;
   }
   .why-body { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+  /* While a why is open, the other games step back: the open game and its panel are what's
+     left at full strength. They stay clickable (another click moves the why to that game), and
+     come back on hover so it's clear they still are. */
+  /* (On the tile, not the cell: the cell's rise-in holds its own opacity at 1 once it's done.) */
+  .cell > :global(*) { transition: opacity 180ms ease; }
+  .focused .cell:not(.open) > :global(*) { opacity: 0.35; }
+  .focused .cell:not(.open):hover > :global(*) { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .cell > :global(*) { transition: none; } }
 
   /* ── The open game joins its why: one outline, as a list tab opens onto its sheet ───────── */
   /* Above the panel, and reaching down across the row gap and onto the panel's top border, so
