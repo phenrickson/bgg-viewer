@@ -694,9 +694,13 @@ export function withUniverseChoice(scope: Scope, choice: UniverseChoice): Scope 
 
 /** Parse a scope back from URLSearchParams, falling back to defaults. */
 export function scopeFromParams(params: URLSearchParams): Scope {
+	// Split on the list's own commas only. `scopeToParams` joins with a bare ',', while BGG tag
+	// names carry commas of their own, always followed by a space ("Deck, Bag, and Pool
+	// Building") — so a comma with a space after it is part of a name, and links already
+	// shared in the old form read the same.
 	const list = (key: string) =>
 		(params.get(key) ?? '')
-			.split(',')
+			.split(/,(?! )/)
 			.map((s) => s.trim())
 			.filter(Boolean);
 	/**

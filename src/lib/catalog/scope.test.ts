@@ -745,3 +745,24 @@ describe('play time', () => {
 		);
 	});
 });
+
+describe('tag lists in the URL', () => {
+	// BGG tag names carry commas of their own ("Deck, Bag, and Pool Building"), always with a
+	// space after; the list's own separators never have one.
+	const deck = 'Deck, Bag, and Pool Building';
+
+	it('keeps a tag with commas in its name whole', () => {
+		const s = scopeFromParams(new URLSearchParams({ mechs: `${deck},Hand Management` }));
+		expect(s.mechanics).toEqual([deck, 'Hand Management']);
+	});
+
+	it('round-trips through scopeToParams', () => {
+		const s = { ...scopeFromParams(new URLSearchParams()), mechanics: [deck, 'Cooperative Game'] };
+		expect(scopeFromParams(scopeToParams(s)).mechanics).toEqual([deck, 'Cooperative Game']);
+	});
+
+	it('still reads an ordinary list', () => {
+		const s = scopeFromParams(new URLSearchParams('cats=Fantasy,Party Game'));
+		expect(s.categories).toEqual(['Fantasy', 'Party Game']);
+	});
+});
