@@ -47,7 +47,11 @@ export const CATEGORY_CHIPS: CategoryChip[] = [
   { label: 'Cooperative', field: 'mechanics', value: 'Cooperative Game' },
   { label: 'Economic', field: 'categories', value: 'Economic' },
   { label: 'Abstract', field: 'categories', value: 'Abstract Strategy' },
-  { label: 'Wargame', field: 'categories', value: 'Wargame' }
+  { label: 'Wargame', field: 'categories', value: 'Wargame' },
+  // Added 2026-11-10 (Phil) to fill the question's second line beside "How many players?".
+  // Rated games (users_rated >= 30) in the Jan 2026 snapshot: deck-building 1,158, Trains 452.
+  { label: 'Deck Building', field: 'mechanics', value: 'Deck, Bag, and Pool Building' },
+  { label: 'Trains', field: 'categories', value: 'Trains' }
 ];
 
 /**
