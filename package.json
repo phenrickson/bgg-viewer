@@ -1,7 +1,7 @@
 {
 	"name": "bgg-viewer",
 	"private": true,
-	"version": "0.0.27",
+	"version": "0.0.30",
 	"type": "module",
 	"engines": {
 		"node": ">=20"
@@ -15,7 +15,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"test": "vitest run --passWithNoTests",
-		"landing:content": "node scripts/build-landing-content.js"
+		"landing:content": "node scripts/build-landing-content.js",
+		"bundle:mm": "vite build --config vite.bundle.config.ts"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.0",

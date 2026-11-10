@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.30](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.29...bgg-viewer-v0.0.30) (2026-11-10)
+
+
+### Features
+
+* **recommend:** BggRank bundle for embedding ranking on other sites ([#94](https://github.com/phenrickson/bgg-viewer/issues/94)) ([44d7eae](https://github.com/phenrickson/bgg-viewer/commit/44d7eaeb6e5045081d0f8b07ccf690a2427d2994))
+
+## [0.0.29](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.28...bgg-viewer-v0.0.29) (2026-11-09)
+
+
+### Features
+
+* **recommend:** rank anywhere locally, 10/25/50 per list ([#92](https://github.com/phenrickson/bgg-viewer/issues/92)) ([922c5ab](https://github.com/phenrickson/bgg-viewer/commit/922c5abb8bf2bfa711d883494ff98d41a2ae1db4))
+
+## [0.0.28](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.27...bgg-viewer-v0.0.28) (2026-11-09)
+
+
+### Features
+
+* **recommend:** Recommend tool with shelf answers ranked in the browser ([#90](https://github.com/phenrickson/bgg-viewer/issues/90)) ([8a90859](https://github.com/phenrickson/bgg-viewer/commit/8a908597825b0fc76dc5b1ddd46b7a93328052ac))
+
 ## [0.0.27](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.26...bgg-viewer-v0.0.27) (2026-10-06)
 
 

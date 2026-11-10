@@ -1,17 +1,22 @@
 <script lang="ts">
   /**
    * Jump-to-a-game search — a name type-ahead over the in-browser catalog that navigates
-   * to the game's detail page, or hands the pick to `onpick`. Used big on the landing and
-   * compact in the app header, so you can reach any game's page from anywhere. Warms the
-   * catalog on first focus.
+   * to the game's detail page. Used big on the landing and compact in the app header, so
+   * you can reach any game's page from anywhere. Warms the catalog on first focus.
    */
   import { goto } from '$app/navigation';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
 
-  let { compact = false, onpick }: {
+  let {
+    compact = false,
+    onpick,
+    busy
+  }: {
     compact?: boolean;
-    /** Pick a game in place instead of opening its page (e.g. /dev/genealogy's centre). */
-    onpick?: (id: number) => void;
+    /** Something else the page is still loading, said in the box once the catalog is in. */
+    busy?: string;
+    /** When set, a pick calls this instead of navigating to the game's page. */
+    onpick?: (id: number, name: string) => void;
   } = $props();
 
   type Hit = { game_id: number; name: string; year_published: number | null };
@@ -41,16 +46,18 @@
       .catch((e) => console.error('search failed', e));
   });
 
-  function open(id: number) {
+  function open(id: number, name: string) {
     q = '';
     hits = [];
     active = false;
-    if (onpick) onpick(id);
+    if (onpick) onpick(id, name);
     else goto(`/games/${id}`);
   }
 
   const placeholder = $derived(
-    catalog.status === 'ready' || catalog.status === 'idle' ? 'Jump to a game…' : 'Warming the catalog…'
+    catalog.status === 'ready' || catalog.status === 'idle'
+      ? busy ?? (onpick ? 'Pick a game…' : 'Jump to a game…')
+      : 'Warming the catalog…'
   );
 </script>
 
@@ -69,7 +76,7 @@
     <ul class="menu">
       {#each hits as h}
         <li>
-          <button onmousedown={() => open(h.game_id)}>
+          <button onmousedown={() => open(h.game_id, h.name)}>
             <span class="nm">{h.name}</span>
             {#if h.year_published}<span class="yr tnum">{h.year_published}</span>{/if}
           </button>
@@ -95,5 +102,8 @@
   .menu button:hover { background: var(--muted); }
   .menu .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
   .menu .yr { color: var(--muted-foreground); font-size: 0.82rem; }
+  /* On the full-width bar a right-aligned year sits a screen away from its name; keep it
+     beside the name. The compact header menu is narrow enough that right-aligned reads fine. */
+  .gs:not(.compact) .menu .nm { flex: 0 1 auto; }
   .tnum { font-variant-numeric: tabular-nums; }
 </style>
