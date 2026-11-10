@@ -40,6 +40,7 @@
   import ClockIcon from '@lucide/svelte/icons/clock';
   import { similarityPct } from '$lib/game/similarity';
   import WhyMatch from './WhyMatch.svelte';
+  import TagChip from '$lib/game/TagChip.svelte';
 
   let {
     /** Heading and blurb; left out when something above already names the list (the
@@ -164,6 +165,20 @@
   const focused = $derived(whyId != null && items.some((g) => g.game_id === whyId));
   const whyOf = (g: Item) => explain(seed, g, freq);
   const gameHref = (id: number) => `/games/${id}`;
+
+  // --- What a game shares with the seed, for the list's rows ---------------------------------
+  // The why's own shared tags (the model's view: mechanics, categories, kept families), merged
+  // and rarest first across kinds, so the most telling overlap leads. The row shows the first
+  // three (Phil, 2026-11-10); the why has them all.
+  const CHIP_KIND = { mechanics: 'mech', categories: 'cat', families: 'fam' } as const;
+  const SHARED_MAX = 3;
+  function sharedOf(g: Item) {
+    const shared = whyOf(g).shared;
+    return (Object.keys(CHIP_KIND) as (keyof typeof CHIP_KIND)[])
+      .flatMap((k) => shared[k].map((tag) => ({ kind: CHIP_KIND[k], tag, n: freq[k].get(tag) ?? 0 })))
+      .sort((x, y) => x.n - y.n)
+      .slice(0, SHARED_MAX);
+  }
   /** "an 84% match", "a 72% match": "an" before a number said with a vowel (8, 11, 18, 80s). */
   function matchText(similarity: number): string {
     const pct = Math.round(similarityPct(similarity));
@@ -214,8 +229,11 @@
 
   {#if display === 'list'}
     <div class="list">
-      {#each shown as g (g.game_id)}
+      {#each shown as g, i (g.game_id)}
         <div class="cell" class:open={whyId === g.game_id} use:rise>
+        <!-- Its place in the list: the order is the answer (Recommended blends match with
+             standing, so it isn't sorted by SIM). -->
+        <span class="rank">{i + 1}</span>
         <SimilarRow
           href={gameHref(g.game_id)}
           name={g.name}
@@ -229,6 +247,12 @@
           <span class="row-facts">
             {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span>{/if}{@render factsOf(g)}
           </span>
+          {#snippet middle()}
+            {@const tags = sharedOf(g)}
+            {#if tags.length}
+              <span class="shares">{#each tags as t (`${t.kind}:${t.tag}`)}<TagChip kind={t.kind} tag={t.tag} filled link={false} />{/each}</span>
+            {/if}
+          {/snippet}
         </SimilarRow>
         </div>
         {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
@@ -236,9 +260,10 @@
     </div>
   {:else}
     <AutoGrid min="md" gap="md" class="why-grid">
-      {#each shown as g (g.game_id)}
+      {#each shown as g, i (g.game_id)}
         <div class="cell" class:open={whyId === g.game_id} use:rise>
         <GameTile
+          rank={i + 1}
           href={gameHref(g.game_id)}
           name={g.name}
           year={g.year_published}
@@ -280,8 +305,46 @@
   .list :global(.row) { background: var(--card); }
   .sec :global(.why-grid) { grid-auto-flow: row dense; }
   /* Each game's wrapper (it carries the rise-in): the tile or row fills it. */
-  .cell { display: flex; min-width: 0; }
+  .cell { position: relative; display: flex; min-width: 0; }
   .cell > :global(*) { flex: 1; }
+
+  /* ── Rank: the order is the answer ─────────────────────────────────────────────────────── */
+  /* The list: a gutter of numbers to the left of the rows. */
+  .list .cell { align-items: center; gap: var(--rank-gap); }
+  .list { --rank-w: 1.75rem; --rank-gap: 0.6rem; }
+  .cell > .rank {
+    flex: none;
+    width: var(--rank-w);
+    text-align: right;
+    font-size: 0.9rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground);
+  }
+  /* (The cards carry theirs as a badge on the art's corner: GameTile's `rank`.) */
+
+  /* ── The list's shared tags: one line, as many whole chips as fit ─────────────────────── */
+  .shares {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.55rem;
+    overflow: hidden;
+  }
+  .shares > :global(*) { white-space: nowrap; }
+  /* A long tag ("Players: Games with expansions that change player count") is cut to the width
+     of an ordinary one — the full name on hover — so it can't fill the line and look like the
+     only thing the games share. */
+  .shares > :global(.chip) {
+    display: inline-block;
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Their own colours, stepped back a little, so a row of them doesn't out-shout the game's
+     name and scores. Labels here, not links: the whole row opens the why. */
+  .sec .shares > :global(.chip) { opacity: 0.7; }
   .why {
     position: relative;
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
@@ -318,7 +381,13 @@
   /* The list: a row spans the panel's whole width, so the panel tucks up under it and the
      two become one box. */
   .list .cell.open { margin-bottom: 0; }
-  .list .why { margin-top: calc(-0.4rem - 1px); border-top-left-radius: 0; border-top-right-radius: 0; }
+  .list .why {
+    margin-top: calc(-0.4rem - 1px);
+    /* Under the row, not the rank gutter. */
+    margin-left: calc(var(--rank-w) + var(--rank-gap));
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
   .sec .list .cell.open :global(.row) {
     border-bottom-color: var(--card);
     border-bottom-left-radius: 0;

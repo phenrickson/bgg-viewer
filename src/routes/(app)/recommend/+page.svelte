@@ -31,7 +31,7 @@
   import { Container, Stack } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
-  import type { TagFrequencies } from '$lib/recommend/why';
+  import { isEmbeddingFamily, type TagFrequencies } from '$lib/recommend/why';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
@@ -462,6 +462,9 @@
 
   /** Categories, and mechanics, shown on the chosen game: the first few of each. */
   const SEED_TAGS = 4;
+  /** The chosen game's families — only the ones the model reads (Players:, Category…), the ones
+   *  a result's "Shares" can name, so the rows have something here to point back to. */
+  const seedFams = $derived((seed?.families ?? []).filter(isEmbeddingFamily));
 
   // PLACEHOLDER copy (Phil): the pool labels.
   const POOL_OPTIONS: { value: Pool; label: string }[] = [
@@ -626,10 +629,11 @@
                 {#if sd.designers?.length}
                   <p class="by">by {sd.designers.slice(0, 3).join(', ')}{sd.designers.length > 3 ? ` +${sd.designers.length - 3}` : ''}</p>
                 {/if}
-                {#if sd.categories?.length || sd.mechanics?.length}
+                {#if sd.categories?.length || sd.mechanics?.length || seedFams.length}
                   <div class="tags">
                     {#each (sd.categories ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="cat" tag={t} />{/each}
                     {#each (sd.mechanics ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="mech" tag={t} />{/each}
+                    {#each seedFams as t (t)}<TagChip kind="fam" tag={t} />{/each}
                   </div>
                 {/if}
               </div>
