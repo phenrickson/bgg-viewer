@@ -95,6 +95,26 @@
     node.classList.add('rise-in');
   }
 
+  // --- The why joins the game it's about -----------------------------------------------------
+  // The open game's tile reaches down into the panel (see `.cell.open`), the two one outline,
+  // like the list tabs open onto their sheet. Where the tile stands over the panel's own corner
+  // (first or last column), that corner squares off so the edges run straight on. The panel is
+  // the grid item right after the game's cell; checked again whenever its width changes (the
+  // grid reflows with it).
+  function join(node: HTMLElement) {
+    const place = () => {
+      const cell = node.previousElementSibling;
+      if (!cell) return;
+      const t = cell.getBoundingClientRect();
+      const p = node.getBoundingClientRect();
+      node.toggleAttribute('data-join-start', Math.abs(t.left - p.left) < 2);
+      node.toggleAttribute('data-join-end', Math.abs(t.right - p.right) < 2);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(node);
+    return { destroy: () => ro.disconnect() };
+  }
   // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
   const shown = $derived(items);
   const whyOf = (g: Item) => explain(seed, g, freq);
@@ -130,21 +150,24 @@
        full-width grid item after its tile (the grid packs densely, so the tiles after it
        backfill their row and the panel lands under that row). -->
   {#snippet whyPanel(g: Item)}
-    <div class="why" data-full>
-      <div class="why-head">
-        <!-- PLACEHOLDER copy (Phil). Muted, with only the game's name at full colour, like the
-             page's "Recommended games like …" heading. -->
-        <p class="why-title">Why <span class="nm">{g.name}</span> is {matchText(g.similarity)}</p>
-        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
+    <!-- Joined to its game. -->
+    <div class="why" data-full use:join>
+      <div class="why-body">
+        <div class="why-head">
+          <!-- PLACEHOLDER copy (Phil). Muted, with only the game's name at full colour, like the
+               page's "Recommended games like …" heading. -->
+          <p class="why-title">Why <span class="nm">{g.name}</span> is {matchText(g.similarity)}</p>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => onwhy(g.game_id)}>×</Button>
+        </div>
+        <WhyMatch why={whyOf(g)} {seed} other={g} onwalk={() => onwalk(g.game_id)} />
       </div>
-      <WhyMatch why={whyOf(g)} {seed} other={g} onwalk={() => onwalk(g.game_id)} />
     </div>
   {/snippet}
 
   {#if display === 'list'}
     <div class="list">
       {#each shown as g (g.game_id)}
-        <div class="cell" use:rise>
+        <div class="cell" class:open={whyId === g.game_id} use:rise>
         <SimilarRow
           href={gameHref(g.game_id)}
           name={g.name}
@@ -166,7 +189,7 @@
   {:else}
     <AutoGrid min="md" gap="md" class="why-grid">
       {#each shown as g (g.game_id)}
-        <div class="cell" use:rise>
+        <div class="cell" class:open={whyId === g.game_id} use:rise>
         <GameTile
           href={gameHref(g.game_id)}
           name={g.name}
@@ -212,10 +235,37 @@
   .cell { display: flex; min-width: 0; }
   .cell > :global(*) { flex: 1; }
   .why {
-    display: flex; flex-direction: column; gap: var(--space-sm);
+    position: relative;
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--card);
     container-type: inline-size;
+  }
+  .why-body { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+  /* ── The open game joins its why: one outline, as a list tab opens onto its sheet ───────── */
+  /* Above the panel, and reaching down across the row gap and onto the panel's top border, so
+     its fill covers that stretch of border and the two read as one shape. */
+  .cell.open { position: relative; z-index: 1; margin-bottom: calc(-1 * var(--grid-gap) - 1px); }
+  /* A tile's outline is a ring, which can't drop a side: the open one draws its other three
+     edges in the panel's border colour instead, and squares its bottom corners. */
+  .cell.open > :global(.tile) {
+    box-shadow: inset 1px 0 0 var(--border), inset -1px 0 0 var(--border), inset 0 1px 0 var(--border);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  /* Where the tile stands over the panel's corner, the corner squares off so the edge runs on. */
+  /* (Set from script by `join`, so marked global: the compiler can't see them in the markup.) */
+  .why:global([data-join-start]) { border-top-left-radius: 0; }
+  .why:global([data-join-end]) { border-top-right-radius: 0; }
+
+  /* The list: a row spans the panel's whole width, so the panel tucks up under it and the
+     two become one box. */
+  .list .cell.open { margin-bottom: 0; }
+  .list .why { margin-top: calc(-0.4rem - 1px); border-top-left-radius: 0; border-top-right-radius: 0; }
+  .sec .list .cell.open :global(.row) {
+    border-bottom-color: var(--card);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
   .why-title { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--muted-foreground); }
   .why-title .nm { color: var(--foreground); }
