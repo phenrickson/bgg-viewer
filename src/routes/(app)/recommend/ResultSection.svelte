@@ -17,7 +17,7 @@
 
 <script lang="ts">
   /**
-   * The list Recommend's answer shows — Recommended, Most similar, Dark horses (the page's
+   * The list Recommend's answer shows — Recommended, Most similar, Lesser known (the page's
    * picker chooses which), or the one shelf list: an optional heading and blurb, then its games — as tiles or as the game page's similar-games rows (all of them).
    *
    * Each game says what it IS — complexity, players, play time — not what it shares with the
@@ -43,7 +43,7 @@
 
   let {
     /** Heading and blurb; left out when something above already names the list (the
-     *  page's Recommended / Most Similar / Dark Horses picker). */
+     *  page's Recommended / Most Similar / Lesser Known picker). */
     title = '',
     blurb = '',
     items,

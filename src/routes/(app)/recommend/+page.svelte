@@ -11,7 +11,7 @@
    * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
    * and the list picker. Each result opens its game page; its match score opens "why";
    * "Games like this" walks on from it. The answer is one list, picked from cards: the three precomputed
-   * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
+   * lists (Recommended, Most similar, Lesser known), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
    * fetched (collection artifact, precomputed lists, the live pooled query) is
    * `$lib/recommend/sources.ts` and never shows as a choice.
@@ -354,7 +354,7 @@
     done(p === 'shelf' ? rankShelf(vectors, id, owned, n) : rankCatalog(vectors, id, owned, n), 'local');
   });
 
-  // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
+  // --- Which list: Most Similar / Recommended / Lesser Known ---------------------------------
   // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
   // (`?list=`), like the pool. Every pool answers with the same three lists.
   const LIST_ORDER = ['recommender', 'similar', 'sicko'] as const;

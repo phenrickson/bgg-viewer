@@ -27,7 +27,7 @@
    *
    * With descriptions it's a row of cards rather than a pill track: the same choice, for when
    * the options need a line each to be told apart (Recommend's Recommended / Most Similar /
-   * Dark Horses).
+   * Lesser Known).
    *
    * `aria-pressed` buttons in a labelled group: they apply immediately, which is what a toggle
    * button in a group carries.
