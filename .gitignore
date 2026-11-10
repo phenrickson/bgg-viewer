@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 # brainstorming visual companion
 .superpowers/
+
+# BggRank bundle build output (pnpm bundle:mm); consumers commit their own copy
+dist-bundle/
