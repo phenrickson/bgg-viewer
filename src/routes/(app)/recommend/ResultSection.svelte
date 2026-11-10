@@ -129,9 +129,33 @@
       // No matchMedia: keep the motion.
     }
   });
-  /** Once open, the panel scrolls into view if any of it is off screen — as little as it takes. */
+  /** Room kept between the open pair and the edges of the screen when scrolling to them. */
+  const REVEAL_GAP = 16;
+  /** The element that scrolls `el` — the page's own scroll area, or the document. */
+  function scrollerOf(el: HTMLElement): HTMLElement {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowY;
+      if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    }
+    return document.scrollingElement as HTMLElement;
+  }
+  /**
+   * Once open, scroll as little as it takes to show the whole panel — but never so far that the
+   * game it's about leaves the top of the screen. A panel too tall for both stops with its game
+   * at the top and runs on below. Never scrolls up. (The panel follows its game's cell.)
+   */
   function reveal(body: EventTarget & HTMLElement) {
-    body.closest('.why')?.scrollIntoView({ block: 'nearest', behavior: smooth });
+    const panel = body.closest<HTMLElement>('.why');
+    const cell = panel?.previousElementSibling;
+    if (!panel || !cell) return;
+    const scroller = scrollerOf(panel);
+    const doc = scroller === document.scrollingElement;
+    const view = doc ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect();
+    const short = panel.getBoundingClientRect().bottom + REVEAL_GAP - view.bottom;
+    if (short <= 0) return;
+    const room = cell.getBoundingClientRect().top - REVEAL_GAP - view.top;
+    const by = Math.min(short, room);
+    if (by > 0) scroller.scrollBy({ top: by, behavior: smooth });
   }
 
   // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
@@ -174,7 +198,9 @@
     <!-- Joined to its game. The box appears at once; its contents slide it open, then the page
          brings the whole of it into view. -->
     <div class="why" data-full use:join>
-      <div class="why-body" transition:slide|global={{ duration: openMs }} onintroend={(e) => reveal(e.currentTarget)}>
+      <!-- Slides open only: closing is instant, so the tile, the panel and the games around them
+           never come apart mid-animation. -->
+      <div class="why-body" in:slide|global={{ duration: openMs }} onintroend={(e) => reveal(e.currentTarget)}>
         <div class="why-head">
           <!-- PLACEHOLDER copy (Phil). Muted, with only the game's name at full colour, like the
                page's "Recommended games like …" heading. -->
