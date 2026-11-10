@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.30](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.29...bgg-viewer-v0.0.30) (2026-11-10)
+
+
+### Features
+
+* **recommend:** BggRank bundle for embedding ranking on other sites ([#94](https://github.com/phenrickson/bgg-viewer/issues/94)) ([44d7eae](https://github.com/phenrickson/bgg-viewer/commit/44d7eaeb6e5045081d0f8b07ccf690a2427d2994))
+
 ## [0.0.29](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.28...bgg-viewer-v0.0.29) (2026-11-09)
 
 
