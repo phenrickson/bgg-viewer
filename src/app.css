@@ -307,3 +307,18 @@ html {
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Rise-in: an element rises into place as it appears, a beat after the one before it. Set
+   `--rise-i` (0, 1, 2…) on each for its place in the stagger. Answers a reader's own action
+   (a load, a pick), so it's off for anyone who asks for less motion. */
+.rise-in {
+  animation: rise-in 420ms ease-out both;
+  animation-delay: calc(var(--rise-i, 0) * 70ms);
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise-in { animation: none; }
+}

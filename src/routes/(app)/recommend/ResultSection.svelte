@@ -56,7 +56,9 @@
     onwhy,
     onwalk,
     /** Extra controls at the end of the header (the page puts Cards | List on the first). */
-    headEnd
+    headEnd,
+    /** Beats to wait before the first game rises — the page leads with the chosen game. */
+    lead = 0
   }: {
     title?: string;
     blurb?: string;
@@ -70,7 +72,28 @@
     onwhy: (id: number) => void;
     onwalk: (id: number) => void;
     headEnd?: Snippet;
+    lead?: number;
   } = $props();
+
+  // --- Rising in: games new on screen rise a beat apart (the app's `.rise-in`) ----------------
+  // Decided once, as a game's element is created: a longer list adds its new games without
+  // replaying the ones above them, and switching Cards | List lays every game out again, so all
+  // of them rise. Games created together share one stagger, which stops after RISE_CAP beats so
+  // 50 games don't take seconds to arrive.
+  const RISE_CAP = 10;
+  let batch = 0;
+  let batchOpen = false;
+  function rise(node: HTMLElement) {
+    if (!batchOpen) {
+      batchOpen = true;
+      queueMicrotask(() => {
+        batch = 0;
+        batchOpen = false;
+      });
+    }
+    node.style.setProperty('--rise-i', String(lead + Math.min(batch++, RISE_CAP)));
+    node.classList.add('rise-in');
+  }
 
   // Every game shows, as tiles or as rows (Phil, 2026-11-09: all 10 by default, no "All").
   const shown = $derived(items);
@@ -121,6 +144,7 @@
   {#if display === 'list'}
     <div class="list">
       {#each shown as g (g.game_id)}
+        <div class="cell" use:rise>
         <SimilarRow
           href={gameHref(g.game_id)}
           name={g.name}
@@ -135,12 +159,14 @@
             {#if markOwned && owned.has(g.game_id)}<span class="own">On your shelf</span>{/if}{@render factsOf(g)}
           </span>
         </SimilarRow>
+        </div>
         {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
     </div>
   {:else}
     <AutoGrid min="md" gap="md" class="why-grid">
       {#each shown as g (g.game_id)}
+        <div class="cell" use:rise>
         <GameTile
           href={gameHref(g.game_id)}
           name={g.name}
@@ -154,6 +180,7 @@
         >
           {#snippet facts()}{@render factsOf(g)}{/snippet}
         </GameTile>
+        </div>
         {#if g.game_id === whyId}{@render whyPanel(g)}{/if}
       {/each}
     </AutoGrid>
@@ -181,6 +208,9 @@
      the game page, where its rows sit inside a card.) */
   .list :global(.row) { background: var(--card); }
   .sec :global(.why-grid) { grid-auto-flow: row dense; }
+  /* Each game's wrapper (it carries the rise-in): the tile or row fills it. */
+  .cell { display: flex; min-width: 0; }
+  .cell > :global(*) { flex: 1; }
   .why {
     display: flex; flex-direction: column; gap: var(--space-sm);
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);

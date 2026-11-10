@@ -11,13 +11,10 @@
    * wrapped orphan on a second line. The tiles past that are `display: none`, so they leave
    * the tab order too, rather than hiding behind an overflow a keyboard can still reach.
    *
-   * `rise` gives the row its one load-in: the tiles rise into place a beat apart, and not at
-   * all for anyone who asks for less motion.
+   * `rise` gives the row its one load-in: the tiles rise into place a beat apart (the app's
+   * `.rise-in`), and not at all for anyone who asks for less motion.
    */
   import GameTile from './GameTile.svelte';
-
-  /** The stagger between tiles in the load-in. */
-  const RISE_STAGGER_MS = 70;
 
   let {
     games,
@@ -36,7 +33,7 @@
 <div class="wrap">
   <ul class="row" aria-label={label}>
     {#each games as g, i (g.game_id)}
-      <li class:rise style={rise ? `animation-delay: ${i * RISE_STAGGER_MS}ms` : undefined}>
+      <li class:rise-in={rise} style={rise ? `--rise-i: ${i}` : undefined}>
         <GameTile compact href={hrefFor(g.game_id)} name={g.name} year={g.year_published} thumbnail={g.thumbnail} />
       </li>
     {/each}
@@ -71,13 +68,4 @@
     .row > li:nth-child(n + 3) { display: none; }
   }
   .row > li:nth-child(n + 7) { display: none; }
-
-  .rise { animation: tile-row-rise 420ms ease-out both; }
-  @keyframes tile-row-rise {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .rise { animation: none; }
-  }
 </style>

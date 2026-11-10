@@ -20,7 +20,6 @@
    * embedding's own inputs.
    */
   import { untrack, tick } from 'svelte';
-  import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
@@ -308,6 +307,12 @@
    *  one's answer as if it were current. */
   let listsFor = $state('');
 
+  /** Beats the answer waits before rising: a new game leads with its own panel, then its
+   *  matches; the same game asked differently (pool, how many) just shows the new matches. */
+  const NEW_GAME_LEAD = 2;
+  let lead = $state(0);
+  let answeredId: number | null = null;
+
   let token = 0;
   $effect(() => {
     const id = seedId;
@@ -320,6 +325,8 @@
       lists = out;
       listsSource = from;
       listsFor = `${id}|${p}|${n}`;
+      lead = id !== answeredId ? NEW_GAME_LEAD : 0;
+      answeredId = id;
       status = 'ready';
     };
     if (p === 'all') {
@@ -399,8 +406,9 @@
   // --- The walk: "Games like this" -----------------------------------------------------------
   // --- Showing that the answer changed ------------------------------------------------------
   // Answers land in milliseconds, so a change is easy to miss. While one is on its way the
-  // current tiles dim (and stop taking clicks); when it lands the list fades in. Motion answers
-  // the reader's own click, and is off under prefers-reduced-motion.
+  // current tiles dim (and stop taking clicks); when it lands its games rise in a beat apart —
+  // after the chosen game's own panel, for a new game (the app's `.rise-in`, as Start's rows
+  // load). Motion answers the reader's own click, and is off under prefers-reduced-motion.
   let reduceMotion = $state(false);
   $effect(() => {
     try {
@@ -411,8 +419,9 @@
   });
   /** The tiles on screen answer some other question (or a newer one is loading). */
   const pending = $derived(status === 'loading' || listsFor !== `${seedId}|${pool}|${count}`);
-  /** Changes whenever what the list shows changes — keys the fade-in. */
-  const answerKey = $derived(`${listsFor}|${listKey}`);
+  /** Changes whenever a different list shows (game, pool or tab) — lays it out afresh, so all
+   *  its games rise. Not how many: a longer list keeps its games and only the new ones rise. */
+  const answerKey = $derived(`${listsFor.split('|').slice(0, 2).join('|')}|${listKey}`);
 
   /** The top of the chosen game, so a new pick happens where you're looking. */
   let chosenTop = $state<HTMLElement | null>(null);
@@ -593,6 +602,10 @@
           <h2 class="question chosen-top" bind:this={chosenTop}>Selected game</h2>
           {#if seed}
             {@const sd = seed}
+            <!-- A new game's panel rises first; its matches follow (`lead`). Keyed on the game,
+                 so its box art landing later doesn't replay it. -->
+            {#key sd.game_id}
+            <div class="rise-in">
             <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
               {#snippet meta()}
                 {#if sd.year_published}<span>{sd.year_published}</span>{/if}
@@ -613,6 +626,8 @@
                 {/if}
               </div>
             </GameHero>
+            </div>
+            {/key}
           {/if}
         </Stack>
 
@@ -653,7 +668,7 @@
                 <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
               {:else if seed}
                 {#key answerKey}
-                <div class="answer" class:pending aria-busy={pending} inert={pending} in:fade={{ duration: reduceMotion ? 0 : 160 }}>
+                <div class="answer" class:pending aria-busy={pending} inert={pending}>
                 {#each sections as s (`${seedId}-${s.key}`)}
                   <!-- The heading above names the list (and the picker which one), so no title here. -->
                   <ResultSection
@@ -666,6 +681,7 @@
                     {whyId}
                     onwhy={toggleWhy}
                     onwalk={walk}
+                    {lead}
                   />
                 {/each}
                 </div>
