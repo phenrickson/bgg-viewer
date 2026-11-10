@@ -16,8 +16,8 @@ import {
 } from './dials';
 
 describe('category chips', () => {
-  it('offers six chips, each with a non-empty backing value', () => {
-    expect(CATEGORY_CHIPS).toHaveLength(6);
+  it('offers eight chips, each with a non-empty backing value', () => {
+    expect(CATEGORY_CHIPS).toHaveLength(8);
     for (const c of CATEGORY_CHIPS) {
       expect(c.label.length).toBeGreaterThan(0);
       expect(c.value.length).toBeGreaterThan(0);

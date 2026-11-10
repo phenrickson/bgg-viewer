@@ -667,7 +667,7 @@
         <div class="sim-head">
           <p class="sub">Similar games</p>
           <!-- All three lists ship with the page; switching is a local toggle, not a fetch.
-               A profile with no list for this game (Dark Horses / Recommended on a low-rating
+               A profile with no list for this game (Lesser Known / Recommended on a low-rating
                game) is a disabled tab. Hidden offline — there are no lists to switch between. -->
           {#if !data.offline}
             <SegmentedControl

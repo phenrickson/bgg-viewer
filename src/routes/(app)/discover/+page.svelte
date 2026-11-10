@@ -60,13 +60,17 @@
      page is calm precisely because every element starts at the same x. -->
 <div class="page">
   <Container size="list">
-    <!-- PLACEHOLDER copy -->
-    <h1>Find your next <em>game night</em>.</h1>
-    <p class="lede">Answer as few or as many as you like — the list below narrows as you go.</p>
+    <!-- The page eases in, as Recommend's Start does: the heading, then each question, then
+         the list, a beat apart (the app's `.rise-in`; off under reduced motion). -->
+    <div class="hero rise-in" style="--rise-i: 0">
+      <!-- PLACEHOLDER copy -->
+      <h1>Find your next <em>game night</em>.</h1>
+      <p class="lede">Answer as few or as many as you like — the list below narrows as you go.</p>
+    </div>
 
     <DialStrip {scope} onpatch={patch} />
 
-    <div class="answer">
+    <div class="answer rise-in" style="--rise-i: 5">
       <DiscoverResults {scope} onpatch={patch} />
     </div>
   </Container>
@@ -84,6 +88,9 @@
        a wide window. Bottom padding stays, so the last element isn't flush to the scroll end. */
     gap: var(--space-xl); padding: 0 0 var(--space-xl);
   }
+
+  /* Space above the heading, as Recommend's title has, so the two pages start at one height. */
+  .hero { padding-top: var(--space-lg); }
 
   /* Matches the landing page's hero, so the two pages read as one voice. */
   h1 {

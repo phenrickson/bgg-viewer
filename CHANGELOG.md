@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.31](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.30...bgg-viewer-v0.0.31) (2026-11-10)
+
+
+### Features
+
+* **recommend:** polish the Recommend tool ([#96](https://github.com/phenrickson/bgg-viewer/issues/96)) ([ded65b8](https://github.com/phenrickson/bgg-viewer/commit/ded65b8cb4eff9d88504fbcd53d24edc885d8bef))
+
 ## [0.0.30](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.29...bgg-viewer-v0.0.30) (2026-11-10)
 
 

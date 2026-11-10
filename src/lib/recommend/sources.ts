@@ -1,7 +1,7 @@
 /**
  * The shape of Recommend's answer and the small list helpers the page uses.
  *
- * Every pool answers with the same three lists — Recommended, Most similar, Dark horses:
+ * Every pool answers with the same three lists — Recommended, Most similar, Lesser known:
  * all three pools ranked in the browser (`./rank.ts`); *anywhere* falls back to the precomputed
  * `game_neighbors` (via `/api/similar`) until the vectors are in. Spec:
  * docs/superpowers/specs/2026-11-09-recommend-shelf-in-browser-design.md §2.
@@ -32,7 +32,7 @@ export interface Section {
 
 /**
  * What Surprise me draws from — wider than the top of the page, never a re-roll of it:
- * Dark horses, falling back to Recommended, then Most similar. (Surprise me is off the page for
+ * Lesser known, falling back to Recommended, then Most similar. (Surprise me is off the page for
  * now; kept for when it returns.)
  */
 export function surpriseFrom(lists: Lists): Hit[] {

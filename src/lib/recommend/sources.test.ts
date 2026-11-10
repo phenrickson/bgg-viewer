@@ -6,7 +6,7 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 const ids = (h: Hit[]) => h.map((x) => x.id);
 
 describe('surpriseFrom', () => {
-	it('draws from Dark horses, falling back when it is empty', () => {
+	it('draws from Lesser known, falling back when it is empty', () => {
 		expect(ids(surpriseFrom({ similar: hits(1), recommender: hits(2), sicko: hits(3) }))).toEqual([3]);
 		expect(ids(surpriseFrom({ similar: hits(1), recommender: hits(2), sicko: [] }))).toEqual([2]);
 		expect(ids(surpriseFrom({ similar: hits(1), recommender: [], sicko: [] }))).toEqual([1]);

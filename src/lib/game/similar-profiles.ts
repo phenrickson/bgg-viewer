@@ -45,14 +45,14 @@ const RESOLVE_ORDER: readonly SimilarProfile[] = ['recommender', 'similar'];
 export const SIMILAR_PROFILE_LABELS: Record<SimilarProfile, string> = {
 	similar: 'Most Similar',
 	recommender: 'Recommended',
-	sicko: 'Dark Horses'
+	sicko: 'Lesser Known'
 };
 
 /** One-line description shown under the switcher, swapping with the active tab. */
 export const SIMILAR_PROFILE_BLURBS: Record<SimilarProfile, string> = {
 	similar: 'The games most similar to this one.',
 	recommender: 'Well known games similar to this one.',
-	sicko: 'Lesser known (or newly released) games similar to this one.'
+	sicko: 'Less popular (or newly released) games similar to this one.'
 };
 
 export function isSimilarProfile(x: unknown): x is SimilarProfile {

@@ -17,6 +17,9 @@
    * Categories take `--primary`, mechanics `--chart-1`: two kinds of tag, not one grey wall.
    * Families stay neutral.
    *
+   * `link={false}` makes it a plain label (Recommend's list rows, where the whole row opens the
+   * "why" and a tag leaving for Explore would be a surprise).
+   *
    * Recommend's "why" uses two emphases: `filled` brings a chip forward (a tag both games
    * have), `quiet` steps it back to plain muted text (a tag only one has).
    */
@@ -24,11 +27,19 @@
     kind,
     tag,
     quiet = false,
-    filled = false
-  }: { kind: TagKind; tag: string; quiet?: boolean; filled?: boolean } = $props();
+    filled = false,
+    link = true
+  }: { kind: TagKind; tag: string; quiet?: boolean; filled?: boolean; link?: boolean } = $props();
 </script>
 
-<a class="chip {kind}" class:quiet class:filled href="/games?{PARAM[kind]}={encodeURIComponent(tag)}">{tag}</a>
+<svelte:element
+  this={link ? 'a' : 'span'}
+  class="chip {kind}"
+  class:quiet
+  class:filled
+  title={tag}
+  href={link ? `/games?${PARAM[kind]}=${encodeURIComponent(tag)}` : undefined}>{tag}</svelte:element
+>
 
 <style>
   .chip {
@@ -40,7 +51,8 @@
     background: var(--background);
     text-decoration: none;
   }
-  .chip:hover {
+  /* Only a link lights up: a plain label has nothing to press. */
+  a.chip:hover {
     border-color: var(--primary);
     color: var(--primary);
   }
@@ -65,7 +77,7 @@
     background: none;
     color: var(--muted-foreground);
   }
-  .chip.quiet:hover {
+  a.chip.quiet:hover {
     border-color: var(--primary);
     color: var(--primary);
   }

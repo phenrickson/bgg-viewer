@@ -16,7 +16,7 @@
    * The art and the name link to `href` — or, with `onopen`, are buttons that call it instead
    * (Recommend: a tile opens its "why"; `expanded` marks the open one). `actions` (small icon buttons, each with its label as a
    * tooltip) sit outside the links, in the foot. `marker` is a badge on the art's top-left
-   * ("On your shelf"). `facts` should be short (an icon and a number), so they hold one line.
+   * ("On your shelf"), after `rank` (its place in a ranked list) when there is one. `facts` should be short (an icon and a number), so they hold one line.
    */
   import type { Snippet } from 'svelte';
   import * as Card from '$lib/components/ui/card';
@@ -35,6 +35,8 @@
     compact = false,
     /** A short badge on the art's corner. */
     marker = '',
+    /** Its place in a ranked list: a badge on the art's corner, ahead of the marker. */
+    rank = null,
     /** The game's facts under the name: short, one line. */
     facts,
     /** Icon buttons at the foot. */
@@ -52,6 +54,7 @@
     rating?: number | null;
     compact?: boolean;
     marker?: string;
+    rank?: number | null;
     facts?: Snippet;
     actions?: Snippet;
     /** Makes the art and name buttons that call this, instead of links to `href`. */
@@ -93,7 +96,12 @@
         <span class="ph">{initials}</span>
       {/if}
     </svelte:element>
-    {#if marker}<Badge variant="secondary" class="marker">{marker}</Badge>{/if}
+    {#if rank != null || marker}
+      <div class="corner">
+        {#if rank != null}<Badge variant="secondary" class="rank" aria-label="Rank {rank}">{rank}</Badge>{/if}
+        {#if marker}<Badge variant="secondary">{marker}</Badge>{/if}
+      </div>
+    {/if}
   </Card.Content>
 
   <Card.Content>
@@ -170,10 +178,15 @@
   }
   /* On the frame's corner, so it never takes a line from the parts below. The card's own
      padding is --card-spacing; it sits just inside it. */
-  :global(.tile .frame > .marker) {
+  :global(.tile .frame > .corner) {
     position: absolute;
     top: 0;
     left: var(--card-spacing);
+    display: flex;
+    gap: 0.3rem;
+  }
+  :global(.tile .corner .rank) {
+    font-variant-numeric: tabular-nums;
   }
   /* Scores, facts and the actions, pushed to the foot of the tile. */
   :global(.tile .foot) {

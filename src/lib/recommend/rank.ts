@@ -94,7 +94,7 @@ export function rankCatalog(
 
 /**
  * *My shelf*'s three styles (Phil, 2026-11-09). The catalog profiles collapse on a ~160-game
- * shelf (Dark Horses empty, Recommended == Most Similar), so a shelf gets its own rules, a first
+ * shelf (Lesser Known empty, Recommended == Most Similar), so a shelf gets its own rules, a first
  * cut to tune against real collections: no floors and no band, so a small pool never empties;
  * `shelf_pct` is a game's rating percentile within the shelf, not the catalog.
  */
