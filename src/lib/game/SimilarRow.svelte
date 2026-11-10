@@ -10,6 +10,8 @@
    * `children`, when given, is a second line under the name — Recommend's one-line "why".
    * `action`, when given, sits after the badges, outside the link, so it can be a control of
    * its own (Recommend's "Why?") without nesting interactive elements.
+   * `middle`, when given, fills the space between the name and the badges, also outside the
+   * link (Recommend's shared tags, which are links of their own).
    */
   import type { Snippet } from 'svelte';
   import SimBadges from './SimBadges.svelte';
@@ -23,6 +25,7 @@
     rating = null,
     children,
     action,
+    middle,
     onopen,
     expanded
   }: {
@@ -34,6 +37,7 @@
     rating?: number | null;
     children?: Snippet;
     action?: Snippet;
+    middle?: Snippet;
     /** Makes the art and name a button that calls this, instead of a link to `href`. */
     onopen?: () => void;
     /** With `onopen`: whether what it opens is open. */
@@ -41,7 +45,15 @@
   } = $props();
 </script>
 
-<div class="row">
+<!-- With `onopen`, the whole row opens (not just the art and name): a click anywhere outside
+     its own links and buttons calls it. Keyboard users reach the same thing through the
+     art-and-name button, so the row itself needs no key handling. -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div
+  class="row"
+  class:whole={!!onopen}
+  onclick={onopen ? (e) => !(e.target as Element).closest('a, button') && onopen() : undefined}
+>
   <svelte:element
     this={onopen ? 'button' : 'a'}
     class="main"
@@ -61,6 +73,7 @@
       {#if children}<span class="sub">{@render children()}</span>{/if}
     </span>
   </svelte:element>
+  {#if middle}<span class="mid">{@render middle()}</span>{/if}
   <span class="end"><SimBadges {similarity} {rating} />{#if action}{@render action()}{/if}</span>
 </div>
 
@@ -75,6 +88,8 @@
     background: var(--background);
     min-width: 0;
   }
+  .row.whole { cursor: pointer; }
+  .row.whole:hover,
   .row:has(.main:hover) {
     border-color: var(--primary);
   }
@@ -146,6 +161,15 @@
   .sub {
     color: var(--muted-foreground);
     font-size: 0.74rem;
+  }
+  /* With a middle, the name takes a fixed slot, so every row's middle starts at the same place
+     and reads as a column down the list (a long name ends in "…", as it does anyway). */
+  .row:has(> .mid) .main {
+    flex: 0 0 min(18rem, 45%);
+  }
+  .mid {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .end {
     margin-left: auto;

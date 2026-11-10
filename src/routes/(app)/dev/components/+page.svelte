@@ -80,7 +80,7 @@
         <div class="row">
           <span class="lbl">disabled</span>
           <SegmentedControl label="with a disabled option" size="sm" value="a" onchange={() => {}}
-            options={[{ value: 'a', label: 'Recommended' }, { value: 'b', label: 'Most Similar' }, { value: 'c', label: 'Dark Horses', disabled: true }]} />
+            options={[{ value: 'a', label: 'Recommended' }, { value: 'b', label: 'Most Similar' }, { value: 'c', label: 'Lesser Known', disabled: true }]} />
         </div>
       </Stack>
     </section>

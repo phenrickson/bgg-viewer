@@ -4,7 +4,6 @@
     game_id: number;
     name: string;
     year_published: number | null;
-    thumbnail: string | null;
   };
 </script>
 
@@ -66,13 +65,11 @@
 </script>
 
 {#snippet identity(g: WhyGame, walk?: () => void)}
+  <!-- No art: both games' art is already on screen (the chosen game above, the open tile this
+       panel joins), so the head is just a name to compare under. -->
   <div class="head">
-    <a class="art" href={gameHref(g)} tabindex="-1" aria-hidden="true">
-      {#if g.thumbnail}<img src={g.thumbnail} alt="" decoding="async" />{/if}
-    </a>
     <div class="title">
-      <a class="name" href={gameHref(g)}>{g.name}</a>
-      {#if g.year_published}<span class="year">{g.year_published}</span>{/if}
+      <a class="name" href={gameHref(g)}>{g.name}{#if g.year_published}<span class="year">{g.year_published}</span>{/if}</a>
       <!-- What you can do with this game, stacked, as the game page's "View on BGG ↗" link:
            primary text, underlined on hover. The ↗ is forced to its text glyph (U+FE0E), not
            the emoji some systems draw.
@@ -149,30 +146,14 @@
     font-size: 0.88rem;
   }
 
-  /* A game's head: its art at a size you can see, its name (a link) and year, then what you
-     can do with it as links underneath — hung from the top of the art, not centred on it. */
+  /* A game's head, two lines: its name (a link) and year, then what you can do with it side by
+     side. Both heads fill their row, so their rules sit level whatever their names' lengths or
+     how many links each has. */
   .head {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.9rem;
+    align-self: stretch;
     min-width: 0;
     padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--border);
-  }
-  .art {
-    flex: none;
-    width: 6rem;
-    height: 6rem;
-    display: grid;
-    place-items: center;
-    border-radius: 6px;
-    background: var(--muted);
-    overflow: hidden;
-  }
-  .art img {
-    max-width: 100%;
-    max-height: 100%;
-    display: block;
   }
   .title {
     display: flex;
@@ -200,16 +181,19 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
+  /* A margin, not a text space: a space inside the link is collapsed away. */
   .year {
+    margin-left: 0.4em;
     font-size: 0.78rem;
+    font-weight: 400;
     color: var(--muted-foreground);
   }
   .links {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.2rem;
-    margin-top: 0.35rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 1rem;
+    margin-top: 0.2rem;
   }
   /* The game page's "View on BGG ↗" link (`.crumbs .bgg`), so a link here looks like one there. */
   .act {

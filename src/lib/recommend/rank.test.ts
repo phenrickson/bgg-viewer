@@ -186,7 +186,7 @@ describe('rankShelf', () => {
 		expect(ids(rankShelf(shelf, 1, owned).recommender)).toEqual([3, 4, 2]);
 	});
 
-	it('Dark Horses keeps only the lower half of the shelf by rating', () => {
+	it('Lesser Known keeps only the lower half of the shelf by rating', () => {
 		expect(ids(rankShelf(shelf, 1, owned).sicko)).toEqual([2]);
 	});
 

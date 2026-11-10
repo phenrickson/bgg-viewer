@@ -11,7 +11,7 @@
    * then the question's controls — the pool ("from my shelf | games I don't own | anywhere")
    * and the list picker. Each result opens its game page; its match score opens "why";
    * "Games like this" walks on from it. The answer is one list, picked from cards: the three precomputed
-   * lists (Recommended, Most similar, Dark horses), or the one shelf list. The question lives in
+   * lists (Recommended, Most similar, Lesser known), or the one shelf list. The question lives in
    * the URL (`?id&from`), so Back steps through the games you've looked at. How an answer is
    * fetched (collection artifact, precomputed lists, the live pooled query) is
    * `$lib/recommend/sources.ts` and never shows as a choice.
@@ -20,7 +20,6 @@
    * embedding's own inputs.
    */
   import { untrack, tick } from 'svelte';
-  import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { initCatalog, catalog, query } from '$lib/catalog/catalog.svelte';
@@ -32,7 +31,7 @@
   import { Container, Stack } from '$lib/components/ui/layout';
   import { SIMILAR_PROFILE_LABELS, SIMILAR_PROFILE_BLURBS } from '$lib/game/similar-profiles';
   import SimBadges from '$lib/game/SimBadges.svelte';
-  import type { TagFrequencies } from '$lib/recommend/why';
+  import { isEmbeddingFamily, type TagFrequencies } from '$lib/recommend/why';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
@@ -78,7 +77,7 @@
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
     ownedIds = [];
-    shelfSeeds = [];
+    shelfIds = [];
     collection = 'loading';
     try {
       const ids = await readOwned(u);
@@ -308,6 +307,12 @@
    *  one's answer as if it were current. */
   let listsFor = $state('');
 
+  /** Beats the answer waits before rising: a new game leads with its own panel, then its
+   *  matches; the same game asked differently (pool, how many) just shows the new matches. */
+  const NEW_GAME_LEAD = 2;
+  let lead = $state(0);
+  let answeredId: number | null = null;
+
   let token = 0;
   $effect(() => {
     const id = seedId;
@@ -320,6 +325,8 @@
       lists = out;
       listsSource = from;
       listsFor = `${id}|${p}|${n}`;
+      lead = id !== answeredId ? NEW_GAME_LEAD : 0;
+      answeredId = id;
       status = 'ready';
     };
     if (p === 'all') {
@@ -347,7 +354,7 @@
     done(p === 'shelf' ? rankShelf(vectors, id, owned, n) : rankCatalog(vectors, id, owned, n), 'local');
   });
 
-  // --- Which list: Most Similar / Recommended / Dark Horses ---------------------------------
+  // --- Which list: Most Similar / Recommended / Lesser Known ---------------------------------
   // One list at a time, picked from cards above it (Phil, 2026-11-09). The pick is in the URL
   // (`?list=`), like the pool. Every pool answers with the same three lists.
   const LIST_ORDER = ['recommender', 'similar', 'sicko'] as const;
@@ -399,8 +406,9 @@
   // --- The walk: "Games like this" -----------------------------------------------------------
   // --- Showing that the answer changed ------------------------------------------------------
   // Answers land in milliseconds, so a change is easy to miss. While one is on its way the
-  // current tiles dim (and stop taking clicks); when it lands the list fades in. Motion answers
-  // the reader's own click, and is off under prefers-reduced-motion.
+  // current tiles dim (and stop taking clicks); when it lands its games rise in a beat apart —
+  // after the chosen game's own panel, for a new game (the app's `.rise-in`, as Start's rows
+  // load). Motion answers the reader's own click, and is off under prefers-reduced-motion.
   let reduceMotion = $state(false);
   $effect(() => {
     try {
@@ -411,19 +419,28 @@
   });
   /** The tiles on screen answer some other question (or a newer one is loading). */
   const pending = $derived(status === 'loading' || listsFor !== `${seedId}|${pool}|${count}`);
-  /** Changes whenever what the list shows changes — keys the fade-in. */
-  const answerKey = $derived(`${listsFor}|${listKey}`);
+  /** Changes whenever a different list shows (game, pool or tab) — lays it out afresh, so all
+   *  its games rise. Not how many: a longer list keeps its games and only the new ones rise. */
+  const answerKey = $derived(`${listsFor.split('|').slice(0, 2).join('|')}|${listKey}`);
 
   /** The top of the chosen game, so a new pick happens where you're looking. */
   let chosenTop = $state<HTMLElement | null>(null);
 
-  /** Pick a game — from the search, or "Games like this". (Start tiles are links, at the top already.) */
+  /** Pick a game from the search. (Start tiles are links, at the top already.) */
   async function pick(id: number) {
     await set({ id });
     await tick();
     chosenTop?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   }
-  const walk = pick;
+
+  /** The top of the page. */
+  let pageTop = $state<HTMLElement | null>(null);
+  /** "Games like this": back to the top of the page first — at once, so the answer changing
+   *  under it can't cut the scroll short — then the new game, which rises in from there. */
+  async function walk(id: number) {
+    pageTop?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    await set({ id });
+  }
 
   let rows = $state<Map<number, Game>>(new Map());
   let rowsToken = 0;
@@ -445,6 +462,9 @@
 
   /** Categories, and mechanics, shown on the chosen game: the first few of each. */
   const SEED_TAGS = 4;
+  /** The chosen game's families — only the ones the model reads (Players:, Category…), the ones
+   *  a result's "Shares" can name, so the rows have something here to point back to. */
+  const seedFams = $derived((seed?.families ?? []).filter(isEmbeddingFamily));
 
   // PLACEHOLDER copy (Phil): the pool labels.
   const POOL_OPTIONS: { value: Pool; label: string }[] = [
@@ -491,40 +511,66 @@
   /** The favourites row draws from this many of the catalog's best-rated games. */
   const FAVOURITES_FROM = 100;
 
-  /** Ids from a query, as catalog rows in the same order. */
-  async function rowsFor(sql: string): Promise<Game[]> {
-    const ids = (await query<{ id: number }>(sql)).map((x) => Number(x.id));
+  // Each Start row is two steps: which games (once), then their catalog rows. Box art lands
+  // after the catalog, so only the second step re-runs when it does — the row fills in with
+  // the same games instead of re-drawing (the favourites are random).
+
+  /** Ids from a query, in its order. */
+  async function idsFor(sql: string): Promise<number[]> {
+    return (await query<{ id: number }>(sql)).map((x) => Number(x.id));
+  }
+
+  /** Catalog rows for `ids`, in the same order. */
+  async function inOrder(ids: number[]): Promise<Game[]> {
     const m = await games(ids);
     return ids.flatMap((id) => m.get(id) ?? []);
   }
 
   // I want games like…: a random handful of well-known games for everyone, drawn once per
   // visit from the catalog's best-rated — and, with a collection, your top-rated owned games.
-  let favourites = $state<Game[]>([]);
+  let favouriteIds = $state.raw<number[]>([]);
   $effect(() => {
     if (catalog.status !== 'ready') return;
-    rowsFor(
+    idsFor(
       `SELECT game_id AS id FROM (
          SELECT game_id FROM catalog WHERE geek_rating IS NOT NULL
          ORDER BY geek_rating DESC LIMIT ${FAVOURITES_FROM}
        ) ORDER BY random() LIMIT ${SEEDS_PER_ROW}`
     )
-      .then((g) => (favourites = g))
+      .then((ids) => (favouriteIds = ids))
       .catch((e) => console.error('favourites failed', e));
   });
 
-  let shelfSeeds = $state<Game[]>([]);
+  let favourites = $state.raw<Game[]>([]);
+  $effect(() => {
+    const ids = favouriteIds;
+    catalog.thumbnailsReady;
+    inOrder(ids)
+      .then((g) => ids === favouriteIds && (favourites = g))
+      .catch((e) => console.error('favourites failed', e));
+  });
+
+  let shelfIds = $state.raw<number[]>([]);
   let shelfToken = 0;
   $effect(() => {
     // Only games the shelf pools can answer for (in the artifact). A newer collection (or none)
     // drops an older query's late answer, so a switched-away shelf never comes back.
     const mine = ++shelfToken;
     if (!owned.size) return;
-    rowsFor(
+    idsFor(
       `SELECT game_id AS id FROM catalog WHERE game_id IN (${[...owned].join(',')})
        ORDER BY geek_rating DESC NULLS LAST LIMIT ${SEEDS_PER_ROW}`
     )
-      .then((g) => mine === shelfToken && (shelfSeeds = g))
+      .then((ids) => mine === shelfToken && (shelfIds = ids))
+      .catch((e) => console.error('shelf seeds failed', e));
+  });
+
+  let shelfSeeds = $state.raw<Game[]>([]);
+  $effect(() => {
+    const ids = shelfIds;
+    catalog.thumbnailsReady;
+    inOrder(ids)
+      .then((g) => ids === shelfIds && (shelfSeeds = g))
       .catch((e) => console.error('shelf seeds failed', e));
   });
 
@@ -532,7 +578,7 @@
 
 <svelte:head><title>Recommend · Boardgame-Viz</title></svelte:head>
 
-<div class="page">
+<div class="page" bind:this={pageTop}>
   <Container size="list">
     <Stack gap="lg">
       <div class="start">
@@ -567,6 +613,10 @@
           <h2 class="question chosen-top" bind:this={chosenTop}>Selected game</h2>
           {#if seed}
             {@const sd = seed}
+            <!-- A new game's panel rises first; its matches follow (`lead`). Keyed on the game,
+                 so its box art landing later doesn't replay it. -->
+            {#key sd.game_id}
+            <div class="rise-in">
             <GameHero href="/games/{sd.game_id}" name={sd.name} image={sd.thumbnail} compact>
               {#snippet meta()}
                 {#if sd.year_published}<span>{sd.year_published}</span>{/if}
@@ -579,14 +629,17 @@
                 {#if sd.designers?.length}
                   <p class="by">by {sd.designers.slice(0, 3).join(', ')}{sd.designers.length > 3 ? ` +${sd.designers.length - 3}` : ''}</p>
                 {/if}
-                {#if sd.categories?.length || sd.mechanics?.length}
+                {#if sd.categories?.length || sd.mechanics?.length || seedFams.length}
                   <div class="tags">
                     {#each (sd.categories ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="cat" tag={t} />{/each}
                     {#each (sd.mechanics ?? []).slice(0, SEED_TAGS) as t (t)}<TagChip kind="mech" tag={t} />{/each}
+                    {#each seedFams as t (t)}<TagChip kind="fam" tag={t} />{/each}
                   </div>
                 {/if}
               </div>
             </GameHero>
+            </div>
+            {/key}
           {/if}
         </Stack>
 
@@ -627,7 +680,7 @@
                 <p class="msg">PLACEHOLDER: nothing close to this one here.</p>
               {:else if seed}
                 {#key answerKey}
-                <div class="answer" class:pending aria-busy={pending} inert={pending} in:fade={{ duration: reduceMotion ? 0 : 160 }}>
+                <div class="answer" class:pending aria-busy={pending} inert={pending}>
                 {#each sections as s (`${seedId}-${s.key}`)}
                   <!-- The heading above names the list (and the picker which one), so no title here. -->
                   <ResultSection
@@ -640,6 +693,7 @@
                     {whyId}
                     onwhy={toggleWhy}
                     onwalk={walk}
+                    {lead}
                   />
                 {/each}
                 </div>
