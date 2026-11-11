@@ -6,7 +6,7 @@
    * Drawn from the bench's `NetworkLayer`, re-styled to the tool's shared encodings
    * (`lineage-encoding.ts`) so a flip from the tree changes only positions and links: centre in
    * the accent, every other game one colour, size by ratings, upcoming hollow. Links are
-   * curved, thickness by similarity; mutual solid, one-way dashed and faint. Every game's path
+   * straight, thickness by similarity; mutual solid, one-way dashed and faint. Every game's path
    * link back to the centre is always drawn; `links` picks the rest (`shownEdges`).
    *
    * Motion is the page's `Glide`, as in the tree: a change of centre, k or hops, or a flip from
@@ -108,11 +108,8 @@
   /** Each game's path link back to the centre always; the rest by `links`. */
   const edges = $derived(shownEdges(g, parents, links));
 
-  /** How far a link bows off its chord, at full length; shorter links bow less (a knot stays a knot). */
-  const CURVATURE = 0.18;
-
   /**
-   * Links, painted under the points on the canvas's 2-D underlay: one native quadratic per
+   * Links, painted under the points on the canvas's 2-D underlay: one straight stroke per
    * link, from the points' on-screen (mid-glide) positions, so links travel with their games.
    * Not regl lines: those rebuild all their geometry on every change, quadratic in vertex
    * count, which froze a 2,000-link glide for over a second (profiled 2026-11-11). Canvas
@@ -121,16 +118,14 @@
   function underlay(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
     if (!api.drawn) return;
-    const fullBow = 0.25 * Math.min(api.width, api.height);
+    // Straight: the bow these used to have went to a side set by the games' indices, not the
+    // layout, so neighbouring links swung every which way (Phil, 2026-11-11).
     const link = (a: number, b: number) => {
       const pa = screen(a), pb = screen(b);
       if (!pa || !pb) return false;
-      const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
-      // Bowed to one consistent side, so a link looks the same whichever end it's found from.
-      const bow = CURVATURE * Math.min(1, Math.hypot(dx, dy) / fullBow) * (a < b ? 1 : -1);
       ctx.beginPath();
       ctx.moveTo(pa[0], pa[1]);
-      ctx.quadraticCurveTo((pa[0] + pb[0]) / 2 - dy * bow, (pa[1] + pb[1]) / 2 + dx * bow, pb[0], pb[1]);
+      ctx.lineTo(pb[0], pb[1]);
       return true;
     };
     ctx.save();
