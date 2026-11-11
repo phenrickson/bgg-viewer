@@ -6,7 +6,7 @@ import { buildGenealogy, expandKey, linkKind, linked, type GenealogyInput, type 
  * default threshold 0.9 two games link when their angles are within ~0.45 rad.
  * Game ids are 100 + index.
  */
-function input(rows: { a: number; y: number; fam?: number[]; rel?: number[]; has?: boolean }[]): GenealogyInput {
+function input(rows: { a: number; y: number; fam?: number[]; has?: boolean }[]): GenealogyInput {
 	const emb = new Float32Array(rows.length * 2);
 	rows.forEach((r, i) => { emb[i * 2] = Math.cos(r.a); emb[i * 2 + 1] = Math.sin(r.a); });
 	return {
@@ -14,7 +14,6 @@ function input(rows: { a: number; y: number; fam?: number[]; rel?: number[]; has
 		ids: Int32Array.from(rows, (_, i) => 100 + i),
 		year: Int16Array.from(rows, (r) => r.y),
 		families: rows.map((r) => r.fam ?? []),
-		related: rows.map((r) => r.rel ?? []),
 		has: (i) => rows[i].has !== false
 	};
 }
@@ -101,17 +100,15 @@ describe('buildGenealogy', () => {
 });
 
 describe('linkKind', () => {
-	it('reimplementation beats family beats influence, and reads the link from either end', () => {
+	it('a shared family beats influence, read from either end', () => {
 		const d = input([
-			{ a: 0, y: 2000, rel: [101], fam: [9] },
-			{ a: 0, y: 2001, fam: [9] },
-			{ a: 0, y: 2002, fam: [9] },
-			{ a: 0, y: 2003 }
+			{ a: 0, y: 2000, fam: [9] },
+			{ a: 0, y: 2001, fam: [4, 9] },
+			{ a: 0, y: 2002 }
 		]);
-		expect(linkKind(d, 0, 1)).toBe('related');
-		expect(linkKind(d, 1, 0)).toBe('related'); // only game 0 lists the link
-		expect(linkKind(d, 1, 2)).toBe('family');
-		expect(linkKind(d, 2, 3)).toBe('influence');
+		expect(linkKind(d, 0, 1)).toBe('family');
+		expect(linkKind(d, 1, 0)).toBe('family');
+		expect(linkKind(d, 1, 2)).toBe('influence');
 	});
 });
 

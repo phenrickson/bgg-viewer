@@ -8,7 +8,7 @@
    * layout places them by their edges only — mutual neighbours knot together, a neighbour
    * that only links to the centre hangs off alone — and the points travel between the two.
    *
-   * Vectors come from the dev similarity dataset (`/dev/similar/dataset`). All copy
+   * Vectors come from the shipped vectors artifact (`fetchVectors()`). All copy
    * PLACEHOLDER.
    */
   import { onMount, untrack } from 'svelte';

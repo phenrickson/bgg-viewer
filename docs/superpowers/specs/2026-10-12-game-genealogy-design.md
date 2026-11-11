@@ -24,8 +24,8 @@ which games are origins and which spawned flurries is deferred (see *Not doing*)
 
 ## What the genealogy is
 
-`buildGenealogy` is a pure function. It takes the L2-normalised vectors, years, family ids,
-related ids and the settings, and returns a tree. It knows nothing about rendering.
+`buildGenealogy` is a pure function. It takes the L2-normalised vectors, years, family ids
+and the settings, and returns a tree. It knows nothing about rendering.
 
 - **Link:** games A and B are linked when their cosine similarity is at least the
   **threshold**. The threshold is an absolute value exposed as a slider: a tuning parameter
@@ -47,13 +47,13 @@ related ids and the settings, and returns a tree. It knows nothing about renderi
 - **Grow on demand:** the tree starts one generation each way. Unfolding a game reveals its
   strongest **m** (default 8) parents or children, plus a **"+N more"** stub that reveals
   the rest. The stub's count is the flurry signal even when it's collapsed.
-- **Link type**, from data the dev dataset already carries:
-  - *reimplementation or expansion*: the pair are linked through `related_ids`
-    (`core.game_implementations`, `core.game_expansions`);
-  - *same family*: they share a `Game:` / `Series:` family (`family_ids`);
-  - *influence*: neither applies, so the link is similarity only.
+- **Link type:**
+  - *same family*: they share a `Game:` / `Series:` family (from the catalog's `families`);
+  - *influence*: they don't, so the link is similarity only.
 
-  If both of the first two apply, it counts as a reimplementation or expansion.
+  *Amended 2026-11-11:* a third kind, *reimplementation or expansion* (`related_ids`, from
+  `core.game_implementations` / `core.game_expansions`), was dropped when the data source moved
+  off the dev similarity dataset. It isn't in any shipped artifact; it returns if one carries it.
 - **Eligibility:** every working-set game (rated ≥ 30, or upcoming) that has a vector and a
   year. Upcoming games are in the tree as descendants. Games with no year (about 244) can't
   be placed in time, and they already lack embeddings.
@@ -87,7 +87,7 @@ links cross as little as possible.
 | Ring | The selected game |
 | Hollow, dashed node | An upcoming game |
 | Link thickness | Similarity between the two games |
-| Solid / dashed / marked link | Influence / same family / reimplementation or expansion |
+| Solid / dashed link | Influence / same family |
 | ⊕ on a node | Unfold in its direction |
 | "+N more" stub | Weaker links hidden by the cap |
 
@@ -113,7 +113,7 @@ canvas keeps flying from the map open as a follow-up.
 
 | Unit | Does | Depends on |
 |---|---|---|
-| `src/lib/map/genealogy.ts` | `buildGenealogy` (state in: centre, threshold, cap, unfolded set, expanded set → tree out; recomputed whole on every change, so a threshold move keeps whatever still qualifies), `linked` (threshold scan, a sibling of `topK`), `linkKind`; appear-once; cap and overflow | `dot` from `network.ts`; vectors, years, `family_ids`, `related_ids` |
+| `src/lib/map/genealogy.ts` | `buildGenealogy` (state in: centre, threshold, cap, unfolded set, expanded set → tree out; recomputed whole on every change, so a threshold move keeps whatever still qualifies), `linked` (threshold scan, a sibling of `topK`), `linkKind`; appear-once; cap and overflow | `dot` from `network.ts`; vectors, years, families |
 | `src/lib/map/genealogy-layout.ts` | `layoutGenealogy`: tree → positions in the `NetworkLayout` shape; Year/Generation y; tidy x per half; contemporaries on the centre row | genealogy tree, years |
 | `src/lib/map/GenealogyLayer.svelte` | Draws nodes and edges with the encodings above; reports picks and hovers | `useSurface`, regl edge geometry, `ink.ts`, `palette.ts` |
 | (inside `GenealogyLayer`) | ⊕ and "+N more" as HTML buttons positioned from the overlay's screen positions; axis ticks painted on the overlay canvas | `OverlayApi.screen` |
@@ -122,8 +122,10 @@ canvas keeps flying from the map open as a follow-up.
 It is a sibling of `NetworkLayer` rather than `NetworkLayer` with options, because hop rings,
 the category colour and mutual or one-way edges don't apply here.
 
-**Data flow:** on mount, load the catalog, the coordinates artifact and the dev similarity
-dataset. `network-data.ts` also reads `family_ids` and `related_ids`. Genealogy then runs
+**Data flow:** on mount, load the catalog, the coordinates artifact and the shipped vectors
+artifact (`fetchVectors()`, memoised, shared with Recommend and the network tool).
+`genealogy-data.ts` reads `Game:` / `Series:` families from the catalog. *(Amended
+2026-11-11; this was the dev similarity dataset.)* Genealogy then runs
 entirely in the browser: `buildGenealogy` → `layoutGenealogy` → `GenealogyLayer`. Unfolds and
 threshold changes are recomputed locally, about 2 ms per full scan, memoised per game and
 threshold. There are no server calls after load.

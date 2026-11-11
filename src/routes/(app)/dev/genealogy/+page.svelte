@@ -104,7 +104,7 @@
   // PLACEHOLDER COPY (Phil)
   const DIRS = ['up', 'down', 'same'] as const;
   const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
-  const KIND_LABEL = { related: 'reimplementation / expansion', family: 'same family', influence: 'similarity only' } as const;
+  const KIND_LABEL = { family: 'same family', influence: 'similarity only' } as const;
   const noEarlier = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'up') && tree.centreHidden.up === 0);
   const noLater = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'down') && tree.centreHidden.down === 0);
 </script>
@@ -213,7 +213,6 @@
     <span class="sep" aria-hidden="true">|</span>
     <span><b></b> similar</span>
     <span><b class="dashed"></b> same family</span>
-    <span><b class="double"></b> reimplementation / expansion</span>
   </div>
 </div>
 
@@ -234,7 +233,6 @@
   .legend i.hollow { border: 1px dashed var(--foreground); }
   .legend b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
   .legend b.dashed { border-top-style: dashed; }
-  .legend b.double { border-top-style: double; border-top-width: 4px; }
   .body { flex: 1 1 auto; min-height: 0; display: flex; gap: var(--space-md); }
   .canvas { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
   .side { flex: 0 0 18rem; display: flex; flex-direction: column; gap: 0.5rem; padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow-y: auto; }

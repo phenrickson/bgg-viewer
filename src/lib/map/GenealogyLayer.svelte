@@ -23,7 +23,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { Dir, GenealogyNode } from './genealogy';
-  import { ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, offset, type GenealogyLayout } from './genealogy-layout';
+  import { ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
   import { toRgb } from './palette';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
@@ -103,7 +103,7 @@
   }
 
   /** Dash and double-line spacing, NDC. */
-  const DASH_ON = 0.018, DASH_OFF = 0.012, DOUBLE_GAP = 0.004;
+  const DASH_ON = 0.018, DASH_OFF = 0.012;
   const lines = $derived.by<Line[]>(() => {
     const t = surface.theme;
     if (!t) return [];
@@ -127,7 +127,6 @@
         ? sameYearArc([pos.x[e.via], pos.y[e.via]], [pos.x[e.i], pos.y[e.i]])
         : edgePath(e.via, e.i);
       if (e.kind === 'family') for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
-      else if (e.kind === 'related') { stroke(offset(path, DOUBLE_GAP), rgb, alpha, width * 0.7); stroke(offset(path, -DOUBLE_GAP), rgb, alpha, width * 0.7); }
       else stroke(path, rgb, alpha, width);
     }
     return layers.flat();

@@ -30,8 +30,6 @@ export interface GenealogyInput {
 	year: Int16Array;
 	/** Index → its `Game:` / `Series:` family ids. */
 	families: number[][];
-	/** Index → game ids it reimplements or expands, or that reimplement or expand it. */
-	related: number[][];
 	/** The index has a vector. */
 	has: (i: number) => boolean;
 	/** Memo of `linked` lists for ONE threshold; the caller replaces it when the threshold moves. */
@@ -44,7 +42,8 @@ export interface Link {
 }
 
 export type Dir = 'up' | 'down' | 'same';
-export type LinkKind = 'related' | 'family' | 'influence';
+/** Reimplementation / expansion links aren't in any shipped artifact yet, so they aren't a kind. */
+export type LinkKind = 'family' | 'influence';
 
 export interface GenealogyNode {
 	i: number;
@@ -106,9 +105,8 @@ export function linked(d: GenealogyInput, from: number, threshold: number): Link
 	return out;
 }
 
-/** Reimplementation/expansion (either end lists it) beats a shared family beats similarity alone. */
+/** A shared `Game:` / `Series:` family beats similarity alone. */
 export function linkKind(d: GenealogyInput, a: number, b: number): LinkKind {
-	if (d.related[a].includes(d.ids[b]) || d.related[b].includes(d.ids[a])) return 'related';
 	const fa = d.families[a];
 	if (fa.length && d.families[b].some((f) => fa.includes(f))) return 'family';
 	return 'influence';
