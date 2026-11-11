@@ -6,7 +6,8 @@
    * Drawn from the bench's `NetworkLayer`, re-styled to the tool's shared encodings
    * (`lineage-encoding.ts`) so a flip from the tree changes only positions and links: centre in
    * the accent, every other game one colour, size by ratings, upcoming hollow. Links are
-   * curved, thickness by similarity; mutual solid, one-way dashed and faint (`links="all"`).
+   * curved, thickness by similarity; mutual solid, one-way dashed and faint. Every game's path
+   * link back to the centre is always drawn; `links` picks the rest (`shownEdges`).
    *
    * Motion is the page's `Glide`, as in the tree: a change of centre, k or hops, or a flip from
    * the tree, is one glide, with links and labels travelling with their games. The data square
@@ -17,7 +18,7 @@
    */
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
-  import { egoParents, type NetworkLayout } from './network';
+  import { egoParents, shownEdges, type NetworkLayout } from './network';
   import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels } from './ink';
   import type { LabelInput } from './labels';
@@ -104,7 +105,8 @@
     for (const e of g.edges) if (e.mutual) { deg.set(e.a, (deg.get(e.a) ?? 0) + 1); deg.set(e.b, (deg.get(e.b) ?? 0) + 1); }
     return new Set(g.nodes.filter((x) => x.hop >= 2).sort((p, q) => (deg.get(q.i) ?? 0) - (deg.get(p.i) ?? 0)).slice(0, HUB_LABELS).map((x) => x.i));
   });
-  const edges = $derived(g.edges.filter((e) => links === 'all' || e.mutual));
+  /** Each game's path link back to the centre always; the rest by `links`. */
+  const edges = $derived(shownEdges(g, parents, links));
 
   /** How far a link bows off its chord, at full length; shorter links bow less (a knot stays a knot). */
   const CURVATURE = 0.18;

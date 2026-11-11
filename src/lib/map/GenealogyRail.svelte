@@ -96,7 +96,8 @@
         value={s.links}
         onchange={(links) => oncommit({ ...s, links })}
       />
-      <p class="note">Mutual: both games list each other. All adds one-way links, dashed.</p>
+      <!-- Placeholder copy (Phil writes copy). -->
+      <p class="note">Every game keeps its link back to the chosen game. Mutual adds the links where both games list each other; All adds every one-way link too, dashed.</p>
     </div>
   {/if}
 </div>

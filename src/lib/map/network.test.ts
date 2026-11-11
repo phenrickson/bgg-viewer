@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildEgoNetwork, topK, egoParents, egoSimulation, layoutEgoNetwork, type NetworkData } from './network';
+import { buildEgoNetwork, topK, egoParents, shownEdges, egoSimulation, layoutEgoNetwork, type NetworkData } from './network';
 
 // Six unit vectors in 2-d: three clustered near +x, three near +y.
 function data(): NetworkData {
@@ -52,6 +52,33 @@ describe('egoParents', () => {
 			if (n.i === 0) continue;
 			expect(hop.get(parents.get(n.i)!)).toBe(n.hop - 1);
 		}
+	});
+});
+
+describe('shownEdges', () => {
+	// Every game reachable from the source over the drawn links.
+	const reach = (src: number, edges: { a: number; b: number }[]) => {
+		const seen = new Set([src]);
+		for (let grew = true; grew; ) {
+			grew = false;
+			for (const e of edges) for (const [x, y] of [[e.a, e.b], [e.b, e.a]]) if (seen.has(x) && !seen.has(y)) { seen.add(y); grew = true; }
+		}
+		return seen;
+	};
+	it('mutual still connects every game to the centre, through its path link', () => {
+		// 0's nearest is 1, but 1's is 2: 0—1 is one-way, and 2 hangs off 1.
+		const angles = [0, 0.3, 0.35, 0.5];
+		const emb = new Float32Array(angles.flatMap((a) => [Math.cos(a), Math.sin(a)]));
+		const g = buildEgoNetwork({ n: 4, dim: 2, emb, eligible: () => true }, 0, { k: 1, hops: 2, mutual: false });
+		expect(g.edges.filter((e) => e.mutual).map((e) => [e.a, e.b].sort())).toEqual([[1, 2]]);
+		expect(reach(0, g.edges.filter((e) => e.mutual)).size).toBe(1);
+		const shown = shownEdges(g, egoParents(g), 'mutual');
+		expect(reach(0, shown).size).toBe(g.nodes.length);
+		for (const e of shown) if (!e.mutual) expect(egoParents(g).get(e.a) === e.b || egoParents(g).get(e.b) === e.a).toBe(true);
+	});
+	it('all draws every link', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 2, hops: 2, mutual: false });
+		expect(shownEdges(g, egoParents(g), 'all')).toEqual(g.edges);
 	});
 });
 

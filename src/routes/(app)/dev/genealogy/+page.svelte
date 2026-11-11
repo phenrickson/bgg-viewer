@@ -281,7 +281,7 @@
             <span class="sep" aria-hidden="true"></span>
             {#if net}
               <span><b></b> mutual</span>
-              {#if s.links === 'all'}<span><b class="dashed"></b> one-way</span>{/if}
+              <span><b class="dashed"></b> one-way</span>
             {:else}
               <span><b></b> similar</span>
               <span><b class="dashed"></b> same family</span>
