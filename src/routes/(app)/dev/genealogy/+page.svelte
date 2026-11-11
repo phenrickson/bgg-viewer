@@ -235,10 +235,10 @@
              from its spot in one view to its spot in the other. -->
         <PointCanvas lasso={false}>
           {#if net && netLayout}
-            <EgoLayer {coords} {facts} layout={netLayout} {glide} links={s.links} {selected} card={netNode ? netCard : undefined}
+            <EgoLayer {coords} {facts} layout={netLayout} {glide} oneway={s.oneway} floor={s.t} {selected} card={netNode ? netCard : undefined}
               onselect={(i) => (selected = i)} onclear={() => (selected = -1)} />
           {:else if layout}
-            <GenealogyLayer {coords} {facts} {layout} {glide} {selected} card={selNode ? treeCard : undefined}
+            <GenealogyLayer {coords} {facts} {layout} {glide} floor={s.t} {selected} card={selNode ? treeCard : undefined}
               onselect={(i) => (selected = i)} onclear={() => (selected = -1)} onunfold={unfold} onfold={foldAt} />
           {/if}
         </PointCanvas>
@@ -283,8 +283,8 @@
             {#if !net}<span><i class="hollow"></i> upcoming</span>{/if}
             <span class="sep" aria-hidden="true"></span>
             {#if net}
-              <span><b></b> mutual</span>
-              <span><b class="dashed"></b> one-way</span>
+              <span><b></b> similar</span>
+              {#if s.oneway}<span><b class="dashed"></b> one-way</span>{/if}
             {:else}
               <span><b></b> similar</span>
               <span><b class="dashed"></b> same family</span>

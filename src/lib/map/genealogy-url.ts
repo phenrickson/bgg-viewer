@@ -9,7 +9,6 @@ import type { Dir, Genealogy } from './genealogy';
 
 export type View = 'tree' | 'net';
 export type Hops = 1 | 2 | 3;
-export type Links = 'mutual' | 'all';
 
 export interface GenealogyState {
 	game: number | null;
@@ -19,8 +18,8 @@ export interface GenealogyState {
 	k: number;
 	/** Network: rings out from the centre. */
 	hops: Hops;
-	/** Network: draw only mutual links, or one-way ones too. */
-	links: Links;
+	/** Network: dash the one-way links. Off by default: every link drawn alike, by similarity. */
+	oneway: boolean;
 	t: number;
 	y: YMode;
 	/** Show same-year games beside the centre. Off by default. */
@@ -61,7 +60,7 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 		view: p.get('v') === 'net' ? 'net' : 'tree',
 		k: Number.isInteger(k) && k >= K_MIN && k <= K_MAX ? k : DEFAULT_K,
 		hops: hops === 1 || hops === 2 || hops === 3 ? hops : DEFAULT_HOPS,
-		links: p.get('links') === 'all' ? 'all' : 'mutual',
+		oneway: p.get('ow') === '1',
 		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? Math.min(T_MAX, Math.max(T_MIN, t)) : DEFAULT_THRESHOLD,
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
 		same: p.get('same') === '1',
@@ -76,7 +75,7 @@ export function toParams(s: GenealogyState): URLSearchParams {
 	if (s.view !== 'tree') p.set('v', s.view);
 	if (s.k !== DEFAULT_K) p.set('k', String(s.k));
 	if (s.hops !== DEFAULT_HOPS) p.set('hops', String(s.hops));
-	if (s.links !== 'mutual') p.set('links', s.links);
+	if (s.oneway) p.set('ow', '1');
 	if (s.t !== DEFAULT_THRESHOLD) p.set('t', String(s.t));
 	if (s.y !== 'year') p.set('y', s.y);
 	if (s.same) p.set('same', '1');

@@ -6,8 +6,8 @@
    * Drawn from the bench's `NetworkLayer`, re-styled to the tool's shared encodings
    * (`lineage-encoding.ts`) so a flip from the tree changes only positions and links: centre in
    * the accent, every other game one colour, size by ratings, upcoming hollow. Links are
-   * straight, thickness by similarity; mutual solid, one-way dashed and faint. Every game's path
-   * link back to the centre is always drawn; `links` picks the rest (`shownEdges`).
+   * straight, every link over the floor drawn, styled by similarity alone (`linkStrength`, as
+   * in the tree); `oneway` dashes the links only one end lists.
    *
    * Motion is the page's `Glide`, as in the tree: a change of centre, k or hops, or a flip from
    * the tree, is one glide, with links and labels travelling with their games. The data square
@@ -18,21 +18,22 @@
    */
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
-  import { egoParents, shownEdges, type NetworkLayout } from './network';
+  import { egoParents, type NetworkLayout } from './network';
   import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels } from './ink';
   import type { LabelInput } from './labels';
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter, framer } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha } from './lineage-encoding';
 
   let {
     coords,
     facts,
     layout,
     glide,
-    links = 'mutual',
+    oneway = false,
+    floor,
     selected = -1,
     card,
     onselect,
@@ -42,7 +43,10 @@
     facts: GameFacts;
     layout: NetworkLayout;
     glide: Glide;
-    links?: 'mutual' | 'all';
+    /** Dash the one-way links (one end lists the other, not back). Off: every link alike. */
+    oneway?: boolean;
+    /** The similarity floor: the thinnest a link is drawn (`linkStrength`). */
+    floor: number;
     /** The selected game's index, -1 for none. */
     selected?: number;
     /** The selected game's card contents, pinned beside its dot (`PinnedCard`). */
@@ -105,8 +109,7 @@
     for (const e of g.edges) if (e.mutual) { deg.set(e.a, (deg.get(e.a) ?? 0) + 1); deg.set(e.b, (deg.get(e.b) ?? 0) + 1); }
     return new Set(g.nodes.filter((x) => x.hop >= 2).sort((p, q) => (deg.get(q.i) ?? 0) - (deg.get(p.i) ?? 0)).slice(0, HUB_LABELS).map((x) => x.i));
   });
-  /** Each game's path link back to the centre always; the rest by `links`. */
-  const edges = $derived(shownEdges(g, parents, links));
+  const edges = $derived(g.edges);
 
   /**
    * Links, painted under the points on the canvas's 2-D underlay: one straight stroke per
@@ -133,18 +136,16 @@
     // A game folding away keeps a faint link to the game it hung off until it lands.
     ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
     for (const l of leaving) if (l.via >= 0 && link(l.via, l.i)) ctx.stroke();
-    let lo = Infinity, hi = -Infinity;
-    for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
       const lit = e.a === selected || e.b === selected;
-      const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
+      const r = linkStrength(e.sim, floor);
       // The outer rings' own wiring is kept lighter than the spokes in, so a dense family
       // reads as a texture rather than a wash.
       const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
-      ctx.globalAlpha = lit ? 1 : (e.mutual ? 0.35 + 0.5 * r : 0.25) * (outer ? 0.6 : 1);
+      ctx.globalAlpha = lit ? 1 : linkAlpha(r) * (outer ? 0.6 : 1);
       ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-      ctx.lineWidth = (1.2 + r * 1.6) * (lit ? 1.3 : e.mutual ? 1 : 0.8);
-      ctx.setLineDash(e.mutual ? [] : [6, 4]);
+      ctx.lineWidth = linkWidth(r) * (lit ? 1.3 : 1);
+      ctx.setLineDash(oneway && !e.mutual ? [6, 4] : []);
       if (link(e.a, e.b)) ctx.stroke();
     }
     ctx.restore();
@@ -229,8 +230,8 @@
     surface.drive(driver);
     return () => surface.release(driver);
   });
-  // Links and rings follow the selection and the link filter; the glide repaints after each draw.
-  $effect(() => { void selected; void edges; void glide.settle; surface.repaint(); });
+  // Links and rings follow the selection and the link styling; the glide repaints after each draw.
+  $effect(() => { void selected; void edges; void oneway; void floor; void glide.settle; surface.repaint(); });
 </script>
 
 {#if pin && card}

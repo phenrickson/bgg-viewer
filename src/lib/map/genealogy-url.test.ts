@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { fromParams, toParams, currentState, startAt, fold, showFewer, DEFAULT_THRESHOLD, DEFAULT_K, DEFAULT_HOPS, type GenealogyState } from './genealogy-url';
 
-const NET = { view: 'tree', k: DEFAULT_K, hops: DEFAULT_HOPS, links: 'mutual' } as const;
+const NET = { view: 'tree', k: DEFAULT_K, hops: DEFAULT_HOPS, oneway: false } as const;
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 describe('genealogy URL state', () => {
@@ -11,7 +11,7 @@ describe('genealogy URL state', () => {
 		});
 	});
 	it('round-trips a full state', () => {
-		const s: GenealogyState = { game: 102794, view: 'net', k: 15, hops: 3, links: 'all', t: 0.72, y: 'gen', same: true, unfolded: [31260, 3076], expanded: ['31260:up'] };
+		const s: GenealogyState = { game: 102794, view: 'net', k: 15, hops: 3, oneway: true, t: 0.72, y: 'gen', same: true, unfolded: [31260, 3076], expanded: ['31260:up'] };
 		expect(fromParams(toParams(s))).toEqual(s);
 	});
 	it('writes nothing for defaults', () => {
@@ -26,8 +26,8 @@ describe('genealogy URL state', () => {
 		expect(fromParams(new URLSearchParams('t=0.999')).t).toBe(0.99);
 	});
 	it('drops out-of-range network settings to their defaults', () => {
-		const s = fromParams(new URLSearchParams('v=sideways&k=99&hops=7&links=some'));
-		expect({ view: s.view, k: s.k, hops: s.hops, links: s.links }).toEqual(NET);
+		const s = fromParams(new URLSearchParams('v=sideways&k=99&hops=7&ow=yes'));
+		expect({ view: s.view, k: s.k, hops: s.hops, oneway: s.oneway }).toEqual(NET);
 	});
 });
 

@@ -147,17 +147,6 @@ export function egoParents(g: EgoNetwork): Map<number, number> {
 	return new Map(g.nodes.map((n) => [n.i, n.i === g.source ? -1 : best.get(n.i)?.via ?? g.source]));
 }
 
-/**
- * The links to draw. Every game keeps its path link (to its parent from `egoParents`, the
- * game one ring in that brought it in), so each is traceable back to the centre whatever
- * the setting; `links` decides only the rest: mutual ones, or all. Without the path links,
- * "mutual" left one-way-found games, and everything found through them, floating unconnected
- * (Phil, 2026-11-11).
- */
-export function shownEdges(g: EgoNetwork, parents: Map<number, number>, links: 'mutual' | 'all'): NetworkEdge[] {
-	return g.edges.filter((e) => links === 'all' || e.mutual || parents.get(e.a) === e.b || parents.get(e.b) === e.a);
-}
-
 // --- layout ------------------------------------------------------------------------------
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, type SimulationNodeDatum, type SimulationLinkDatum } from 'd3-force';
 

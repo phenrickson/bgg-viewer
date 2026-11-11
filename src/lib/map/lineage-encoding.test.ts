@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { framer, FRAME_PAD } from './lineage-encoding';
+import { framer, FRAME_PAD, linkStrength } from './lineage-encoding';
+
+describe('linkStrength', () => {
+	it('is fixed by the floor, not by the other links on screen', () => {
+		expect(linkStrength(0.7, 0.7)).toBe(0);
+		expect(linkStrength(1, 0.7)).toBe(1);
+		expect(linkStrength(0.79, 0.7)).toBeCloseTo(0.3);
+		// Below the floor (a family link) clamps to the thinnest.
+		expect(linkStrength(0.5, 0.7)).toBe(0);
+	});
+});
 
 const toPx = (ndc: number, size: number) => ((ndc + 1) / 2) * size;
 

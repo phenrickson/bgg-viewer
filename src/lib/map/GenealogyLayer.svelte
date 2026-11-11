@@ -34,13 +34,14 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter, framer } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha } from './lineage-encoding';
 
   let {
     coords,
     facts,
     layout,
     glide,
+    floor,
     selected = -1,
     card,
     onselect,
@@ -53,6 +54,8 @@
     layout: GenealogyLayout;
     /** The page's motion, shared with the network view. */
     glide: Glide;
+    /** The similarity floor: the thinnest a link is drawn (`linkStrength`). */
+    floor: number;
     /** The selected game's index, -1 for none. */
     selected?: number;
     /** The selected game's card contents, pinned beside its dot (`PinnedCard`). */
@@ -139,14 +142,12 @@
     ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
     for (const l of leaving) if (l.via >= 0 && path(l.via, l.i, false)) ctx.stroke();
     const edges = g.nodes.filter((nd) => nd.side !== 'centre');
-    let lo = Infinity, hi = -Infinity;
-    for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
       const lit = e.i === selected || e.via === selected;
-      const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-      ctx.globalAlpha = lit ? 1 : 0.35 + 0.5 * r;
+      const r = linkStrength(e.sim, floor);
+      ctx.globalAlpha = lit ? 1 : linkAlpha(r);
       ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-      ctx.lineWidth = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
+      ctx.lineWidth = linkWidth(r) * (lit ? 1.3 : 1);
       ctx.setLineDash(e.kind === 'family' ? [6, 4] : []);
       if (path(e.via, e.i, e.side === 'same')) ctx.stroke();
     }

@@ -33,6 +33,19 @@ export function framer(width: number, height: number, pad: { top: number; right:
 	};
 }
 
+/**
+ * A link's strength on a fixed scale, the similarity floor → 1, so a given similarity looks
+ * the same in any graph and either view. It used to be scaled to the links on screen, which
+ * drew a 0.79 link (Nemesis — Mansions of Madness) as the thinnest whenever the rest ran
+ * higher (Phil, 2026-11-11).
+ */
+export function linkStrength(sim: number, floor: number): number {
+	return Math.min(1, Math.max(0, (sim - floor) / Math.max(1e-6, 1 - floor)));
+}
+/** Stroke width and opacity for a link of strength `r` (`linkStrength`). */
+export const linkWidth = (r: number) => 1.2 + r * 2.4;
+export const linkAlpha = (r: number) => 0.35 + 0.5 * r;
+
 /** Colour buckets, indexing `lineagePalette`. */
 export const LINKED = 0, CENTRE = 1, UPCOMING = 2;
 

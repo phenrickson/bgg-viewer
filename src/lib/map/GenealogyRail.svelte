@@ -13,7 +13,7 @@
    */
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import type { YMode } from './genealogy-layout';
-  import { T_MIN, T_MAX, K_MIN, K_MAX, type GenealogyState, type View, type Hops, type Links } from './genealogy-url';
+  import { T_MIN, T_MAX, K_MIN, K_MAX, type GenealogyState, type View, type Hops } from './genealogy-url';
 
   let { s, oncommit }: { s: GenealogyState; oncommit: (next: GenealogyState) => void } = $props();
 
@@ -92,13 +92,13 @@
 
     <div class="grp">
       <SegGroup
-        label="Links"
-        options={[{ value: 'mutual' as Links, label: 'Mutual' }, { value: 'all' as Links, label: 'All' }]}
-        value={s.links}
-        onchange={(links) => oncommit({ ...s, links })}
+        label="One-way links"
+        options={[{ value: 'plain', label: 'Plain' }, { value: 'dashed', label: 'Dashed' }]}
+        value={s.oneway ? 'dashed' : 'plain'}
+        onchange={(v) => oncommit({ ...s, oneway: v === 'dashed' })}
       />
       <!-- Placeholder copy (Phil writes copy). -->
-      <p class="note">Every game keeps its link back to the chosen game. Mutual adds the links where both games list each other; All adds every one-way link too, dashed.</p>
+      <p class="note">A one-way link: one game lists the other among its closest, but not back. Dashed marks them.</p>
     </div>
   {/if}
 </div>
