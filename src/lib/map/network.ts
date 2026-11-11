@@ -38,15 +38,26 @@ export interface NetworkOpts {
 	 * a game with nothing close gets few or none, as in the tree. Omitted: no floor.
 	 */
 	floor?: number;
+	/**
+	 * Games expanded by hand: each adds its own neighbours as a ring beyond it, wherever it
+	 * sits. Rings expand every game to a depth; this expands one, past it.
+	 */
+	open?: ReadonlySet<number>;
 }
 
 export interface NetworkNode {
 	/** Dataset index. */
 	i: number;
-	/** 0 = source, 1 = its neighbour, 2 = neighbour's neighbour, 3 = one further. */
-	hop: 0 | 1 | 2 | 3;
+	/** Steps from the source: 1 = its neighbour, 2 = neighbour's neighbour, and so on (an expanded game's neighbours sit one past it). */
+	hop: number;
 	/** Cosine similarity to the source. */
 	sim: number;
+	/** The expanded game that brought it in; absent for the rings'. */
+	from?: number;
+	/** Neighbours of its own not yet in the graph: what expanding it would add. */
+	more: number;
+	/** Expanded by hand (`NetworkOpts.open`). */
+	open: boolean;
 }
 
 export interface NetworkEdge {
@@ -95,17 +106,35 @@ export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts):
 	// The floor is applied over `topK`, so its cache (keyed by k alone) still serves.
 	const floor = o.floor ?? -Infinity;
 	const near = (i: number) => topK(d, i, o.k).filter((x) => x.sim >= floor);
-	const hopOf = new Map<number, 0 | 1 | 2 | 3>([[source, 0]]);
+	const hopOf = new Map<number, number>([[source, 0]]);
+	const from = new Map<number, number>();
 
 	// Ring by ring: the previous ring's lists name the next ring's nodes, and every node in
 	// the graph gets a list of its own so edges between them are found.
 	lists.set(source, near(source));
 	let ring: number[] = [source];
-	for (let h = 1 as 1 | 2 | 3; h <= o.hops; h++) {
+	for (let h = 1; h <= o.hops; h++) {
 		const next: number[] = [];
 		for (const i of ring) for (const nb of lists.get(i)!) if (!hopOf.has(nb.i)) { hopOf.set(nb.i, h); next.push(nb.i); }
 		for (const i of next) lists.set(i, near(i));
 		ring = next;
+	}
+
+	// Then the hand-expanded games, until none adds more: one can be brought in by another.
+	const pending = new Set(o.open ?? []);
+	for (let grew = true; grew && pending.size; ) {
+		grew = false;
+		for (const x of pending) {
+			if (!hopOf.has(x)) continue;
+			pending.delete(x);
+			grew = true;
+			for (const nb of lists.get(x)!) {
+				if (hopOf.has(nb.i)) continue;
+				hopOf.set(nb.i, hopOf.get(x)! + 1);
+				from.set(nb.i, x);
+				lists.set(nb.i, near(nb.i));
+			}
+		}
 	}
 
 	const edges: NetworkEdge[] = [];
@@ -126,7 +155,10 @@ export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts):
 	const nodes: NetworkNode[] = [...hopOf].map(([i, hop]) => ({
 		i,
 		hop,
-		sim: i === source ? 1 : dot(d.emb, d.dim, source, i)
+		sim: i === source ? 1 : dot(d.emb, d.dim, source, i),
+		...(from.has(i) ? { from: from.get(i)! } : {}),
+		more: lists.get(i)!.filter((x) => !hopOf.has(x.i)).length,
+		open: !!o.open?.has(i)
 	}));
 	return { source, nodes, edges };
 }
@@ -144,7 +176,8 @@ export function egoParents(g: EgoNetwork): Map<number, number> {
 		if (!cur || sim > cur.sim) best.set(child, { via, sim });
 	};
 	for (const e of g.edges) { offer(e.a, e.b, e.sim); offer(e.b, e.a, e.sim); }
-	return new Map(g.nodes.map((n) => [n.i, n.i === g.source ? -1 : best.get(n.i)?.via ?? g.source]));
+	// A hand-expanded game's neighbours hang off it, so they grow out of it and fold back into it.
+	return new Map(g.nodes.map((n) => [n.i, n.i === g.source ? -1 : n.from ?? best.get(n.i)?.via ?? g.source]));
 }
 
 // --- layout ------------------------------------------------------------------------------
@@ -162,7 +195,7 @@ export interface NetworkLayout {
 	py: Float32Array;
 }
 
-export interface SimNode extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 | 3 }
+export interface SimNode extends SimulationNodeDatum { i: number; hop: number }
 export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mutual: boolean }
 
 /**
@@ -183,7 +216,7 @@ export function egoSimulation(
 		const s = seed?.get(n.i);
 		if (s) return { i: n.i, hop: n.hop, x: s[0] - (s0?.[0] ?? 0), y: s[1] - (s0?.[1] ?? 0) };
 		// Hop rings otherwise, so the first ticks don't start from a random burst.
-		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][n.hop];
+		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][Math.min(3, n.hop)];
 		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
 	});
 	const at = new Map(ns.map((n) => [n.i, n]));

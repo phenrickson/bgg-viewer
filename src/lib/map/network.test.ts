@@ -55,6 +55,28 @@ describe('buildEgoNetwork floor', () => {
 	});
 });
 
+describe('buildEgoNetwork open', () => {
+	// A chain at k = 1: 0's nearest is 1, 1's is 2, 2's is 3. One ring holds just 0 and 1.
+	const chain = (): NetworkData => {
+		const angles = [0, 0.3, 0.36, 0.4];
+		return { n: 4, dim: 2, emb: new Float32Array(angles.flatMap((a) => [Math.cos(a), Math.sin(a)])), eligible: () => true };
+	};
+	it('an expanded game adds its own neighbours one ring past it, hung off it', () => {
+		const base = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false });
+		expect(base.nodes.map((n) => n.i).sort()).toEqual([0, 1]);
+		expect(base.nodes.find((n) => n.i === 1)!.more).toBe(1);
+		const g = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false, open: new Set([1]) });
+		const two = g.nodes.find((n) => n.i === 2)!;
+		expect([two.hop, two.from, egoParents(g).get(2)]).toEqual([2, 1, 1]);
+		expect(g.nodes.find((n) => n.i === 1)!.open).toBe(true);
+	});
+	it('an expanded game not yet in the graph expands once another brings it in', () => {
+		const g = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false, open: new Set([2, 1]) });
+		const three = g.nodes.find((n) => n.i === 3)!;
+		expect([three.hop, three.from]).toEqual([3, 2]);
+	});
+});
+
 describe('egoParents', () => {
 	it('hangs each game off its most similar neighbour one ring in; the source off nothing', () => {
 		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });

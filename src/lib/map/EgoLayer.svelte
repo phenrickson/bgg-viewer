@@ -185,7 +185,8 @@
     const want: { i: number; l: LabelInput }[] = [];
     // Not hover or selection: those used to add and promote labels, reshuffling the ones
     // around the cursor. The hover card and the selected panel name the game instead.
-    const wanted = (hop: number, i: number) => hop <= 1 || hubs.has(i);
+    // A hand-expanded game and what it brought in are named too: that's what was asked to see.
+    const wanted = (nd: (typeof g.nodes)[number]) => nd.hop <= 1 || hubs.has(nd.i) || nd.open || nd.from !== undefined;
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
@@ -196,7 +197,7 @@
         ctx.restore();
       }
       if (nd.i === hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
-      if (wanted(nd.hop, nd.i)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
+      if (wanted(nd)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
     }
     // The placer keeps a label only if it clears those before it, so order is priority:
     // centre, then nearer rings, then the most-rated.

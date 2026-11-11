@@ -20,6 +20,8 @@ export interface GenealogyState {
 	hops: Hops;
 	/** Network: dash the one-way links. Off by default: every link drawn alike, by similarity. */
 	oneway: boolean;
+	/** Network: game ids expanded by hand, each adding its own neighbours past it. */
+	open: number[];
 	t: number;
 	y: YMode;
 	/** Show same-year games beside the centre. Off by default. */
@@ -61,6 +63,7 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 		k: Number.isInteger(k) && k >= K_MIN && k <= K_MAX ? k : DEFAULT_K,
 		hops: hops === 1 || hops === 2 || hops === 3 ? hops : DEFAULT_HOPS,
 		oneway: p.get('ow') === '1',
+		open: ids(p.get('o')),
 		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? Math.min(T_MAX, Math.max(T_MIN, t)) : DEFAULT_THRESHOLD,
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
 		same: p.get('same') === '1',
@@ -76,6 +79,7 @@ export function toParams(s: GenealogyState): URLSearchParams {
 	if (s.k !== DEFAULT_K) p.set('k', String(s.k));
 	if (s.hops !== DEFAULT_HOPS) p.set('hops', String(s.hops));
 	if (s.oneway) p.set('ow', '1');
+	if (s.open.length) p.set('o', s.open.join(','));
 	if (s.t !== DEFAULT_THRESHOLD) p.set('t', String(s.t));
 	if (s.y !== 'year') p.set('y', s.y);
 	if (s.same) p.set('same', '1');
@@ -96,7 +100,22 @@ export function currentState(pageState: { genealogy?: GenealogyState }, url: URL
 
 /** A fresh tree: on `game` (default the current one), nothing unfolded or expanded, settings (and view) kept. */
 export function startAt(s: GenealogyState, game: number | null = s.game): GenealogyState {
-	return { ...s, game, unfolded: [], expanded: [] };
+	return { ...s, game, unfolded: [], expanded: [], open: [] };
+}
+
+/**
+ * Fold an expanded network game: forget it and every expansion that hung off it, so
+ * expanding again starts from just its own neighbours. `nodes` is the current network.
+ */
+export function foldNet(s: GenealogyState, nodes: { i: number; from?: number }[], ids: Int32Array, i: number): GenealogyState {
+	const fromOf = new Map(nodes.map((n) => [n.i, n.from]));
+	const under = (j: number) => {
+		for (let p: number | undefined = j, guard = 0; p !== undefined && guard < 64; p = fromOf.get(p), guard++) if (p === i) return true;
+		return false;
+	};
+	const gone = new Set(nodes.filter((n) => under(n.i)).map((n) => ids[n.i]));
+	gone.add(ids[i]);
+	return { ...s, open: s.open.filter((id) => !gone.has(id)) };
 }
 
 /**

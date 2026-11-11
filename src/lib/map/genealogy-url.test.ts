@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { fromParams, toParams, currentState, startAt, fold, showFewer, DEFAULT_THRESHOLD, DEFAULT_K, DEFAULT_HOPS, type GenealogyState } from './genealogy-url';
+import { foldNet, fromParams, toParams, currentState, startAt, fold, showFewer, DEFAULT_THRESHOLD, DEFAULT_K, DEFAULT_HOPS, type GenealogyState } from './genealogy-url';
 
-const NET = { view: 'tree', k: DEFAULT_K, hops: DEFAULT_HOPS, oneway: false } as const;
+const NET = { view: 'tree' as const, k: DEFAULT_K, hops: DEFAULT_HOPS, oneway: false, open: [] as number[] };
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 describe('genealogy URL state', () => {
@@ -11,7 +11,7 @@ describe('genealogy URL state', () => {
 		});
 	});
 	it('round-trips a full state', () => {
-		const s: GenealogyState = { game: 102794, view: 'net', k: 15, hops: 3, oneway: true, t: 0.72, y: 'gen', same: true, unfolded: [31260, 3076], expanded: ['31260:up'] };
+		const s: GenealogyState = { game: 102794, view: 'net', k: 15, hops: 3, oneway: true, open: [7, 8], t: 0.72, y: 'gen', same: true, unfolded: [31260, 3076], expanded: ['31260:up'] };
 		expect(fromParams(toParams(s))).toEqual(s);
 	});
 	it('writes nothing for defaults', () => {
@@ -27,7 +27,7 @@ describe('genealogy URL state', () => {
 	});
 	it('drops out-of-range network settings to their defaults', () => {
 		const s = fromParams(new URLSearchParams('v=sideways&k=99&hops=7&ow=yes'));
-		expect({ view: s.view, k: s.k, hops: s.hops, oneway: s.oneway }).toEqual(NET);
+		expect({ view: s.view, k: s.k, hops: s.hops, oneway: s.oneway, open: s.open }).toEqual(NET);
 	});
 });
 
@@ -47,7 +47,7 @@ describe('startAt', () => {
 	it('a fresh tree on a game: nothing unfolded or expanded, settings kept', () => {
 		const s: GenealogyState = { game: 1, ...NET, t: 0.7, y: 'gen', same: true, unfolded: [2, 3], expanded: ['2:up'] };
 		expect(startAt(s, 9)).toEqual({ game: 9, ...NET, t: 0.7, y: 'gen', same: true, unfolded: [], expanded: [] });
-		expect(startAt(s)).toEqual({ ...s, unfolded: [], expanded: [] }); // Reset: same game
+		expect(startAt(s)).toEqual({ ...s, unfolded: [], expanded: [], open: [] }); // Reset: same game
 	});
 });
 
@@ -69,5 +69,16 @@ describe('fold / showFewer', () => {
 	});
 	it('showFewer drops one expansion and nothing else', () => {
 		expect(showFewer(s, 100, 'up')).toEqual({ ...s, expanded: ['101:up', '102:up', '104:down'] });
+	});
+});
+
+describe('foldNet', () => {
+	it('forgets the game and every expansion hung off it, and nothing else', () => {
+		// Indices are ids 100..; 1 expanded → brought 2 (expanded) → brought 3. 4 expanded separately.
+		const ids = Int32Array.from([100, 101, 102, 103, 104]);
+		const nodes = [{ i: 0 }, { i: 1 }, { i: 2, from: 1 }, { i: 3, from: 2 }, { i: 4 }];
+		const s: GenealogyState = { game: 100, ...NET, open: [101, 102, 104], t: 0.7, y: 'year', same: false, unfolded: [], expanded: [] };
+		expect(foldNet(s, nodes, ids, 1).open).toEqual([104]);
+		expect(foldNet(s, nodes, ids, 2).open).toEqual([101, 104]);
 	});
 });

@@ -26,7 +26,7 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, startAt, fold, showFewer, DEFAULT_CAP, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, startAt, fold, foldNet, showFewer, DEFAULT_CAP, type GenealogyState } from '$lib/map/genealogy-url';
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkLayout } from '$lib/map/network';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
@@ -100,12 +100,13 @@
   const netCache = $derived.by(() => { void k; return new Map<number, { i: number; sim: number }[]>(); });
   const graph = $derived.by(() => {
     if (!net || !data || !facts || centre == null) return null;
-    const f = facts, d = data;
+    const f = facts, d = data, index = coords!.index;
+    const open = new Set(s.open.map((id) => index.get(id)).filter((i): i is number => i != null));
     // The bench's eligibility: a vector, and not upcoming (the centre is always in).
     return buildEgoNetwork(
       { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
       centre,
-      { k: s.k, hops: s.hops, mutual: false, floor: s.t }
+      { k: s.k, hops: s.hops, mutual: false, floor: s.t, open }
     );
   });
   /**
@@ -148,6 +149,9 @@
   const isExpanded = (i: number, dir: Dir) => s.expanded.includes(`${idOf(i)}:${dir}`);
   const fewer = (i: number, dir: Dir) => commit(showFewer(s, idOf(i), dir));
   const foldAt = (i: number) => { if (tree) commit(fold(s, tree, coords!.ids, i)); };
+  /** Network: expand one game past its ring, or fold it back. */
+  const expandNet = (i: number) => commit({ ...s, open: [...s.open, idOf(i)] });
+  const foldNetAt = (i: number) => { if (graph) commit(foldNet(s, graph.nodes, coords!.ids, i)); };
 
   // PLACEHOLDER COPY (Phil)
   const DIRS = ['up', 'down', 'same'] as const;
@@ -209,6 +213,13 @@
     {/if}
     <div class="actions">
       {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+      {#if netNode.open}
+        {@const i = netNode.i}
+        <Button size="sm" variant="outline" onclick={() => foldNetAt(i)}>Fold</Button>
+      {:else if netNode.more > 0}
+        {@const i = netNode.i}
+        <Button size="sm" variant="outline" onclick={() => expandNet(i)}>Expand {netNode.more} more</Button>
+      {/if}
       <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
     </div>
   {/if}
@@ -253,7 +264,7 @@
           </div>
           <div class="map-hud">
             <span><b class="tnum">{shownCount}</b> <span class="dim">games</span></span>
-            {#if tree && (s.unfolded.length || s.expanded.length)}
+            {#if (tree && (s.unfolded.length || s.expanded.length)) || (graph && s.open.length)}
               <button type="button" class="map-hud-chip" onclick={reset}>Reset</button>
             {/if}
           </div>

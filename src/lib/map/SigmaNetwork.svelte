@@ -52,7 +52,7 @@
   let moved = false;
   let hovered = $state<string | null>(null);
 
-  const SIZE: Record<0 | 1 | 2 | 3, number> = { 0: 9, 1: 6, 2: 3.5, 3: 2.5 };
+  const SIZE: Record<number, number> = { 0: 9, 1: 6, 2: 3.5, 3: 2.5 };
   const colourOf = (t: MapTheme, i: number) => (facts.category[i] === 0 ? t.other : t.chart[facts.category[i] - 1]);
 
   /** The graphology graph for the current layout — nodes keyed by map index. */
