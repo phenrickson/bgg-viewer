@@ -205,7 +205,6 @@
                 <b>Map</b>
                 <span>Visualize the landscape of board games</span>
               </a>
-              <!-- PLACEHOLDER COPY (Phil): the tool's name and its line. -->
               <a href="/lineage" role="menuitem" class:on={onLineage}>
                 <b>Lineage</b>
                 <span>Where a game came from, and what sits beside it</span>

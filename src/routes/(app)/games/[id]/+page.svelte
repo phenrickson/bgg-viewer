@@ -707,8 +707,7 @@
           <div class="empty">No similar games computed.</div>
         {/if}
         <!-- Into the Lineage tool, centred on this game: where it came from and what sits
-             beside it. Hidden offline, where the vectors it reads are out of reach.
-             PLACEHOLDER COPY (Phil). -->
+             beside it. Hidden offline, where the vectors it reads are out of reach. -->
         {#if !data.offline}
           <a class="to-lineage" href="/lineage?game={g.id}">See its lineage <span aria-hidden="true">→</span></a>
         {/if}

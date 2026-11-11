@@ -14,7 +14,6 @@
    * is stretched over the canvas like the tree's (so a flip never moves the camera); the
    * layout's square is corrected for the canvas's aspect here, so the graph isn't distorted.
    *
-   * All copy PLACEHOLDER.
    */
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
@@ -259,7 +258,7 @@
   <PinnedCard x={pin.x} y={pin.y} r={pin.r} width={pin.w} height={pin.h} alpha={textAlpha}>{@render card()}</PinnedCard>
 {/if}
 
-<!-- PLACEHOLDER COPY (Phil): hover card. -->
+<!-- The hover card. -->
 {#if tip}
   <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={textAlpha}>
     <div class="name">{facts.name(coords.ids[tip.i])}</div>

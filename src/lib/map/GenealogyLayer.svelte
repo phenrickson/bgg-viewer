@@ -22,7 +22,6 @@
    * flight. A change is one ease-out glide: entering games grow out of their parent, leaving
    * ones fold into theirs (`genealogy-tween.ts`). No camera refit — the layout already fits.
    *
-   * All copy PLACEHOLDER.
    */
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
@@ -314,7 +313,7 @@
   <PinnedCard x={pin.x} y={pin.y} r={pin.r} width={pin.w} height={pin.h} alpha={textAlpha}>{@render card()}</PinnedCard>
 {/if}
 
-<!-- PLACEHOLDER COPY (Phil): hover card. -->
+<!-- The hover card. -->
 {#if tip}
   {@const nd = byIndex.get(tip.i)}
   {#if nd}

@@ -8,8 +8,6 @@
    *
    * Sliders show their value live while dragging and commit on release, since each value
    * is a rebuild and a URL write.
-   *
-   * All copy PLACEHOLDER (Phil writes the copy).
    */
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import RailGroup from '$lib/catalog/rail/RailGroup.svelte';
@@ -99,13 +97,11 @@
         value={s.oneway ? 'dashed' : 'plain'}
         onchange={(v) => oncommit({ ...s, oneway: v === 'dashed' })}
       />
-      <!-- Placeholder copy (Phil writes copy). -->
       <p class="note">A one-way link: one game lists the other among its closest, but not back. Dashed marks them.</p>
     </div>
   {/if}
 
-  <!-- The basic explainer: open at first, so a first visit reads it (Phil, 2026-11-11).
-       PLACEHOLDER COPY (Phil). -->
+  <!-- The basic explainer: open at first, so a first visit reads it (Phil, 2026-11-11). -->
   <RailGroup title="How to read this" bind:open={explainOpen}>
     <div class="explain">
       <p class="note">

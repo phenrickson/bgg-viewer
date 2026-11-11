@@ -53,7 +53,7 @@ genealogy-only. The key changes with the view.
 **Route and name:** it stays `/dev/genealogy` and the nav row stays "Genealogy" for now.
 *(Superseded 2026-11-11: Phil chose to ship it in PR #88, named **Lineage**, at `/lineage`
 under Tools, ungated like `/map`; `/dev/genealogy` redirects there. Its two views keep the
-names Genealogy and Network. The copy is still PLACEHOLDER.)*
+names Timeline and Network. Phil kept the copy as written.)*
 Renaming the combined tool is Phil's call. `/dev/map/network` stays as it is; retiring it once
 this feels right is also Phil's call.
 

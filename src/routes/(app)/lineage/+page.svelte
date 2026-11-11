@@ -14,8 +14,6 @@
    * All tree state lives in the URL: a re-centre is a shallow `pushState` (Back undoes it,
    * unfolds and all); everything else is a `replaceState`. Shallow routing leaves
    * `page.url` alone and carries the state in `page.state` (see `currentState`).
-   *
-   * All copy PLACEHOLDER (Phil writes the copy).
    */
   import { onMount, onDestroy } from 'svelte';
   import { Glide } from '$lib/map/glide.svelte';
@@ -178,7 +176,6 @@
   const expandNet = (i: number) => commit({ ...s, open: [...s.open, idOf(i)] });
   const foldNetAt = (i: number) => { if (graph) commit(foldNet(s, graph.nodes, coords!.ids, i)); };
 
-  // PLACEHOLDER COPY (Phil)
   const DIRS = ['up', 'down', 'same'] as const;
   const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
   const KIND_LABEL = { family: 'same family', influence: 'similarity only' } as const;
@@ -188,7 +185,7 @@
 </script>
 
 <!-- The selected game's card contents, one per view; the layer pins them beside the game's dot
-     (`PinnedCard`). PLACEHOLDER COPY (Phil). -->
+     (`PinnedCard`). -->
 {#snippet treeCard()}
   {#if selNode && facts && coords}
     {@const id = coords.ids[selNode.i]}
@@ -267,7 +264,7 @@
       {:else if !net && tree && !tree.placeable}
         <div class="map-hud-state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
       {:else if net && !data.has(centre)}
-        <!-- Without a vector every score is 0, so the floor leaves a lone dot. PLACEHOLDER COPY (Phil). -->
+        <!-- Without a vector every score is 0, so the floor leaves a lone dot. -->
         <div class="map-hud-state">{facts.name(centreId)} has no vector, so it has no network.</div>
       {:else if glide && (layout || netLayout)}
         <!-- One canvas for both views: a flip swaps the layer, and the Glide carries every game
@@ -283,7 +280,7 @@
         </PointCanvas>
       {/if}
 
-      <!-- Left: what you're looking at. Right: what acts on it. PLACEHOLDER COPY (Phil). -->
+      <!-- Left: what you're looking at. Right: what acts on it. -->
       {#if facts && (tree || graph) && centre != null}
         <div class="map-hud-stack left">
           <div class="map-hud chosen">
@@ -313,7 +310,7 @@
         </div>
       {/if}
 
-      <!-- The key: always on, bottom-left. PLACEHOLDER COPY (Phil). -->
+      <!-- The key: always on, bottom-left. -->
       {#if layout || netLayout}
         <div class="map-hud-stack left bottom">
           <div class="map-hud key" aria-label="Key">
