@@ -14,14 +14,31 @@ function coords(ids: number[], version = 6): CoordinateSet {
 }
 const facts = (years: number[]) => ({ year: Int16Array.from(years) }) as unknown as GameFacts;
 /** Two-d unit vectors in artifact order (already normalised, as `parseVectors` leaves them). */
-function vectors(rows: [id: number, v: [number, number]][], version = 6): VectorSet {
+function vectors(rows: [id: number, v: [number, number]][], version = 6, extra: Partial<VectorSet> = {}): VectorSet {
 	return {
 		ids: Int32Array.from(rows, (r) => r[0]),
 		vec: Float32Array.from(rows.flatMap((r) => r[1])),
-		version
+		version,
+		deployed: NaN,
+		rowVersion: null,
+		...extra
 	} as unknown as VectorSet;
 }
 const noFamilies = { game_id: [], family_id: [] };
+
+describe('buildGenealogyInput, embedding versions', () => {
+	const rows: [number, [number, number]][] = [[10, [1, 0]], [20, [0, 1]], [30, [1, 0]]];
+	it('keeps only games on the deployed version', () => {
+		const vs = vectors(rows, 7, { deployed: 6, rowVersion: Int32Array.from([6, 7, 6]) });
+		const d = buildGenealogyInput(vs, noFamilies, coords([10, 20, 30]), facts([2000, 2001, 2002]));
+		expect([d.has(0), d.has(1), d.has(2)]).toEqual([true, false, true]);
+	});
+	it('falls back to the newest version when the deployed one is unknown', () => {
+		const vs = vectors(rows, 7, { rowVersion: Int32Array.from([6, 7, 7]) });
+		const d = buildGenealogyInput(vs, noFamilies, coords([10, 20, 30], 7), facts([2000, 2001, 2002]));
+		expect([d.has(0), d.has(1), d.has(2)]).toEqual([false, true, true]);
+	});
+});
 
 describe('buildGenealogyInput', () => {
 	it('aligns vectors and families to coordinates order', () => {

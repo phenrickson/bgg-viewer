@@ -17,24 +17,35 @@ import type { NetworkData } from './network';
  * the older one then quietly lacks some games. That's no reason to block the page, so this
  * aligns anyway and warns.
  */
+/**
+ * The vectors placed in coordinates order, keeping only games on the active embedding version:
+ * the deployed one, or the newest in the artifact when the build couldn't read it. The artifact
+ * keeps every version for Recommend, but a dot product across two runs means nothing, so a
+ * straggler left on an old run is treated as having no vector here.
+ */
 export function alignVectors(vs: VectorSet, coords: CoordinateSet, label: string): { emb: Float32Array; dim: number; have: Uint8Array } {
-	if (!Number.isFinite(vs.version)) {
+	const active = Number.isFinite(vs.deployed) ? vs.deployed : vs.version;
+	if (!Number.isFinite(active)) {
 		console.warn(`[${label}] the vectors artifact has no embedding version — can't check it against the coordinates.`);
-	} else if (vs.version !== coords.version) {
+	} else if (active !== coords.version) {
 		console.warn(
-			`[${label}] the vectors are embedding v${vs.version} but the coordinates are v${coords.version}; games only in the newer one are missing.`
+			`[${label}] the active embedding is v${active} but the coordinates are v${coords.version}; games only in one of them are missing.`
 		);
 	}
+	const rv = vs.rowVersion ?? null;
 	const dim = vs.ids.length ? vs.vec.length / vs.ids.length : 64;
 	const n = coords.ids.length;
 	const emb = new Float32Array(n * dim);
 	const have = new Uint8Array(n);
+	let stale = 0;
 	for (let o = 0; o < vs.ids.length; o++) {
 		const i = coords.index.get(vs.ids[o]);
 		if (i == null) continue;
+		if (rv && Number.isFinite(active) && rv[o] !== active) { stale++; continue; }
 		emb.set(vs.vec.subarray(o * dim, (o + 1) * dim), i * dim);
 		have[i] = 1;
 	}
+	if (stale) console.warn(`[${label}] ${stale} games are on an older embedding than v${active}; left out until they're re-embedded.`);
 	return { emb, dim, have };
 }
 

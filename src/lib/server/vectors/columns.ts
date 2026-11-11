@@ -19,6 +19,7 @@ export interface VectorTables {
 	gss: string; // analytics.game_similarity_search
 	lines: string; // analytics.game_product_line
 	profiles: string; // analytics.similarity_profiles
+	deployed: string; // monitoring.deployed_models
 }
 
 export function vectorsQuerySql(t: VectorTables): string {
@@ -38,6 +39,18 @@ LEFT JOIN pct USING (game_id)
 LEFT JOIN lines USING (game_id)
 WHERE ${WORKING_SET_WHERE}
 ORDER BY game_id`;
+}
+
+/**
+ * The deployed game-embedding version: the one the latest embedding run used, as the
+ * warehouse's `monitoring.deployed_models` records it. Recommend keeps every version (to
+ * match `game_neighbors`); the genealogy and network compare only games on this one, since
+ * a dot product across two embedding runs means nothing. No run in its 30-day window: no row.
+ */
+export function deployedEmbeddingSql(deployedTable: string): string {
+	return `SELECT model_version FROM \`${deployedTable}\`
+WHERE model_category = 'game' AND model_type = 'game_embedding'
+ORDER BY last_scored DESC LIMIT 1`;
 }
 
 /** The ranking rules, shipped in the artifact so the browser never copies them. */

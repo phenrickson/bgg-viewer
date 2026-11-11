@@ -58,6 +58,12 @@ const PROFILES: ProfileRow[] = [
 ];
 
 describe('rowsToArrowIPC (vectors)', () => {
+	it("carries each row's version and the deployed one", () => {
+		const t = tableFromIPC(rowsToArrowIPC([row(13, 6), row(188, 5)], PROFILES, 6));
+		expect(Array.from(t.getChild('embedding_version')!.toArray() as Int32Array)).toEqual([6, 5]);
+		expect(t.schema.metadata.get('deployed_embedding_version')).toBe('6');
+		expect(tableFromIPC(rowsToArrowIPC([row(13, 6)], PROFILES)).schema.metadata.get('deployed_embedding_version')).toBe('');
+	});
 	it('writes a 64-wide float32 embedding per game', () => {
 		const t = tableFromIPC(rowsToArrowIPC([row(13, 6), row(188, 6)], PROFILES));
 		expect(t.numRows).toBe(2);

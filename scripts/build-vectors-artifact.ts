@@ -14,6 +14,7 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import { vectorsQuerySql, profilesQuerySql } from '../src/lib/server/vectors/columns';
 import { rowsToArrowIPC, type VectorRow, type ProfileRow } from '../src/lib/server/vectors/serialize';
+import { deployedEmbeddingVersion } from '../src/lib/server/vectors/deployed';
 import { publishArtifact } from './lib/publish-artifact';
 
 const PROJECT = process.env.GCP_PROJECT_ID || 'bgg-data-warehouse';
@@ -22,7 +23,8 @@ const TABLES = {
 	features: `${PROJECT}.analytics.games_features`,
 	gss: `${PROJECT}.analytics.game_similarity_search`,
 	lines: `${PROJECT}.analytics.game_product_line`,
-	profiles: `${PROJECT}.analytics.similarity_profiles`
+	profiles: `${PROJECT}.analytics.similarity_profiles`,
+	deployed: `${PROJECT}.monitoring.deployed_models`
 };
 
 const version = (v: unknown) => Number(typeof v === 'object' && v !== null && 'value' in v ? (v as { value: unknown }).value : v);
@@ -32,21 +34,22 @@ async function main(): Promise<void> {
 	const bq = new BigQuery({ projectId: PROJECT });
 
 	console.log('Querying BigQuery…');
-	const [[rows], [profiles]] = await Promise.all([
+	const [[rows], [profiles], deployed] = await Promise.all([
 		bq.query({ query: vectorsQuerySql(TABLES) }),
-		bq.query({ query: profilesQuerySql(TABLES.profiles) })
+		bq.query({ query: profilesQuerySql(TABLES.profiles) }),
+		deployedEmbeddingVersion(bq, TABLES.deployed)
 	]);
 	if (rows.length === 0) throw new Error('vectors build returned zero rows');
 	if (profiles.length === 0) throw new Error('vectors build found no similarity profiles');
 
 	const latest = Math.max(...rows.map((r) => version(r.embedding_version)));
 	const older = rows.filter((r) => version(r.embedding_version) < latest).length;
-	console.log(`  ${rows.length.toLocaleString()} rows (${older} below v${latest}), ${profiles.length} profiles, in ${Date.now() - t0}ms`);
+	console.log(`  ${rows.length.toLocaleString()} rows (${older} below v${latest}), ${profiles.length} profiles, deployed v${deployed ?? '? (newest stands in)'}, in ${Date.now() - t0}ms`);
 
 	await publishArtifact({
 		prefix: 'vectors',
 		pointerName: 'vectors-current.json',
-		raw: rowsToArrowIPC(rows as VectorRow[], profiles as ProfileRow[]),
+		raw: rowsToArrowIPC(rows as VectorRow[], profiles as ProfileRow[], deployed),
 		rows: rows.length,
 		bucketName: BUCKET,
 		dryRun: process.argv.includes('--dry-run')

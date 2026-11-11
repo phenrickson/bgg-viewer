@@ -30,6 +30,8 @@ function makeSet(games: G[], profiles: Profile[]): VectorSet {
 		index: new Map(games.map((g, i) => [g.id, i])),
 		profiles,
 		version: 6,
+		deployed: 6,
+		rowVersion: null,
 		model: 'm'
 	};
 }

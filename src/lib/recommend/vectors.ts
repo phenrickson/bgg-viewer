@@ -37,7 +37,12 @@ export interface VectorSet {
 	/** game_id → row. */
 	index: Map<number, number>;
 	profiles: Profile[];
+	/** The newest embedding version among the rows. */
 	version: number;
+	/** The deployed one (`monitoring.deployed_models`); NaN when the build couldn't read it. */
+	deployed: number;
+	/** Each row's own version; null for an artifact built before the column shipped. */
+	rowVersion: Int32Array | null;
 	model: string;
 }
 
@@ -77,6 +82,13 @@ export function parseVectors(buf: Uint8Array): VectorSet {
 	const index = new Map<number, number>();
 	for (let i = 0; i < n; i++) index.set(ids[i], i);
 	const meta = table.schema.metadata;
+	const verCol = table.getChild('embedding_version');
+	let rowVersion: Int32Array | null = null;
+	if (verCol) {
+		rowVersion = new Int32Array(n);
+		for (let i = 0; i < n; i++) rowVersion[i] = (verCol.get(i) as number | null) ?? -1;
+	}
+	const deployedMeta = meta.get('deployed_embedding_version');
 	return {
 		ids,
 		vec,
@@ -87,6 +99,8 @@ export function parseVectors(buf: Uint8Array): VectorSet {
 		index,
 		profiles: JSON.parse(meta.get('similarity_profiles') ?? '[]') as Profile[],
 		version: Number(meta.get('embedding_version') ?? NaN),
+		deployed: deployedMeta ? Number(deployedMeta) : NaN,
+		rowVersion,
 		model: meta.get('embedding_model') ?? ''
 	};
 }
