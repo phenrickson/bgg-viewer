@@ -165,9 +165,25 @@
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
-    // Axis labels down the left edge; the y map comes from two placed nodes at distinct y —
-    // at their on-screen (`cur`) y, which is mid-glide while the tree moves. The ticks go
-    // straight to their new rows and the games glide into them.
+    // The chosen game's glow and ring, and the selection's: always, tracking their dots.
+    const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
+    const centre = g.nodes[0];
+    const cp = at.get(centre.i);
+    if (cp) {
+      glow(ctx, cp[0], cp[1], rad(centre.i) * 3, theme.accent, 0.35);
+      ring(ctx, cp[0], cp[1], rad(centre.i) + 2, theme.foreground, theme.background, 2.5);
+    }
+    const sp = selected >= 0 ? at.get(selected) : undefined;
+    if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
+
+    // Everything with text waits for the games to land, then fades in (Recommend's rhythm):
+    // nothing written slides around attached to a moving dot.
+    const settle = glide.settle;
+    if (settle === 0) { marks = []; tip = null; return; }
+    ctx.save();
+    ctx.globalAlpha = settle;
+
+    // Axis labels down the left edge; the y map comes from two placed nodes at distinct y.
     const placed = g.nodes.map((nd) => ({ y: cur.y[nd.i], p: at.get(nd.i) })).filter((v) => v.p);
     const a = placed[0];
     const b = a && placed.find((v) => Math.abs(v.y - a.y) > 1e-6);
@@ -176,7 +192,7 @@
       ctx.save();
       ctx.font = '11px system-ui, sans-serif';
       ctx.textBaseline = 'middle';
-      ctx.globalAlpha = 0.6;
+      ctx.globalAlpha = 0.6 * settle;
       ctx.fillStyle = theme.foreground;
       for (const tk of layout.ticks) {
         const sy = toPy(tk.y);
@@ -185,23 +201,16 @@
       ctx.restore();
     }
 
-    const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
-    const centre = g.nodes[0];
-    const cp = at.get(centre.i);
-    if (cp) glow(ctx, cp[0], cp[1], rad(centre.i) * 3, theme.accent, 0.35);
-
     const input = new Map<number, LabelInput>();
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
       const r = rad(nd.i);
-      if (nd.side === 'centre') ring(ctx, p[0], p[1], r + 2, theme.foreground, theme.background, 2.5);
       if (isUpcoming(nd)) {
         ctx.save(); ctx.setLineDash([2, 2]);
         ring(ctx, p[0], p[1], r, theme.foreground, theme.background, 1.2);
         ctx.restore();
       }
-      if (nd.i === selected) ring(ctx, p[0], p[1], r + 3, theme.accent, theme.background, 2);
       if (nd.i === api.hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
       const tk = token(nd);
       input.set(nd.i, { x: p[0], y: p[1], text: `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})${tk ? ` ${tk}` : ''}`, gap: r + 4 });
@@ -232,6 +241,7 @@
         act: nd.unfolded ? () => onfold?.(nd.i) : () => onunfold?.(nd.i)
       });
     }
+    ctx.restore();
     const hp = api.hovered >= 0 && byIndex.has(api.hovered) ? at.get(api.hovered) : undefined;
     tip = hp ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
     marks = next;
@@ -258,19 +268,20 @@
     surface.drive(driver);
     return () => surface.release(driver);
   });
-  // Links and rings follow the selection; the glide repaints after each draw.
-  $effect(() => { void selected; void g; surface.repaint(); });
+  // Links and rings follow the selection; the glide repaints after each draw, and the text
+  // repaints as it fades in.
+  $effect(() => { void selected; void g; void glide.settle; surface.repaint(); });
 </script>
 
 {#each marks as m (m.key)}
-  <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" onclick={m.act}>{m.label}</button>
+  <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" style:opacity={glide.settle} onclick={m.act}>{m.label}</button>
 {/each}
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
   {@const nd = byIndex.get(tip.i)}
   {#if nd}
-    <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px">
+    <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={glide.settle}>
       <div class="name">{facts.name(coords.ids[nd.i])}</div>
       <div class="meta">
         {yearOf(nd.i)} · {facts.usersRated[nd.i].toLocaleString()} ratings{#if nd.side !== 'centre'} · {nd.sim.toFixed(2)} to {facts.name(coords.ids[nd.via])}{/if}

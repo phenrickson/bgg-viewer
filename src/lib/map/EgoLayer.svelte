@@ -153,21 +153,31 @@
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
     const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
 
+    // The chosen game's glow and ring, and the selection's: always, tracking their dots.
     const cp = at.get(centre);
-    if (cp) glow(ctx, cp[0], cp[1], rad(centre) * 3, theme.accent, 0.35);
+    if (cp) {
+      glow(ctx, cp[0], cp[1], rad(centre) * 3, theme.accent, 0.35);
+      ring(ctx, cp[0], cp[1], rad(centre) + 2, theme.foreground, theme.background, 2.5);
+    }
+    const sp = selected >= 0 ? at.get(selected) : undefined;
+    if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
+
+    // Labels wait for the games to land, then fade in (Recommend's rhythm, as in the tree).
+    const settle = glide.settle;
+    if (settle === 0) { tip = null; return; }
+    ctx.save();
+    ctx.globalAlpha = settle;
     const want: { i: number; l: LabelInput }[] = [];
     const wanted = (i: number, hop: number) => i === selected || i === hovered || hop <= 1 || hubs.has(i);
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
       const r = rad(nd.i);
-      if (nd.i === centre) ring(ctx, p[0], p[1], r + 2, theme.foreground, theme.background, 2.5);
       if (nd.i !== centre && facts.upcoming[nd.i] === 1) {
         ctx.save(); ctx.setLineDash([2, 2]);
         ring(ctx, p[0], p[1], r, theme.foreground, theme.background, 1.2);
         ctx.restore();
       }
-      if (nd.i === selected) ring(ctx, p[0], p[1], r + 3, theme.accent, theme.background, 2);
       if (nd.i === hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
       if (wanted(nd.i, nd.hop)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
     }
@@ -176,6 +186,7 @@
     const rank = (i: number) => (i === centre ? 0 : i === selected ? 1 : i === hovered ? 2 : 3 + (hopOf.get(i) ?? 3));
     want.sort((p, q) => rank(p.i) - rank(q.i) || facts.usersRated[q.i] - facts.usersRated[p.i]);
     labels(ctx, want.map((w) => w.l), api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true });
+    ctx.restore();
     const hp = hovered >= 0 && hopOf.has(hovered) ? at.get(hovered) : undefined;
     tip = hp ? { i: hovered, x: hp[0], y: hp[1] } : null;
   }
@@ -201,12 +212,12 @@
     return () => surface.release(driver);
   });
   // Links and rings follow the selection and the link filter; the glide repaints after each draw.
-  $effect(() => { void selected; void edges; surface.repaint(); });
+  $effect(() => { void selected; void edges; void glide.settle; surface.repaint(); });
 </script>
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
-  <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px">
+  <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={glide.settle}>
     <div class="name">{facts.name(coords.ids[tip.i])}</div>
     <div class="meta">
       {yearOf(tip.i)} · {facts.usersRated[tip.i].toLocaleString()} ratings{#if tip.i !== centre} · {(simOf.get(tip.i) ?? 0).toFixed(2)} to {facts.name(coords.ids[centre])} · ring {hopOf.get(tip.i)}{/if}
