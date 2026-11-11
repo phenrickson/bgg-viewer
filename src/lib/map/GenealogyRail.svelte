@@ -70,7 +70,7 @@
   {:else}
     <div class="grp">
       <label class="field">
-        <span class="row"><span class="lbl">Neighbours per game</span><b class="tnum">{dragK ?? s.k}</b></span>
+        <span class="row"><span class="lbl">Neighbors per game</span><b class="tnum">{dragK ?? s.k}</b></span>
         <input
           type="range" min={K_MIN} max={K_MAX} step="1" value={s.k}
           oninput={(e) => (dragK = Number(e.currentTarget.value))}
@@ -87,7 +87,7 @@
         value={s.hops}
         onchange={(hops) => oncommit({ ...s, hops })}
       />
-      <p class="note">1 is the game's own neighbours; 2 adds theirs; 3 one ring further.</p>
+      <p class="note">1 is the game's own neighbors; 2 adds theirs; 3 one ring further.</p>
     </div>
 
     <div class="grp">

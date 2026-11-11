@@ -72,8 +72,8 @@
   const inGames = $derived(onExplore || onDiscover || onWhatsNew);
   const onMap = $derived(path === '/map' || path.startsWith('/map/'));
   const onRecommend = $derived(path === '/recommend' || path.startsWith('/recommend/'));
-  const onGenealogy = $derived(path === '/genealogy');
-  const inTools = $derived(onMap || onRecommend || onGenealogy);
+  const onLineage = $derived(path === '/lineage');
+  const inTools = $derived(onMap || onRecommend || onLineage);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
   const onHome = $derived(!inGames && !inTools && !onAbout);
 
@@ -206,9 +206,9 @@
                 <span>Visualize the landscape of board games</span>
               </a>
               <!-- PLACEHOLDER COPY (Phil): the tool's name and its line. -->
-              <a href="/genealogy" role="menuitem" class:on={onGenealogy}>
-                <b>Genealogy</b>
-                <span>Trace a game's ancestors, descendants and neighbours</span>
+              <a href="/lineage" role="menuitem" class:on={onLineage}>
+                <b>Lineage</b>
+                <span>Where a game came from, and what sits beside it</span>
               </a>
             </div>
           {/if}
@@ -261,7 +261,7 @@
               <span class="grp" aria-hidden="true">Tools</span>
               <a href="/recommend" role="menuitem" class:on={onRecommend}><b>Recommend</b></a>
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
-              <a href="/genealogy" role="menuitem" class:on={onGenealogy}><b>Genealogy</b></a>
+              <a href="/lineage" role="menuitem" class:on={onLineage}><b>Lineage</b></a>
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}

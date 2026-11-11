@@ -1,7 +1,7 @@
 # One tool, two views: Genealogy ⇄ Network
 
 *2026-11-11. Builds on [2026-11-11-genealogy-presentation-design.md](2026-11-11-genealogy-presentation-design.md).
-Branch `feat/game-lineage`, PR #88. Written as dev-only; shipped at `/genealogy` in the same PR (see Route and name).*
+Branch `feat/game-lineage`, PR #88. Written as dev-only; shipped as Lineage at `/lineage` in the same PR (see Route and name).*
 
 ## Why
 
@@ -51,9 +51,9 @@ at their defaults. The centre is shared.
 genealogy-only. The key changes with the view.
 
 **Route and name:** it stays `/dev/genealogy` and the nav row stays "Genealogy" for now.
-*(Superseded 2026-11-11: Phil chose to ship it in PR #88. It lives at `/genealogy` under Tools,
-ungated like `/map`, and `/dev/genealogy` redirects there. The name and copy are still
-PLACEHOLDER.)*
+*(Superseded 2026-11-11: Phil chose to ship it in PR #88, named **Lineage**, at `/lineage`
+under Tools, ungated like `/map`; `/dev/genealogy` redirects there. Its two views keep the
+names Genealogy and Network. The copy is still PLACEHOLDER.)*
 Renaming the combined tool is Phil's call. `/dev/map/network` stays as it is; retiring it once
 this feels right is also Phil's call.
 

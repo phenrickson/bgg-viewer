@@ -1,5 +1,5 @@
 /**
- * `/genealogy`'s state — both views, Genealogy and Network — all of it in the URL, so a tree can be linked and Back
+ * `/lineage`'s state — both views, Genealogy and Network — all of it in the URL, so a tree can be linked and Back
  * restores the one before (the page pushes a history entry per re-centre, which starts a
  * fresh tree). Game ids, not
  * dataset indices, so a URL survives a rebuilt artifact. Junk is dropped, never thrown.

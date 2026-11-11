@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * `/genealogy`: one game and what's around it over the embedding, as a Genealogy (earlier
+   * `/lineage`: one game and what's around it over the embedding, as a Genealogy (earlier
    * games like it above, later ones below, same-year ones beside it, grown by unfolding (⊕)
    * and re-centring) or a Network (its neighbours, ring by ring), with a glide between the two.
    * Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md and
@@ -195,7 +195,7 @@
       <p>{selNode.sim.toFixed(2)} to {facts.name(idOf(selNode.via))} · {KIND_LABEL[selNode.kind]}</p>
     {/if}
     <div class="actions">
-      {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+      {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Center on this</Button>{/if}
       {#if selNode.side === 'up' || selNode.side === 'down'}
         {@const dir = selNode.side}
         {@const i = selNode.i}
@@ -229,7 +229,7 @@
       <p>{netNode.sim.toFixed(2)} to {facts.name(centreId)} · ring {netNode.hop}</p>
     {/if}
     <div class="actions">
-      {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+      {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Center on this</Button>{/if}
       {#if netNode.open}
         {@const i = netNode.i}
         <Button size="sm" variant="outline" onclick={() => foldNetAt(i)}>Fold</Button>
