@@ -33,12 +33,14 @@
   import { toRgb } from './palette';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
-  import { planTween, interpolate, easeOutCubic, type TweenTree } from './genealogy-tween';
+  import type { Glide } from './glide.svelte';
+  import { lineagePalette, bucketOf, diameter } from './lineage-encoding';
 
   let {
     coords,
     facts,
     layout,
+    glide,
     selected = -1,
     onselect,
     onunfold,
@@ -47,6 +49,8 @@
     coords: CoordinateSet;
     facts: GameFacts;
     layout: GenealogyLayout;
+    /** The page's motion, shared with the network view. */
+    glide: Glide;
     /** The selected game's index, -1 for none. */
     selected?: number;
     onselect?: (i: number) => void;
@@ -67,75 +71,31 @@
   });
 
   // --- motion ----------------------------------------------------------------------------
-  /** Snappy, not ceremonial. */
-  const DURATION = 450;
-  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  /** Two frame buffers, alternated: `PointCanvas` redraws on a new array identity. */
-  const bufs = [0, 1].map(() => ({ x: new Float32Array(n), y: new Float32Array(n) }));
-  let flip = 0;
-  /** The positions on screen this frame (in-between ones mid-glide). */
-  let cur = $state.raw(bufs[0]);
-  /** Games from the previous tree folding away; drawn until the glide lands. */
-  let leaving = $state.raw<GenealogyNode[]>([]);
-  let prev: { tree: TweenTree; nodes: Map<number, GenealogyNode> } | null = null;
-  let onScreen: { x: Float32Array; y: Float32Array } | null = null;
-  let raf = 0;
-
+  // The page's `Glide` owns the motion, so it carries across a flip to the network view.
   // Declared before the driver effect, so the first frame exists before the canvas reads it.
   $effect(() => {
-    const target = pos, tree = g;
-    const next: TweenTree = { centre: tree.centre, nodes: tree.nodes.map((nd) => ({ i: nd.i, via: nd.via })) };
-    const plan = planTween(n, prev?.tree ?? null, onScreen, next, target);
-    const old = prev?.nodes;
-    // Not read back below: the first step runs inside this effect, and reading `leaving`
-    // there would make clearing it restart the glide.
-    const folding = !!old && plan.leaving.length > 0;
-    leaving = folding ? plan.leaving.map((i) => old!.get(i)!) : [];
-    prev = { tree: next, nodes: new Map(tree.nodes.map((nd) => [nd.i, nd])) };
-    const start = performance.now();
-    const step = (now: number) => {
-      const t = reduced ? 1 : Math.min(1, (now - start) / DURATION);
-      const out = bufs[(flip = 1 - flip)];
-      interpolate(plan, easeOutCubic(t), out);
-      onScreen = out;
-      cur = out;
-      if (t < 1) raf = requestAnimationFrame(step);
-      else if (folding) leaving = [];
-    };
-    step(start);
-    return () => cancelAnimationFrame(raf);
+    glide.to({ centre: g.centre, nodes: g.nodes.map((nd) => ({ i: nd.i, via: nd.via })) }, pos);
   });
-  /** What's drawn: the tree, plus anything still folding away. */
-  const drawnNodes = $derived(leaving.length ? [...g.nodes, ...leaving] : g.nodes);
+  const cur = $derived(glide.cur);
+  const leaving = $derived(glide.leaving);
 
-  /** Colour buckets, indexing `palette`: every related game, the chosen game, upcoming (hollow). */
-  const BUCKET = { up: 0, down: 0, same: 0, centre: 1 } as const;
-  const UPCOMING = 2;
-  const palette = $derived.by(() => {
-    const t = surface.theme;
-    return t ? [t.chart[0], t.accent, t.background] : [];
-  });
+  const palette = $derived(lineagePalette(surface.theme));
   const isUpcoming = (nd: GenealogyNode) => nd.side !== 'centre' && facts.upcoming[nd.i] === 1;
+  const diameterOf = (i: number) => diameter(facts, i, g.centre);
   const colour = $derived.by(() => {
     const c = new Uint8Array(n);
-    for (const nd of drawnNodes) c[nd.i] = isUpcoming(nd) ? UPCOMING : BUCKET[nd.side];
+    for (const nd of g.nodes) c[nd.i] = bucketOf(facts, nd.i, g.centre);
+    for (const l of leaving) c[l.i] = bucketOf(facts, l.i, g.centre);
     return c;
   });
-
-  /** Diameter from ratings on a log scale: 30 ratings → 5px, 100k → 18px. Upcoming: fixed. */
-  const LOG_LO = Math.log10(30), LOG_HI = 5;
-  const UPCOMING_DIAMETER = 10;
-  function diameter(i: number): number {
-    if (facts.upcoming[i] === 1 && i !== g.centre) return UPCOMING_DIAMETER;
-    const t = (Math.log10(Math.max(1, facts.usersRated[i])) - LOG_LO) / (LOG_HI - LOG_LO);
-    return Math.round(5 + Math.min(1, Math.max(0, t)) * 13);
-  }
   const size = $derived.by(() => {
     const s = new Uint8Array(n);
-    for (const nd of drawnNodes) s[nd.i] = diameter(nd.i);
+    for (const nd of g.nodes) s[nd.i] = diameterOf(nd.i);
+    for (const l of leaving) s[l.i] = diameterOf(l.i);
     return s;
   });
-  const visible = $derived(drawnNodes.map((nd) => nd.i));
+  /** What's drawn: the tree, plus anything still folding away. */
+  const visible = $derived([...g.nodes.map((nd) => nd.i), ...leaving.map((l) => l.i)]);
 
   /** An edge from parent `a` to child `b`: a cubic with vertical tangents at both ends. */
   const SEGMENTS = 16;
@@ -162,8 +122,10 @@
     const layers: Line[][] = PASSES.map(() => []);
     const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
       PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
-    // Links follow the in-between positions (`cur`), so they travel with their games.
-    const edges = drawnNodes.filter((nd) => nd.side !== 'centre' && nd.via >= 0);
+    // Links follow the in-between positions (`cur`), so they travel with their games. A game
+    // folding away keeps a faint plain link to the game it hung off until it lands.
+    for (const l of leaving) if (l.via >= 0) stroke(edgePath(l.via, l.i), ink, 0.25, 1.2);
+    const edges = g.nodes.filter((nd) => nd.side !== 'centre');
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
@@ -223,7 +185,7 @@
       ctx.restore();
     }
 
-    const rad = (i: number) => (diameter(i) / 2) * api.pointScale;
+    const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
     const centre = g.nodes[0];
     const cp = at.get(centre.i);
     if (cp) glow(ctx, cp[0], cp[1], rad(centre.i) * 3, theme.accent, 0.35);

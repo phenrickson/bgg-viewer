@@ -15,7 +15,8 @@
    *
    * All copy PLACEHOLDER (Phil writes the copy).
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { Glide } from '$lib/map/glide.svelte';
   import { page } from '$app/state';
   import { pushState, replaceState } from '$app/navigation';
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
@@ -40,6 +41,9 @@
   let facts = $state<GameFacts | null>(null);
   let data = $state.raw<GenealogyInput | null>(null);
   let loadError = $state<string | null>(null);
+  /** The tool's motion — page-owned so it carries across the Genealogy ⇄ Network flip. */
+  let glide = $state.raw<Glide | null>(null);
+  onDestroy(() => glide?.stop());
 
   onMount(async () => {
     try {
@@ -48,6 +52,7 @@
       const loaded = await loadMap();
       coords = loaded.coords;
       facts = loaded.facts;
+      glide = new Glide(loaded.coords.ids.length);
       data = await loadGenealogyData(loaded.coords, loaded.facts);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
@@ -142,9 +147,9 @@
         <div class="map-hud-state">{facts.name(centreId)} isn’t in the embedding.</div>
       {:else if tree && !tree.placeable}
         <div class="map-hud-state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
-      {:else if layout}
+      {:else if layout && glide}
         <PointCanvas lasso={false}>
-          <GenealogyLayer {coords} {facts} {layout} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
+          <GenealogyLayer {coords} {facts} {layout} {glide} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
         </PointCanvas>
       {/if}
 
