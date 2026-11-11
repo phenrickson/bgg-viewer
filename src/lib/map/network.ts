@@ -21,9 +21,12 @@ export interface NetworkData {
 	/**
 	 * Memo of `topK` results, keyed by node. Each list is a full scan of the set (~2ms per
 	 * node), and re-centring on a neighbour re-asks for most of the lists just computed, so
-	 * the caller keeps one cache per (k, eligibility) and hands it in. Optional.
+	 * the caller keeps one cache per eligibility and hands it in. Optional. A list serves any
+	 * k up to its length, so one scanned at `scanK` serves every k on the slider.
 	 */
 	cache?: Map<number, { i: number; sim: number }[]>;
+	/** How many to keep per scan, at least: the largest k the caller will ask for. */
+	scanK?: number;
 }
 
 export interface NetworkOpts {
@@ -81,9 +84,10 @@ export function dot(emb: Float32Array, dim: number, a: number, b: number): numbe
 }
 
 /** Top-`k` eligible neighbours of `from`, best first, as `{ i, sim }`. */
-export function topK(d: NetworkData, from: number, k: number): { i: number; sim: number }[] {
+export function topK(d: NetworkData, from: number, want: number): { i: number; sim: number }[] {
 	const hit = d.cache?.get(from);
-	if (hit) return hit;
+	if (hit && hit.length >= want) return hit.length === want ? hit : hit.slice(0, want);
+	const k = Math.max(want, d.scanK ?? want);
 	// Small bounded insertion list: k is tens, n is tens of thousands.
 	const best: { i: number; sim: number }[] = [];
 	let floor = -Infinity;
@@ -98,12 +102,12 @@ export function topK(d: NetworkData, from: number, k: number): { i: number; sim:
 		if (best.length === k) floor = best[k - 1].sim;
 	}
 	d.cache?.set(from, best);
-	return best;
+	return best.length > want ? best.slice(0, want) : best;
 }
 
 export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts): EgoNetwork {
 	const lists = new Map<number, { i: number; sim: number }[]>();
-	// The floor is applied over `topK`, so its cache (keyed by k alone) still serves.
+	// The floor is applied over `topK`, so its cache serves every floor.
 	const floor = o.floor ?? -Infinity;
 	const near = (i: number) => topK(d, i, o.k).filter((x) => x.sim >= floor);
 	const hopOf = new Map<number, number>([[source, 0]]);

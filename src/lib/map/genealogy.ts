@@ -32,9 +32,23 @@ export interface GenealogyInput {
 	families: number[][];
 	/** The index has a vector. */
 	has: (i: number) => boolean;
-	/** Memo of `linked` lists for ONE threshold; the caller replaces it when the threshold moves. */
-	cache?: Map<number, Link[]>;
+	/**
+	 * Memo of `linked` scans, keyed by game: every placeable game at or above `SCAN_FLOOR`,
+	 * best first, so one scan serves every threshold on the slider. It used to hold one
+	 * threshold's lists and be thrown away when the slider moved, rescanning the whole catalog
+	 * for every game in the tree.
+	 */
+	cache?: Map<number, LinkScan>;
 }
+
+/** A game's scan: indices and similarities, best first (typed arrays: they can run to thousands). */
+export interface LinkScan {
+	i: Int32Array;
+	sim: Float32Array;
+}
+
+/** The lowest threshold a scan keeps: the similarity slider's minimum. */
+export const SCAN_FLOOR = 0.5;
 
 export interface Link {
 	i: number;
@@ -90,18 +104,34 @@ export function placeable(d: GenealogyInput, i: number): boolean {
 	return d.has(i) && d.year[i] !== 0;
 }
 
-/** Every placeable game at or above `threshold` to `from`, best first (ties by index). */
-export function linked(d: GenealogyInput, from: number, threshold: number): Link[] {
-	const hit = d.cache?.get(from);
-	if (hit) return hit;
-	const out: Link[] = [];
+function scan(d: GenealogyInput, from: number, floor: number): LinkScan {
+	const all: Link[] = [];
 	for (let j = 0; j < d.n; j++) {
 		if (j === from || !placeable(d, j)) continue;
 		const s = dot(d.emb, d.dim, from, j);
-		if (s >= threshold) out.push({ i: j, sim: s });
+		if (s >= floor) all.push({ i: j, sim: s });
 	}
-	out.sort((p, q) => q.sim - p.sim || p.i - q.i);
-	d.cache?.set(from, out);
+	all.sort((p, q) => q.sim - p.sim || p.i - q.i);
+	return { i: Int32Array.from(all, (l) => l.i), sim: Float32Array.from(all, (l) => l.sim) };
+}
+
+/** Every placeable game at or above `threshold` to `from`, best first (ties by index). */
+export function linked(d: GenealogyInput, from: number, threshold: number): Link[] {
+	let s = d.cache?.get(from);
+	if (!s) {
+		s = scan(d, from, Math.min(threshold, SCAN_FLOOR));
+		// A scan below the usual floor is kept too: it serves the higher thresholds as well.
+		if (d.cache) d.cache.set(from, s);
+	} else if (threshold < SCAN_FLOOR && s.sim.length && s.sim[s.sim.length - 1] >= SCAN_FLOOR) {
+		s = scan(d, from, threshold);
+		d.cache?.set(from, s);
+	}
+	// Best first, so the links are a prefix. Compare as float32, as the scan stored them.
+	const t = Math.fround(threshold);
+	let n = 0;
+	while (n < s.sim.length && s.sim[n] >= t) n++;
+	const out: Link[] = new Array(n);
+	for (let k = 0; k < n; k++) out[k] = { i: s.i[k], sim: s.sim[k] };
 	return out;
 }
 

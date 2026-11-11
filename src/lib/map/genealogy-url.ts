@@ -5,7 +5,7 @@
  * dataset indices, so a URL survives a rebuilt artifact. Junk is dropped, never thrown.
  */
 import type { YMode } from './genealogy-layout';
-import type { Dir, Genealogy } from './genealogy';
+import { SCAN_FLOOR, type Dir, type Genealogy } from './genealogy';
 
 export type View = 'tree' | 'net';
 export type Hops = 1 | 2 | 3;
@@ -40,7 +40,7 @@ export const DEFAULT_CAP = 8;
  * The slider's range, enforced on hand-edited URLs too: below ~0.5 every game links to
  * most of the catalog and each rebuild scans and sorts tens of thousands per node.
  */
-export const T_MIN = 0.5;
+export const T_MIN = SCAN_FLOOR;
 export const T_MAX = 0.99;
 /** Network defaults and the k slider's range (the bench's). */
 export const DEFAULT_K = 10;

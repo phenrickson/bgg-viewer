@@ -10,6 +10,15 @@ function data(): NetworkData {
 }
 
 describe('topK', () => {
+	it('one scan at scanK serves every smaller k without another', () => {
+		const cache = new Map<number, { i: number; sim: number }[]>();
+		let scans = 0;
+		const d = { ...data(), cache, scanK: 4, eligible: (i: number) => (i === 1 && scans++, true) };
+		expect(topK(d, 0, 2).map((x) => x.i)).toEqual([1, 2]);
+		expect(cache.get(0)!.length).toBe(4);
+		expect(topK(d, 0, 3).map((x) => x.i)).toEqual([1, 2, 3]);
+		expect(scans).toBe(1);
+	});
 	it('returns the nearest by cosine, best first, excluding self', () => {
 		const got = topK(data(), 0, 2).map((x) => x.i);
 		expect(got).toEqual([1, 2]);

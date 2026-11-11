@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGenealogy, expandKey, linkKind, linked, type GenealogyInput, type GenealogyOpts, type Link } from './genealogy';
+import { buildGenealogy, expandKey, linkKind, linked, type GenealogyInput, type GenealogyOpts, type Link, type LinkScan } from './genealogy';
 
 /**
  * Unit vectors in 2-d at the given angles; cos(Δangle) is the similarity, so with the
@@ -113,11 +113,17 @@ describe('linkKind', () => {
 });
 
 describe('linked', () => {
-	it('returns every placeable game at or above the threshold, best first, memoised', () => {
-		const cache = new Map<number, Link[]>();
+	it('returns every placeable game at or above the threshold, best first', () => {
+		const d = { ...input([{ a: 0, y: 2013 }, { a: 0.2, y: 2001 }, { a: 0.1, y: 2002 }, { a: 1, y: 2003 }]), cache: new Map<number, LinkScan>() };
+		expect(linked(d, 0, 0.9).map((l) => l.i)).toEqual([2, 1]);
+	});
+	it('one scan per game serves every threshold', () => {
+		const cache = new Map<number, LinkScan>();
 		const d = { ...input([{ a: 0, y: 2013 }, { a: 0.2, y: 2001 }, { a: 0.1, y: 2002 }, { a: 1, y: 2003 }]), cache };
-		const first = linked(d, 0, 0.9);
-		expect(first.map((l) => l.i)).toEqual([2, 1]);
-		expect(linked(d, 0, 0.9)).toBe(first);
+		linked(d, 0, 0.9);
+		const kept = cache.get(0);
+		expect(linked(d, 0, 0.99).map((l) => l.i)).toEqual([2]);
+		expect(linked(d, 0, 0.5).map((l) => l.i)).toEqual([2, 1, 3]);
+		expect(cache.get(0)).toBe(kept);
 	});
 });

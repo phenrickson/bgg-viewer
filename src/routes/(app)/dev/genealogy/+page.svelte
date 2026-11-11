@@ -24,9 +24,9 @@
   import type { CoordinateSet } from '$lib/map/coordinates';
   import type { GameFacts } from '$lib/map/facts';
   import { loadGenealogyData } from '$lib/map/genealogy-data';
-  import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
+  import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type LinkScan } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, startAt, fold, foldNet, showFewer, DEFAULT_CAP, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, startAt, fold, foldNet, showFewer, DEFAULT_CAP, K_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkLayout } from '$lib/map/network';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
@@ -71,12 +71,13 @@
   const centreId = $derived(s.game ?? GAMES.brass);
   const centre = $derived(coords?.index.get(centreId) ?? null);
   /**
-   * `linked` memo — valid for one threshold, so a new one per threshold. Keyed on the
-   * primitive: `s` is a fresh object on every commit, so depending on it would throw the
-   * memo away on every unfold.
+   * `linked` scans, one per game, kept for the page's life: each holds every link down to the
+   * slider's minimum, so a new threshold reads a prefix instead of rescanning the catalog.
+   * Bounded: a scan can run to thousands of links, and every tree visited adds its games.
    */
+  const cache = new Map<number, LinkScan>();
+  const CACHE_GAMES = 2000;
   const threshold = $derived(s.t);
-  const cache = $derived.by(() => { void threshold; return new Map<number, Link[]>(); });
 
   const net = $derived(s.view === 'net');
 
@@ -103,21 +104,22 @@
       const i = index.get(Number(id));
       if (i != null) expanded.add(expandKey(i, dir as Dir));
     }
+    if (cache.size > CACHE_GAMES) cache.clear();
     return buildGenealogy({ ...data, cache }, centre, { threshold, cap: DEFAULT_CAP, unfolded, expanded, same });
   });
   const layout = $derived(tree && facts ? layoutGenealogy(tree, facts.year, yMode) : null);
 
   // --- the network view ------------------------------------------------------------------
-  /** Neighbour lists, memoised across re-centres; valid for one k, so one per k. */
   const k = $derived(s.k);
-  const netCache = $derived.by(() => { void k; return new Map<number, { i: number; sim: number }[]>(); });
+  /** Neighbour lists, one scan per game at the slider's largest k, so every k reads a prefix. */
+  const netCache = new Map<number, { i: number; sim: number }[]>();
   const graph = $derived.by(() => {
     if (!net || !data || !facts || centre == null) return null;
     const f = facts, d = data, index = coords!.index;
     const open = new Set(idList(openKey).map((id) => index.get(id)).filter((i): i is number => i != null));
     // The bench's eligibility: a vector, and not upcoming (the centre is always in).
     return buildEgoNetwork(
-      { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
+      { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, scanK: K_MAX, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
       centre,
       { k, hops, mutual: false, floor: threshold, open }
     );
