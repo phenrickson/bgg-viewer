@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGenealogy, expandKey, linkKind, linked, type GenealogyInput, type GenealogyOpts, type Link, type LinkScan } from './genealogy';
+import { buildGenealogy, expandKey, famousStart, linkKind, linked, type GenealogyInput, type GenealogyOpts, type Link, type LinkScan } from './genealogy';
 
 /**
  * Unit vectors in 2-d at the given angles; cos(Δangle) is the similarity, so with the
@@ -125,5 +125,20 @@ describe('linked', () => {
 		expect(linked(d, 0, 0.99).map((l) => l.i)).toEqual([2]);
 		expect(linked(d, 0, 0.5).map((l) => l.i)).toEqual([2, 1, 3]);
 		expect(cache.get(0)).toBe(kept);
+	});
+});
+
+describe('famousStart', () => {
+	// 0 no vector, 1 no year, 2 upcoming: none can open. 3–5 can, rated 50, 900, 300.
+	const d = input([{ a: 0, y: 2000, has: false }, { a: 0, y: 0 }, { a: 0, y: 2030 }, { a: 0, y: 2001 }, { a: 0, y: 2002 }, { a: 0, y: 2003 }]);
+	const rated = [5000, 5000, 5000, 50, 900, 300];
+	const upcoming = [0, 0, 1, 0, 0, 0];
+	it('draws from the most-rated games that can be placed and are not upcoming', () => {
+		expect(famousStart(d, rated, upcoming, 2, () => 0)).toBe(4);
+		expect(famousStart(d, rated, upcoming, 2, () => 0.99)).toBe(5);
+		expect(famousStart(d, rated, upcoming, 10, () => 0.99)).toBe(3);
+	});
+	it('is -1 when nothing qualifies', () => {
+		expect(famousStart(d, rated, [1, 1, 1, 1, 1, 1])).toBe(-1);
 	});
 });

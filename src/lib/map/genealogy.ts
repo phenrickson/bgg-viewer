@@ -104,6 +104,29 @@ export function placeable(d: GenealogyInput, i: number): boolean {
 	return d.has(i) && d.year[i] !== 0;
 }
 
+/** How many of the most-rated games a first visit's centre is drawn from. */
+export const FAMOUS_TOP = 100;
+
+/**
+ * A well-known game to open on when the URL names none: one of the `top` most-rated games
+ * that can be placed and isn't upcoming, at random, so each visit shows a different family
+ * of a game people know. -1 when there are none.
+ */
+export function famousStart(
+	d: GenealogyInput,
+	usersRated: ArrayLike<number>,
+	upcoming: ArrayLike<number>,
+	top = FAMOUS_TOP,
+	rand: () => number = Math.random
+): number {
+	const pool: number[] = [];
+	for (let i = 0; i < d.n; i++) if (placeable(d, i) && !upcoming[i]) pool.push(i);
+	if (pool.length === 0) return -1;
+	pool.sort((a, b) => usersRated[b] - usersRated[a] || a - b);
+	const best = pool.slice(0, top);
+	return best[Math.min(best.length - 1, Math.floor(rand() * best.length))];
+}
+
 function scan(d: GenealogyInput, from: number, floor: number): LinkScan {
 	const all: Link[] = [];
 	for (let j = 0; j < d.n; j++) {

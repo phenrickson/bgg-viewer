@@ -94,6 +94,10 @@ Phil's review of the network view, and the PR review after it. This supersedes t
   the deployed version (from `monitoring.deployed_models`, read at build time). Genealogy and
   network compare only games on that version, or on the newest when the deployed one
   couldn't be read. Recommend still uses every row.
+- **Opening.** With no game in the URL (a visit from the menu), the tool opens on one of
+  the 100 most-rated placeable games at random and writes it into the URL. The similarity floor
+  starts at 0.6. The first glide runs at about half speed, and a "How to read this" explainer
+  sits open at the foot of the sidebar.
 - **Cost.** One similarity scan per game serves every threshold and k. Scans are kept for the
   page's life, and the tree's, which can run to thousands of links each, are cleared past
   2,000 games. Style toggles no longer rebuild the graph. A glide

@@ -26,7 +26,7 @@
   import type { CoordinateSet } from '$lib/map/coordinates';
   import type { GameFacts } from '$lib/map/facts';
   import { loadGenealogyData } from '$lib/map/genealogy-data';
-  import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type LinkScan } from '$lib/map/genealogy';
+  import { buildGenealogy, expandKey, famousStart, type Dir, type GenealogyInput, type LinkScan } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
   import { currentState, toParams, startAt, fold, foldNet, showFewer, DEFAULT_CAP, K_MAX, type GenealogyState } from '$lib/map/genealogy-url';
   import { buildEgoNetwork, layoutEgoNetwork, type NetworkLayout } from '$lib/map/network';
@@ -57,7 +57,14 @@
       coords = loaded.coords;
       facts = loaded.facts;
       glide = new Glide(loaded.coords.ids.length);
-      data = await loadGenealogyData(loaded.coords, loaded.facts);
+      const d = await loadGenealogyData(loaded.coords, loaded.facts);
+      // No game in the URL (a visit from the menu): open on a well-known game at random, and
+      // write it into the URL, so a reload or a shared link shows the same one.
+      if (s.game == null) {
+        const i = famousStart(d, loaded.facts.usersRated, loaded.facts.upcoming);
+        if (i >= 0) commit({ ...s, game: loaded.coords.ids[i] });
+      }
+      data = d;
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -70,6 +77,7 @@
     (push ? pushState : replaceState)(qs ? `?${qs}` : page.url.pathname, { genealogy: next });
   }
 
+  /** Brass only if no well-known game could be drawn (see `famousStart` on load). */
   const centreId = $derived(s.game ?? GAMES.brass);
   const centre = $derived(coords?.index.get(centreId) ?? null);
   /**
