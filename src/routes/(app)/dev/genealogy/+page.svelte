@@ -254,6 +254,9 @@
         <div class="map-hud-state">{facts.name(centreId)} isn’t in the embedding.</div>
       {:else if !net && tree && !tree.placeable}
         <div class="map-hud-state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
+      {:else if net && !data.has(centre)}
+        <!-- Without a vector every score is 0, so the floor leaves a lone dot. PLACEHOLDER COPY (Phil). -->
+        <div class="map-hud-state">{facts.name(centreId)} has no vector, so it has no network.</div>
       {:else if glide && (layout || netLayout)}
         <!-- One canvas for both views: a flip swaps the layer, and the Glide carries every game
              from its spot in one view to its spot in the other. -->
