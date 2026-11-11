@@ -706,6 +706,12 @@
         {:else}
           <div class="empty">No similar games computed.</div>
         {/if}
+        <!-- Into the Lineage tool, centred on this game: where it came from and what sits
+             beside it. Hidden offline, where the vectors it reads are out of reach.
+             PLACEHOLDER COPY (Phil). -->
+        {#if !data.offline}
+          <a class="to-lineage" href="/lineage?game={g.id}">See its lineage <span aria-hidden="true">→</span></a>
+        {/if}
       </section>
 
 
@@ -1338,6 +1344,18 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+  }
+  /* An action out of the card, in the app's link colour, below the list it follows from. */
+  .to-lineage {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .to-lineage:hover {
+    text-decoration: underline;
   }
 
 
