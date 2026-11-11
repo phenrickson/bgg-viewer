@@ -41,6 +41,13 @@ const INTRO = { duration: 700, step: 80, lead: 3, cap: 20 };
  */
 const SETTLE = 220;
 
+/** The same games in both trees (order aside). */
+function sameGames(a: TweenTree, b: TweenTree): boolean {
+	if (a.nodes.length !== b.nodes.length) return false;
+	const ids = new Set(a.nodes.map((nd) => nd.i));
+	return b.nodes.every((nd) => ids.has(nd.i));
+}
+
 export class Glide {
 	readonly n: number;
 	/** Positions on screen this frame — a new array identity each frame (`PointCanvas` redraws on it). */
@@ -70,6 +77,8 @@ export class Glide {
 	#entering: Int32Array = new Int32Array(0);
 	#sizeBuf: Uint8Array;
 	#sizeBase: Uint8Array | null = null;
+	/** When the opening glide lands (`performance.now()`); 0 once it has. */
+	#introUntil = 0;
 	#reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	constructor(n: number) {
@@ -86,6 +95,8 @@ export class Glide {
 	 * only the entering games rewritten.
 	 */
 	sized(size: Uint8Array): Uint8Array {
+		// Before the first glide nothing has arrived: the buffer is still all zeros.
+		if (this.#prev === null) return this.#sizeBuf.length === size.length ? this.#sizeBuf : new Uint8Array(size.length);
 		if (this.#entering.length === 0) return size;
 		if (this.#sizeBase !== size || this.#sizeBuf.length !== size.length) {
 			if (this.#sizeBuf.length !== size.length) this.#sizeBuf = new Uint8Array(size.length);
@@ -99,12 +110,14 @@ export class Glide {
 	/** Glide from what's on screen to `target` (positions by game index) for `tree`. */
 	to(tree: TweenTree, target: { x: ArrayLike<number>; y: ArrayLike<number> }): void {
 		cancelAnimationFrame(this.#raf);
-		const plan = planTween(this.n, this.#prev, this.#onScreen, tree, target);
+		// The opening is the first glide, or a re-ask for the same games before it has landed
+		// (the canvas measuring itself, a resize): that restarts it rather than cutting it short.
+		const intro = this.#prev === null || (performance.now() < this.#introUntil && sameGames(this.#prev, tree));
+		const plan = planTween(this.n, intro ? null : this.#prev, intro ? null : this.#onScreen, tree, target);
 		const prevVia = new Map((this.#prev?.nodes ?? []).map((nd) => [nd.i, nd.via]));
-		const intro = this.#prev === null;
 		const { duration, step: gap } = intro ? INTRO : { duration: DURATION, step: STEP };
 		const maxSteps = intro ? INTRO.lead + INTRO.cap : MAX_STEPS;
-		const was = this.#onScreen ? new Set(prevVia.keys()) : new Set<number>();
+		const was = this.#onScreen && !intro ? new Set(prevVia.keys()) : new Set<number>();
 		if (intro) {
 			// Every game comes out of the chosen one, a beat apart in the tree's own order (best
 			// first, nearer rings first), after the chosen game has grown in alone.
@@ -131,6 +144,7 @@ export class Glide {
 		for (const b of this.#bufs) for (const i of this.#touched) { b.x[i] = 0; b.y[i] = 0; }
 		this.#touched = plan.moving;
 		const start = performance.now();
+		this.#introUntil = intro ? start + duration + Math.min(plan.levels, maxSteps) * gap : 0;
 		const total = duration + Math.min(plan.levels, maxSteps) * gap;
 		const ease = (l: number, ms: number) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, maxSteps) * gap) / duration)));
 		if (!this.#reduced) this.settle = 0;

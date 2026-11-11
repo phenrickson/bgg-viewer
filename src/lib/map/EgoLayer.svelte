@@ -81,6 +81,8 @@
 
   // --- motion: the page's Glide, shared with the tree --------------------------------------
   $effect(() => {
+    // Not before the canvas has measured itself: a glide to a 0×0 frame would spend the opening.
+    if (surface.width === 0 || surface.height === 0) return;
     glide.to({ centre: g.source, nodes: g.nodes.map((nd) => ({ i: nd.i, via: parents.get(nd.i) ?? -1 })) }, pos);
   });
   const cur = $derived(glide.cur);

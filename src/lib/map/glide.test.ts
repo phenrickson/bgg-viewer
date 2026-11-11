@@ -54,6 +54,19 @@ describe('Glide intro', () => {
 		expect(g.sized(size)).toBe(size);
 	});
 
+	it('a re-ask for the same games before the opening lands restarts it, not cuts it short', () => {
+		const c = clock();
+		const g = new Glide(5);
+		expect([...g.sized(Uint8Array.from([9, 9, 9, 9, 9]))]).toEqual([0, 0, 0, 0, 0]);
+		g.to(tree, { x: new Float32Array(5), y: new Float32Array(5) }); // the 0×0 first measure
+		c.frame(50);
+		g.to(tree, at(5)); // the real size
+		c.frame(60);
+		expect([g.grow[1], g.grow[2], g.grow[3]]).toEqual([0, 0, 0]);
+		c.frame(5000);
+		expect(g.cur.x[3]).toBe(3);
+	});
+
 	it('a later change grows only the games new to the view', () => {
 		const c = clock();
 		const g = new Glide(6);
