@@ -105,7 +105,7 @@
     return buildEgoNetwork(
       { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
       centre,
-      { k: s.k, hops: s.hops, mutual: false }
+      { k: s.k, hops: s.hops, mutual: false, floor: s.t }
     );
   });
   /**

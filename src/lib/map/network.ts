@@ -33,6 +33,11 @@ export interface NetworkOpts {
 	hops: 1 | 2 | 3;
 	/** Keep an edge only when both ends list each other (drops one-way "hub" links). */
 	mutual: boolean;
+	/**
+	 * Similarity floor: a game's neighbours are its `k` closest that score at least this, so
+	 * a game with nothing close gets few or none, as in the tree. Omitted: no floor.
+	 */
+	floor?: number;
 }
 
 export interface NetworkNode {
@@ -87,16 +92,19 @@ export function topK(d: NetworkData, from: number, k: number): { i: number; sim:
 
 export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts): EgoNetwork {
 	const lists = new Map<number, { i: number; sim: number }[]>();
+	// The floor is applied over `topK`, so its cache (keyed by k alone) still serves.
+	const floor = o.floor ?? -Infinity;
+	const near = (i: number) => topK(d, i, o.k).filter((x) => x.sim >= floor);
 	const hopOf = new Map<number, 0 | 1 | 2 | 3>([[source, 0]]);
 
 	// Ring by ring: the previous ring's lists name the next ring's nodes, and every node in
 	// the graph gets a list of its own so edges between them are found.
-	lists.set(source, topK(d, source, o.k));
+	lists.set(source, near(source));
 	let ring: number[] = [source];
 	for (let h = 1 as 1 | 2 | 3; h <= o.hops; h++) {
 		const next: number[] = [];
 		for (const i of ring) for (const nb of lists.get(i)!) if (!hopOf.has(nb.i)) { hopOf.set(nb.i, h); next.push(nb.i); }
-		for (const i of next) lists.set(i, topK(d, i, o.k));
+		for (const i of next) lists.set(i, near(i));
 		ring = next;
 	}
 

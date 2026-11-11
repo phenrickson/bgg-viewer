@@ -2,7 +2,8 @@
   /**
    * The tool's controls card, in `MapRail`'s idiom — the same `SegGroup` and the same
    * `.grp` / `.lbl` / `.note` rhythm — so the canvas tools' sidebars read as one thing.
-   * The Genealogy / Network switch leads; beneath it, the controls of the view that's on.
+   * The Genealogy / Network switch leads, then the similarity floor both views share, then
+   * the controls of the view that's on.
    * The key isn't here: it stays on the canvas, always visible.
    *
    * Sliders show their value live while dragging and commit on release, since each value
@@ -34,17 +35,6 @@
     </p>
   </div>
 
-  {#if s.view === 'tree'}
-    <div class="grp">
-      <SegGroup
-        label="Vertical axis"
-        options={[{ value: 'year' as YMode, label: 'Year' }, { value: 'gen' as YMode, label: 'Generation' }]}
-        value={s.y}
-        onchange={(y) => oncommit({ ...s, y })}
-      />
-      <p class="note">{s.y === 'year' ? 'Rows by publication year, near years spread out.' : 'Rows by steps from the chosen game.'}</p>
-    </div>
-
     <div class="grp">
       <label class="field">
         <span class="row"><span class="lbl">Similarity at least</span><b class="tnum">{(dragT ?? s.t).toFixed(2)}</b></span>
@@ -55,6 +45,17 @@
         />
       </label>
       <p class="note">How alike two games must be to link. Higher keeps only the closest.</p>
+    </div>
+
+  {#if s.view === 'tree'}
+    <div class="grp">
+      <SegGroup
+        label="Vertical axis"
+        options={[{ value: 'year' as YMode, label: 'Year' }, { value: 'gen' as YMode, label: 'Generation' }]}
+        value={s.y}
+        onchange={(y) => oncommit({ ...s, y })}
+      />
+      <p class="note">{s.y === 'year' ? 'Rows by publication year, near years spread out.' : 'Rows by steps from the chosen game.'}</p>
     </div>
 
     <div class="grp">

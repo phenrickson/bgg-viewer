@@ -42,6 +42,19 @@ describe('buildEgoNetwork', () => {
 	});
 });
 
+describe('buildEgoNetwork floor', () => {
+	it('links only neighbours at or above the floor', () => {
+		// 0's near cluster (1, 2) is within cos(0.2) ≈ 0.98; the far one (3–5) is under 0.2.
+		const g = buildEgoNetwork(data(), 0, { k: 5, hops: 1, mutual: false, floor: 0.9 });
+		expect(g.nodes.map((n) => n.i).sort()).toEqual([0, 1, 2]);
+		expect(g.edges.every((e) => e.sim >= 0.9)).toBe(true);
+	});
+	it('a floor above everything leaves the centre alone', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 5, hops: 2, mutual: false, floor: 0.999 });
+		expect(g.nodes.map((n) => n.i)).toEqual([0]);
+	});
+});
+
 describe('egoParents', () => {
 	it('hangs each game off its most similar neighbour one ring in; the source off nothing', () => {
 		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });
