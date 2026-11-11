@@ -6,6 +6,33 @@
  */
 import type { GameFacts } from './facts';
 
+/**
+ * Room kept clear around the drawing, screen px: the HUD's chips and search across the top,
+ * the key along the bottom, the year ticks down the left, and on the right the labels, which
+ * run off to the right of their dots. Without it the tree's outermost games sat on the
+ * canvas's very edge, under the HUD (Phil, 2026-11-11).
+ */
+export const FRAME_PAD = { top: 140, right: 170, bottom: 60, left: 60 } as const;
+
+/**
+ * Both layouts fit their games to [-0.9, 0.9] NDC on each axis. This maps that range into
+ * the canvas minus `FRAME_PAD`, in NDC (y up). A canvas too small for the padding falls back
+ * to the layouts' own fit.
+ */
+export function framer(width: number, height: number, pad: { top: number; right: number; bottom: number; left: number } = FRAME_PAD) {
+	const x0 = -1 + (2 * pad.left) / width, x1 = 1 - (2 * pad.right) / width;
+	const y0 = -1 + (2 * pad.bottom) / height, y1 = 1 - (2 * pad.top) / height;
+	if (!(width > 0 && height > 0) || x1 - x0 < 0.4 || y1 - y0 < 0.4) return { x: (v: number) => v, y: (v: number) => v, w: width, h: height };
+	const along = (v: number, lo: number, hi: number) => lo + ((v / 0.9 + 1) / 2) * (hi - lo);
+	return {
+		x: (v: number) => along(v, x0, x1),
+		y: (v: number) => along(v, y0, y1),
+		/** The framed box's size, screen px. */
+		w: width - pad.left - pad.right,
+		h: height - pad.top - pad.bottom
+	};
+}
+
 /** Colour buckets, indexing `lineagePalette`. */
 export const LINKED = 0, CENTRE = 1, UPCOMING = 2;
 

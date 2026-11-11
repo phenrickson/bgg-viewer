@@ -34,7 +34,7 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer } from './lineage-encoding';
 
   let {
     coords,
@@ -70,9 +70,11 @@
   const n = $derived(coords.ids.length);
   const g = $derived(layout.genealogy);
 
+  /** The layout's fit, moved into the canvas minus the room the HUD and labels need. */
+  const frame = $derived(framer(surface.width, surface.height));
   const pos = $derived.by(() => {
     const x = new Float32Array(n), y = new Float32Array(n);
-    g.nodes.forEach((nd, j) => { x[nd.i] = layout.x[j]; y[nd.i] = layout.y[j]; });
+    g.nodes.forEach((nd, j) => { x[nd.i] = frame.x(layout.x[j]); y[nd.i] = frame.y(layout.y[j]); });
     return { x, y };
   });
 
@@ -210,7 +212,7 @@
       ctx.globalAlpha = 0.6 * settle;
       ctx.fillStyle = theme.foreground;
       for (const tk of layout.ticks) {
-        const sy = toPy(tk.y);
+        const sy = toPy(frame.y(tk.y));
         if (sy >= 0 && sy <= api.height) ctx.fillText(tk.label, 6, sy);
       }
       ctx.restore();

@@ -24,7 +24,7 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer } from './lineage-encoding';
 
   let {
     coords,
@@ -62,12 +62,15 @@
   const parents = $derived(egoParents(g));
 
   /** Target positions: the layout's square, narrowed to the canvas's aspect (it's stretched). */
+  /** The layout's fit, moved into the canvas minus the room the HUD and labels need. */
+  const frame = $derived(framer(surface.width, surface.height));
   const pos = $derived.by(() => {
-    const w = surface.width, h = surface.height;
+    // The framed box's aspect, not the canvas's: the layout's square goes into the box.
+    const w = frame.w, h = frame.h;
     const a = w > 0 && h > 0 ? w / h : 1;
     const sx = a > 1 ? 1 / a : 1, sy = a < 1 ? a : 1;
     const x = new Float32Array(n), y = new Float32Array(n);
-    g.nodes.forEach((node, j) => { x[node.i] = layout.x[j] * sx; y[node.i] = layout.y[j] * sy; });
+    g.nodes.forEach((node, j) => { x[node.i] = frame.x(layout.x[j] * sx); y[node.i] = frame.y(layout.y[j] * sy); });
     return { x, y };
   });
 
