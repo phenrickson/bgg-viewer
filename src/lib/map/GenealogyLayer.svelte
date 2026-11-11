@@ -18,6 +18,11 @@
    * The data square is stretched over the whole canvas (`stretch`), so the tree uses the
    * canvas's width rather than a centred square.
    *
+   * Motion: the layer tweens positions itself (`instant`) rather than handing regl a GPU
+   * transition, so links and labels travel with their games instead of blinking out for the
+   * flight. A change is one ease-out glide: entering games grow out of their parent, leaving
+   * ones fold into theirs (`genealogy-tween.ts`). No camera refit — the layout already fits.
+   *
    * All copy PLACEHOLDER.
    */
   import type { CoordinateSet } from './coordinates';
@@ -28,6 +33,7 @@
   import { toRgb } from './palette';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
+  import { planTween, interpolate, easeOutCubic, type TweenTree } from './genealogy-tween';
 
   let {
     coords,
@@ -60,6 +66,48 @@
     return { x, y };
   });
 
+  // --- motion ----------------------------------------------------------------------------
+  /** Snappy, not ceremonial. */
+  const DURATION = 450;
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** Two frame buffers, alternated: `PointCanvas` redraws on a new array identity. */
+  const bufs = [0, 1].map(() => ({ x: new Float32Array(n), y: new Float32Array(n) }));
+  let flip = 0;
+  /** The positions on screen this frame (in-between ones mid-glide). */
+  let cur = $state.raw(bufs[0]);
+  /** Games from the previous tree folding away; drawn until the glide lands. */
+  let leaving = $state.raw<GenealogyNode[]>([]);
+  let prev: { tree: TweenTree; nodes: Map<number, GenealogyNode> } | null = null;
+  let onScreen: { x: Float32Array; y: Float32Array } | null = null;
+  let raf = 0;
+
+  // Declared before the driver effect, so the first frame exists before the canvas reads it.
+  $effect(() => {
+    const target = pos, tree = g;
+    const next: TweenTree = { centre: tree.centre, nodes: tree.nodes.map((nd) => ({ i: nd.i, via: nd.via })) };
+    const plan = planTween(n, prev?.tree ?? null, onScreen, next, target);
+    const old = prev?.nodes;
+    // Not read back below: the first step runs inside this effect, and reading `leaving`
+    // there would make clearing it restart the glide.
+    const folding = !!old && plan.leaving.length > 0;
+    leaving = folding ? plan.leaving.map((i) => old!.get(i)!) : [];
+    prev = { tree: next, nodes: new Map(tree.nodes.map((nd) => [nd.i, nd])) };
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = reduced ? 1 : Math.min(1, (now - start) / DURATION);
+      const out = bufs[(flip = 1 - flip)];
+      interpolate(plan, easeOutCubic(t), out);
+      onScreen = out;
+      cur = out;
+      if (t < 1) raf = requestAnimationFrame(step);
+      else if (folding) leaving = [];
+    };
+    step(start);
+    return () => cancelAnimationFrame(raf);
+  });
+  /** What's drawn: the tree, plus anything still folding away. */
+  const drawnNodes = $derived(leaving.length ? [...g.nodes, ...leaving] : g.nodes);
+
   /** Colour buckets, indexing `palette`: every related game, the chosen game, upcoming (hollow). */
   const BUCKET = { up: 0, down: 0, same: 0, centre: 1 } as const;
   const UPCOMING = 2;
@@ -70,7 +118,7 @@
   const isUpcoming = (nd: GenealogyNode) => nd.side !== 'centre' && facts.upcoming[nd.i] === 1;
   const colour = $derived.by(() => {
     const c = new Uint8Array(n);
-    for (const nd of g.nodes) c[nd.i] = isUpcoming(nd) ? UPCOMING : BUCKET[nd.side];
+    for (const nd of drawnNodes) c[nd.i] = isUpcoming(nd) ? UPCOMING : BUCKET[nd.side];
     return c;
   });
 
@@ -84,15 +132,15 @@
   }
   const size = $derived.by(() => {
     const s = new Uint8Array(n);
-    for (const nd of g.nodes) s[nd.i] = diameter(nd.i);
+    for (const nd of drawnNodes) s[nd.i] = diameter(nd.i);
     return s;
   });
-  const visible = $derived(g.nodes.map((nd) => nd.i));
+  const visible = $derived(drawnNodes.map((nd) => nd.i));
 
   /** An edge from parent `a` to child `b`: a cubic with vertical tangents at both ends. */
   const SEGMENTS = 16;
   function edgePath(a: number, b: number): [number, number][] {
-    const x1 = pos.x[a], y1 = pos.y[a], x2 = pos.x[b], y2 = pos.y[b], ym = (y1 + y2) / 2;
+    const x1 = cur.x[a], y1 = cur.y[a], x2 = cur.x[b], y2 = cur.y[b], ym = (y1 + y2) / 2;
     const pts: [number, number][] = [];
     for (let k = 0; k <= SEGMENTS; k++) {
       const t = k / SEGMENTS, u = 1 - t;
@@ -114,7 +162,8 @@
     const layers: Line[][] = PASSES.map(() => []);
     const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
       PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
-    const edges = g.nodes.filter((nd) => nd.side !== 'centre');
+    // Links follow the in-between positions (`cur`), so they travel with their games.
+    const edges = drawnNodes.filter((nd) => nd.side !== 'centre' && nd.via >= 0);
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
@@ -124,7 +173,7 @@
       const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
       const rgb = lit ? accent : ink;
       const path = e.side === 'same'
-        ? sameYearArc([pos.x[e.via], pos.y[e.via]], [pos.x[e.i], pos.y[e.i]])
+        ? sameYearArc([cur.x[e.via], cur.y[e.via]], [cur.x[e.i], cur.y[e.i]])
         : edgePath(e.via, e.i);
       if (e.kind === 'family') for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
       else stroke(path, rgb, alpha, width);
@@ -154,11 +203,13 @@
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
-    // Axis labels down the left edge; the y map comes from two placed nodes at distinct y.
-    const placed = g.nodes.map((nd, j) => ({ j, p: at.get(nd.i) })).filter((v) => v.p);
+    // Axis labels down the left edge; the y map comes from two placed nodes at distinct y —
+    // at their on-screen (`cur`) y, which is mid-glide while the tree moves. The ticks go
+    // straight to their new rows and the games glide into them.
+    const placed = g.nodes.map((nd) => ({ y: cur.y[nd.i], p: at.get(nd.i) })).filter((v) => v.p);
     const a = placed[0];
-    const b = a && placed.find((v) => layout.y[v.j] !== layout.y[a.j]);
-    const toPy = a && b ? ndcToScreenY({ y: layout.y[a.j], py: a.p![1] }, { y: layout.y[b.j], py: b.p![1] }) : null;
+    const b = a && placed.find((v) => Math.abs(v.y - a.y) > 1e-6);
+    const toPy = a && b ? ndcToScreenY({ y: a.y, py: a.p![1] }, { y: b.y, py: b.p![1] }) : null;
     if (toPy) {
       ctx.save();
       ctx.font = '11px system-ui, sans-serif';
@@ -225,16 +276,18 @@
   }
 
   const driver: Driver = {
-    get x() { return pos.x; },
-    get y() { return pos.y; },
+    get x() { return cur.x; },
+    get y() { return cur.y; },
     get colour() { return colour; },
     get palette() { return palette; },
     get size() { return size; },
     get visible() { return visible; },
-    // Refit after every change: an unfold can grow the tree past the current view.
-    get focus() { return visible; },
+    // No camera refit: the layout already fits the tree to the canvas, and a second framing
+    // move after the glide was half of the old jank.
+    focus: null,
     get lines() { return lines; },
     stretch: true,
+    instant: true,
     opacity: 0.95,
     onselect: (points) => { if (points.length === 1) onselect?.(points[0]); },
     overlay: paint
