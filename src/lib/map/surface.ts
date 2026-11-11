@@ -80,6 +80,13 @@ export interface Driver {
 	lines?: Line[];
 	/** Paint over the points — rings, labels. Called on every camera change and draw. */
 	overlay?: (ctx: CanvasRenderingContext2D, api: OverlayApi) => void;
+	/**
+	 * Paint UNDER the points, in screen space — links, for a layer that moves them every frame.
+	 * Canvas 2-D strokes a curve natively in microseconds, where `lines` rebuilds all of regl's
+	 * line geometry on every change (quadratic in the vertex count: a 2,000-link network froze
+	 * its glide for over a second). Setting this makes the GL canvas transparent so it shows.
+	 */
+	underlay?: (ctx: CanvasRenderingContext2D, api: OverlayApi) => void;
 	onhover?: (i: number) => void;
 	/** regl's `select`: one point for a click, many for a lasso. */
 	onselect?: (points: number[]) => void;

@@ -7,7 +7,7 @@
  * children, so links cross as little as they can.
  *
  * Output is NDC fitted to [-0.9, 0.9] like `layoutEgoNetwork`, so `PointCanvas` can fly
- * points into it. Also here: the small geometry the layer needs for edges and the axis.
+ * points into it. Also here: the small geometry the layer needs for the axis and badges.
  */
 import type { Genealogy } from './genealogy';
 
@@ -167,58 +167,4 @@ export function labelOrder(
 ): number[] {
 	const rank = (i: number) => (i === centre ? 0 : i === selected ? 1 : i === hovered ? 2 : unfolded.has(i) ? 3 : 4);
 	return [...nodes].sort((a, b) => rank(a) - rank(b) || usersRated[b] - usersRated[a] || a - b);
-}
-
-/** Same-year arc height per unit of horizontal distance, and its ceiling (NDC). */
-const ARC_BOW = 0.12, ARC_CAP = 0.06;
-
-/**
- * The link from the chosen game to a same-year game: a shallow arc just above their shared
- * row. Height grows with distance, so the arc to the second game out clears the first,
- * but is capped so it never reaches into another year's row.
- */
-export function sameYearArc(a: [number, number], b: [number, number], segments = 16): [number, number][] {
-	const h = Math.min(ARC_BOW * Math.abs(b[0] - a[0]), ARC_CAP);
-	// A quadratic peaks at half its control point's offset: put the control at 2h.
-	const cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2 + 2 * h;
-	const pts: [number, number][] = [];
-	for (let k = 0; k <= segments; k++) {
-		const t = k / segments, u = 1 - t;
-		pts.push([u * u * a[0] + 2 * u * t * cx + t * t * b[0], u * u * a[1] + 2 * u * t * cy + t * t * b[1]]);
-	}
-	return pts;
-}
-
-/** Cut a polyline into dashes: `on` drawn, `off` skipped, in the polyline's own units. */
-export function dashed(points: [number, number][], on: number, off: number): [number, number][][] {
-	const out: [number, number][][] = [];
-	let drawing = true, left = on;
-	let cur: [number, number][] = [points[0]];
-	for (let k = 1; k < points.length; k++) {
-		let [ax, ay] = points[k - 1];
-		const [bx, by] = points[k];
-		let seg = Math.hypot(bx - ax, by - ay);
-		while (seg > left) {
-			const t = left / seg;
-			const px = ax + (bx - ax) * t, py = ay + (by - ay) * t;
-			if (drawing) { cur.push([px, py]); out.push(cur); } else cur = [[px, py]];
-			drawing = !drawing;
-			seg -= left;
-			left = drawing ? on : off;
-			ax = px; ay = py;
-		}
-		left -= seg;
-		if (drawing) cur.push([bx, by]);
-	}
-	if (drawing && cur.length > 1) out.push(cur);
-	return out;
-}
-
-/** A polyline moved `d` along its left normal — the second stroke of a double line. */
-export function offset(points: [number, number][], d: number): [number, number][] {
-	return points.map((p, k) => {
-		const a = points[Math.max(0, k - 1)], b = points[Math.min(points.length - 1, k + 1)];
-		const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
-		return [p[0] - (dy / len) * d, p[1] + (dx / len) * d];
-	});
 }

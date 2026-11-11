@@ -8,8 +8,7 @@
    * - size by ratings (log), so an obscure game reads as obscure without being filtered;
    * - edges curve from parent to child, leaving and arriving vertically, so the view reads
    *   as lines meeting at the chosen game; same-year games hang off shallow arcs along the
-   *   centre's row. Thick with similarity; solid = similarity only, dashed = same family,
-   *   double = reimplementation / expansion;
+   *   centre's row, drawn on the canvas's 2-D underlay. Thick with similarity; solid = similarity only, dashed = same family.
    * - ⊕N (unfold, N waiting) and ⊖ (fold) as a token at the end of the game's label, so
    *   the label placer reserves its room, with an HTML button laid over it. "+N more" past
    *   the cap, and the centre's own overflow, live in the side panel and the controls;
@@ -28,9 +27,8 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import type { Dir, GenealogyNode } from './genealogy';
-  import { ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, type GenealogyLayout } from './genealogy-layout';
-  import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
-  import { toRgb } from './palette';
+  import { ndcToScreenY, badgeCentre, labelOrder, type GenealogyLayout } from './genealogy-layout';
+  import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
   import type { Glide } from './glide.svelte';
@@ -97,51 +95,53 @@
   /** What's drawn: the tree, plus anything still folding away. */
   const visible = $derived([...g.nodes.map((nd) => nd.i), ...leaving.map((l) => l.i)]);
 
-  /** An edge from parent `a` to child `b`: a cubic with vertical tangents at both ends. */
-  const SEGMENTS = 16;
-  function edgePath(a: number, b: number): [number, number][] {
-    const x1 = cur.x[a], y1 = cur.y[a], x2 = cur.x[b], y2 = cur.y[b], ym = (y1 + y2) / 2;
-    const pts: [number, number][] = [];
-    for (let k = 0; k <= SEGMENTS; k++) {
-      const t = k / SEGMENTS, u = 1 - t;
-      const w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t;
-      pts.push([(w0 + w1) * x1 + (w2 + w3) * x2, w0 * y1 + (w1 + w2) * ym + w3 * y2]);
-    }
-    return pts;
-  }
+  /** Same-year arc height per pixel of horizontal distance, and its ceiling as a share of the height. */
+  const ARC_BOW = 0.12, ARC_CAP = 0.03;
 
-  /** Dash and double-line spacing, NDC. */
-  const DASH_ON = 0.018, DASH_OFF = 0.012;
-  const lines = $derived.by<Line[]>(() => {
-    const t = surface.theme;
-    if (!t) return [];
-    const ink = toRgb(t.foreground).map((c) => c / 255) as [number, number, number];
-    const accent = toRgb(t.accent).map((c) => c / 255) as [number, number, number];
-    // Feathered like NetworkLayer's: regl's line shader has no anti-aliasing of its own.
-    const PASSES: [number, number][] = [[2.2, 0.08], [1.6, 0.2], [1, 1]];
-    const layers: Line[][] = PASSES.map(() => []);
-    const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
-      PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
-    // Links follow the in-between positions (`cur`), so they travel with their games. A game
-    // folding away keeps a faint plain link to the game it hung off until it lands.
-    for (const l of leaving) if (l.via >= 0) stroke(edgePath(l.via, l.i), ink, 0.25, 1.2);
+  /**
+   * Links, painted under the points on the canvas's 2-D underlay from the points' on-screen
+   * (mid-glide) positions, so they travel with their games. Parent → child is a cubic leaving
+   * and arriving vertically; a same-year game hangs off a shallow arc just above the centre's
+   * row (higher the further out, capped so it never reaches another year's row). Not regl
+   * lines — see `EgoLayer`'s `underlay` for why.
+   */
+  function underlay(ctx: CanvasRenderingContext2D, api: OverlayApi) {
+    const { theme, screen } = api;
+    if (!api.drawn || api.dragging) return;
+    const path = (a: number, b: number, same: boolean) => {
+      const pa = screen(a), pb = screen(b);
+      if (!pa || !pb) return false;
+      ctx.beginPath();
+      ctx.moveTo(pa[0], pa[1]);
+      if (same) {
+        const h = Math.min(ARC_BOW * Math.abs(pb[0] - pa[0]), ARC_CAP * api.height);
+        // A quadratic peaks at half its control point's offset: put the control at 2h.
+        ctx.quadraticCurveTo((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2 - 2 * h, pb[0], pb[1]);
+      } else {
+        const ym = (pa[1] + pb[1]) / 2;
+        ctx.bezierCurveTo(pa[0], ym, pb[0], ym, pb[0], pb[1]);
+      }
+      return true;
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
+    // A game folding away keeps a faint plain link to the game it hung off until it lands.
+    ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
+    for (const l of leaving) if (l.via >= 0 && path(l.via, l.i, false)) ctx.stroke();
     const edges = g.nodes.filter((nd) => nd.side !== 'centre');
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
       const lit = e.i === selected || e.via === selected;
       const r = hi > lo ? (e.sim - lo) / (hi - lo) : 1;
-      const alpha = lit ? 1 : 0.35 + 0.5 * r;
-      const width = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
-      const rgb = lit ? accent : ink;
-      const path = e.side === 'same'
-        ? sameYearArc([cur.x[e.via], cur.y[e.via]], [cur.x[e.i], cur.y[e.i]])
-        : edgePath(e.via, e.i);
-      if (e.kind === 'family') for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
-      else stroke(path, rgb, alpha, width);
+      ctx.globalAlpha = lit ? 1 : 0.35 + 0.5 * r;
+      ctx.strokeStyle = lit ? theme.accent : theme.foreground;
+      ctx.lineWidth = (1.2 + r * 1.6) * (lit ? 1.3 : 1);
+      ctx.setLineDash(e.kind === 'family' ? [6, 4] : []);
+      if (path(e.via, e.i, e.side === 'same')) ctx.stroke();
     }
-    return layers.flat();
-  });
+    ctx.restore();
+  }
 
   type Mark = { key: string; x: number; y: number; label: string; act: () => void };
   /** Written from inside `overlay` (like NetworkLayer's `tip`); raw so the closures aren't proxied. */
@@ -247,7 +247,7 @@
     // No camera refit: the layout already fits the tree to the canvas, and a second framing
     // move after the glide was half of the old jank.
     focus: null,
-    get lines() { return lines; },
+    underlay,
     stretch: true,
     instant: true,
     opacity: 0.95,
@@ -258,7 +258,8 @@
     surface.drive(driver);
     return () => surface.release(driver);
   });
-  $effect(() => { void lines; void selected; surface.repaint(); });
+  // Links and rings follow the selection; the glide repaints after each draw.
+  $effect(() => { void selected; void g; surface.repaint(); });
 </script>
 
 {#each marks as m (m.key)}

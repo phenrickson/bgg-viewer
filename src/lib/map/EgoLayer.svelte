@@ -18,9 +18,7 @@
   import type { CoordinateSet } from './coordinates';
   import type { GameFacts } from './facts';
   import { egoParents, type NetworkLayout } from './network';
-  import { dashed } from './genealogy-layout';
-  import { useSurface, type Driver, type Line, type OverlayApi } from './surface';
-  import { toRgb } from './palette';
+  import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels } from './ink';
   import type { LabelInput } from './labels';
   import type { Glide } from './glide.svelte';
@@ -97,36 +95,36 @@
   });
   const edges = $derived(g.edges.filter((e) => links === 'all' || e.mutual));
 
-  /** A curved edge, bowed to one consistent side of its chord (as the bench draws them). */
-  const CURVATURE = 0.18, FULL_BOW_LENGTH = 0.5, SEGMENTS = 14;
-  function curve(a: number, b: number): [number, number][] {
-    const x1 = cur.x[a], y1 = cur.y[a], x2 = cur.x[b], y2 = cur.y[b];
-    const dx = x2 - x1, dy = y2 - y1;
-    const bow = CURVATURE * Math.min(1, Math.hypot(dx, dy) / FULL_BOW_LENGTH);
-    if (bow < 0.005) return [[x1, y1], [x2, y2]];
-    const s = a < b ? 1 : -1;
-    const cx = (x1 + x2) / 2 - dy * bow * s, cy = (y1 + y2) / 2 + dx * bow * s;
-    const pts: [number, number][] = [];
-    for (let k = 0; k <= SEGMENTS; k++) {
-      const t = k / SEGMENTS, u = 1 - t;
-      pts.push([u * u * x1 + 2 * u * t * cx + t * t * x2, u * u * y1 + 2 * u * t * cy + t * t * y2]);
-    }
-    return pts;
-  }
+  /** How far a link bows off its chord, at full length; shorter links bow less (a knot stays a knot). */
+  const CURVATURE = 0.18;
 
-  const DASH_ON = 0.018, DASH_OFF = 0.012;
-  const lines = $derived.by<Line[]>(() => {
-    const t = surface.theme;
-    if (!t) return [];
-    const ink = toRgb(t.foreground).map((c) => c / 255) as [number, number, number];
-    const accent = toRgb(t.accent).map((c) => c / 255) as [number, number, number];
-    // Feathered like the tree's: regl's line shader has no anti-aliasing of its own.
-    const PASSES: [number, number][] = [[2.2, 0.08], [1.6, 0.2], [1, 1]];
-    const layers: Line[][] = PASSES.map(() => []);
-    const stroke = (points: [number, number][], rgb: [number, number, number], alpha: number, width: number) =>
-      PASSES.forEach(([wm, am], k) => layers[k].push({ points, color: [...rgb, alpha * am], width: width * wm }));
+  /**
+   * Links, painted under the points on the canvas's 2-D underlay: one native quadratic per
+   * link, from the points' on-screen (mid-glide) positions, so links travel with their games.
+   * Not regl lines: those rebuild all their geometry on every change, quadratic in vertex
+   * count, which froze a 2,000-link glide for over a second (profiled 2026-11-11). Canvas
+   * strokes are anti-aliased, so no feathering passes either.
+   */
+  function underlay(ctx: CanvasRenderingContext2D, api: OverlayApi) {
+    const { theme, screen } = api;
+    if (!api.drawn || api.dragging) return;
+    const fullBow = 0.25 * Math.min(api.width, api.height);
+    const link = (a: number, b: number) => {
+      const pa = screen(a), pb = screen(b);
+      if (!pa || !pb) return false;
+      const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+      // Bowed to one consistent side, so a link looks the same whichever end it's found from.
+      const bow = CURVATURE * Math.min(1, Math.hypot(dx, dy) / fullBow) * (a < b ? 1 : -1);
+      ctx.beginPath();
+      ctx.moveTo(pa[0], pa[1]);
+      ctx.quadraticCurveTo((pa[0] + pb[0]) / 2 - dy * bow, (pa[1] + pb[1]) / 2 + dx * bow, pb[0], pb[1]);
+      return true;
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
     // A game folding away keeps a faint link to the game it hung off until it lands.
-    for (const l of leaving) if (l.via >= 0) stroke(curve(l.via, l.i), ink, 0.25, 1.2);
+    ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
+    for (const l of leaving) if (l.via >= 0 && link(l.via, l.i)) ctx.stroke();
     let lo = Infinity, hi = -Infinity;
     for (const e of edges) { lo = Math.min(lo, e.sim); hi = Math.max(hi, e.sim); }
     for (const e of edges) {
@@ -135,15 +133,14 @@
       // The outer rings' own wiring is kept lighter than the spokes in, so a dense family
       // reads as a texture rather than a wash.
       const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
-      const alpha = lit ? 1 : (e.mutual ? 0.35 + 0.5 * r : 0.25) * (outer ? 0.6 : 1);
-      const width = (1.2 + r * 1.6) * (lit ? 1.3 : e.mutual ? 1 : 0.8);
-      const rgb = lit ? accent : ink;
-      const path = curve(e.a, e.b);
-      if (e.mutual) stroke(path, rgb, alpha, width);
-      else for (const d of dashed(path, DASH_ON, DASH_OFF)) stroke(d, rgb, alpha, width);
+      ctx.globalAlpha = lit ? 1 : (e.mutual ? 0.35 + 0.5 * r : 0.25) * (outer ? 0.6 : 1);
+      ctx.strokeStyle = lit ? theme.accent : theme.foreground;
+      ctx.lineWidth = (1.2 + r * 1.6) * (lit ? 1.3 : e.mutual ? 1 : 0.8);
+      ctx.setLineDash(e.mutual ? [] : [6, 4]);
+      if (link(e.a, e.b)) ctx.stroke();
     }
-    return layers.flat();
-  });
+    ctx.restore();
+  }
 
   /** The hovered game and where it is, for the hover card. */
   let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
@@ -192,7 +189,7 @@
     get visible() { return visible; },
     // No camera refit, as in the tree: the layout already fits, and a flip never moves the camera.
     focus: null,
-    get lines() { return lines; },
+    underlay,
     stretch: true,
     instant: true,
     opacity: 0.95,
@@ -203,7 +200,8 @@
     surface.drive(driver);
     return () => surface.release(driver);
   });
-  $effect(() => { void lines; void selected; surface.repaint(); });
+  // Links and rings follow the selection and the link filter; the glide repaints after each draw.
+  $effect(() => { void selected; void edges; surface.repaint(); });
 </script>
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->

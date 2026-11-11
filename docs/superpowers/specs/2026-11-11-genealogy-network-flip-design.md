@@ -58,3 +58,14 @@ this feels right is also Phil's call.
 
 Leaving dev, the game-page entry, the sigma variant, copy (all PLACEHOLDER), and the map's own
 sidebar or HUD.
+
+## Revision: links on a 2-D underlay (2026-11-11)
+
+Profiling showed the network view freezing at high neighbour counts: flipping to it at k = 25
+(about 2,000 links) produced 14 long tasks totalling 1.28 s. Nearly all of it was regl-scatterplot's
+annotation lines rebuilding their geometry on every glide frame (`bufferCopyElement` uses
+`splice`, so the cost is quadratic in vertex count). Both views now draw their links on a 2-D
+canvas under the GL canvas (`Driver.underlay`; the GL background goes transparent). That's one
+native curve per link, about 1–2 ms a frame. Measured after the change: 2 long tasks, about
+270 ms. What's left is a ~130 ms stall at the flip (building and laying out the network) and a
+glide below 60 fps whose cost doesn't show up in the CPU profile.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutGenealogy, ndcToScreenY, badgeCentre, labelOrder, sameYearArc, dashed, offset } from './genealogy-layout';
+import { layoutGenealogy, ndcToScreenY, badgeCentre, labelOrder } from './genealogy-layout';
 import type { Genealogy, GenealogyNode } from './genealogy';
 
 const node = (i: number, side: GenealogyNode['side'], gen: number, via: number): GenealogyNode =>
@@ -84,15 +84,6 @@ describe('geometry', () => {
 		// last line is 100px wide; the 3-char token is its final 30px → centre 15px in from the end
 		expect(badgeCentre(box, measure, '⊕54', m)).toEqual([100 + 4 + 100 - 15, 40 + 2 + 14 * 1.5]);
 	});
-	it('dashed cuts a line into on/off runs', () => {
-		const ds = dashed([[0, 0], [1, 0]], 0.2, 0.1);
-		expect(ds).toHaveLength(4);
-		const drawn = ds.reduce((s, d) => s + (d[d.length - 1][0] - d[0][0]), 0);
-		expect(drawn).toBeCloseTo(0.7);
-	});
-	it('offset moves a line sideways along its left normal', () => {
-		expect(offset([[0, 0], [1, 0]], 0.1)).toEqual([[0, 0.1], [1, 0.1]]);
-	});
 });
 
 describe('labelOrder', () => {
@@ -107,16 +98,3 @@ describe('labelOrder', () => {
 	});
 });
 
-describe('sameYearArc', () => {
-	const top = (pts: [number, number][]) => Math.max(...pts.map((p) => p[1]));
-	it('runs between the two games and bows just above their row', () => {
-		const a = sameYearArc([0, 0], [0.2, 0]);
-		expect(a[0]).toEqual([0, 0]);
-		expect(a[a.length - 1]).toEqual([0.2, 0]);
-		expect(top(a)).toBeGreaterThan(0);
-	});
-	it('a farther game arcs higher, so it clears the nearer one, up to a cap', () => {
-		expect(top(sameYearArc([0, 0], [0.4, 0]))).toBeGreaterThan(top(sameYearArc([0, 0], [0.2, 0])));
-		expect(top(sameYearArc([0, 0], [1.8, 0]))).toBeLessThanOrEqual(0.06);
-	});
-});

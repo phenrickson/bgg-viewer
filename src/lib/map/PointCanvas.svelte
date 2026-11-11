@@ -15,8 +15,8 @@
   import { onMount, untrack, type Snippet } from 'svelte';
   import { dev } from '$app/environment';
   import type createScatterplot from 'regl-scatterplot';
-  import { readTheme, toHex, type MapTheme } from './palette';
-  import { provideSurface, MAX_DIAMETER, type Driver, type Surface, type CanvasApi, type ExportOptions } from './surface';
+  import { readTheme, toHex, toRgb, type MapTheme } from './palette';
+  import { provideSurface, MAX_DIAMETER, type Driver, type Surface, type CanvasApi, type ExportOptions, type OverlayApi } from './surface';
 
   let {
     mode = 'pan',
@@ -55,6 +55,8 @@
   let host: HTMLDivElement;
   let glCanvas: HTMLCanvasElement;
   let overlay: HTMLCanvasElement;
+  /** Beneath the GL canvas: a layer's `underlay` (links), painted with the overlay. */
+  let underlayCanvas: HTMLCanvasElement;
   let plot = $state<ReturnType<typeof createScatterplot> | null>(null);
   let theme = $state<MapTheme | null>(null);
   let width = $state(0);
@@ -82,8 +84,11 @@
   /** Theme-dependent settings. Colours must be hex: the library reads them on the CPU. */
   $effect(() => {
     if (!plot || !theme || !driver) return;
+    const bg = toRgb(theme.background).map((c) => c / 255);
     plot.set({
-      backgroundColor: toHex(theme.background),
+      // Transparent when the layer paints an underlay, so it shows through; the host's own
+      // background stands in. Same RGB either way (regl reads its brightness for the lasso).
+      backgroundColor: driver.underlay ? [bg[0], bg[1], bg[2], 0] : toHex(theme.background),
       pointColor: driver.palette.map(toHex),
       pointColorHover: toHex(theme.accent),
       pointColorActive: toHex(theme.accent),
@@ -387,20 +392,32 @@
       : Math.max(minScale, scaling);
   }
 
-  function drawOverlay() {
-    if (!overlay || !plot || !theme || width === 0) return;
+  /** A 2-D canvas sized to the host at the device pixel ratio, cleared, in CSS-pixel units. */
+  function prepare2d(c: HTMLCanvasElement, t: MapTheme): CanvasRenderingContext2D {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (overlay.width !== Math.round(width * dpr)) { overlay.width = Math.round(width * dpr); overlay.height = Math.round(height * dpr); }
-    const ctx = overlay.getContext('2d')!;
+    if (c.width !== Math.round(width * dpr) || c.height !== Math.round(height * dpr)) {
+      c.width = Math.round(width * dpr); c.height = Math.round(height * dpr);
+    }
+    const ctx = c.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.font = `600 12px ${theme.font}`;
+    ctx.font = `600 12px ${t.font}`;
     ctx.textBaseline = 'middle';
+    return ctx;
+  }
+
+  function drawOverlay() {
+    if (!overlay || !plot || !theme || width === 0) return;
     const p = plot;
-    driver?.overlay?.(ctx, {
+    const api: OverlayApi = {
       screen: (i) => { const s = p.getScreenPosition(toSlot(i)); return s ? [s[0], s[1]] : null; },
       width, height, theme, hovered, drawn, dragging, pointScale: pointScale()
-    });
+    };
+    if (underlayCanvas) {
+      const under = prepare2d(underlayCanvas, theme);
+      driver?.underlay?.(under, api);
+    }
+    driver?.overlay?.(prepare2d(overlay, theme), api);
   }
 
   // --- export ----------------------------------------------------------------------------
@@ -434,20 +451,26 @@
     out.width = img.width; out.height = img.height;
     const ctx = out.getContext('2d')!;
     if (!transparent) { ctx.fillStyle = theme.background; ctx.fillRect(0, 0, out.width, out.height); }
-    ctx.drawImage(pts, 0, 0);
-    // The overlay in on-screen coordinates under a uniform scale: the same placement the
-    // viewer sees, rendered at the export's resolution.
+    // Underlay and overlay in on-screen coordinates under a uniform scale: the same placement
+    // the viewer sees, rendered at the export's resolution.
     const s = img.width / width;
+    const p = plot;
+    const api: OverlayApi = {
+      screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
+      // On-screen scale, not the export's: the uniform transform carries the resolution
+      // multiple, so markers match what the viewer saw.
+      width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
+    };
+    if (driver?.underlay) {
+      ctx.setTransform(s, 0, 0, s, 0, 0);
+      driver.underlay(ctx, api);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    ctx.drawImage(pts, 0, 0);
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.font = `600 12px ${theme.font}`;
     ctx.textBaseline = 'middle';
-    const p = plot;
-    driver?.overlay?.(ctx, {
-      screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
-      // On-screen scale, not the export's: the uniform transform above already carries the
-      // resolution multiple, so markers match what the viewer saw.
-      width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
-    });
+    driver?.overlay?.(ctx, api);
     if (title) {
       ctx.font = `600 16px ${theme.font}`;
       ctx.textBaseline = 'alphabetic';
@@ -539,6 +562,9 @@
 </script>
 
 <div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} class:inert={!interactive} class:frameless={!frame} bind:this={host}>
+  <!-- First, so it paints beneath: positioned elements stack in DOM order, and `.gl` is
+       positioned too (no z-index anywhere, so the layers' HTML above stays on top). -->
+  <canvas bind:this={underlayCanvas} class="underlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   {@render children?.()}
@@ -556,6 +582,7 @@
     background: var(--background);
   }
   .gl {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
@@ -566,7 +593,7 @@
   .host.fixed-camera .gl { cursor: default; }
   .host.inert .gl { pointer-events: none; }
   .host.frameless { border: 0; border-radius: 0; }
-  .overlay {
+  .overlay, .underlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
