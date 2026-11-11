@@ -218,14 +218,38 @@ export function egoSimulation(
 export function layoutEgoNetwork(
 	g: EgoNetwork,
 	radius: (i: number) => number = () => 5,
-	seed?: ReadonlyMap<number, [number, number]>
+	seed?: ReadonlyMap<number, [number, number]>,
+	/**
+	 * Hold the seeded games exactly where they were and place only the new ones, each started
+	 * beside the game that brought it in. For a change of k, rings or floor on the same centre:
+	 * a gentle restart still re-formed the graph, since the links themselves change (games that
+	 * stayed moved a median 5–17% of the canvas, measured 2026-11-11); held, they don't move.
+	 */
+	hold = false
 ): NetworkLayout {
 	const { sim, nodes: ns } = egoSimulation(g, radius, seed);
-	// Seeded mostly from a previous layout: a gentle restart, so games that stay settle near
-	// where they were instead of the whole graph re-forming (a change of k, hops or centre
-	// reads as the graph adjusting, not reshuffling).
-	const seeded = seed ? g.nodes.filter((n) => seed.has(n.i)).length / g.nodes.length : 0;
-	if (seeded > 0.5) sim.alpha(0.3);
+	if (hold && seed) {
+		const par = egoParents(g);
+		const at = new Map(ns.map((n) => [n.i, n]));
+		let r = 1;
+		const rand = () => (r = (r * 16807) % 2147483647) / 2147483647;
+		// `ns` is breadth-first, so a new game's parent is placed before it.
+		for (const n of ns) {
+			if (seed.has(n.i)) { n.fx = n.x; n.fy = n.y; continue; }
+			if (n.i === g.source) continue;
+			const p = at.get(par.get(n.i)!)!;
+			// Outward from the centre, spread a little, so it grows the graph rather than its middle.
+			const out = p.x || p.y ? Math.atan2(p.y!, p.x!) : rand() * Math.PI * 2;
+			const a = out + (rand() - 0.5) * 2;
+			n.x = p.x! + Math.cos(a) * 40; n.y = p.y! + Math.sin(a) * 40;
+		}
+		sim.alpha(0.3);
+	} else {
+		// Seeded mostly from a previous layout (a new centre): a gentle restart, so games that
+		// stay settle near where they were instead of the whole graph re-forming.
+		const seeded = seed ? g.nodes.filter((n) => seed.has(n.i)).length / g.nodes.length : 0;
+		if (seeded > 0.5) sim.alpha(0.3);
+	}
 	sim.tick(300);
 
 	let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;

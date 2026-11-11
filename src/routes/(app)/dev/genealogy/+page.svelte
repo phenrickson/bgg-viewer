@@ -113,10 +113,13 @@
    * k, rings or centre adjusts the graph rather than reshuffling it. Not state: it's a seed.
    */
   let netSeed: Map<number, [number, number]> | undefined;
+  /** The seed's centre: on the same centre (a change of k, rings or floor) the games that stay are held in place. */
+  let netSeedCentre = -1;
   const netLayout = $derived.by<NetworkLayout | null>(() => {
     if (!graph) return null;
-    const out = layoutEgoNetwork(graph, (i) => (i === graph.source ? 8 : 5), netSeed);
+    const out = layoutEgoNetwork(graph, (i) => (i === graph.source ? 8 : 5), netSeed, graph.source === netSeedCentre);
     netSeed = new Map(graph.nodes.map((nd, j) => [nd.i, [out.px[j], out.py[j]]]));
+    netSeedCentre = graph.source;
     return out;
   });
 

@@ -68,6 +68,20 @@ describe('egoParents', () => {
 	});
 });
 
+describe('layoutEgoNetwork hold', () => {
+	it('keeps the games that stay exactly where they were; new ones start beside their parent', () => {
+		const d = data();
+		const g0 = buildEgoNetwork(d, 0, { k: 2, hops: 1, mutual: false });
+		const l0 = layoutEgoNetwork(g0, () => 5);
+		const seed = new Map(g0.nodes.map((n, j) => [n.i, [l0.px[j], l0.py[j]] as [number, number]]));
+		const g1 = buildEgoNetwork(d, 0, { k: 4, hops: 1, mutual: false });
+		const l1 = layoutEgoNetwork(g1, () => 5, seed, true);
+		const at1 = new Map(g1.nodes.map((n, j) => [n.i, [l1.px[j], l1.py[j]]]));
+		for (const [i, p] of seed) expect(at1.get(i)).toEqual([p[0] - seed.get(0)![0], p[1] - seed.get(0)![1]]);
+		expect(g1.nodes.length).toBeGreaterThan(g0.nodes.length);
+	});
+});
+
 describe('shownEdges', () => {
 	// Every game reachable from the source over the drawn links.
 	const reach = (src: number, edges: { a: number; b: number }[]) => {
