@@ -48,6 +48,8 @@ export class Glide {
 	#bufs: { x: Float32Array; y: Float32Array }[];
 	#flip = 0;
 	#prev: TweenTree | null = null;
+	/** The last plan's games in play: the only entries of either buffer that aren't 0. */
+	#touched: Int32Array = new Int32Array(0);
 	#onScreen: { x: Float32Array; y: Float32Array } | null = null;
 	#raf = 0;
 	#reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -66,6 +68,10 @@ export class Glide {
 		const folding = plan.leaving.length > 0;
 		this.leaving = folding ? plan.leaving.map((i) => ({ i, via: prevVia.get(i) ?? -1 })) : [];
 		this.#prev = tree;
+		// `interpolate` writes only the games in play, so clear the last plan's from both
+		// buffers: a game that's left the view goes back to 0, as if every game were written.
+		for (const b of this.#bufs) for (const i of this.#touched) { b.x[i] = 0; b.y[i] = 0; }
+		this.#touched = plan.moving;
 		const start = performance.now();
 		const total = DURATION + Math.min(plan.levels, MAX_STEPS) * STEP;
 		if (!this.#reduced) this.settle = 0;

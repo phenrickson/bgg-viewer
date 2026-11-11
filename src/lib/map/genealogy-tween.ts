@@ -30,6 +30,12 @@ export interface TweenPlan {
 	level: Uint8Array;
 	/** The highest `level`, so the glide knows when the last game lands. */
 	levels: number;
+	/**
+	 * The games in play: the new tree's and the leaving ones. Every other game's from and to
+	 * are 0, so `interpolate` touches only these: a view is tens of games in a catalog of tens
+	 * of thousands, and it runs every frame.
+	 */
+	moving: Int32Array;
 }
 
 /** Walk `via` links from `i` until `keep` holds; -1 if the chain runs out. */
@@ -104,18 +110,20 @@ export function planTween(
 			toX[i] = target.x[d]; toY[i] = target.y[d];
 		}
 	}
-	return { fromX, fromY, toX, toY, leaving, level, levels };
+	const moving = Int32Array.from([...next.nodes.map((nd) => nd.i), ...leaving]);
+	return { fromX, fromY, toX, toY, leaving, level, levels, moving };
 }
 
 export const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
 /**
- * Positions written into `out`: `e` is eased progress (0..1), a number for every game at
- * once, or per level (`e(level)`) for a staggered glide.
+ * Positions written into `out` for the games in play (`p.moving`); the rest of `out` is left
+ * as it was, so the caller keeps every other game at 0. `e` is eased progress (0..1), a number
+ * for every game at once, or per level (`e(level)`) for a staggered glide.
  */
 export function interpolate(p: TweenPlan, e: number | ((level: number) => number), out: { x: Float32Array; y: Float32Array }): void {
 	const byLevel = typeof e === 'number' ? null : Array.from({ length: p.levels + 1 }, (_, l) => e(l));
-	for (let k = 0; k < out.x.length; k++) {
+	for (const k of p.moving) {
 		const ek = byLevel ? byLevel[p.level[k]] : (e as number);
 		out.x[k] = p.fromX[k] + (p.toX[k] - p.fromX[k]) * ek;
 		out.y[k] = p.fromY[k] + (p.toY[k] - p.fromY[k]) * ek;

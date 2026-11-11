@@ -73,4 +73,12 @@ describe('interpolate', () => {
 		interpolate(p, (l) => (l === 0 ? 0.5 : 0), out);
 		expect([out.x[1], out.x[2]]).toEqual([0.5, 1]);
 	});
+	it('writes only the games in play, new and leaving', () => {
+		const p = planTween(6, tree(0, [[1, 0], [2, 0]]), at(6, 10), tree(0, [[1, 0], [3, 1]]), at(6));
+		expect([...p.moving].sort()).toEqual([0, 1, 2, 3]);
+		const out = { x: new Float32Array(6).fill(-7), y: new Float32Array(6).fill(-7) };
+		interpolate(p, 1, out);
+		expect([out.x[0], out.x[1], out.x[2], out.x[3]]).toEqual([0, 1, 0, 3]);
+		expect([out.x[4], out.x[5]]).toEqual([-7, -7]);
+	});
 });

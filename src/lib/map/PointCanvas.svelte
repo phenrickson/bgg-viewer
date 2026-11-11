@@ -242,19 +242,32 @@
    */
   const scratch: Array<Map<string, Float32Array | Uint8Array>> = [new Map(), new Map()];
   let gen = 0;
-  /** Call once per draw, before the four `permute` calls that belong to it. */
+  /** Call once per draw, before the scratch writes (`keep`, `permute`) that belong to it. */
   function flipScratch(): void { gen ^= 1; }
 
-  /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
-  function permute<T extends Float32Array | Uint8Array>(perm: Perm | null, src: T, key: string): T {
-    if (!perm) return src;
-    const order = perm.order;
+  /** This generation's buffer for `key`, shaped like `src`. */
+  function bankFor<T extends Float32Array | Uint8Array>(src: T, key: string): T {
     const bank = scratch[gen];
     let out = bank.get(key) as T | undefined;
     if (!out || out.length !== src.length || out.constructor !== src.constructor) {
       out = new (src.constructor as new (n: number) => T)(src.length);
       bank.set(key, out);
     }
+    return out;
+  }
+
+  /** A copy of `src` in this generation's buffer for `key`. */
+  function keep<T extends Float32Array | Uint8Array>(src: T, key: string): T {
+    const out = bankFor(src, key);
+    out.set(src);
+    return out;
+  }
+
+  /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
+  function permute<T extends Float32Array | Uint8Array>(perm: Perm | null, src: T, key: string): T {
+    if (!perm) return src;
+    const order = perm.order;
+    const out = bankFor(src, key);
     for (let k = 0; k < order.length; k++) out[k] = src[order[k]];
     return out;
   }
@@ -284,8 +297,13 @@
     // A hidden point stays where it was last drawn, so when a later layer shows it again
     // it travels from there rather than from wherever this layer parked it. That's what
     // keeps map → network → map a flight of the nodes only.
+    // A tweening layer gets here every frame, and two catalog-sized slices a frame was ~300 KB
+    // of garbage at 60 fps, so it copies into this generation's scratch. Only an `instant`
+    // draw does: it has no regl transition still reading the arrays a frame later, so
+    // a transitioning draw keeps its own fresh copy.
+    flipScratch();
     if (shownX && shownY && visible.length < x.length) {
-      const mx = shownX.slice(), my = shownY.slice();
+      const mx = instant ? keep(shownX, 'mx') : shownX.slice(), my = instant ? keep(shownY, 'my') : shownY.slice();
       for (const i of visible) { mx[i] = x[i]; my[i] = y[i]; }
       x = mx; y = my;
     }
@@ -295,7 +313,6 @@
     // Rebuild before drawing: the draw, the filter and every event mapping must agree on
     // one permutation, and the encodings that define it are the ones being drawn now.
     const perm = buildOrder(d);
-    flipScratch();
     const px = permute(perm, x, 'x'), py = permute(perm, y, 'y');
     const pc = permute(perm, colour, 'c'), ps = permute(perm, size, 's');
     enqueueDraw(async () => {
