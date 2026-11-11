@@ -27,11 +27,13 @@ const STEP = 280;
 /** A deep unfold mustn't drag on: past this many steps, the rest set off together. */
 const MAX_STEPS = 3;
 /**
- * The page's first glide, out of the centre, at about twice the pace of the rest: slow enough
- * to see the neighbors come out ring by ring and learn what the view is (Phil, 2026-11-11).
- * Every later change keeps the snappy pace.
+ * The page's first glide, in Recommend's rhythm (the app's `.rise-in`): the chosen game grows
+ * in first, then, `lead` beats later, its games come out of it one at a time, best first,
+ * `step` ms apart, each growing as it travels. Past `cap` beats the rest set off together, so
+ * a big view doesn't take seconds. Slow enough to see what the view is (Phil, 2026-11-11);
+ * every later change keeps the snappy pace.
  */
-const INTRO = { duration: 900, step: 600 };
+const INTRO = { duration: 700, step: 80, lead: 3, cap: 20 };
 /**
  * Labels, ticks and badges wait for the games to land, then fade in over this — Recommend's
  * rhythm (content arrives once things have settled; text never slides around attached to a
@@ -50,6 +52,12 @@ export class Glide {
 	 * rising to 1 over `SETTLE` ms once they've landed. Layers multiply their text's alpha by it.
 	 */
 	settle = $state(1);
+	/**
+	 * How far each entering game has grown in, 0..1 (1 for every other game), for this frame:
+	 * read it alongside `cur`. Entering games are drawn at their size times this and their
+	 * links fade in with it, so a game arrives rather than appearing on top of its parent.
+	 */
+	readonly grow: Float32Array;
 
 	#bufs: { x: Float32Array; y: Float32Array }[];
 	#flip = 0;
@@ -58,12 +66,34 @@ export class Glide {
 	#touched: Int32Array = new Int32Array(0);
 	#onScreen: { x: Float32Array; y: Float32Array } | null = null;
 	#raf = 0;
+	/** Games entering in the glide under way (`grow` < 1 only for these). */
+	#entering: Int32Array = new Int32Array(0);
+	#sizeBuf: Uint8Array;
+	#sizeBase: Uint8Array | null = null;
 	#reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	constructor(n: number) {
 		this.n = n;
 		this.#bufs = [0, 1].map(() => ({ x: new Float32Array(n), y: new Float32Array(n) }));
 		this.cur = this.#bufs[0];
+		this.grow = new Float32Array(n).fill(1);
+		this.#sizeBuf = new Uint8Array(n);
+	}
+
+	/**
+	 * A layer's `size` with entering games scaled by `grow`, for this frame. `size` itself while
+	 * nothing is entering; otherwise a kept buffer, refreshed from `size` when that changes, with
+	 * only the entering games rewritten.
+	 */
+	sized(size: Uint8Array): Uint8Array {
+		if (this.#entering.length === 0) return size;
+		if (this.#sizeBase !== size || this.#sizeBuf.length !== size.length) {
+			if (this.#sizeBuf.length !== size.length) this.#sizeBuf = new Uint8Array(size.length);
+			this.#sizeBuf.set(size);
+			this.#sizeBase = size;
+		}
+		for (const i of this.#entering) this.#sizeBuf[i] = Math.round(size[i] * this.grow[i]);
+		return this.#sizeBuf;
 	}
 
 	/** Glide from what's on screen to `target` (positions by game index) for `tree`. */
@@ -71,7 +101,28 @@ export class Glide {
 		cancelAnimationFrame(this.#raf);
 		const plan = planTween(this.n, this.#prev, this.#onScreen, tree, target);
 		const prevVia = new Map((this.#prev?.nodes ?? []).map((nd) => [nd.i, nd.via]));
-		const { duration, step: gap } = this.#prev === null ? INTRO : { duration: DURATION, step: STEP };
+		const intro = this.#prev === null;
+		const { duration, step: gap } = intro ? INTRO : { duration: DURATION, step: STEP };
+		const maxSteps = intro ? INTRO.lead + INTRO.cap : MAX_STEPS;
+		const was = this.#onScreen ? new Set(prevVia.keys()) : new Set<number>();
+		if (intro) {
+			// Every game comes out of the chosen one, a beat apart in the tree's own order (best
+			// first, nearer rings first), after the chosen game has grown in alone.
+			const c = tree.centre;
+			const rest = tree.nodes.map((nd, k) => ({ i: nd.i, k })).filter((x) => x.i !== c)
+				.sort((a, b) => plan.level[a.i] - plan.level[b.i] || a.k - b.k);
+			plan.level[c] = 0;
+			rest.forEach((x, r) => {
+				plan.level[x.i] = INTRO.lead + Math.min(r, INTRO.cap);
+				plan.fromX[x.i] = plan.toX[c]; plan.fromY[x.i] = plan.toY[c];
+			});
+			plan.levels = rest.length ? INTRO.lead + Math.min(rest.length - 1, INTRO.cap) : 0;
+		}
+		// Back to full size whatever the last glide left half-grown; then this one's entering games.
+		for (const i of this.#entering) this.grow[i] = 1;
+		this.#entering = Int32Array.from(tree.nodes.filter((nd) => !was.has(nd.i)), (nd) => nd.i);
+		for (const i of this.#entering) this.grow[i] = 0;
+		this.#sizeBase = null;
 		const folding = plan.leaving.length > 0;
 		this.leaving = folding ? plan.leaving.map((i) => ({ i, via: prevVia.get(i) ?? -1 })) : [];
 		this.#prev = tree;
@@ -80,7 +131,8 @@ export class Glide {
 		for (const b of this.#bufs) for (const i of this.#touched) { b.x[i] = 0; b.y[i] = 0; }
 		this.#touched = plan.moving;
 		const start = performance.now();
-		const total = duration + Math.min(plan.levels, MAX_STEPS) * gap;
+		const total = duration + Math.min(plan.levels, maxSteps) * gap;
+		const ease = (l: number, ms: number) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, maxSteps) * gap) / duration)));
 		if (!this.#reduced) this.settle = 0;
 		/** After landing: no more positions, just the text fading in. */
 		const fade = (now: number) => {
@@ -92,11 +144,14 @@ export class Glide {
 			const ms = this.#reduced ? total : now - start;
 			const t = Math.min(1, ms / total);
 			const out = this.#bufs[(this.#flip = 1 - this.#flip)];
-			interpolate(plan, (l) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, MAX_STEPS) * gap) / duration))), out);
+			interpolate(plan, (l) => ease(l, ms), out);
+			for (const i of this.#entering) this.grow[i] = ease(plan.level[i], ms);
 			this.#onScreen = out;
 			this.cur = out;
 			if (t < 1) { this.#raf = requestAnimationFrame(step); return; }
 			if (folding) this.leaving = [];
+			for (const i of this.#entering) this.grow[i] = 1;
+			this.#entering = new Int32Array(0);
 			if (this.#reduced) this.settle = 1;
 			else this.#raf = requestAnimationFrame(fade);
 		};

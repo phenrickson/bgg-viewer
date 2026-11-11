@@ -140,7 +140,7 @@
     ctx.save();
     ctx.lineCap = 'round';
     // A game folding away keeps a faint link to the game it hung off until it lands.
-    ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = theme.muted; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
     for (const l of leaving) if (l.via >= 0 && link(l.via, l.i)) ctx.stroke();
     for (const e of edges) {
       const lit = e.a === selected || e.b === selected;
@@ -148,7 +148,10 @@
       // The outer rings' own wiring is kept lighter than the spokes in, so a dense family
       // reads as a texture rather than a wash.
       const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
-      ctx.globalAlpha = lit ? 1 : linkAlpha(r) * (outer ? 0.7 : 1);
+      // A link fades in with the later of its two games to arrive.
+      const g2 = Math.min(glide.grow[e.a], glide.grow[e.b]);
+      if (g2 === 0) continue;
+      ctx.globalAlpha = (lit ? 1 : linkAlpha(r) * (outer ? 0.7 : 1)) * g2;
       ctx.strokeStyle = lit ? theme.accent : theme.muted;
       ctx.lineWidth = lit ? litLinkWidth(r) : linkWidth(r);
       ctx.setLineDash(oneway && !e.mutual ? [6, 4] : []);
@@ -221,7 +224,8 @@
     get y() { return cur.y; },
     get colour() { return colour; },
     get palette() { return palette; },
-    get size() { return size; },
+    // Entering games drawn at their size times how far they've grown in (`Glide.grow`).
+    get size() { return glide.sized(size); },
     get visible() { return visible; },
     // No camera refit, as in the tree: the layout already fits, and a flip never moves the camera.
     focus: null,

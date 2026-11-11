@@ -146,7 +146,10 @@
       const lit = e.i === selected || e.via === selected;
       const r = linkStrength(e.sim, floor);
       // The network's link style, so a flip changes only the shape (Phil, 2026-11-11).
-      ctx.globalAlpha = lit ? 1 : linkAlpha(r);
+      // A link fades in with the later of its two games to arrive.
+      const g2 = Math.min(glide.grow[e.i], glide.grow[e.via]);
+      if (g2 === 0) continue;
+      ctx.globalAlpha = (lit ? 1 : linkAlpha(r)) * g2;
       ctx.strokeStyle = lit ? theme.accent : theme.muted;
       ctx.lineWidth = lit ? litLinkWidth(r) : linkWidth(r);
       ctx.setLineDash(e.kind === 'family' ? [6, 4] : []);
@@ -272,7 +275,8 @@
     get y() { return cur.y; },
     get colour() { return colour; },
     get palette() { return palette; },
-    get size() { return size; },
+    // Entering games drawn at their size times how far they've grown in (`Glide.grow`).
+    get size() { return glide.sized(size); },
     get visible() { return visible; },
     // No camera refit: the layout already fits the tree to the canvas, and a second framing
     // move after the glide was half of the old jank.
