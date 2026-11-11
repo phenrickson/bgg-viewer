@@ -69,3 +69,15 @@ canvas under the GL canvas (`Driver.underlay`; the GL background goes transparen
 native curve per link, about 1–2 ms a frame. Measured after the change: 2 long tasks, about
 270 ms. What's left is a ~130 ms stall at the flip (building and laying out the network) and a
 glide below 60 fps whose cost doesn't show up in the CPU profile.
+
+## Known rough edges (2026-11-11)
+
+- **Slight aliasing and stutter while dragging the canvas** (Phil: "not terrible, just worth
+  noting"). A profile of a drag shows steady ~6 ms frames and no long tasks, so it isn't a
+  slow frame. Unverified candidates: the text dropping out and fading back on a hesitant drag
+  (the camera-rest rule), and the dots versus the 2-D link canvas rendering at different
+  pixel ratios (regl's points, against links drawn at devicePixelRatio capped at 2).
+- **HUD over the tree:** labels near the top edge can sit under the top-left chips and the
+  search box.
+- **Network view at high neighbour counts:** a ~130 ms stall as the network is built and laid
+  out, and some slow glide frames.
