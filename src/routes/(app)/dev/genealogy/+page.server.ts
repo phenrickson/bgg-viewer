@@ -1,11 +1,10 @@
-import { dev } from '$app/environment';
-import { error } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 /**
- * Prototype: one game's genealogy over the embedding. Its data (the shipped vectors artifact
- * and the catalog) would work in production; whether it comes out of dev is a product call.
+ * The tool's old address, where it ran as a dev prototype before it moved to `/genealogy`
+ * under Tools. Its state is all in the querystring, so the redirect keeps it.
  */
-export const load: PageServerLoad = () => {
-	if (!dev) error(404);
+export const load: PageServerLoad = ({ url }) => {
+	redirect(308, '/genealogy' + url.search);
 };

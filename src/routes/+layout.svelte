@@ -3,7 +3,6 @@
   import favicon from '$lib/assets/favicon.svg';
   import { ModeWatcher, toggleMode } from 'mode-watcher';
   import { page, navigating } from '$app/stores';
-  import { dev } from '$app/environment';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
 
@@ -73,8 +72,7 @@
   const inGames = $derived(onExplore || onDiscover || onWhatsNew);
   const onMap = $derived(path === '/map' || path.startsWith('/map/'));
   const onRecommend = $derived(path === '/recommend' || path.startsWith('/recommend/'));
-  /** Dev-only: the route 404s outside dev, so its row only renders in dev (see the Tools menu). */
-  const onGenealogy = $derived(path === '/dev/genealogy');
+  const onGenealogy = $derived(path === '/genealogy');
   const inTools = $derived(onMap || onRecommend || onGenealogy);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
   const onHome = $derived(!inGames && !inTools && !onAbout);
@@ -207,13 +205,11 @@
                 <b>Map</b>
                 <span>Visualize the landscape of board games</span>
               </a>
-              <!-- Dev only, not shipped: the route 404s outside dev. PLACEHOLDER COPY (Phil). -->
-              {#if dev}
-                <a href="/dev/genealogy" role="menuitem" class:on={onGenealogy}>
-                  <b>Genealogy</b>
-                  <span>Trace a game's ancestors and descendants (dev)</span>
-                </a>
-              {/if}
+              <!-- PLACEHOLDER COPY (Phil): the tool's name and its line. -->
+              <a href="/genealogy" role="menuitem" class:on={onGenealogy}>
+                <b>Genealogy</b>
+                <span>Trace a game's ancestors, descendants and neighbours</span>
+              </a>
             </div>
           {/if}
         </div>
@@ -265,7 +261,7 @@
               <span class="grp" aria-hidden="true">Tools</span>
               <a href="/recommend" role="menuitem" class:on={onRecommend}><b>Recommend</b></a>
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
-              {#if dev}<a href="/dev/genealogy" role="menuitem" class:on={onGenealogy}><b>Genealogy</b></a>{/if}
+              <a href="/genealogy" role="menuitem" class:on={onGenealogy}><b>Genealogy</b></a>
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}

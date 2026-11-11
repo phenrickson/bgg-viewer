@@ -36,10 +36,10 @@ describe('currentState', () => {
 	// state a click committed must win over the (stale) URL the page was loaded with.
 	const committed: GenealogyState = { game: 31260, ...NET, t: 0.7, y: 'gen', same: false, unfolded: [3076], expanded: [] };
 	it('prefers the shallow-routing state over the URL', () => {
-		expect(currentState({ genealogy: committed }, new URL('http://x/dev/genealogy?game=102794'))).toEqual(committed);
+		expect(currentState({ genealogy: committed }, new URL('http://x/genealogy?game=102794'))).toEqual(committed);
 	});
 	it('falls back to the URL on a fresh load or a pasted link', () => {
-		expect(currentState({}, new URL('http://x/dev/genealogy?game=102794')).game).toBe(102794);
+		expect(currentState({}, new URL('http://x/genealogy?game=102794')).game).toBe(102794);
 	});
 });
 

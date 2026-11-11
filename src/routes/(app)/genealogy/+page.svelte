@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
-   * `/dev/genealogy` — one game's family tree over the embedding: earlier games like it
-   * above, later ones below, same-year ones beside it, grown by unfolding (⊕) and
-   * re-centring. Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md.
+   * `/genealogy`: one game and what's around it over the embedding, as a Genealogy (earlier
+   * games like it above, later ones below, same-year ones beside it, grown by unfolding (⊕)
+   * and re-centring) or a Network (its neighbours, ring by ring), with a glide between the two.
+   * Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md and
+   * docs/superpowers/specs/2026-11-11-genealogy-network-flip-design.md.
    *
    * Laid out like `/map` (docs/superpowers/specs/2026-11-11-genealogy-presentation-design.md):
    * the same shell, the controls in a fixed sidebar card (one panel, so no tabs), and

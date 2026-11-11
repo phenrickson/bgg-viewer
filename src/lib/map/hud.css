@@ -4,7 +4,7 @@
  * (which is what let /map's tools and selection panel overlap).
  *
  * Copied from /map's page-scoped `.hud` / `.stack` / `.lasso` / `.state` / `.chip` rules for
- * /dev/genealogy; the map still carries its own (moving it onto this file is a follow-up).
+ * /genealogy; the map still carries its own (moving it onto this file is a follow-up).
  * Global, so the names carry a `map-` prefix: an unprefixed `.stack` or `.chip` could meet a
  * Tailwind utility, and the global utility layer beats a component's scoped rule.
  */
