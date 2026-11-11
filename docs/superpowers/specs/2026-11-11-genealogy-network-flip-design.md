@@ -70,6 +70,33 @@ native curve per link, about 1–2 ms a frame. Measured after the change: 2 long
 270 ms. What's left is a ~130 ms stall at the flip (building and laying out the network) and a
 glide below 60 fps whose cost doesn't show up in the CPU profile.
 
+## Revision: network defaults, expand and review (2026-11-11)
+
+Phil's review of the network view, and the PR review after it. This supersedes the
+**Links** and **Controls** lines above.
+
+- **Links are similarity, not mutual/all.** The network always shows the centre and what
+  connects to it; with Mutual as the default, two rings came out as disconnected islands.
+  Every link is drawn, straight, in one muted colour, width and opacity by similarity on a
+  fixed scale from the floor to 1 (so 0.79 reads as strong). The one-way distinction is an
+  opt-in toggle, **One-way links: Plain / Dashed** (URL `ow=1`).
+- **Shared similarity floor.** The similarity slider now sits above both views' controls and
+  also filters the network's links (`floor` over each game's top k).
+- **Expand in the network too.** A selected game's card offers "Expand N more" and "Fold",
+  as in the tree (URL `o=`). Rings and Expand coexist: Rings widens every game,
+  Expand widens one. Folding a game also folds what was expanded from it.
+- **Motion.** Raising k or expanding holds the games already placed, and new ones are
+  placed beside the game that brought them in, outward. The glide grows ring by ring from the centre.
+- **One embedding version.** The vectors artifact carries each row's `embedding_version` and
+  the deployed version (from `monitoring.deployed_models`, read at build time). Genealogy and
+  network compare only games on that version, or on the newest when the deployed one
+  couldn't be read. Recommend still uses every row.
+- **Cost.** One similarity scan per game serves every threshold and k. Scans are kept for the
+  page's life, and the tree's, which can run to thousands of links each, are cleared past
+  2,000 games. Style toggles no longer rebuild the graph. A glide
+  frame touches only the games in play, and the 2-D link canvas is sized only for a layer
+  that draws on it.
+
 ## Known rough edges (2026-11-11)
 
 - **Slight aliasing and stutter while dragging the canvas** (Phil: "not terrible, just worth
@@ -80,4 +107,13 @@ glide below 60 fps whose cost doesn't show up in the CPU profile.
 - **HUD over the tree:** labels near the top edge can sit under the top-left chips and the
   search box.
 - **Network view at high neighbour counts:** a ~130 ms stall as the network is built and laid
-  out, and some slow glide frames.
+  out.
+- **Network layout rules** (keeping rings tidy and crossings down) were discussed and parked.
+- **Every glide frame still uploads all ~38k points to regl:** regl-scatterplot takes whole
+  arrays, so only a different draw path would avoid it.
+- **Deployed version in the viewer's fallback build:** the viewer's service account can't read
+  `monitoring`, so a runtime-built artifact falls back to the newest version. A read grant
+  would be a warehouse Terraform change.
+- **Minor, from the review:** an unfold started mid-fold drops the folding games instead of
+  finishing them. The artifact version stamp is written in three places. Rows with no
+  embedding version are handled inconsistently at build time.
