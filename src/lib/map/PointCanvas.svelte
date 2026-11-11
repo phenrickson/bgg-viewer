@@ -245,10 +245,13 @@
     let { x, y } = d;
     const p = plot;
     void redrawTick;
-    const first = lastX === null;
+    // A layer that tweens its own positions (`instant`) redraws every frame: no regl
+    // transition, no zero-position opening flight, and the overlay and lines stay up.
+    const instant = !!d.instant;
+    const first = lastX === null && !instant;
     const moved = x !== lastX;
     lastX = x;
-    drawn = false;
+    if (!instant) drawn = false;
     const duration = first ? 1400 : 800;
     const visible = untrack(() => d.visible);
     // A hidden point stays where it was last drawn, so when a later layer shows it again
@@ -284,10 +287,11 @@
       // then blink out once it lands. Lines go too (they'd join the old spots); inside
       // the queue, because an annotation draw overlapping a transition wedges regl.
       setFilter(visible, px.length);
-      if (linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
+      if (!instant && linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
+      const flies = moved && !instant;
       await drawRetry(
-        () => p.draw({ x: px, y: py, valueA: pc, valueB: ps }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
-        moved ? duration * 2 + 500 : 1500
+        () => p.draw({ x: px, y: py, valueA: pc, valueB: ps }, { preventFilterReset: true, transition: flies, transitionDuration: duration }),
+        flies ? duration * 2 + 500 : 1500
       );
       drawn = true; applyFilter(); applyLines(); scheduleOverlay();
     });

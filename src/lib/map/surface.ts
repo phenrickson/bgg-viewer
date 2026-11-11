@@ -60,6 +60,12 @@ export interface Driver {
 	/** Stretch the data square to the canvas width (the strip) instead of keeping it square. */
 	stretch?: boolean;
 	/**
+	 * The layer animates its own positions, handing over new `x`/`y` every frame. Position
+	 * changes then draw with no regl transition, and the lines and overlay stay up through
+	 * them, so labels and links travel with their points instead of blinking out for a flight.
+	 */
+	instant?: boolean;
+	/**
 	 * Per-point alpha. A single number applies to every point; an ARRAY is indexed by the
 	 * point's colour bucket, exactly like `palette` — so a layer that already encodes
 	 * lit/dimmed in the bucket gets opacity for free, without spending regl's other value

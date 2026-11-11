@@ -4,6 +4,10 @@
    * above, later ones below, same-year ones beside it, grown by unfolding (⊕) and
    * re-centring. Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md.
    *
+   * Laid out like `/map` (docs/superpowers/specs/2026-11-11-genealogy-presentation-design.md):
+   * the same shell and tabbed sidebar, and everything else floating over the canvas in the
+   * map's HUD chrome — so only the sidebar ever resizes the canvas under the tree.
+   *
    * All tree state lives in the URL: a re-centre is a shallow `pushState` (Back undoes it,
    * unfolds and all); everything else is a `replaceState`. Shallow routing leaves
    * `page.url` alone and carries the state in `page.state` (see `currentState`).
@@ -24,9 +28,12 @@
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
+  import ToolSidebar from '$lib/map/ToolSidebar.svelte';
+  import GenealogyRail from '$lib/map/GenealogyRail.svelte';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
-  import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
+  import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
+  import '$lib/map/hud.css';
 
   // --- data ------------------------------------------------------------------------------
   let coords = $state<CoordinateSet | null>(null);
@@ -105,143 +112,135 @@
   const DIRS = ['up', 'down', 'same'] as const;
   const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
   const KIND_LABEL = { family: 'same family', influence: 'similarity only' } as const;
+  const TABS = [{ id: 'controls' as const, label: 'Controls' }, { id: 'key' as const, label: 'Key' }];
+  let panel = $state<'controls' | 'key' | null>('controls');
   const noEarlier = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'up') && tree.centreHidden.up === 0);
   const noLater = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'down') && tree.centreHidden.down === 0);
+  const centreOverflow = $derived(!!tree && DIRS.some((dir) => isExpanded(tree.centre, dir) || tree.centreHidden[dir] > 0));
 </script>
 
-<div class="page">
-  <header class="top">
-    <div>
-      <p class="eyebrow">Dev only — prototype</p>
-      <h1>Genealogy</h1>
-      {#if facts}<p class="current">{facts.name(centreId)}</p>{/if}
-    </div>
-    <div class="search"><GameSearch compact onpick={recentre} /></div>
-  </header>
+<Container size="wide" fill>
+  <div class="workspace">
+    <ToolSidebar tabs={TABS} bind:panel>
+      {#snippet children(tab)}
+        <GenealogyRail
+          section={tab}
+          y={s.y}
+          same={s.same}
+          threshold={s.t}
+          min={T_MIN}
+          max={T_MAX}
+          onaxis={(y) => commit({ ...s, y })}
+          onsame={(same) => commit({ ...s, same })}
+          onthreshold={(t) => commit({ ...s, t })}
+        />
+      {/snippet}
+    </ToolSidebar>
 
-  <div class="controls">
-    <!-- SegGroup's buttons share their container's width (built for the rail column), so
-         inline in a row it needs a width to share. -->
-    <div class="axis">
-      <SegGroup
-        ariaLabel="Vertical axis"
-        options={[{ value: 'year', label: 'Year' }, { value: 'gen', label: 'Generation' }]}
-        value={s.y}
-        onchange={(y) => commit({ ...s, y })}
-      />
-    </div>
-    <!-- PLACEHOLDER COPY (Phil) -->
-    <label><input type="checkbox" checked={s.same} onchange={(e) => commit({ ...s, same: e.currentTarget.checked })} /> Same year</label>
-    <label>Similarity ≥
-      <input type="range" min={T_MIN} max={T_MAX} step="0.01" value={s.t}
-        onchange={(e) => commit({ ...s, t: Number(e.currentTarget.value) })} />
-      {s.t.toFixed(2)}
-    </label>
-    {#if tree}
-      <span class="muted">{tree.nodes.length} games</span>
-      {#if s.unfolded.length || s.expanded.length}
-        <Button size="xs" variant="outline" onclick={reset}>Reset</Button>
-      {/if}
-      <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
-      {#each DIRS as dir (dir)}
-        {#if isExpanded(tree.centre, dir)}
-          <Button size="xs" variant="outline" onclick={() => fewer(tree.centre, dir)}>Show fewer {MORE_LABEL[dir]}</Button>
-        {:else if tree.centreHidden[dir] > 0}
-          <Button size="xs" variant="outline" onclick={() => more(tree.centre, dir)}>+{tree.centreHidden[dir]} {MORE_LABEL[dir]}</Button>
-        {/if}
-      {/each}
-    {/if}
-  </div>
-
-  <div class="body">
     <div class="canvas">
       {#if loadError}
-        <div class="state error">Couldn’t load: {loadError}</div>
+        <div class="map-hud-state error">Couldn’t load: {loadError}</div>
       {:else if !coords || !facts || !data}
-        <div class="state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
+        <div class="map-hud-state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
       {:else if centre == null}
-        <div class="state">{facts.name(centreId)} isn’t in the embedding.</div>
+        <div class="map-hud-state">{facts.name(centreId)} isn’t in the embedding.</div>
       {:else if tree && !tree.placeable}
-        <div class="state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
+        <div class="map-hud-state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
       {:else if layout}
         <PointCanvas lasso={false}>
           <GenealogyLayer {coords} {facts} {layout} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
         </PointCanvas>
-        {#if noEarlier}<p class="empty above">No earlier games above this similarity.</p>{/if}
-        {#if noLater}<p class="empty below">No later games above this similarity.</p>{/if}
       {/if}
-    </div>
 
-    {#if selNode && facts && coords}
-      {@const id = coords.ids[selNode.i]}
-      <aside class="side" aria-label="Selected game">
-        <h2>{facts.name(id)}</h2>
-        <p class="muted">
-          {facts.year[selNode.i] || '—'} · {facts.usersRated[selNode.i].toLocaleString()} ratings{facts.upcoming[selNode.i] ? ' · upcoming' : ''}
-        </p>
-        {#if selNode.side !== 'centre' && selNode.kind}
-          <p>Linked to {facts.name(idOf(selNode.via))} at {selNode.sim.toFixed(2)} — {KIND_LABEL[selNode.kind]}</p>
-        {/if}
-        <div class="actions">
-          {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
-          {#if selNode.side === 'up' || selNode.side === 'down'}
-            {@const dir = selNode.side}
-            {@const i = selNode.i}
-            {#if selNode.unfolded}
-              <Button size="sm" variant="outline" onclick={() => foldAt(i)}>Fold</Button>
-              {#if isExpanded(i, dir)}
-                <Button size="sm" variant="outline" onclick={() => fewer(i, dir)}>Show fewer</Button>
-              {:else if selNode.hidden > 0}
-                <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
-              {/if}
-            {:else if selNode.hidden > 0}
-              <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
+      <!-- Left: what you're looking at. Right: what acts on it. PLACEHOLDER COPY (Phil). -->
+      {#if facts && tree && centre != null}
+        <div class="map-hud-stack left">
+          <div class="map-hud chosen">
+            <b>{facts.name(centreId)}</b>
+            {#if facts.year[centre]}<span class="dim tnum">{facts.year[centre]}</span>{/if}
+          </div>
+          <div class="map-hud">
+            <span><b class="tnum">{tree.nodes.length}</b> <span class="dim">games</span></span>
+            {#if s.unfolded.length || s.expanded.length}
+              <button type="button" class="map-hud-chip" onclick={reset}>Reset</button>
             {/if}
+          </div>
+          {#if centreOverflow}
+            <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
+            <div class="map-hud">
+              {#each DIRS as dir (dir)}
+                {#if isExpanded(tree.centre, dir)}
+                  <button type="button" class="map-hud-chip" onclick={() => fewer(tree.centre, dir)}>Fewer {MORE_LABEL[dir]}</button>
+                {:else if tree.centreHidden[dir] > 0}
+                  <button type="button" class="map-hud-chip" onclick={() => more(tree.centre, dir)}>+{tree.centreHidden[dir]} {MORE_LABEL[dir]}</button>
+                {/if}
+              {/each}
+            </div>
           {/if}
-          <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
-          <Button size="sm" variant="ghost" onclick={() => (selected = -1)}>Close</Button>
+          {#if noEarlier}<div class="map-hud dim">No earlier games this alike.</div>{/if}
+          {#if noLater}<div class="map-hud dim">No later games this alike.</div>{/if}
         </div>
-      </aside>
-    {/if}
-  </div>
+      {/if}
 
-  <!-- PLACEHOLDER COPY (Phil): legend labels. Off the canvas so it never covers the tree. -->
-  <div class="legend" aria-label="Legend">
-    <span><i style:background="var(--primary)"></i> chosen game</span>
-    <span><i style:background="var(--map-cat-1)"></i> related game</span>
-    <span><i class="hollow"></i> upcoming</span>
-    <span class="sep" aria-hidden="true">|</span>
-    <span><b></b> similar</span>
-    <span><b class="dashed"></b> same family</span>
+      <div class="map-hud-stack right">
+        <div class="search"><GameSearch compact onpick={recentre} /></div>
+        {#if selNode && facts && coords}
+          {@const id = coords.ids[selNode.i]}
+          <section class="map-hud-panel selected" aria-label="Selected game">
+            <header>
+              <h2>{facts.name(id)}</h2>
+              <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
+            </header>
+            <p class="dim">
+              {facts.year[selNode.i] || '—'} · <span class="tnum">{facts.usersRated[selNode.i].toLocaleString()}</span> ratings{facts.upcoming[selNode.i] ? ' · upcoming' : ''}
+            </p>
+            {#if selNode.side !== 'centre' && selNode.kind}
+              <p>{selNode.sim.toFixed(2)} to {facts.name(idOf(selNode.via))} · {KIND_LABEL[selNode.kind]}</p>
+            {/if}
+            <div class="actions">
+              {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+              {#if selNode.side === 'up' || selNode.side === 'down'}
+                {@const dir = selNode.side}
+                {@const i = selNode.i}
+                {#if selNode.unfolded}
+                  <Button size="sm" variant="outline" onclick={() => foldAt(i)}>Fold</Button>
+                  {#if isExpanded(i, dir)}
+                    <Button size="sm" variant="outline" onclick={() => fewer(i, dir)}>Show fewer</Button>
+                  {:else if selNode.hidden > 0}
+                    <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
+                  {/if}
+                {:else if selNode.hidden > 0}
+                  <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
+                {/if}
+              {/if}
+              <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
+            </div>
+          </section>
+        {/if}
+      </div>
+    </div>
   </div>
-</div>
+</Container>
 
 <style>
-  .page { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
-  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; }
-  .eyebrow { color: var(--muted-foreground); font-size: 0.8rem; margin: 0; }
-  h1 { margin: 0; }
-  .current { margin: 0; font-weight: 600; }
-  .search { min-width: min(20rem, 100%); }
-  .controls { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; font-size: 0.9rem; }
-  .controls label { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .axis { width: 12rem; }
-  .muted { color: var(--muted-foreground); font-size: 0.85rem; }
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.9rem; color: var(--muted-foreground); font-size: 0.75rem; }
-  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
-  .legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
-  .legend i.hollow { border: 1px dashed var(--foreground); }
-  .legend b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
-  .legend b.dashed { border-top-style: dashed; }
-  .body { flex: 1 1 auto; min-height: 0; display: flex; gap: var(--space-md); }
-  .canvas { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
-  .side { flex: 0 0 18rem; display: flex; flex-direction: column; gap: 0.5rem; padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow-y: auto; }
-  .side h2 { margin: 0; font-size: 1.05rem; }
-  .side p { margin: 0; }
+  /* /map's workspace: the sidebar its own width, the canvas the rest. */
+  .workspace {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-md);
+    height: 100%; min-height: 0;
+  }
+  .canvas { position: relative; min-width: 0; min-height: 0; }
+  .dim { color: var(--muted-foreground); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .chosen b { font-size: 1rem; }
+  .search { min-width: min(16rem, 100%); }
+  .selected { width: 20rem; }
+  .selected header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
+  .selected h2 { margin: 0; font-size: 1rem; line-height: 1.3; }
+  .selected p { margin: 0; }
+  .close {
+    border: 0; background: none; padding: 0 0.2rem; cursor: pointer;
+    color: var(--muted-foreground); font-size: 1rem; line-height: 1;
+  }
+  .close:hover { color: var(--foreground); }
   .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .state { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted-foreground); }
-  .state.error { color: var(--destructive, var(--foreground)); }
-  .empty { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; color: var(--muted-foreground); font-size: 0.85rem; }
-  .empty.above { top: 0.75rem; }
-  .empty.below { bottom: 0.75rem; }
 </style>
