@@ -90,6 +90,25 @@ describe('egoParents', () => {
 	});
 });
 
+describe('layoutEgoNetwork hold, outward', () => {
+	it("new games grow out past the game that brought them in, not back through the middle", () => {
+		// Many games around 0; expanding the far one (index 1) adds ones further out still.
+		const angles = [0, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6, -0.1, -0.12, 0.1, 0.12];
+		const d: NetworkData = { n: angles.length, dim: 2, emb: new Float32Array(angles.flatMap((a) => [Math.cos(a), Math.sin(a)])), eligible: () => true };
+		const g0 = buildEgoNetwork(d, 0, { k: 5, hops: 1, mutual: false });
+		const l0 = layoutEgoNetwork(g0, () => 5);
+		const seed = new Map(g0.nodes.map((n, j) => [n.i, [l0.px[j], l0.py[j]] as [number, number]]));
+		const x = g0.nodes.find((n) => n.more > 0 && n.i !== 0)!.i;
+		const g1 = buildEgoNetwork(d, 0, { k: 5, hops: 1, mutual: false, open: new Set([x]) });
+		const l1 = layoutEgoNetwork(g1, () => 5, seed, true);
+		const at = new Map(g1.nodes.map((n, j) => [n.i, Math.hypot(l1.px[j], l1.py[j])]));
+		const added = g1.nodes.filter((n) => n.from === x);
+		expect(added.length).toBeGreaterThan(0);
+		const far = added.filter((n) => at.get(n.i)! > at.get(x)! * 0.9).length;
+		expect(far / added.length).toBeGreaterThanOrEqual(0.5);
+	});
+});
+
 describe('layoutEgoNetwork hold', () => {
 	it('keeps the games that stay exactly where they were; new ones start beside their parent', () => {
 		const d = data();

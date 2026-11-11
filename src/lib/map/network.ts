@@ -265,6 +265,10 @@ export function layoutEgoNetwork(
 			const a = out + (rand() - 0.5) * 2;
 			n.x = p.x! + Math.cos(a) * 40; n.y = p.y! + Math.sin(a) * 40;
 		}
+		// No centring: it shifts every game toward the centroid each tick, and with the old ones
+		// pinned only the new ones keep the shift, which dragged them back through the middle.
+		// The centre is pinned at the origin anyway.
+		sim.force('center', null);
 		sim.alpha(0.3);
 	} else {
 		// Seeded mostly from a previous layout (a new centre): a gentle restart, so games that
