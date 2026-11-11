@@ -1,5 +1,5 @@
 /**
- * `/dev/genealogy`'s state, all of it in the URL, so a tree can be linked and Back
+ * `/dev/genealogy`'s state — both views, Genealogy and Network — all of it in the URL, so a tree can be linked and Back
  * restores the one before (the page pushes a history entry per re-centre, which starts a
  * fresh tree). Game ids, not
  * dataset indices, so a URL survives a rebuilt artifact. Junk is dropped, never thrown.
@@ -7,8 +7,20 @@
 import type { YMode } from './genealogy-layout';
 import type { Dir, Genealogy } from './genealogy';
 
+export type View = 'tree' | 'net';
+export type Hops = 1 | 2 | 3;
+export type Links = 'mutual' | 'all';
+
 export interface GenealogyState {
 	game: number | null;
+	/** Genealogy (the tree) or Network (the ego network). The centre is shared. */
+	view: View;
+	/** Network: neighbours per game. */
+	k: number;
+	/** Network: rings out from the centre. */
+	hops: Hops;
+	/** Network: draw only mutual links, or one-way ones too. */
+	links: Links;
 	t: number;
 	y: YMode;
 	/** Show same-year games beside the centre. Off by default. */
@@ -29,6 +41,11 @@ export const DEFAULT_CAP = 8;
  */
 export const T_MIN = 0.5;
 export const T_MAX = 0.99;
+/** Network defaults and the k slider's range (the bench's). */
+export const DEFAULT_K = 10;
+export const K_MIN = 4;
+export const K_MAX = 25;
+export const DEFAULT_HOPS: Hops = 2;
 
 const KEY = /^\d+:(up|down|same)$/;
 const ids = (v: string | null) =>
@@ -37,8 +54,14 @@ const ids = (v: string | null) =>
 export function fromParams(p: URLSearchParams): GenealogyState {
 	const game = Number(p.get('game'));
 	const t = Number(p.get('t'));
+	const k = Number(p.get('k'));
+	const hops = Number(p.get('hops'));
 	return {
 		game: Number.isInteger(game) && game > 0 ? game : null,
+		view: p.get('v') === 'net' ? 'net' : 'tree',
+		k: Number.isInteger(k) && k >= K_MIN && k <= K_MAX ? k : DEFAULT_K,
+		hops: hops === 1 || hops === 2 || hops === 3 ? hops : DEFAULT_HOPS,
+		links: p.get('links') === 'all' ? 'all' : 'mutual',
 		t: p.has('t') && Number.isFinite(t) && t > 0 && t < 1 ? Math.min(T_MAX, Math.max(T_MIN, t)) : DEFAULT_THRESHOLD,
 		y: p.get('y') === 'gen' ? 'gen' : 'year',
 		same: p.get('same') === '1',
@@ -50,6 +73,10 @@ export function fromParams(p: URLSearchParams): GenealogyState {
 export function toParams(s: GenealogyState): URLSearchParams {
 	const p = new URLSearchParams();
 	if (s.game != null) p.set('game', String(s.game));
+	if (s.view !== 'tree') p.set('v', s.view);
+	if (s.k !== DEFAULT_K) p.set('k', String(s.k));
+	if (s.hops !== DEFAULT_HOPS) p.set('hops', String(s.hops));
+	if (s.links !== 'mutual') p.set('links', s.links);
 	if (s.t !== DEFAULT_THRESHOLD) p.set('t', String(s.t));
 	if (s.y !== 'year') p.set('y', s.y);
 	if (s.same) p.set('same', '1');
@@ -68,7 +95,7 @@ export function currentState(pageState: { genealogy?: GenealogyState }, url: URL
 	return pageState.genealogy ?? fromParams(url.searchParams);
 }
 
-/** A fresh tree: on `game` (default the current one), nothing unfolded or expanded, settings kept. */
+/** A fresh tree: on `game` (default the current one), nothing unfolded or expanded, settings (and view) kept. */
 export function startAt(s: GenealogyState, game: number | null = s.game): GenealogyState {
 	return { ...s, game, unfolded: [], expanded: [] };
 }

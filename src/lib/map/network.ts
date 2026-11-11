@@ -123,6 +123,22 @@ export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts):
 	return { source, nodes, edges };
 }
 
+/**
+ * Each node's parent for motion: the neighbour one ring in that it's most similar to (by
+ * edge similarity), so a new game grows out of the game that pulled it in. The source's is -1.
+ */
+export function egoParents(g: EgoNetwork): Map<number, number> {
+	const hop = new Map(g.nodes.map((n) => [n.i, n.hop]));
+	const best = new Map<number, { via: number; sim: number }>();
+	const offer = (child: number, via: number, sim: number) => {
+		if (hop.get(via)! !== hop.get(child)! - 1) return;
+		const cur = best.get(child);
+		if (!cur || sim > cur.sim) best.set(child, { via, sim });
+	};
+	for (const e of g.edges) { offer(e.a, e.b, e.sim); offer(e.b, e.a, e.sim); }
+	return new Map(g.nodes.map((n) => [n.i, n.i === g.source ? -1 : best.get(n.i)?.via ?? g.source]));
+}
+
 // --- layout ------------------------------------------------------------------------------
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, type SimulationNodeDatum, type SimulationLinkDatum } from 'd3-force';
 
@@ -147,9 +163,18 @@ export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mut
  * rather than piling up. Layout units are arbitrary; only the ratios matter. Returns the
  * simulation stopped, with the centre pinned at the origin.
  */
-export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () => 5) {
+export function egoSimulation(
+	g: EgoNetwork,
+	radius: (i: number) => number = () => 5,
+	seed?: ReadonlyMap<number, [number, number]>
+) {
+	// A seed is the previous layout (simulation units), shifted so this graph's centre sits at
+	// the origin it's pinned to: games already placed start where they were.
+	const s0 = seed?.get(g.source);
 	const ns: SimNode[] = g.nodes.map((n, j) => {
-		// Hop rings as the seed so the first ticks don't start from a random burst.
+		const s = seed?.get(n.i);
+		if (s) return { i: n.i, hop: n.hop, x: s[0] - (s0?.[0] ?? 0), y: s[1] - (s0?.[1] ?? 0) };
+		// Hop rings otherwise, so the first ticks don't start from a random burst.
 		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][n.hop];
 		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
 	});
@@ -171,8 +196,17 @@ export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () 
  * pull into knots, a neighbour that only links to the centre hangs off on its own. The
  * result is in NDC so `EmbeddingMap` can animate points from their map spots into it.
  */
-export function layoutEgoNetwork(g: EgoNetwork, radius: (i: number) => number = () => 5): NetworkLayout {
-	const { sim, nodes: ns } = egoSimulation(g, radius);
+export function layoutEgoNetwork(
+	g: EgoNetwork,
+	radius: (i: number) => number = () => 5,
+	seed?: ReadonlyMap<number, [number, number]>
+): NetworkLayout {
+	const { sim, nodes: ns } = egoSimulation(g, radius, seed);
+	// Seeded mostly from a previous layout: a gentle restart, so games that stay settle near
+	// where they were instead of the whole graph re-forming (a change of k, hops or centre
+	// reads as the graph adjusting, not reshuffling).
+	const seeded = seed ? g.nodes.filter((n) => seed.has(n.i)).length / g.nodes.length : 0;
+	if (seeded > 0.5) sim.alpha(0.3);
 	sim.tick(300);
 
 	let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;

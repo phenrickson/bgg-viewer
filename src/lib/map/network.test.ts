@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildEgoNetwork, topK, type NetworkData } from './network';
+import { buildEgoNetwork, topK, egoParents, egoSimulation, layoutEgoNetwork, type NetworkData } from './network';
 
 // Six unit vectors in 2-d: three clustered near +x, three near +y.
 function data(): NetworkData {
@@ -39,5 +39,39 @@ describe('buildEgoNetwork', () => {
 		const strict = buildEgoNetwork(d, 0, { k: 3, hops: 2, mutual: true });
 		expect(strict.edges.every((e) => e.mutual)).toBe(true);
 		expect(strict.edges.length).toBeLessThan(loose.edges.length);
+	});
+});
+
+describe('egoParents', () => {
+	it('hangs each game off its most similar neighbour one ring in; the source off nothing', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });
+		const parents = egoParents(g);
+		expect(parents.get(0)).toBe(-1);
+		const hop = new Map(g.nodes.map((n) => [n.i, n.hop]));
+		for (const n of g.nodes) {
+			if (n.i === 0) continue;
+			expect(hop.get(parents.get(n.i)!)).toBe(n.hop - 1);
+		}
+	});
+});
+
+describe('layoutEgoNetwork seed', () => {
+	it('starts seeded games where they were, shifted so the centre is at the origin', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 2, hops: 1, mutual: false });
+		const seed = new Map<number, [number, number]>([[0, [100, 100]], [1, [160, 100]], [2, [100, 40]]]);
+		const { nodes } = egoSimulation(g, () => 5, seed);
+		const at = new Map(nodes.map((n) => [n.i, [n.x, n.y]]));
+		expect(at.get(0)).toEqual([0, 0]);
+		expect(at.get(1)).toEqual([60, 0]);
+		expect(at.get(2)).toEqual([0, -60]);
+	});
+	it('a seeded layout keeps games near where they were', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });
+		const first = layoutEgoNetwork(g);
+		const seed = new Map(g.nodes.map((n, j) => [n.i, [first.px[j], first.py[j]] as [number, number]]));
+		const again = layoutEgoNetwork(g, () => 5, seed);
+		for (let j = 0; j < g.nodes.length; j++) {
+			expect(Math.hypot(again.px[j] - first.px[j], again.py[j] - first.py[j])).toBeLessThan(40);
+		}
 	});
 });
