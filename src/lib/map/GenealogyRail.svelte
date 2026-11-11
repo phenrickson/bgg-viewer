@@ -12,6 +12,7 @@
    * All copy PLACEHOLDER (Phil writes the copy).
    */
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
+  import RailGroup from '$lib/catalog/rail/RailGroup.svelte';
   import type { YMode } from './genealogy-layout';
   import { T_MIN, T_MAX, K_MIN, K_MAX, type GenealogyState, type View, type Hops } from './genealogy-url';
 
@@ -20,13 +21,14 @@
   /** Values under a slider's thumb while dragging; null when they match the committed ones. */
   let dragT = $state<number | null>(null);
   let dragK = $state<number | null>(null);
+  let explainOpen = $state(true);
 </script>
 
 <div class="rail">
   <div class="grp top">
     <SegGroup
       ariaLabel="View"
-      options={[{ value: 'tree' as View, label: 'Genealogy' }, { value: 'net' as View, label: 'Network' }]}
+      options={[{ value: 'tree' as View, label: 'Timeline' }, { value: 'net' as View, label: 'Network' }]}
       value={s.view}
       onchange={(view) => oncommit({ ...s, view })}
     />
@@ -101,6 +103,32 @@
       <p class="note">A one-way link: one game lists the other among its closest, but not back. Dashed marks them.</p>
     </div>
   {/if}
+
+  <!-- The basic explainer: open at first, so a first visit reads it (Phil, 2026-11-11).
+       PLACEHOLDER COPY (Phil). -->
+  <RailGroup title="How to read this" bind:open={explainOpen}>
+    <div class="explain">
+      <p class="note">
+        Similarity comes from each game's BoardGameGeek data, like its mechanics and categories,
+        from 0 (nothing in common) up to 1 (the same).
+      </p>
+      {#if s.view === 'tree'}
+        <p class="note">
+          Your game is in the middle. Games like it that came out earlier sit above it, later ones
+          below, each hanging off the game it's most like. ⊕ on a game unfolds its own relatives.
+        </p>
+      {:else}
+        <p class="note">
+          Your game is in the middle, ringed by the games most like it. Rings adds the games most
+          like those; Expand on a game's card grows just that one.
+        </p>
+      {/if}
+      <p class="note">
+        A link means two games are alike: the bolder the line, the more alike. Click a game to see
+        it; Center on this makes it the middle.
+      </p>
+    </div>
+  </RailGroup>
 </div>
 
 <style>
@@ -114,4 +142,5 @@
   .row { display: flex; align-items: baseline; justify-content: space-between; }
   .field input[type='range'] { width: 100%; min-width: 0; }
   .tnum { font-variant-numeric: tabular-nums; }
+  .explain { display: flex; flex-direction: column; gap: 0.45rem; }
 </style>

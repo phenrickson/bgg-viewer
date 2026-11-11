@@ -27,6 +27,12 @@ const STEP = 280;
 /** A deep unfold mustn't drag on: past this many steps, the rest set off together. */
 const MAX_STEPS = 3;
 /**
+ * The page's first glide, out of the centre, at about twice the pace of the rest: slow enough
+ * to see the neighbors come out ring by ring and learn what the view is (Phil, 2026-11-11).
+ * Every later change keeps the snappy pace.
+ */
+const INTRO = { duration: 900, step: 600 };
+/**
  * Labels, ticks and badges wait for the games to land, then fade in over this — Recommend's
  * rhythm (content arrives once things have settled; text never slides around attached to a
  * moving dot).
@@ -65,6 +71,7 @@ export class Glide {
 		cancelAnimationFrame(this.#raf);
 		const plan = planTween(this.n, this.#prev, this.#onScreen, tree, target);
 		const prevVia = new Map((this.#prev?.nodes ?? []).map((nd) => [nd.i, nd.via]));
+		const { duration, step: gap } = this.#prev === null ? INTRO : { duration: DURATION, step: STEP };
 		const folding = plan.leaving.length > 0;
 		this.leaving = folding ? plan.leaving.map((i) => ({ i, via: prevVia.get(i) ?? -1 })) : [];
 		this.#prev = tree;
@@ -73,7 +80,7 @@ export class Glide {
 		for (const b of this.#bufs) for (const i of this.#touched) { b.x[i] = 0; b.y[i] = 0; }
 		this.#touched = plan.moving;
 		const start = performance.now();
-		const total = DURATION + Math.min(plan.levels, MAX_STEPS) * STEP;
+		const total = duration + Math.min(plan.levels, MAX_STEPS) * gap;
 		if (!this.#reduced) this.settle = 0;
 		/** After landing: no more positions, just the text fading in. */
 		const fade = (now: number) => {
@@ -85,7 +92,7 @@ export class Glide {
 			const ms = this.#reduced ? total : now - start;
 			const t = Math.min(1, ms / total);
 			const out = this.#bufs[(this.#flip = 1 - this.#flip)];
-			interpolate(plan, (l) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, MAX_STEPS) * STEP) / DURATION))), out);
+			interpolate(plan, (l) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, MAX_STEPS) * gap) / duration))), out);
 			this.#onScreen = out;
 			this.cur = out;
 			if (t < 1) { this.#raf = requestAnimationFrame(step); return; }
