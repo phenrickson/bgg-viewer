@@ -63,6 +63,8 @@
   let height = $state(0);
   let hovered = $state(-1);
   let dragging = false;
+  /** regl reported a point for the current press (see `onclear` in `init`). */
+  let pickedThisPress = false;
 
   // --- camera rest (`OverlayApi.rest`) ------------------------------------------------------
   /** 0 while the camera moves; after it has been still for `REST_IDLE`, eases back to 1. */
@@ -546,6 +548,7 @@
     // The highlight is ours (the overlay), so regl's own selection is dropped straight
     // after — otherwise its tint would linger and its next click would replace, not toggle.
     plot.subscribe('select', ({ points }) => {
+      pickedThisPress = true;
       plot?.deselect({ preventEvent: true });
       driver?.onselect?.(points.map(toLayer));
     });
@@ -559,8 +562,19 @@
     glCanvas.addEventListener('dblclick', reset);
     // A drag, for layers that hide their markers while panning: down on the canvas, up
     // anywhere (the pointer may leave the canvas mid-drag).
-    const down = () => { dragging = true; };
+    // A click on empty canvas (`onclear`): the press didn't travel (not a pan) and regl didn't
+    // report a point for it. Decided a tick after the click, once regl's own click handling has
+    // had its say — not from `hovered`, which can still name the last point if the pointer
+    // jumped (regl only clears it on a later move).
+    let pressAt: [number, number] | null = null;
+    const down = (e: PointerEvent) => { dragging = true; pressAt = [e.clientX, e.clientY]; pickedThisPress = false; };
     const up = () => { if (dragging) { dragging = false; scheduleOverlay(); } };
+    const click = (e: MouseEvent) => {
+      const still = pressAt && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) < 4;
+      pressAt = null;
+      if (still) setTimeout(() => { if (!pickedThisPress) driver?.onclear?.(); }, 0);
+    };
+    glCanvas.addEventListener('click', click);
     glCanvas.addEventListener('pointerdown', down);
     window.addEventListener('pointerup', up);
 
@@ -576,6 +590,7 @@
       ro.disconnect(); mo.disconnect();
       glCanvas.removeEventListener('dblclick', reset);
       glCanvas.removeEventListener('pointerdown', down);
+      glCanvas.removeEventListener('click', click);
       window.removeEventListener('pointerup', up);
       if (raf) cancelAnimationFrame(raf);
       if (restRaf) cancelAnimationFrame(restRaf);

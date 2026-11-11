@@ -155,6 +155,62 @@
   const centreOverflow = $derived(!!tree && DIRS.some((dir) => isExpanded(tree.centre, dir) || tree.centreHidden[dir] > 0));
 </script>
 
+<!-- The selected game's card contents, one per view; the layer pins them beside the game's dot
+     (`PinnedCard`). PLACEHOLDER COPY (Phil). -->
+{#snippet treeCard()}
+  {#if selNode && facts && coords}
+    {@const id = coords.ids[selNode.i]}
+    <header>
+      <h2>{facts.name(id)}</h2>
+      <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
+    </header>
+    <p class="dim">
+      {facts.year[selNode.i] || '—'} · <span class="tnum">{facts.usersRated[selNode.i].toLocaleString()}</span> ratings{facts.upcoming[selNode.i] ? ' · upcoming' : ''}
+    </p>
+    {#if selNode.side !== 'centre' && selNode.kind}
+      <p>{selNode.sim.toFixed(2)} to {facts.name(idOf(selNode.via))} · {KIND_LABEL[selNode.kind]}</p>
+    {/if}
+    <div class="actions">
+      {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+      {#if selNode.side === 'up' || selNode.side === 'down'}
+        {@const dir = selNode.side}
+        {@const i = selNode.i}
+        {#if selNode.unfolded}
+          <Button size="sm" variant="outline" onclick={() => foldAt(i)}>Fold</Button>
+          {#if isExpanded(i, dir)}
+            <Button size="sm" variant="outline" onclick={() => fewer(i, dir)}>Show fewer</Button>
+          {:else if selNode.hidden > 0}
+            <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
+          {/if}
+        {:else if selNode.hidden > 0}
+          <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
+        {/if}
+      {/if}
+      <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet netCard()}
+  {#if netNode && facts && coords}
+    {@const id = coords.ids[netNode.i]}
+    <header>
+      <h2>{facts.name(id)}</h2>
+      <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
+    </header>
+    <p class="dim">
+      {facts.year[netNode.i] || '—'} · <span class="tnum">{facts.usersRated[netNode.i].toLocaleString()}</span> ratings
+    </p>
+    {#if netNode.hop > 0}
+      <p>{netNode.sim.toFixed(2)} to {facts.name(centreId)} · ring {netNode.hop}</p>
+    {/if}
+    <div class="actions">
+      {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
+      <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
+    </div>
+  {/if}
+{/snippet}
+
 <Container size="wide" fill>
   <div class="workspace">
     <!-- One panel, so no tabs: the controls are simply always there, in the map's open-sidebar card. -->
@@ -176,9 +232,11 @@
              from its spot in one view to its spot in the other. -->
         <PointCanvas lasso={false}>
           {#if net && netLayout}
-            <EgoLayer {coords} {facts} layout={netLayout} {glide} links={s.links} {selected} onselect={(i) => (selected = i)} />
+            <EgoLayer {coords} {facts} layout={netLayout} {glide} links={s.links} {selected} card={netNode ? netCard : undefined}
+              onselect={(i) => (selected = i)} onclear={() => (selected = -1)} />
           {:else if layout}
-            <GenealogyLayer {coords} {facts} {layout} {glide} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
+            <GenealogyLayer {coords} {facts} {layout} {glide} {selected} card={selNode ? treeCard : undefined}
+              onselect={(i) => (selected = i)} onclear={() => (selected = -1)} onunfold={unfold} onfold={foldAt} />
           {/if}
         </PointCanvas>
       {/if}
@@ -233,59 +291,9 @@
         </div>
       {/if}
 
+      <!-- Right: only the search now. The selected game's card is pinned beside its dot. -->
       <div class="map-hud-stack right">
         <div class="search"><GameSearch compact onpick={recentre} /></div>
-        {#if !net && selNode && facts && coords}
-          {@const id = coords.ids[selNode.i]}
-          <section class="map-hud-panel selected" aria-label="Selected game">
-            <header>
-              <h2>{facts.name(id)}</h2>
-              <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
-            </header>
-            <p class="dim">
-              {facts.year[selNode.i] || '—'} · <span class="tnum">{facts.usersRated[selNode.i].toLocaleString()}</span> ratings{facts.upcoming[selNode.i] ? ' · upcoming' : ''}
-            </p>
-            {#if selNode.side !== 'centre' && selNode.kind}
-              <p>{selNode.sim.toFixed(2)} to {facts.name(idOf(selNode.via))} · {KIND_LABEL[selNode.kind]}</p>
-            {/if}
-            <div class="actions">
-              {#if selNode.side !== 'centre'}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
-              {#if selNode.side === 'up' || selNode.side === 'down'}
-                {@const dir = selNode.side}
-                {@const i = selNode.i}
-                {#if selNode.unfolded}
-                  <Button size="sm" variant="outline" onclick={() => foldAt(i)}>Fold</Button>
-                  {#if isExpanded(i, dir)}
-                    <Button size="sm" variant="outline" onclick={() => fewer(i, dir)}>Show fewer</Button>
-                  {:else if selNode.hidden > 0}
-                    <Button size="sm" variant="outline" onclick={() => more(i, dir)}>Show {selNode.hidden} more</Button>
-                  {/if}
-                {:else if selNode.hidden > 0}
-                  <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
-                {/if}
-              {/if}
-              <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
-            </div>
-          </section>
-        {:else if net && netNode && facts && coords}
-          {@const id = coords.ids[netNode.i]}
-          <section class="map-hud-panel selected" aria-label="Selected game">
-            <header>
-              <h2>{facts.name(id)}</h2>
-              <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
-            </header>
-            <p class="dim">
-              {facts.year[netNode.i] || '—'} · <span class="tnum">{facts.usersRated[netNode.i].toLocaleString()}</span> ratings
-            </p>
-            {#if netNode.hop > 0}
-              <p>{netNode.sim.toFixed(2)} to {facts.name(centreId)} · ring {netNode.hop}</p>
-            {/if}
-            <div class="actions">
-              {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
-              <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
-            </div>
-          </section>
-        {/if}
       </div>
     </div>
   </div>
@@ -308,10 +316,10 @@
   .tnum { font-variant-numeric: tabular-nums; }
   .chosen b { font-size: 1rem; }
   .search { min-width: min(16rem, 100%); }
-  .selected { width: 20rem; }
-  .selected header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
-  .selected h2 { margin: 0; font-size: 1rem; line-height: 1.3; }
-  .selected p { margin: 0; }
+  /* The pinned card's contents (the card itself is `PinnedCard`). */
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
+  h2 { margin: 0; font-size: 1rem; line-height: 1.3; }
+  p { margin: 0; }
   .close {
     border: 0; background: none; padding: 0 0.2rem; cursor: pointer;
     color: var(--muted-foreground); font-size: 1rem; line-height: 1;

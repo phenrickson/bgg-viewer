@@ -97,6 +97,8 @@ export interface Driver {
 	onhover?: (i: number) => void;
 	/** regl's `select`: one point for a click, many for a lasso. */
 	onselect?: (points: number[]) => void;
+	/** A click on empty canvas (no point under it, and not the end of a drag). */
+	onclear?: () => void;
 }
 
 export interface ExportOptions {

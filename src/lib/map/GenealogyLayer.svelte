@@ -31,6 +31,8 @@
   import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
+  import type { Snippet } from 'svelte';
+  import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
   import { lineagePalette, bucketOf, diameter } from './lineage-encoding';
 
@@ -40,7 +42,9 @@
     layout,
     glide,
     selected = -1,
+    card,
     onselect,
+    onclear,
     onunfold,
     onfold
   }: {
@@ -51,7 +55,11 @@
     glide: Glide;
     /** The selected game's index, -1 for none. */
     selected?: number;
+    /** The selected game's card contents, pinned beside its dot (`PinnedCard`). */
+    card?: Snippet;
     onselect?: (i: number) => void;
+    /** A click on empty canvas. */
+    onclear?: () => void;
     onunfold?: (i: number) => void;
     onfold?: (i: number) => void;
   } = $props();
@@ -148,6 +156,8 @@
   let marks = $state.raw<Mark[]>([]);
   /** The hovered game and where it is, for the hover card. */
   let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
+  /** The selected game's dot on screen, for its pinned card; and the canvas it sits in. */
+  let pin = $state.raw<{ x: number; y: number; r: number; w: number; h: number } | null>(null);
   /** The text's fade, for the HTML laid over the canvas (badges, hover card): set in paint. */
   let textAlpha = $state(1);
   const byIndex = $derived(new Map(g.nodes.map((nd) => [nd.i, nd])));
@@ -164,7 +174,7 @@
     const { theme, screen } = api;
     // Rings track their dots through pans and zooms (the overlay repaints on regl's own draw
     // event, so it keeps step); text waits for the camera to rest (`api.rest`), below.
-    if (!api.drawn) { marks = []; tip = null; return; }
+    if (!api.drawn) { marks = []; tip = null; pin = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
@@ -178,6 +188,7 @@
     }
     const sp = selected >= 0 ? at.get(selected) : undefined;
     if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
+    pin = sp ? { x: sp[0], y: sp[1], r: rad(selected) + 3, w: api.width, h: api.height } : null;
 
     // Everything with text waits for the games to land and the camera to rest, then fades in
     // (Recommend's rhythm): nothing written slides around on a moving dot or a moving view.
@@ -247,7 +258,8 @@
     }
     ctx.restore();
     const hp = api.hovered >= 0 && byIndex.has(api.hovered) ? at.get(api.hovered) : undefined;
-    tip = hp && !api.dragging ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
+    // No hover card over the pinned game: its card is already there.
+    tip = hp && !api.dragging && api.hovered !== selected ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
     marks = next;
   }
 
@@ -266,6 +278,7 @@
     instant: true,
     opacity: 0.95,
     onselect: (points) => { if (points.length === 1) onselect?.(points[0]); },
+    onclear: () => onclear?.(),
     overlay: paint
   };
   $effect(() => {
@@ -280,6 +293,10 @@
 {#each marks as m (m.key)}
   <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" style:opacity={textAlpha} onclick={m.act}>{m.label}</button>
 {/each}
+
+{#if pin && card}
+  <PinnedCard x={pin.x} y={pin.y} r={pin.r} width={pin.w} height={pin.h} alpha={textAlpha}>{@render card()}</PinnedCard>
+{/if}
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}

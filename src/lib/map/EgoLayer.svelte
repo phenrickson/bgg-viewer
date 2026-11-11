@@ -21,6 +21,8 @@
   import { useSurface, type Driver, type OverlayApi } from './surface';
   import { ring, glow, labels } from './ink';
   import type { LabelInput } from './labels';
+  import type { Snippet } from 'svelte';
+  import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
   import { lineagePalette, bucketOf, diameter } from './lineage-encoding';
 
@@ -31,7 +33,9 @@
     glide,
     links = 'mutual',
     selected = -1,
-    onselect
+    card,
+    onselect,
+    onclear
   }: {
     coords: CoordinateSet;
     facts: GameFacts;
@@ -40,7 +44,11 @@
     links?: 'mutual' | 'all';
     /** The selected game's index, -1 for none. */
     selected?: number;
+    /** The selected game's card contents, pinned beside its dot (`PinnedCard`). */
+    card?: Snippet;
     onselect?: (i: number) => void;
+    /** A click on empty canvas. */
+    onclear?: () => void;
   } = $props();
 
   const surface = useSurface();
@@ -146,11 +154,13 @@
   let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
   /** The text's fade, for the HTML laid over the canvas (badges, hover card): set in paint. */
   let textAlpha = $state(1);
+  /** The selected game's dot on screen, for its pinned card; and the canvas it sits in. */
+  let pin = $state.raw<{ x: number; y: number; r: number; w: number; h: number } | null>(null);
   const yearOf = (i: number) => facts.year[i] || '—';
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen, hovered } = api;
-    if (!api.drawn) { tip = null; return; }
+    if (!api.drawn) { tip = null; pin = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
     const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
@@ -163,6 +173,7 @@
     }
     const sp = selected >= 0 ? at.get(selected) : undefined;
     if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
+    pin = sp ? { x: sp[0], y: sp[1], r: rad(selected) + 3, w: api.width, h: api.height } : null;
 
     // Labels wait for the games to land and the camera to rest, then fade in (as in the tree).
     const settle = Math.min(glide.settle, api.rest);
@@ -193,7 +204,8 @@
     labels(ctx, want.map((w) => w.l), api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true });
     ctx.restore();
     const hp = hovered >= 0 && hopOf.has(hovered) ? at.get(hovered) : undefined;
-    tip = hp && !api.dragging ? { i: hovered, x: hp[0], y: hp[1] } : null;
+    // No hover card over the pinned game: its card is already there.
+    tip = hp && !api.dragging && hovered !== selected ? { i: hovered, x: hp[0], y: hp[1] } : null;
   }
 
   const driver: Driver = {
@@ -210,6 +222,7 @@
     instant: true,
     opacity: 0.95,
     onselect: (points) => { if (points.length === 1) onselect?.(points[0]); },
+    onclear: () => onclear?.(),
     overlay: paint
   };
   $effect(() => {
@@ -219,6 +232,10 @@
   // Links and rings follow the selection and the link filter; the glide repaints after each draw.
   $effect(() => { void selected; void edges; void glide.settle; surface.repaint(); });
 </script>
+
+{#if pin && card}
+  <PinnedCard x={pin.x} y={pin.y} r={pin.r} width={pin.w} height={pin.h} alpha={textAlpha}>{@render card()}</PinnedCard>
+{/if}
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
