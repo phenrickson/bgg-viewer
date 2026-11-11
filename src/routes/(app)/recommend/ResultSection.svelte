@@ -343,8 +343,9 @@
     text-overflow: ellipsis;
   }
   /* Their own colours, stepped back a little, so a row of them doesn't out-shout the game's
-     name and scores. Labels here, not links: the whole row opens the why. */
-  .sec .shares > :global(.chip) { opacity: 0.7; }
+     name and scores; 0.7 read too faint (Phil, 2026-11-11). Labels here, not links: the whole
+     row opens the why. */
+  .sec .shares > :global(.chip) { opacity: 0.85; }
   .why {
     position: relative;
     padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius);
