@@ -42,9 +42,15 @@ export function framer(width: number, height: number, pad: { top: number; right:
 export function linkStrength(sim: number, floor: number): number {
 	return Math.min(1, Math.max(0, (sim - floor) / Math.max(1e-6, 1 - floor)));
 }
-/** Stroke width and opacity for a link of strength `r` (`linkStrength`). */
-export const linkWidth = (r: number) => 1.2 + r * 2.4;
-export const linkAlpha = (r: number) => 0.35 + 0.5 * r;
+/**
+ * Stroke width and opacity for a link of strength `r` (`linkStrength`), drawn in the muted
+ * ink in both views. Quiet on purpose: in the foreground ink at full strength the links
+ * outshone the games (Phil, 2026-11-11). A link to the selected game is in the accent at
+ * `litLinkWidth`.
+ */
+export const linkWidth = (r: number) => 0.8 + r * 1.6;
+export const linkAlpha = (r: number) => 0.15 + 0.45 * r;
+export const litLinkWidth = (r: number) => (1.2 + r * 2.4) * 1.1;
 
 /** Colour buckets, indexing `lineagePalette`. */
 export const LINKED = 0, CENTRE = 1, UPCOMING = 2;

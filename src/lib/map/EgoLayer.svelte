@@ -25,7 +25,7 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha, litLinkWidth } from './lineage-encoding';
 
   let {
     coords,
@@ -148,12 +148,9 @@
       // The outer rings' own wiring is kept lighter than the spokes in, so a dense family
       // reads as a texture rather than a wash.
       const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
-      // Quieter than the tree's: a network has many times the links per game, and in the
-      // foreground ink at full strength they outshone the games (Phil, 2026-11-11). Muted ink,
-      // thinner and fainter on the same fixed similarity scale; the selection's in the accent.
-      ctx.globalAlpha = lit ? 1 : (0.15 + 0.45 * r) * (outer ? 0.7 : 1);
+      ctx.globalAlpha = lit ? 1 : linkAlpha(r) * (outer ? 0.7 : 1);
       ctx.strokeStyle = lit ? theme.accent : theme.muted;
-      ctx.lineWidth = lit ? linkWidth(r) * 1.1 : 0.8 + r * 1.6;
+      ctx.lineWidth = lit ? litLinkWidth(r) : linkWidth(r);
       ctx.setLineDash(oneway && !e.mutual ? [6, 4] : []);
       if (link(e.a, e.b)) ctx.stroke();
     }

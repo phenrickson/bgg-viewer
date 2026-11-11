@@ -34,7 +34,7 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha, litLinkWidth } from './lineage-encoding';
 
   let {
     coords,
@@ -139,15 +139,16 @@
     ctx.save();
     ctx.lineCap = 'round';
     // A game folding away keeps a faint plain link to the game it hung off until it lands.
-    ctx.strokeStyle = theme.foreground; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = theme.muted; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.2;
     for (const l of leaving) if (l.via >= 0 && path(l.via, l.i, false)) ctx.stroke();
     const edges = g.nodes.filter((nd) => nd.side !== 'centre');
     for (const e of edges) {
       const lit = e.i === selected || e.via === selected;
       const r = linkStrength(e.sim, floor);
+      // The network's link style, so a flip changes only the shape (Phil, 2026-11-11).
       ctx.globalAlpha = lit ? 1 : linkAlpha(r);
-      ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-      ctx.lineWidth = linkWidth(r) * (lit ? 1.3 : 1);
+      ctx.strokeStyle = lit ? theme.accent : theme.muted;
+      ctx.lineWidth = lit ? litLinkWidth(r) : linkWidth(r);
       ctx.setLineDash(e.kind === 'family' ? [6, 4] : []);
       if (path(e.via, e.i, e.side === 'same')) ctx.stroke();
     }
