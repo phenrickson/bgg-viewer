@@ -25,7 +25,7 @@
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
   import type { Glide } from './glide.svelte';
-  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth, linkAlpha } from './lineage-encoding';
+  import { lineagePalette, bucketOf, diameter, framer, linkStrength, linkWidth } from './lineage-encoding';
 
   let {
     coords,
@@ -122,13 +122,19 @@
     const { theme, screen } = api;
     if (!api.drawn) return;
     // Straight: the bow these used to have went to a side set by the games' indices, not the
-    // layout, so neighbouring links swung every which way (Phil, 2026-11-11).
+    // layout, so neighbouring links swung every which way (Phil, 2026-11-11). Each stops just
+    // short of its dots, so the games read as games, not as junctions in the web.
+    const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale + 2;
     const link = (a: number, b: number) => {
       const pa = screen(a), pb = screen(b);
       if (!pa || !pb) return false;
+      const dx = pb[0] - pa[0], dy = pb[1] - pa[1], len = Math.hypot(dx, dy);
+      const ra = rad(a), rb = rad(b);
+      if (len <= ra + rb) return false;
+      const ux = dx / len, uy = dy / len;
       ctx.beginPath();
-      ctx.moveTo(pa[0], pa[1]);
-      ctx.lineTo(pb[0], pb[1]);
+      ctx.moveTo(pa[0] + ux * ra, pa[1] + uy * ra);
+      ctx.lineTo(pb[0] - ux * rb, pb[1] - uy * rb);
       return true;
     };
     ctx.save();
@@ -142,9 +148,12 @@
       // The outer rings' own wiring is kept lighter than the spokes in, so a dense family
       // reads as a texture rather than a wash.
       const outer = (hopOf.get(e.a) ?? 2) >= 2 && (hopOf.get(e.b) ?? 2) >= 2;
-      ctx.globalAlpha = lit ? 1 : linkAlpha(r) * (outer ? 0.6 : 1);
-      ctx.strokeStyle = lit ? theme.accent : theme.foreground;
-      ctx.lineWidth = linkWidth(r) * (lit ? 1.3 : 1);
+      // Quieter than the tree's: a network has many times the links per game, and in the
+      // foreground ink at full strength they outshone the games (Phil, 2026-11-11). Muted ink,
+      // thinner and fainter on the same fixed similarity scale; the selection's in the accent.
+      ctx.globalAlpha = lit ? 1 : (0.15 + 0.45 * r) * (outer ? 0.7 : 1);
+      ctx.strokeStyle = lit ? theme.accent : theme.muted;
+      ctx.lineWidth = lit ? linkWidth(r) * 1.1 : 0.8 + r * 1.6;
       ctx.setLineDash(oneway && !e.mutual ? [6, 4] : []);
       if (link(e.a, e.b)) ctx.stroke();
     }
