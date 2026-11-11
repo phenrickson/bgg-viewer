@@ -61,7 +61,7 @@
     (push ? pushState : replaceState)(qs ? `?${qs}` : page.url.pathname, { genealogy: next });
   }
 
-  const centreId = $derived(s.game ?? GAMES.agricola);
+  const centreId = $derived(s.game ?? GAMES.brass);
   const centre = $derived(coords?.index.get(centreId) ?? null);
   /**
    * `linked` memo — valid for one threshold, so a new one per threshold. Keyed on the

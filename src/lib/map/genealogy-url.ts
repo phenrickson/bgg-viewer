@@ -19,8 +19,8 @@ export interface GenealogyState {
 	expanded: string[];
 }
 
-/** Starting similarity floor. A tuning value: revisit after the first look at real trees. */
-export const DEFAULT_THRESHOLD = 0.8;
+/** Starting similarity floor. A tuning value; 0.7 after Phil's look at real trees (2026-11-11). */
+export const DEFAULT_THRESHOLD = 0.7;
 /** Strongest links shown per unfold before "+N more". */
 export const DEFAULT_CAP = 8;
 /**
