@@ -20,7 +20,7 @@
   import type { GameFacts } from './facts';
   import { egoParents, type NetworkLayout } from './network';
   import { useSurface, type Driver, type OverlayApi } from './surface';
-  import { ring, glow, labels } from './ink';
+  import { ring, glow, labels, titleIn } from './ink';
   import type { LabelInput } from './labels';
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
@@ -190,6 +190,12 @@
     // Labels wait for the games to land and the camera to rest, then fade in (as in the tree).
     const settle = Math.min(glide.settle, api.rest);
     textAlpha = settle;
+    // The opening names the chosen game, then dates it, before the rest of the text arrives.
+    const cpt = glide.opening ? at.get(centre) : undefined;
+    if (cpt) {
+      const name = facts.name(coords.ids[centre]);
+      titleIn(ctx, { x: cpt[0], y: cpt[1], text: `${name} (${yearOf(centre)})`, gap: rad(centre) + 4 }, name.length, glide.grow[centre], glide.yearIn * glide.grow[centre], api.width, api.height, theme.foreground, theme.background);
+    }
     if (settle === 0) { tip = null; return; }
     ctx.save();
     ctx.globalAlpha = settle;
@@ -208,7 +214,9 @@
         ctx.restore();
       }
       if (nd.i === hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
-      if (wanted(nd)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
+      // The chosen game is dated, as in the opening's title and the tree.
+      const text = nd.i === centre ? `${facts.name(coords.ids[nd.i])} (${yearOf(nd.i)})` : facts.name(coords.ids[nd.i]);
+      if (wanted(nd)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text, gap: r + 4 } });
     }
     // The placer keeps a label only if it clears those before it, so order is priority:
     // centre, then nearer rings, then the most-rated.

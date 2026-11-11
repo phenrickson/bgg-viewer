@@ -33,7 +33,12 @@ const MAX_STEPS = 3;
  * a big view doesn't take seconds. Slow enough to see what the view is (Phil, 2026-11-11);
  * every later change keeps the snappy pace.
  */
-const INTRO = { duration: 700, step: 80, lead: 3, cap: 20 };
+const INTRO = { duration: 700, step: 80, lead: 9, cap: 20 };
+/**
+ * In the opening, the chosen game is named as it grows in, and its year fades in right after
+ * (`yearIn`), before the first of its games sets off at `lead` beats (Phil, 2026-11-11).
+ */
+const YEAR_AT = 330, YEAR_FADE = 300;
 /**
  * Labels, ticks and badges wait for the games to land, then fade in over this — Recommend's
  * rhythm (content arrives once things have settled; text never slides around attached to a
@@ -65,6 +70,14 @@ export class Glide {
 	 * links fade in with it, so a game arrives rather than appearing on top of its parent.
 	 */
 	readonly grow: Float32Array;
+	/**
+	 * The opening is under way, from its first frame until its text has settled: layers name
+	 * the chosen game throughout (`ink.titleIn`), its name at `grow[centre]` and its year at
+	 * `yearIn`. Read per frame, alongside `cur`.
+	 */
+	opening = false;
+	/** How far the chosen game's year has faded in during the opening, 0..1. */
+	yearIn = 1;
 
 	#bufs: { x: Float32Array; y: Float32Array }[];
 	#flip = 0;
@@ -145,12 +158,15 @@ export class Glide {
 		this.#touched = plan.moving;
 		const start = performance.now();
 		this.#introUntil = intro ? start + duration + Math.min(plan.levels, maxSteps) * gap : 0;
+		this.opening = intro && !this.#reduced;
+		this.yearIn = this.opening ? 0 : 1;
 		const total = duration + Math.min(plan.levels, maxSteps) * gap;
 		const ease = (l: number, ms: number) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, maxSteps) * gap) / duration)));
 		if (!this.#reduced) this.settle = 0;
 		/** After landing: no more positions, just the text fading in. */
 		const fade = (now: number) => {
 			const t = Math.min(1, (now - start - total) / SETTLE);
+			if (t >= 1) this.opening = false;
 			this.settle = easeOutCubic(Math.max(0, t));
 			if (t < 1) this.#raf = requestAnimationFrame(fade);
 		};
@@ -160,6 +176,7 @@ export class Glide {
 			const out = this.#bufs[(this.#flip = 1 - this.#flip)];
 			interpolate(plan, (l) => ease(l, ms), out);
 			for (const i of this.#entering) this.grow[i] = ease(plan.level[i], ms);
+			if (this.opening) this.yearIn = easeOutCubic(Math.min(1, Math.max(0, (ms - YEAR_AT) / YEAR_FADE)));
 			this.#onScreen = out;
 			this.cur = out;
 			if (t < 1) { this.#raf = requestAnimationFrame(step); return; }

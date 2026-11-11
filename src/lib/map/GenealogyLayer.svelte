@@ -29,7 +29,7 @@
   import type { Dir, GenealogyNode } from './genealogy';
   import { ndcToScreenY, badgeCentre, labelOrder, type GenealogyLayout } from './genealogy-layout';
   import { useSurface, type Driver, type OverlayApi } from './surface';
-  import { ring, glow, labels, LABEL_METRICS } from './ink';
+  import { ring, glow, labels, titleIn, LABEL_METRICS } from './ink';
   import type { LabelInput } from './labels';
   import type { Snippet } from 'svelte';
   import PinnedCard from './PinnedCard.svelte';
@@ -203,6 +203,12 @@
     // (Recommend's rhythm): nothing written slides around on a moving dot or a moving view.
     const settle = Math.min(glide.settle, api.rest);
     textAlpha = settle;
+    // The opening names the chosen game, then dates it, before the rest of the text arrives.
+    const cpt = glide.opening ? at.get(centre.i) : undefined;
+    if (cpt) {
+      const name = facts.name(coords.ids[centre.i]);
+      titleIn(ctx, { x: cpt[0], y: cpt[1], text: `${name} (${yearOf(centre.i)})`, gap: rad(centre.i) + 4 }, name.length, glide.grow[centre.i], glide.yearIn * glide.grow[centre.i], api.width, api.height, theme.foreground, theme.background);
+    }
     if (settle === 0) { marks = []; tip = null; return; }
     ctx.save();
     ctx.globalAlpha = settle;

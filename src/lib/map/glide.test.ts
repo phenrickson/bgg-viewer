@@ -28,16 +28,24 @@ describe('Glide intro', () => {
 		const c = clock();
 		const g = new Glide(5);
 		g.to(tree, at(5));
-		c.frame(100); // inside the lead: only the centre has started
+		expect(g.opening).toBe(true);
+		c.frame(100); // inside the lead: only the centre has started, named but not yet dated
 		expect(g.grow[0]).toBeGreaterThan(0);
+		expect(g.yearIn).toBe(0);
 		expect([g.grow[1], g.grow[2], g.grow[3]]).toEqual([0, 0, 0]);
-		c.frame(300); // one beat past the lead: the first of the rest is out, the others not yet
+		c.frame(500); // its year fades in, still before anything else moves
+		expect(g.yearIn).toBeGreaterThan(0);
+		expect([g.grow[1], g.grow[2], g.grow[3]]).toEqual([0, 0, 0]);
+		c.frame(780); // one beat past the lead: the first of the rest is out, the others not yet
+		expect(g.yearIn).toBe(1);
 		expect(g.grow[1]).toBeGreaterThan(0);
 		expect([g.grow[2], g.grow[3]]).toEqual([0, 0]);
 		expect(g.cur.x[1]).toBeGreaterThan(0); // and it travels out of the centre
 		c.frame(5000);
 		expect([...g.grow]).toEqual([1, 1, 1, 1, 1]);
 		expect(g.cur.x[3]).toBe(3);
+		c.frame(6000); // the text has settled: the opening's title hands over to the labels
+		expect(g.opening).toBe(false);
 	});
 
 	it('sized scales only the entering games, and hands back size itself once they land', () => {
