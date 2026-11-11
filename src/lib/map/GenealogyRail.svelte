@@ -1,60 +1,57 @@
 <script lang="ts">
   /**
-   * The genealogy's sidebar panels, in `MapRail`'s idiom — the same `SegGroup` and the same
-   * `.grp` / `.lbl` / `.note` rhythm — so the two canvas tools' sidebars read as one thing.
+   * The tool's controls card, in `MapRail`'s idiom — the same `SegGroup` and the same
+   * `.grp` / `.lbl` / `.note` rhythm — so the canvas tools' sidebars read as one thing.
+   * The Genealogy / Network switch leads; beneath it, the controls of the view that's on.
    * The key isn't here: it stays on the canvas, always visible.
    *
-   * The similarity readout follows the slider as it moves; the tree only rebuilds on release
-   * (`onthreshold`), since each value is a fresh scan and a URL write.
+   * Sliders show their value live while dragging and commit on release, since each value
+   * is a rebuild and a URL write.
    *
    * All copy PLACEHOLDER (Phil writes the copy).
    */
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import type { YMode } from './genealogy-layout';
+  import { T_MIN, T_MAX, K_MIN, K_MAX, type GenealogyState, type View, type Hops, type Links } from './genealogy-url';
 
-  let {
-    y = 'year',
-    same = true,
-    threshold = 0.9,
-    min = 0.5,
-    max = 0.99,
-    onaxis,
-    onsame,
-    onthreshold
-  }: {
-    y?: YMode;
-    same?: boolean;
-    threshold?: number;
-    min?: number;
-    max?: number;
-    onaxis?: (y: YMode) => void;
-    onsame?: (same: boolean) => void;
-    onthreshold?: (t: number) => void;
-  } = $props();
+  let { s, oncommit }: { s: GenealogyState; oncommit: (next: GenealogyState) => void } = $props();
 
-  /** The value under the thumb while dragging; null when it matches the committed one. */
-  let dragging = $state<number | null>(null);
-  const shown = $derived(dragging ?? threshold);
+  /** Values under a slider's thumb while dragging; null when they match the committed ones. */
+  let dragT = $state<number | null>(null);
+  let dragK = $state<number | null>(null);
 </script>
 
 <div class="rail">
-    <div class="grp top">
+  <div class="grp top">
+    <SegGroup
+      ariaLabel="View"
+      options={[{ value: 'tree' as View, label: 'Genealogy' }, { value: 'net' as View, label: 'Network' }]}
+      value={s.view}
+      onchange={(view) => oncommit({ ...s, view })}
+    />
+    <p class="note">
+      {s.view === 'tree' ? 'Games like this one, laid out by when they came out.' : 'Games like this one, and which of them are like each other.'}
+    </p>
+  </div>
+
+  {#if s.view === 'tree'}
+    <div class="grp">
       <SegGroup
         label="Vertical axis"
         options={[{ value: 'year' as YMode, label: 'Year' }, { value: 'gen' as YMode, label: 'Generation' }]}
-        value={y}
-        onchange={(v) => onaxis?.(v)}
+        value={s.y}
+        onchange={(y) => oncommit({ ...s, y })}
       />
-      <p class="note">{y === 'year' ? 'Rows by publication year, near years spread out.' : 'Rows by steps from the chosen game.'}</p>
+      <p class="note">{s.y === 'year' ? 'Rows by publication year, near years spread out.' : 'Rows by steps from the chosen game.'}</p>
     </div>
 
     <div class="grp">
       <label class="field">
-        <span class="row"><span class="lbl">Similarity at least</span><b class="tnum">{shown.toFixed(2)}</b></span>
+        <span class="row"><span class="lbl">Similarity at least</span><b class="tnum">{(dragT ?? s.t).toFixed(2)}</b></span>
         <input
-          type="range" {min} {max} step="0.01" value={threshold}
-          oninput={(e) => (dragging = Number(e.currentTarget.value))}
-          onchange={(e) => { const t = Number(e.currentTarget.value); dragging = null; onthreshold?.(t); }}
+          type="range" min={T_MIN} max={T_MAX} step="0.01" value={s.t}
+          oninput={(e) => (dragT = Number(e.currentTarget.value))}
+          onchange={(e) => { const t = Number(e.currentTarget.value); dragT = null; oncommit({ ...s, t }); }}
         />
       </label>
       <p class="note">How alike two games must be to link. Higher keeps only the closest.</p>
@@ -64,11 +61,44 @@
       <SegGroup
         label="Same year"
         options={[{ value: 'show', label: 'Show' }, { value: 'hide', label: 'Hide' }]}
-        value={same ? 'show' : 'hide'}
-        onchange={(v) => onsame?.(v === 'show')}
+        value={s.same ? 'show' : 'hide'}
+        onchange={(v) => oncommit({ ...s, same: v === 'show' })}
       />
       <p class="note">Games from the chosen game's own year, beside it.</p>
     </div>
+  {:else}
+    <div class="grp">
+      <label class="field">
+        <span class="row"><span class="lbl">Neighbours per game</span><b class="tnum">{dragK ?? s.k}</b></span>
+        <input
+          type="range" min={K_MIN} max={K_MAX} step="1" value={s.k}
+          oninput={(e) => (dragK = Number(e.currentTarget.value))}
+          onchange={(e) => { const k = Number(e.currentTarget.value); dragK = null; oncommit({ ...s, k }); }}
+        />
+      </label>
+      <p class="note">How many of its most similar games each game links to.</p>
+    </div>
+
+    <div class="grp">
+      <SegGroup
+        label="Rings"
+        options={[{ value: 1 as Hops, label: '1' }, { value: 2 as Hops, label: '2' }, { value: 3 as Hops, label: '3' }]}
+        value={s.hops}
+        onchange={(hops) => oncommit({ ...s, hops })}
+      />
+      <p class="note">1 is the game's own neighbours; 2 adds theirs; 3 one ring further.</p>
+    </div>
+
+    <div class="grp">
+      <SegGroup
+        label="Links"
+        options={[{ value: 'mutual' as Links, label: 'Mutual' }, { value: 'all' as Links, label: 'All' }]}
+        value={s.links}
+        onchange={(links) => oncommit({ ...s, links })}
+      />
+      <p class="note">Mutual: both games list each other. All adds one-way links, dashed.</p>
+    </div>
+  {/if}
 </div>
 
 <style>

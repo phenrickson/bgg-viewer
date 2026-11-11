@@ -26,10 +26,12 @@
   import { loadGenealogyData } from '$lib/map/genealogy-data';
   import { buildGenealogy, expandKey, type Dir, type GenealogyInput, type Link } from '$lib/map/genealogy';
   import { layoutGenealogy } from '$lib/map/genealogy-layout';
-  import { currentState, toParams, startAt, fold, showFewer, DEFAULT_CAP, T_MIN, T_MAX, type GenealogyState } from '$lib/map/genealogy-url';
+  import { currentState, toParams, startAt, fold, showFewer, DEFAULT_CAP, type GenealogyState } from '$lib/map/genealogy-url';
+  import { buildEgoNetwork, layoutEgoNetwork, type NetworkLayout } from '$lib/map/network';
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
+  import EgoLayer from '$lib/map/EgoLayer.svelte';
   import GenealogyRail from '$lib/map/GenealogyRail.svelte';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
@@ -76,8 +78,10 @@
   const threshold = $derived(s.t);
   const cache = $derived.by(() => { void threshold; return new Map<number, Link[]>(); });
 
+  const net = $derived(s.view === 'net');
+
   const tree = $derived.by(() => {
-    if (!data || !coords || centre == null) return null;
+    if (net || !data || !coords || centre == null) return null;
     const index = coords.index;
     const unfolded = new Set(s.unfolded.map((id) => index.get(id)).filter((i): i is number => i != null));
     const expanded = new Set<string>();
@@ -90,10 +94,39 @@
   });
   const layout = $derived(tree && facts ? layoutGenealogy(tree, facts.year, s.y) : null);
 
+  // --- the network view ------------------------------------------------------------------
+  /** Neighbour lists, memoised across re-centres; valid for one k, so one per k. */
+  const k = $derived(s.k);
+  const netCache = $derived.by(() => { void k; return new Map<number, { i: number; sim: number }[]>(); });
+  const graph = $derived.by(() => {
+    if (!net || !data || !facts || centre == null) return null;
+    const f = facts, d = data;
+    // The bench's eligibility: a vector, and not upcoming (the centre is always in).
+    return buildEgoNetwork(
+      { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
+      centre,
+      { k: s.k, hops: s.hops, mutual: false }
+    );
+  });
+  /**
+   * The last network layout, in simulation units — the next one starts from it, so a change of
+   * k, rings or centre adjusts the graph rather than reshuffling it. Not state: it's a seed.
+   */
+  let netSeed: Map<number, [number, number]> | undefined;
+  const netLayout = $derived.by<NetworkLayout | null>(() => {
+    if (!graph) return null;
+    const out = layoutEgoNetwork(graph, (i) => (i === graph.source ? 8 : 5), netSeed);
+    netSeed = new Map(graph.nodes.map((nd, j) => [nd.i, [out.px[j], out.py[j]]]));
+    return out;
+  });
+
   // --- interaction -----------------------------------------------------------------------
   /** Selected game's index; -1 for none. Not in the URL: it's a glance, not a place. */
   let selected = $state(-1);
   const selNode = $derived(tree?.nodes.find((nd) => nd.i === selected) ?? null);
+  const netNode = $derived(graph?.nodes.find((nd) => nd.i === selected) ?? null);
+  /** The count in the HUD, whichever view is on. */
+  const shownCount = $derived(net ? (graph?.nodes.length ?? 0) : (tree?.nodes.length ?? 0));
   const idOf = (i: number) => coords!.ids[i];
 
   /** A new centre is a fresh tree; Back steps to the previous one. */
@@ -126,16 +159,7 @@
   <div class="workspace">
     <!-- One panel, so no tabs: the controls are simply always there, in the map's open-sidebar card. -->
     <aside class="side" aria-label="Controls">
-      <GenealogyRail
-        y={s.y}
-        same={s.same}
-        threshold={s.t}
-        min={T_MIN}
-        max={T_MAX}
-        onaxis={(y) => commit({ ...s, y })}
-        onsame={(same) => commit({ ...s, same })}
-        onthreshold={(t) => commit({ ...s, t })}
-      />
+      <GenealogyRail {s} oncommit={(next) => commit(next)} />
     </aside>
 
     <div class="canvas">
@@ -145,28 +169,34 @@
         <div class="map-hud-state">Loading {catalog.status === 'ready' ? 'embeddings' : 'catalog'}…</div>
       {:else if centre == null}
         <div class="map-hud-state">{facts.name(centreId)} isn’t in the embedding.</div>
-      {:else if tree && !tree.placeable}
+      {:else if !net && tree && !tree.placeable}
         <div class="map-hud-state">{facts.name(centreId)} has no year or no vector, so it can’t be placed in time.</div>
-      {:else if layout && glide}
+      {:else if glide && (layout || netLayout)}
+        <!-- One canvas for both views: a flip swaps the layer, and the Glide carries every game
+             from its spot in one view to its spot in the other. -->
         <PointCanvas lasso={false}>
-          <GenealogyLayer {coords} {facts} {layout} {glide} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
+          {#if net && netLayout}
+            <EgoLayer {coords} {facts} layout={netLayout} {glide} links={s.links} {selected} onselect={(i) => (selected = i)} />
+          {:else if layout}
+            <GenealogyLayer {coords} {facts} {layout} {glide} {selected} onselect={(i) => (selected = i)} onunfold={unfold} onfold={foldAt} />
+          {/if}
         </PointCanvas>
       {/if}
 
       <!-- Left: what you're looking at. Right: what acts on it. PLACEHOLDER COPY (Phil). -->
-      {#if facts && tree && centre != null}
+      {#if facts && (tree || graph) && centre != null}
         <div class="map-hud-stack left">
           <div class="map-hud chosen">
             <b>{facts.name(centreId)}</b>
             {#if facts.year[centre]}<span class="dim tnum">{facts.year[centre]}</span>{/if}
           </div>
           <div class="map-hud">
-            <span><b class="tnum">{tree.nodes.length}</b> <span class="dim">games</span></span>
-            {#if s.unfolded.length || s.expanded.length}
+            <span><b class="tnum">{shownCount}</b> <span class="dim">games</span></span>
+            {#if tree && (s.unfolded.length || s.expanded.length)}
               <button type="button" class="map-hud-chip" onclick={reset}>Reset</button>
             {/if}
           </div>
-          {#if centreOverflow}
+          {#if tree && centreOverflow}
             <!-- The centre's overflow: about the chosen game, not a spot on the tree. -->
             <div class="map-hud">
               {#each DIRS as dir (dir)}
@@ -184,15 +214,20 @@
       {/if}
 
       <!-- The key: always on, bottom-left. PLACEHOLDER COPY (Phil). -->
-      {#if layout}
+      {#if layout || netLayout}
         <div class="map-hud-stack left bottom">
           <div class="map-hud key" aria-label="Key">
             <span><i style:background="var(--primary)"></i> chosen</span>
             <span><i style:background="var(--map-cat-1)"></i> linked</span>
-            <span><i class="hollow"></i> upcoming</span>
+            {#if !net}<span><i class="hollow"></i> upcoming</span>{/if}
             <span class="sep" aria-hidden="true"></span>
-            <span><b></b> similar</span>
-            <span><b class="dashed"></b> same family</span>
+            {#if net}
+              <span><b></b> mutual</span>
+              {#if s.links === 'all'}<span><b class="dashed"></b> one-way</span>{/if}
+            {:else}
+              <span><b></b> similar</span>
+              <span><b class="dashed"></b> same family</span>
+            {/if}
             <span class="dim">size = ratings · thicker = more alike</span>
           </div>
         </div>
@@ -200,7 +235,7 @@
 
       <div class="map-hud-stack right">
         <div class="search"><GameSearch compact onpick={recentre} /></div>
-        {#if selNode && facts && coords}
+        {#if !net && selNode && facts && coords}
           {@const id = coords.ids[selNode.i]}
           <section class="map-hud-panel selected" aria-label="Selected game">
             <header>
@@ -229,6 +264,24 @@
                   <Button size="sm" variant="outline" onclick={() => unfold(i)}>Unfold {selNode.hidden} {MORE_LABEL[dir]}</Button>
                 {/if}
               {/if}
+              <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
+            </div>
+          </section>
+        {:else if net && netNode && facts && coords}
+          {@const id = coords.ids[netNode.i]}
+          <section class="map-hud-panel selected" aria-label="Selected game">
+            <header>
+              <h2>{facts.name(id)}</h2>
+              <button type="button" class="close" onclick={() => (selected = -1)} aria-label="Close">×</button>
+            </header>
+            <p class="dim">
+              {facts.year[netNode.i] || '—'} · <span class="tnum">{facts.usersRated[netNode.i].toLocaleString()}</span> ratings
+            </p>
+            {#if netNode.hop > 0}
+              <p>{netNode.sim.toFixed(2)} to {facts.name(centreId)} · ring {netNode.hop}</p>
+            {/if}
+            <div class="actions">
+              {#if netNode.hop > 0}<Button size="sm" onclick={() => recentre(id)}>Centre on this</Button>{/if}
               <Button size="sm" variant="outline" href="/games/{id}">Game page</Button>
             </div>
           </section>
