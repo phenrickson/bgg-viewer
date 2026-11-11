@@ -435,10 +435,11 @@
       screen: (i) => { const s = p.getScreenPosition(toSlot(i)); return s ? [s[0], s[1]] : null; },
       width, height, theme, hovered, drawn, dragging, rest, pointScale: pointScale()
     };
-    if (underlayCanvas) {
-      const under = prepare2d(underlayCanvas, theme);
-      driver?.underlay?.(under, api);
-    }
+    // Only a driver that paints under the points gets a backing store: sizing and clearing a
+    // full-DPR canvas each frame for /map, which never draws there, was pure waste. Released,
+    // it shrinks to nothing, which also drops the last driver's links.
+    if (underlayCanvas && driver?.underlay) driver.underlay(prepare2d(underlayCanvas, theme), api);
+    else if (underlayCanvas && underlayCanvas.width) { underlayCanvas.width = 0; underlayCanvas.height = 0; }
     driver?.overlay?.(prepare2d(overlay, theme), api);
   }
 
