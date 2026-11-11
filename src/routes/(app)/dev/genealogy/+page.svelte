@@ -5,8 +5,9 @@
    * re-centring. Rules and encodings: docs/superpowers/specs/2026-10-12-game-genealogy-design.md.
    *
    * Laid out like `/map` (docs/superpowers/specs/2026-11-11-genealogy-presentation-design.md):
-   * the same shell and tabbed sidebar, and everything else floating over the canvas in the
-   * map's HUD chrome — so only the sidebar ever resizes the canvas under the tree.
+   * the same shell, the controls in a fixed sidebar card (one panel, so no tabs), and
+   * everything else floating over the canvas in the map's HUD chrome — so nothing resizes the
+   * canvas under the tree.
    *
    * All tree state lives in the URL: a re-centre is a shallow `pushState` (Back undoes it,
    * unfolds and all); everything else is a `replaceState`. Shallow routing leaves
@@ -28,7 +29,6 @@
   import { GAMES } from '$lib/map/story';
   import PointCanvas from '$lib/map/PointCanvas.svelte';
   import GenealogyLayer from '$lib/map/GenealogyLayer.svelte';
-  import ToolSidebar from '$lib/map/ToolSidebar.svelte';
   import GenealogyRail from '$lib/map/GenealogyRail.svelte';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
@@ -112,8 +112,6 @@
   const DIRS = ['up', 'down', 'same'] as const;
   const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
   const KIND_LABEL = { family: 'same family', influence: 'similarity only' } as const;
-  const TABS = [{ id: 'controls' as const, label: 'Controls' }];
-  let panel = $state<'controls' | null>('controls');
   const noEarlier = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'up') && tree.centreHidden.up === 0);
   const noLater = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'down') && tree.centreHidden.down === 0);
   const centreOverflow = $derived(!!tree && DIRS.some((dir) => isExpanded(tree.centre, dir) || tree.centreHidden[dir] > 0));
@@ -121,20 +119,19 @@
 
 <Container size="wide" fill>
   <div class="workspace">
-    <ToolSidebar tabs={TABS} bind:panel>
-      {#snippet children()}
-        <GenealogyRail
-          y={s.y}
-          same={s.same}
-          threshold={s.t}
-          min={T_MIN}
-          max={T_MAX}
-          onaxis={(y) => commit({ ...s, y })}
-          onsame={(same) => commit({ ...s, same })}
-          onthreshold={(t) => commit({ ...s, t })}
-        />
-      {/snippet}
-    </ToolSidebar>
+    <!-- One panel, so no tabs: the controls are simply always there, in the map's open-sidebar card. -->
+    <aside class="side" aria-label="Controls">
+      <GenealogyRail
+        y={s.y}
+        same={s.same}
+        threshold={s.t}
+        min={T_MIN}
+        max={T_MAX}
+        onaxis={(y) => commit({ ...s, y })}
+        onsame={(same) => commit({ ...s, same })}
+        onthreshold={(t) => commit({ ...s, t })}
+      />
+    </aside>
 
     <div class="canvas">
       {#if loadError}
@@ -241,6 +238,12 @@
   .workspace {
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-md);
     height: 100%; min-height: 0;
+  }
+  /* The map's open sidebar card, minus the tab row it doesn't need. */
+  .side {
+    width: 17rem; min-height: 0; overflow-y: auto;
+    padding: 0 var(--space-md);
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
   }
   .canvas { position: relative; min-width: 0; min-height: 0; }
   .dim { color: var(--muted-foreground); }

@@ -35,15 +35,12 @@ re-spreading beyond what the glide softens.
 **Shell.** `Container size="wide" fill` > `.workspace` grid: sidebar + canvas, as on `/map`.
 The "Dev only — prototype" header goes; the route stays dev-gated.
 
-**Sidebar.** The map's sidebar, extracted into a shared `ToolSidebar` component (tabs stacked
-when shut; when open, a 17rem card titled by the lit tab; not animated, as on the map). Tabs:
-- **Controls**: a `GenealogyRail` in `MapRail`'s idiom (`.grp` sections, `.lbl` labels,
-  `SegGroup`, `.note`): Vertical axis (Year / Generation), Similarity (native range, the
-  readout moving live while dragging, the tree committing on release), Same year (Show / Hide).
-- **Key**: the legend, in the same rail idiom.
-
-The map page keeps its own copy of the sidebar for now. Moving it onto `ToolSidebar` is a
-mechanical follow-up, kept out of this change so the production map isn't touched.
+**Sidebar.** A fixed 17rem card on the left, in the map's open-sidebar look, holding a
+`GenealogyRail` in `MapRail`'s idiom (`.grp` sections, `.lbl` labels, `SegGroup`, `.note`):
+Vertical axis (Year / Generation), Similarity (native range, the readout moving live while
+dragging, the tree committing on release), Same year (Show / Hide). *Revised after review
+(Phil):* first built as the map's tabbed sidebar with Controls and Key tabs; the key moved onto
+the canvas (always visible, bottom-left HUD), and a single tab was pure chrome, so the tabs went.
 
 **HUD.** The map's `.hud` / `.stack` chrome, shared through a small `hud.css` (prefixed class
 names, so nothing collides with Tailwind):
