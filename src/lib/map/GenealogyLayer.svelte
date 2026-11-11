@@ -148,6 +148,8 @@
   let marks = $state.raw<Mark[]>([]);
   /** The hovered game and where it is, for the hover card. */
   let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
+  /** The text's fade, for the HTML laid over the canvas (badges, hover card): set in paint. */
+  let textAlpha = $state(1);
   const byIndex = $derived(new Map(g.nodes.map((nd) => [nd.i, nd])));
 
   const yearOf = (i: number) => facts.year[i] || '—';
@@ -160,7 +162,8 @@
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
-    // Drawn mid-drag too: the overlay repaints on regl's own draw event, so it keeps step.
+    // Rings track their dots through pans and zooms (the overlay repaints on regl's own draw
+    // event, so it keeps step); text waits for the camera to rest (`api.rest`), below.
     if (!api.drawn) { marks = []; tip = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
@@ -176,9 +179,10 @@
     const sp = selected >= 0 ? at.get(selected) : undefined;
     if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
 
-    // Everything with text waits for the games to land, then fades in (Recommend's rhythm):
-    // nothing written slides around attached to a moving dot.
-    const settle = glide.settle;
+    // Everything with text waits for the games to land and the camera to rest, then fades in
+    // (Recommend's rhythm): nothing written slides around on a moving dot or a moving view.
+    const settle = Math.min(glide.settle, api.rest);
+    textAlpha = settle;
     if (settle === 0) { marks = []; tip = null; return; }
     ctx.save();
     ctx.globalAlpha = settle;
@@ -274,14 +278,14 @@
 </script>
 
 {#each marks as m (m.key)}
-  <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" style:opacity={glide.settle} onclick={m.act}>{m.label}</button>
+  <button type="button" class="mark" style:left="{m.x}px" style:top="{m.y}px" style:opacity={textAlpha} onclick={m.act}>{m.label}</button>
 {/each}
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
   {@const nd = byIndex.get(tip.i)}
   {#if nd}
-    <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={glide.settle}>
+    <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={textAlpha}>
       <div class="name">{facts.name(coords.ids[nd.i])}</div>
       <div class="meta">
         {yearOf(nd.i)} · {facts.usersRated[nd.i].toLocaleString()} ratings{#if nd.side !== 'centre'} · {nd.sim.toFixed(2)} to {facts.name(coords.ids[nd.via])}{/if}

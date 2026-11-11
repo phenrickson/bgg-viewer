@@ -29,6 +29,13 @@ export interface OverlayApi {
 	/** The pointer is down and panning. A layer may skip its markers until release. */
 	dragging: boolean;
 	/**
+	 * How settled the camera is: 0 while it's moving (a pan or zoom, by any input), fading back
+	 * to 1 shortly after it stops. A layer multiplies its text's alpha by it, so labels aren't
+	 * re-placed on every frame of a zoom (where they jitter and swap) and come back once the
+	 * view rests.
+	 */
+	rest: number;
+	/**
 	 * What regl is currently multiplying point sizes by. Its default `pointScaleMode: 'asinh'`
 	 * grows points with the camera, so a marker drawn at a constant radius drifts away from
 	 * the dot it marks as you zoom — worst on large dots, which start closest to their ring.

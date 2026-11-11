@@ -144,6 +144,8 @@
 
   /** The hovered game and where it is, for the hover card. */
   let tip = $state.raw<{ i: number; x: number; y: number } | null>(null);
+  /** The text's fade, for the HTML laid over the canvas (badges, hover card): set in paint. */
+  let textAlpha = $state(1);
   const yearOf = (i: number) => facts.year[i] || '—';
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
@@ -162,8 +164,9 @@
     const sp = selected >= 0 ? at.get(selected) : undefined;
     if (sp) ring(ctx, sp[0], sp[1], rad(selected) + 3, theme.accent, theme.background, 2);
 
-    // Labels wait for the games to land, then fade in (Recommend's rhythm, as in the tree).
-    const settle = glide.settle;
+    // Labels wait for the games to land and the camera to rest, then fade in (as in the tree).
+    const settle = Math.min(glide.settle, api.rest);
+    textAlpha = settle;
     if (settle === 0) { tip = null; return; }
     ctx.save();
     ctx.globalAlpha = settle;
@@ -219,7 +222,7 @@
 
 <!-- PLACEHOLDER COPY (Phil): hover card. -->
 {#if tip}
-  <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={glide.settle}>
+  <div class="tip" style:left="{tip.x + 14}px" style:top="{tip.y + 14}px" style:opacity={textAlpha}>
     <div class="name">{facts.name(coords.ids[tip.i])}</div>
     <div class="meta">
       {yearOf(tip.i)} · {facts.usersRated[tip.i].toLocaleString()} ratings{#if tip.i !== centre} · {(simOf.get(tip.i) ?? 0).toFixed(2)} to {facts.name(coords.ids[centre])} · ring {hopOf.get(tip.i)}{/if}

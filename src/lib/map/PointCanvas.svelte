@@ -64,6 +64,26 @@
   let hovered = $state(-1);
   let dragging = false;
 
+  // --- camera rest (`OverlayApi.rest`) ------------------------------------------------------
+  /** 0 while the camera moves; after it has been still for `REST_IDLE`, eases back to 1. */
+  let rest = 1;
+  let lastView = 0;
+  let restRaf = 0;
+  const REST_IDLE = 120, REST_FADE = 220;
+  function onView() {
+    lastView = performance.now();
+    rest = 0;
+    if (!restRaf) restRaf = requestAnimationFrame(restTick);
+  }
+  /** Runs from the first camera move until the text is fully back; repaints while it fades in. */
+  function restTick(now: number) {
+    const t = (now - lastView - REST_IDLE) / REST_FADE;
+    if (t <= 0) { restRaf = requestAnimationFrame(restTick); return; }
+    rest = t >= 1 ? 1 : 1 - (1 - t) ** 3;
+    drawOverlay();
+    restRaf = rest < 1 ? requestAnimationFrame(restTick) : 0;
+  }
+
   // --- the driver ----------------------------------------------------------------------
   // One layer drives at a time; the last to call `drive` wins, and a layer releasing a
   // driver that has already been replaced is a no-op (a swap mounts the new before the
@@ -411,7 +431,7 @@
     const p = plot;
     const api: OverlayApi = {
       screen: (i) => { const s = p.getScreenPosition(toSlot(i)); return s ? [s[0], s[1]] : null; },
-      width, height, theme, hovered, drawn, dragging, pointScale: pointScale()
+      width, height, theme, hovered, drawn, dragging, rest, pointScale: pointScale()
     };
     if (underlayCanvas) {
       const under = prepare2d(underlayCanvas, theme);
@@ -459,7 +479,7 @@
       screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
       // On-screen scale, not the export's: the uniform transform carries the resolution
       // multiple, so markers match what the viewer saw.
-      width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
+      width, height, theme, hovered: -1, drawn: true, dragging: false, rest: 1, pointScale: pointScale()
     };
     if (driver?.underlay) {
       ctx.setTransform(s, 0, 0, s, 0, 0);
@@ -533,6 +553,8 @@
     // inside its own animation frame, and deferring to the next one leaves rings and
     // labels trailing the dots by a frame while panning — visible as a wobble.
     plot.subscribe('draw', () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } drawOverlay(); });
+    // Any camera move — wheel, drag, pinch, a programmatic zoom — starts the text's rest fade.
+    plot.subscribe('view', onView);
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
     // A drag, for layers that hide their markers while panning: down on the canvas, up
@@ -556,6 +578,7 @@
       glCanvas.removeEventListener('pointerdown', down);
       window.removeEventListener('pointerup', up);
       if (raf) cancelAnimationFrame(raf);
+      if (restRaf) cancelAnimationFrame(restRaf);
       plot?.destroy(); plot = null;
     };
   }
