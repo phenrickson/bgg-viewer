@@ -17,8 +17,15 @@ export interface Leaving {
 	via: number;
 }
 
-/** Snappy, not ceremonial. */
+/** Snappy, not ceremonial: each game's own glide. */
 const DURATION = 450;
+/**
+ * Between one ring setting off and the next (`TweenPlan.level`): about two-thirds through
+ * the parent's ease, when it's nearly landed, so a child comes out of where its parent is.
+ */
+const STEP = 280;
+/** A deep unfold mustn't drag on: past this many steps, the rest set off together. */
+const MAX_STEPS = 3;
 /**
  * Labels, ticks and badges wait for the games to land, then fade in over this — Recommend's
  * rhythm (content arrives once things have settled; text never slides around attached to a
@@ -60,17 +67,19 @@ export class Glide {
 		this.leaving = folding ? plan.leaving.map((i) => ({ i, via: prevVia.get(i) ?? -1 })) : [];
 		this.#prev = tree;
 		const start = performance.now();
+		const total = DURATION + Math.min(plan.levels, MAX_STEPS) * STEP;
 		if (!this.#reduced) this.settle = 0;
 		/** After landing: no more positions, just the text fading in. */
 		const fade = (now: number) => {
-			const t = Math.min(1, (now - start - DURATION) / SETTLE);
+			const t = Math.min(1, (now - start - total) / SETTLE);
 			this.settle = easeOutCubic(Math.max(0, t));
 			if (t < 1) this.#raf = requestAnimationFrame(fade);
 		};
 		const step = (now: number) => {
-			const t = this.#reduced ? 1 : Math.min(1, (now - start) / DURATION);
+			const ms = this.#reduced ? total : now - start;
+			const t = Math.min(1, ms / total);
 			const out = this.#bufs[(this.#flip = 1 - this.#flip)];
-			interpolate(plan, easeOutCubic(t), out);
+			interpolate(plan, (l) => easeOutCubic(Math.min(1, Math.max(0, (ms - Math.min(l, MAX_STEPS) * STEP) / DURATION))), out);
 			this.#onScreen = out;
 			this.cur = out;
 			if (t < 1) { this.#raf = requestAnimationFrame(step); return; }
