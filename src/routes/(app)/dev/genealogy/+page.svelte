@@ -80,19 +80,32 @@
 
   const net = $derived(s.view === 'net');
 
+  /**
+   * What each view is built from, as primitives: `s` is a fresh object on every commit, so a
+   * view reading it directly rebuilt (and re-glided, blinking its labels) on any setting at
+   * all, a style toggle included. A derived primitive that hasn't changed stops that.
+   */
+  const unfoldedKey = $derived(s.unfolded.join(','));
+  const expandedKey = $derived(s.expanded.join(','));
+  const same = $derived(s.same);
+  const yMode = $derived(s.y);
+  const hops = $derived(s.hops);
+  const openKey = $derived(s.open.join(','));
+  const idList = (key: string) => (key ? key.split(',').map(Number) : []);
+
   const tree = $derived.by(() => {
     if (net || !data || !coords || centre == null) return null;
     const index = coords.index;
-    const unfolded = new Set(s.unfolded.map((id) => index.get(id)).filter((i): i is number => i != null));
+    const unfolded = new Set(idList(unfoldedKey).map((id) => index.get(id)).filter((i): i is number => i != null));
     const expanded = new Set<string>();
-    for (const key of s.expanded) {
+    for (const key of expandedKey ? expandedKey.split(',') : []) {
       const [id, dir] = key.split(':');
       const i = index.get(Number(id));
       if (i != null) expanded.add(expandKey(i, dir as Dir));
     }
-    return buildGenealogy({ ...data, cache }, centre, { threshold: s.t, cap: DEFAULT_CAP, unfolded, expanded, same: s.same });
+    return buildGenealogy({ ...data, cache }, centre, { threshold, cap: DEFAULT_CAP, unfolded, expanded, same });
   });
-  const layout = $derived(tree && facts ? layoutGenealogy(tree, facts.year, s.y) : null);
+  const layout = $derived(tree && facts ? layoutGenealogy(tree, facts.year, yMode) : null);
 
   // --- the network view ------------------------------------------------------------------
   /** Neighbour lists, memoised across re-centres; valid for one k, so one per k. */
@@ -101,12 +114,12 @@
   const graph = $derived.by(() => {
     if (!net || !data || !facts || centre == null) return null;
     const f = facts, d = data, index = coords!.index;
-    const open = new Set(s.open.map((id) => index.get(id)).filter((i): i is number => i != null));
+    const open = new Set(idList(openKey).map((id) => index.get(id)).filter((i): i is number => i != null));
     // The bench's eligibility: a vector, and not upcoming (the centre is always in).
     return buildEgoNetwork(
       { n: d.n, dim: d.dim, emb: d.emb, cache: netCache, eligible: (i) => d.has(i) && f.upcoming[i] === 0 },
       centre,
-      { k: s.k, hops: s.hops, mutual: false, floor: s.t, open }
+      { k, hops, mutual: false, floor: threshold, open }
     );
   });
   /**
