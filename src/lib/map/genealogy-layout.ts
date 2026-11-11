@@ -156,15 +156,18 @@ export function badgeCentre(
 
 /**
  * The order the label placer takes games in — it keeps a label only if it fits clear of
- * those already placed, so this is the priority. The centre, then what you're pointing at,
- * then games you've unfolded (their label carries the ⊖ that folds them back — losing it to
- * their own children would strand them), then the most-rated: in a flurry the recognisable
- * games win the space, and zooming in makes room for the long tail.
+ * those already placed, so this is the priority. The centre, then games you've unfolded
+ * (their label carries the ⊖ that folds them back — losing it to their own children would
+ * strand them), then the most-rated: in a flurry the recognisable games win the space, and
+ * zooming in makes room for the long tail.
+ *
+ * Deliberately NOT hover or selection: pointing at or picking a game used to jump it up the
+ * queue, so the labels around it reshuffled under the cursor. The hover card and the
+ * selected-game panel name it instead, over the labels, which stay put.
  */
 export function labelOrder(
-	nodes: number[], centre: number, selected: number, hovered: number,
-	usersRated: ArrayLike<number>, unfolded: ReadonlySet<number>
+	nodes: number[], centre: number, usersRated: ArrayLike<number>, unfolded: ReadonlySet<number>
 ): number[] {
-	const rank = (i: number) => (i === centre ? 0 : i === selected ? 1 : i === hovered ? 2 : unfolded.has(i) ? 3 : 4);
+	const rank = (i: number) => (i === centre ? 0 : unfolded.has(i) ? 1 : 2);
 	return [...nodes].sort((a, b) => rank(a) - rank(b) || usersRated[b] - usersRated[a] || a - b);
 }

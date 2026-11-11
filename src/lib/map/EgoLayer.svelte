@@ -107,7 +107,7 @@
    */
   function underlay(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
-    if (!api.drawn || api.dragging) return;
+    if (!api.drawn) return;
     const fullBow = 0.25 * Math.min(api.width, api.height);
     const link = (a: number, b: number) => {
       const pa = screen(a), pb = screen(b);
@@ -148,7 +148,7 @@
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen, hovered } = api;
-    if (!api.drawn || api.dragging) { tip = null; return; }
+    if (!api.drawn) { tip = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
     const rad = (i: number) => (diameterOf(i) / 2) * api.pointScale;
@@ -168,7 +168,9 @@
     ctx.save();
     ctx.globalAlpha = settle;
     const want: { i: number; l: LabelInput }[] = [];
-    const wanted = (i: number, hop: number) => i === selected || i === hovered || hop <= 1 || hubs.has(i);
+    // Not hover or selection: those used to add and promote labels, reshuffling the ones
+    // around the cursor. The hover card and the selected panel name the game instead.
+    const wanted = (hop: number, i: number) => hop <= 1 || hubs.has(i);
     for (const nd of g.nodes) {
       const p = at.get(nd.i);
       if (!p) continue;
@@ -179,16 +181,16 @@
         ctx.restore();
       }
       if (nd.i === hovered && nd.i !== selected) ring(ctx, p[0], p[1], r + 3, theme.foreground, theme.background, 1.5);
-      if (wanted(nd.i, nd.hop)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
+      if (wanted(nd.hop, nd.i)) want.push({ i: nd.i, l: { x: p[0], y: p[1], text: facts.name(coords.ids[nd.i]), gap: r + 4 } });
     }
     // The placer keeps a label only if it clears those before it, so order is priority:
-    // centre, selected, hovered, then nearer rings, then the most-rated.
-    const rank = (i: number) => (i === centre ? 0 : i === selected ? 1 : i === hovered ? 2 : 3 + (hopOf.get(i) ?? 3));
+    // centre, then nearer rings, then the most-rated.
+    const rank = (i: number) => (i === centre ? 0 : 1 + (hopOf.get(i) ?? 3));
     want.sort((p, q) => rank(p.i) - rank(q.i) || facts.usersRated[q.i] - facts.usersRated[p.i]);
     labels(ctx, want.map((w) => w.l), api.width, api.height, theme.foreground, theme.background, { chip: false, drop: true });
     ctx.restore();
     const hp = hovered >= 0 && hopOf.has(hovered) ? at.get(hovered) : undefined;
-    tip = hp ? { i: hovered, x: hp[0], y: hp[1] } : null;
+    tip = hp && !api.dragging ? { i: hovered, x: hp[0], y: hp[1] } : null;
   }
 
   const driver: Driver = {

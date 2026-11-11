@@ -107,7 +107,7 @@
    */
   function underlay(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
-    if (!api.drawn || api.dragging) return;
+    if (!api.drawn) return;
     const path = (a: number, b: number, same: boolean) => {
       const pa = screen(a), pb = screen(b);
       if (!pa || !pb) return false;
@@ -160,8 +160,8 @@
 
   function paint(ctx: CanvasRenderingContext2D, api: OverlayApi) {
     const { theme, screen } = api;
-    // Nothing mid-flight or mid-drag: the 2-D overlay can't keep step with the GL canvas.
-    if (!api.drawn || api.dragging) { marks = []; tip = null; return; }
+    // Drawn mid-drag too: the overlay repaints on regl's own draw event, so it keeps step.
+    if (!api.drawn) { marks = []; tip = null; return; }
     const at = new Map<number, [number, number]>();
     for (const nd of g.nodes) { const p = screen(nd.i); if (p) at.set(nd.i, p); }
 
@@ -217,7 +217,7 @@
     }
     // The placer keeps a label only if it fits clear of those before it: see `labelOrder`.
     const unfolded = new Set(g.nodes.filter((nd) => nd.unfolded && nd.side !== 'centre').map((nd) => nd.i));
-    const order = labelOrder([...input.keys()], g.centre, selected, api.hovered, facts.usersRated, unfolded);
+    const order = labelOrder([...input.keys()], g.centre, facts.usersRated, unfolded);
     const want = order.map((i) => input.get(i)!);
     const boxes = new Map<number, { bx: number; by: number; lines: string[] }>();
     // Placed labels come back as new objects; their anchor says whose they are.
@@ -243,7 +243,7 @@
     }
     ctx.restore();
     const hp = api.hovered >= 0 && byIndex.has(api.hovered) ? at.get(api.hovered) : undefined;
-    tip = hp ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
+    tip = hp && !api.dragging ? { i: api.hovered, x: hp[0], y: hp[1] } : null;
     marks = next;
   }
 
