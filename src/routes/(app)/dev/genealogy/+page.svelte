@@ -112,8 +112,8 @@
   const DIRS = ['up', 'down', 'same'] as const;
   const MORE_LABEL: Record<Dir, string> = { up: 'earlier', down: 'later', same: 'same year' };
   const KIND_LABEL = { family: 'same family', influence: 'similarity only' } as const;
-  const TABS = [{ id: 'controls' as const, label: 'Controls' }, { id: 'key' as const, label: 'Key' }];
-  let panel = $state<'controls' | 'key' | null>('controls');
+  const TABS = [{ id: 'controls' as const, label: 'Controls' }];
+  let panel = $state<'controls' | null>('controls');
   const noEarlier = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'up') && tree.centreHidden.up === 0);
   const noLater = $derived(!!tree && !tree.nodes.some((nd) => nd.side === 'down') && tree.centreHidden.down === 0);
   const centreOverflow = $derived(!!tree && DIRS.some((dir) => isExpanded(tree.centre, dir) || tree.centreHidden[dir] > 0));
@@ -122,9 +122,8 @@
 <Container size="wide" fill>
   <div class="workspace">
     <ToolSidebar tabs={TABS} bind:panel>
-      {#snippet children(tab)}
+      {#snippet children()}
         <GenealogyRail
-          section={tab}
           y={s.y}
           same={s.same}
           threshold={s.t}
@@ -179,6 +178,21 @@
           {/if}
           {#if noEarlier}<div class="map-hud dim">No earlier games this alike.</div>{/if}
           {#if noLater}<div class="map-hud dim">No later games this alike.</div>{/if}
+        </div>
+      {/if}
+
+      <!-- The key: always on, bottom-left. PLACEHOLDER COPY (Phil). -->
+      {#if layout}
+        <div class="map-hud-stack left bottom">
+          <div class="map-hud key" aria-label="Key">
+            <span><i style:background="var(--primary)"></i> chosen</span>
+            <span><i style:background="var(--map-cat-1)"></i> linked</span>
+            <span><i class="hollow"></i> upcoming</span>
+            <span class="sep" aria-hidden="true"></span>
+            <span><b></b> similar</span>
+            <span><b class="dashed"></b> same family</span>
+            <span class="dim">size = ratings · thicker = more alike</span>
+          </div>
         </div>
       {/if}
 
@@ -243,4 +257,11 @@
   }
   .close:hover { color: var(--foreground); }
   .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .key { flex-wrap: wrap; gap: 0.3rem 0.8rem; font-size: 0.75rem; max-width: min(40rem, 100%); }
+  .key span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .key i { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex: none; }
+  .key i.hollow { border: 1px dashed var(--foreground); }
+  .key b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
+  .key b.dashed { border-top-style: dashed; }
+  .key .sep { width: 1px; height: 0.8rem; background: var(--border); }
 </style>

@@ -26,6 +26,7 @@
 }
 .map-hud-stack > * { pointer-events: auto; }
 .map-hud-stack.left { left: var(--space-sm); align-items: flex-start; }
+.map-hud-stack.bottom { top: auto; bottom: var(--space-sm); }
 .map-hud-stack.right { right: var(--space-sm); align-items: flex-end; min-height: 0; max-width: min(24rem, 48%); }
 
 /* A card floating over the plot — /map's selection panel. */

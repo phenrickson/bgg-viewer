@@ -2,7 +2,7 @@
   /**
    * The genealogy's sidebar panels, in `MapRail`'s idiom — the same `SegGroup` and the same
    * `.grp` / `.lbl` / `.note` rhythm — so the two canvas tools' sidebars read as one thing.
-   * `section="controls"` is how the tree is drawn; `section="key"` is how to read it.
+   * The key isn't here: it stays on the canvas, always visible.
    *
    * The similarity readout follows the slider as it moves; the tree only rebuilds on release
    * (`onthreshold`), since each value is a fresh scan and a URL write.
@@ -13,7 +13,6 @@
   import type { YMode } from './genealogy-layout';
 
   let {
-    section,
     y = 'year',
     same = true,
     threshold = 0.9,
@@ -23,7 +22,6 @@
     onsame,
     onthreshold
   }: {
-    section: 'controls' | 'key';
     y?: YMode;
     same?: boolean;
     threshold?: number;
@@ -40,7 +38,6 @@
 </script>
 
 <div class="rail">
-  {#if section === 'controls'}
     <div class="grp top">
       <SegGroup
         label="Vertical axis"
@@ -72,21 +69,6 @@
       />
       <p class="note">Games from the chosen game's own year, beside it.</p>
     </div>
-  {:else}
-    <div class="grp top">
-      <span class="lbl">Games</span>
-      <span class="key"><i style:background="var(--primary)"></i> the chosen game</span>
-      <span class="key"><i style:background="var(--map-cat-1)"></i> a linked game</span>
-      <span class="key"><i class="hollow"></i> upcoming</span>
-      <p class="note">Size is how many people have rated it.</p>
-    </div>
-    <div class="grp">
-      <span class="lbl">Links</span>
-      <span class="key"><b></b> similar</span>
-      <span class="key"><b class="dashed"></b> same family</span>
-      <p class="note">Thicker is more alike. ⊕ unfolds a game's own earlier or later games; ⊖ folds them back.</p>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -100,9 +82,4 @@
   .row { display: flex; align-items: baseline; justify-content: space-between; }
   .field input[type='range'] { width: 100%; min-width: 0; }
   .tnum { font-variant-numeric: tabular-nums; }
-  .key { display: inline-flex; align-items: center; gap: 0.45rem; }
-  .key i { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; }
-  .key i.hollow { border: 1px dashed var(--foreground); }
-  .key b { width: 1rem; height: 0; flex: none; border-top: 1.5px solid var(--foreground); }
-  .key b.dashed { border-top-style: dashed; }
 </style>
