@@ -204,7 +204,7 @@
         </div>
       {/if}
 
-      <div class="canvas">
+      <div class="canvas" class:scrolls={args.mode === 'missing'}>
         <div class="chead">
           {#if counts}
             <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
@@ -295,13 +295,15 @@
     gap: var(--space-md);
     min-width: 0;
     min-height: 0;
-    overflow-y: auto;
     container-type: inline-size;
     /* The scroll area must be the containing block for absolutely positioned descendants (the
        rows' screen-reader labels). Without it they're placed against the page, deep down the
        list, and stretch the whole page into empty space below the footer. */
     position: relative;
   }
+  /* Only the "Not in catalog" list scrolls the canvas; the table (GameList) scrolls inside
+     itself, as on Explore, and a canvas scroll beside it was a second scrollbar. */
+  .canvas.scrolls { overflow-y: auto; }
   /* Header, controls and list share one capped column, so nothing floats to the far edge. */
   .canvas > :global(*) {
     max-width: 64rem;
