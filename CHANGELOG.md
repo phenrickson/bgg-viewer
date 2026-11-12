@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.33](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.32...bgg-viewer-v0.0.33) (2026-11-12)
+
+
+### Bug Fixes
+
+* **lineage:** a phone layout, on one shared RailSheet with /games and /map ([#99](https://github.com/phenrickson/bgg-viewer/issues/99)) ([870e531](https://github.com/phenrickson/bgg-viewer/commit/870e531ad7f83132b80104bb87319159433435c5))
+
 ## [0.0.32](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.31...bgg-viewer-v0.0.32) (2026-11-12)
 
 
