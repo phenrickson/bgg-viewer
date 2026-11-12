@@ -110,35 +110,49 @@ Library games that aren't in the catalog's working set don't appear in Explore. 
   - game detail;
   - the `/bggcon` page's search.
 
-### 4. The `/bggcon` page (standalone, phone-first)
+### 4. The `/bggcon` page: a library dashboard in Explore's style
 
-- One list of starred games, available ones first, then checked-out ones. Each row shows:
-  - art and name;
-  - "N of M copies";
-  - a play-to-win badge.
-- A search box over the library to add stars.
-- An "Updated Ns ago" line. The page refetches availability every 60 s **only while the tab
-  is visible** (`visibilitychange`) and once on refocus.
-- It can be added to the home screen. It should work as a page of its own, with no need to
-  go through Explore.
+Agreed with Phil from a mockup on 2026-11-12
+(https://claude.ai/artifact/A42RiTA4VvZXPBSQ37m45H).
+
+- **Shell: Explore's own.** `Container` + `.workspace`, a 16rem sidebar beside the canvas. On a
+  phone the sidebar goes into `RailSheet` behind a Filters button, exactly as on Explore.
+- **Sidebar: Explore's `Rail`, unchanged,** applied to the library:
+  - its "Name contains…" search (`.find` / `scope.q`);
+  - complexity, players and play time visible;
+  - categories, mechanics, families and people in its collapsed `RailGroup`s;
+  - plus an **Available now** switch, built the same way as Rail's "My Collection" switch.
+- **Header: counts in Explore's `.chead .count` style,** repeated: games in the library, on
+  the shelf, checked out, and focus list (· N on the shelf), plus an "as of" time. No new tile
+  component.
+- **Show: `SegmentedControl` (md)** with *Focus list | Whole library*. A search always looks
+  across the whole library, so a game can be found and starred from either view.
+- **Rows: Recommend's list rows (`SimilarRow` with `onopen`).** Each row has:
+  - a star (`Button` ghost `icon-sm` + lucide Star);
+  - art and name, plus a complexity · players · time line;
+  - the rating;
+  - "N of M on shelf", in the status color **and** in words.
+- **Click opens the game in place,** one at a time, like Recommend's "why". It shows:
+  - availability (N of M copies, as of, play-to-win);
+  - the info line, using `ResultSection`'s pieces;
+  - **"Like this, in the library"**: `rankShelf(vectors, id, library ids)` as `SimilarRow`s,
+    each with its own star and shelf status;
+  - "Open game page →" as a link, not the default click.
+- **The whole library is paged and sorted in DuckDB,** as `GameList` does. The checked-out
+  counts load into a small table next to the library ids and refresh each minute, so
+  "available first" and **Available now** apply to the whole set before paging. The focus
+  list is one short list with no paging.
+- **Refresh:** availability refetches every 60 s **only while the tab is visible**
+  (`visibilitychange`), and once on refocus.
+- **Library games that aren't in the catalog** still list by their Tabletop.Events name, with
+  availability and a star, but they can't be filtered or recommended. The match rate is
+  measured during the build and reported.
 - Copy is Phil's. Placeholders are marked once in the source.
 
-**Components (checked against the repo on 2026-11-12). Compose these; no new styles.**
-
-| Need | Existing component |
-|---|---|
-| A starred game's card | `$lib/catalog/GameCard.svelte`, the shared shell with `art`, `identity` and stat snippets. Availability ("N of M") goes in a stat cell. |
-| A row in a wide layout | `$lib/discover/GameRow.svelte`, if its `DiscoverGame` shape fits a catalog game. Otherwise use GameCard alone; don't fork the row. |
-| Play-to-win marker | `$lib/components/ui/badge` |
-| Star toggle, refresh | `$lib/components/ui/button`. The star is a Button variant, not a new control. |
-| Available / All switch | `$lib/components/ui/segmented-control` |
-| Page layout | `Stack` / `AutoGrid` from `$lib/components/ui/layout` |
-| Explore's scope chip | the existing `FilterChips.svelte` / rail patterns, the way the collection filter shows up |
-
-The generic `frontend-patterns` skill's TanStack `DataTable`, `Card.Kpi` and LayerChart
-patterns don't apply. This repo has none of them, and this page doesn't need any.
-Colors follow `style-rules`: available and checked-out use the semantic status tokens and
-never color alone, so the "N of M" text carries the state too.
+Colors follow `style-rules`. On the shelf and checked out use blue and orange status tokens,
+and the words always carry the state too, so it never relies on color alone. The generic
+`frontend-patterns` skill's TanStack `DataTable`, `Card.Kpi` and LayerChart patterns don't
+apply; this repo has none of them.
 
 ### 5. Politeness budget
 

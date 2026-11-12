@@ -151,47 +151,45 @@ availability needed copy ids from the snapshot.
   - the auth matrix on each route;
   - the stars `PUT` checks its body (an array of positive ints with a sane max length).
 
-### 3c. The `/bggcon` page and stars
+**Reordered 2026-11-12 after the mockup** (spec §4). The page itself needs the library inside
+DuckDB, so the catalog integration now comes first.
 
-- `src/routes/(app)/bggcon/+page.server.ts` is admin-gated and returns breadcrumbs and a
-  subtitle (placeholder copy, flagged once).
-- `src/routes/(app)/bggcon/+page.svelte`:
-  - Starred games sorted with available first, each shown as a `GameCard` (art, name, and an
-    "N of M" stat) and a play-to-win `Badge`.
-  - A `SegmentedControl` for Available / All.
-  - A search box over the library, with a star `Button` on each result.
-  - The page refetches every 60 s while the tab is visible (`visibilitychange`) and right
-    away on refocus. It shows when the data was last updated.
-- `src/lib/bggcon/stars.svelte.ts` is the one client store for stars. It updates
-  optimistically and `PUT`s the change; if the `PUT` fails, it reverts and says so. The page
-  and every other star button use it.
-- Art and names come from the catalog when the game is in it. Otherwise the name comes from
-  Tabletop.Events and the art is a placeholder.
+### 3c. The library in the browser's catalog (the foundation)
+
+- `catalog.svelte.ts`:
+  - a `con_library (game_id, copies, play_to_win)` table and a `con_checked_out (game_id, n)`
+    table;
+  - `applyConLibrary` / `clearConLibrary`, mirroring `applyCollectionFilter`;
+  - `appendCollectionFilter` also ANDs library membership, and "available now" when that's on.
+    That one function feeds Explore and the map, so no call site changes.
+- **Measure and report the catalog match rate** (library ids found in the catalog).
+- **Tests:** Vitest for the where clause with the collection filter, the library filter,
+  available-now, and combinations of them.
+
+### 3d. Stars
+
+- `src/lib/bggcon/stars.svelte.ts` is the one client store. It updates optimistically, `PUT`s
+  the change, and reverts with a message if the save fails. Every star button uses it.
+
+### 3e. The `/bggcon` dashboard (spec §4, the mockup)
+
+- `src/routes/(app)/bggcon/`: admin-gated, built on Explore's shell, `Rail` (with search and
+  collapsed groups), the `.chead` counts, `SegmentedControl` (Focus list | Whole library),
+  `SimilarRow onopen` rows, and the open-in-place panel.
+- Whole-library paging and sorting in DuckDB, the way `GameList` does it.
+- The panel's "Like this, in the library" uses `rankShelf(vectors, id, libraryIds, n)`.
+- The 60 s visible-only refresh feeds `con_checked_out`.
 - **Verification:**
   - `just check`;
-  - Phil reviews it on his dev server, in light and dark, and on the MacBook through PR 1;
-  - a narrow phone-width check of the layout.
+  - Phil reviews it on his dev server, light and dark, and on the MacBook via `just dev-lan`;
+  - phone width.
 
-### 3d. Library filter in Explore and the map
+### 3f. The library in Explore and Recommend
 
-- `catalog.svelte.ts`: a `con_library` table and an `applyConLibrary(ids)` /
-  `clearConLibrary()` pair, mirroring `applyCollectionFilter`. `appendCollectionFilter` also
-  ANDs `game_id IN (SELECT game_id FROM con_library)` when it's active. That one function
-  feeds Explore and the map, so no call site changes.
-- `Rail.svelte`: an admin-only toggle next to "My collection", built the same way, with a
-  chip through `FilterChips`' external-chip slot.
-- An "available now" sub-toggle narrows `con_library` to available ids from the availability
-  route.
-- A star button on `GameCard` and `GameRow` only while the library filter is on, through the
-  shared stars store.
-- **Tests:** Vitest for the where clause with the collection filter, the library filter and
-  both together.
-
-### 3e. Library pool in Recommend
-
-- `sources.ts`: add `'library'` to `POOLS`, admin-only in the picker.
-- `+page.svelte`: the `library` pool calls the existing `rankShelf(vectors, id, libraryIds, n)`,
-  passing the library's ids as the set.
+- `Rail.svelte`: an admin-only "BGG.CON library" switch next to "My Collection" (same markup),
+  with a chip through `FilterChips`' extra-chip slot. In Explore and the map, a star appears on
+  rows while it's on.
+- Recommend: a `'library'` pool, admin-only, using the existing `rankShelf`.
 - **Tests:** a `rankShelf` test with a library-sized id set; the existing tests stay green.
 
 ### PR 3 wrap-up
@@ -204,8 +202,8 @@ availability needed copy ids from the snapshot.
 
 ## Risks and unknowns
 
-- **The con dates set the cut line.** If time runs short, ship 3a–3c, which covers the page
-  and stars. 3d and 3e can follow, or be dropped.
+- **The con dates set the cut line.** If time runs short, ship through 3e, which covers the page
+  and stars; 3f (the Explore switch and the Recommend pool) can follow.
 - **Checked-out volume at peak** is unknown until the con. Raising the TTL is a one-constant
   change.
 - **The Tabletop.Events API could change or rate-limit.** Stale fallbacks keep the page up.
