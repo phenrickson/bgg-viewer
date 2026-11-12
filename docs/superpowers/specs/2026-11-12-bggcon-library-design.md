@@ -53,30 +53,39 @@ should check that it's still the same id once the con starts.
 
 ## Design
 
-### 1. Server: two cached reads, fetched only when asked for
+### 1. Server: the universe and availability, kept apart
 
-Cloud Run throttles CPU when no request is running, so there's no background timer. Each
-read refreshes only when a request finds its cache stale.
+Revised 2026-11-12 (Phil): the two are separate concerns and don't depend on each other.
 
-- **Library snapshot.** Pull all pages and keep rows where `is_in_circulation = 1`. Drop
-  expansions by `ItemType`. Group by `bgg_id` into
-  `{ bgg_id, name, copies, play_to_win_copies, copy_ids[] }`.
-  - The snapshot is stored as one JSON object in the existing artifacts bucket, so a cold
-    instance reads it rather than making 86 calls.
-  - It refreshes when older than **6 h**, with one page at a time to be polite.
-  - Rows with no `bgg_id` are dropped and counted in a log line.
-- **Checked-out set.** Fetch the `is_checked_out=1` query (all its pages). Hold it in memory
-  with a **60 s** TTL. All tabs and devices share it, so we make at most about one call per
-  minute per instance, whoever is looking.
-- A game is available when `copies − (checked-out copy ids that belong to it) > 0`.
-- **If Tabletop.Events is down or slow,** serve the last good data with its timestamp. The
-  page shows "as of …" and never an error that blanks it.
+- **The universe: which games are in the library, and how many copies.**
+  - Built by a **daily GitHub Action** (`bggcon-library.yml`, cron at 10:00 UTC), which can
+    also be run by hand when new games are added. The app never builds it.
+  - The action makes a full pull: about 86 requests, one at a time, taking ~2 minutes. It
+    keeps copies in circulation, keeps `ItemType` = standalone (compared case-insensitively),
+    and groups by `bgg_id` into `{ bgg_id, name, copies, play_to_win }`.
+  - Rows with no `bgg_id` are counted in the log line. An empty pull fails the run and leaves
+    the last snapshot in place.
+  - It's saved to `bggcon/library.json`. The app only reads it, re-checking every 30 min.
+  - Daily is plenty. On 2026-11-12, no copies had been added in the previous 30 days. The
+    library grows in batches before events: 775 copies in Sep 2026, 148 in May 2026, 421 in
+    Nov 2025.
+- **Availability: what's checked out right now.**
+  - Fetched from the `is_checked_out=1` query alone and counted per `bgg_id`. It never reads
+    the universe.
+  - Held in memory with a **60 s** TTL and shared by every tab and device, so there's at most
+    about one call a minute per instance, and only while someone is looking. Cloud Run
+    throttles CPU between requests, so there's no background timer.
+  - If Tabletop.Events is down or slow, it serves the last good value marked `stale`, with
+    its time. The page shows "as of …" and never an error that blanks it.
+- **The page combines them:** on the shelf = `copies − checked_out`. A game missing from the
+  universe can still show "N checked out".
 
-Routes, both admin-only:
+Routes, all admin-only:
 
-- `GET /api/bggcon/library`: the grouped game list (ids, names, copies). This is the scope.
-- `GET /api/bggcon/availability`: `{ as_of, games: { [bgg_id]: { available, copies } } }`.
-  The page may pass `?ids=` to get only starred games back.
+- `GET /api/bggcon/library`: `{ builtAt, games: [{ bgg_id, name, copies, play_to_win }] }`.
+  This is the scope.
+- `GET /api/bggcon/availability`: `{ as_of, stale, checked_out: { [bgg_id]: n } }`. A game
+  with nothing out is absent. `?ids=` limits it to those games.
 
 ### 2. Explore and Recommend: a "BGG.CON library" scope
 
@@ -135,7 +144,7 @@ never color alone, so the "N of M" text carries the state too.
 
 | What | How often | Requests |
 |---|---|---|
-| Full snapshot | at most every 6 h | ~86 |
+| Universe (daily job) | once a day, plus manual runs | ~86 |
 | Checked-out set | at most every 60 s, only while someone's looking | 1–5 (paged) |
 
 If the checked-out set grows past a few pages at peak, the TTL goes up to 5 min. That's one

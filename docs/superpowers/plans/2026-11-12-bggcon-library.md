@@ -127,15 +127,20 @@ Each step is a commit (or a few) on the branch, pushed when tested.
 
 ### 3b. Server caches and routes
 
-- `src/lib/server/bggcon/store.ts` reads and writes `bggcon/library.json` and
-  `bggcon/stars/{user_id}.json` through the same `Storage` client (`CATALOG_BUCKET`).
-- `src/lib/server/bggcon/library.ts` holds the library in memory, falls back to the GCS
-  snapshot, and rebuilds from Tabletop.Events when the snapshot is older than 6 h. Only one
-  rebuild runs at a time (an in-flight promise, like `artifact-cache.ts`). If the rebuild
-  fails, it keeps serving the old snapshot.
-- `src/lib/server/bggcon/checked-out.ts` caches the checked-out set in memory with a 60 s TTL
-  and the same in-flight guard. If the upstream call fails, it serves the last value with its
-  `as_of` time.
+**Revised during the build (2026-11-12, Phil):** the universe and availability are kept apart.
+The first version rebuilt the library on a page load. A live run took **114 s**, and
+availability needed copy ids from the snapshot.
+
+- `store.ts` reads and writes JSON under `bggcon/` through the shared bucket client. The app
+  writes only stars.
+- `snapshot.ts` is pure: `buildSnapshot` and `assertUsable`, shared by the job and the app.
+- `scripts/build-bggcon-library.ts` and `.github/workflows/bggcon-library.yml` build the
+  universe **daily** (cron at 10:00 UTC, plus `workflow_dispatch`) with the CI identity. An
+  empty pull fails the run.
+- `library.ts` only reads the snapshot (30 min in memory). With no snapshot, the error says to
+  run the workflow.
+- `checked-out.ts` holds checked-out counts per `bgg_id` from the checked-out rows alone, with
+  a 60 s TTL. On failure it serves the last value (`ttl-value.ts`) marked `stale`.
 - Routes, all `isAdmin`-gated (401 signed out, 403 for non-admins):
   - `GET /api/bggcon/library`
   - `GET /api/bggcon/availability` (optional `?ids=`)
