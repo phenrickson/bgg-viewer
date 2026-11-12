@@ -4,7 +4,7 @@
  * now"). Pure SQL text, so it's testable; `catalog.svelte.ts` owns the tables and the state.
  *
  * Injection-safe by construction: the clauses are fixed strings, and the VALUES builders
- * coerce every value to an integer or boolean.
+ * coerce every value to an integer or boolean, or escape it as a SQL string literal.
  */
 export interface SetFilterState {
 	collection: boolean;
@@ -31,16 +31,23 @@ const int = (n: number) => (Number.isFinite(n) ? Math.trunc(n) : null);
 
 export interface LibraryRow {
 	bgg_id: number;
+	name: string;
 	copies: number;
 	play_to_win: boolean;
 }
 
-/** `(game_id, copies, play_to_win)` tuples for `INSERT INTO con_library VALUES …`. */
+/** A SQL string literal: single quotes doubled, so text can't end the string early. */
+const str = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
+
+/**
+ * `(game_id, tte_name, copies, play_to_win)` tuples for `INSERT INTO con_library VALUES …`.
+ * `tte_name` (not `name`) so a join with `catalog` never has two `name` columns.
+ */
 export function libraryValues(rows: LibraryRow[]): string {
 	return rows
-		.map((r) => [int(r.bgg_id), int(r.copies), r.play_to_win ? 'TRUE' : 'FALSE'] as const)
-		.filter(([id, copies]) => id != null && copies != null)
-		.map(([id, copies, ptw]) => `(${id}, ${copies}, ${ptw})`)
+		.map((r) => [int(r.bgg_id), r.name, int(r.copies), r.play_to_win ? 'TRUE' : 'FALSE'] as const)
+		.filter(([id, , copies]) => id != null && copies != null)
+		.map(([id, name, copies, ptw]) => `(${id}, ${str(name)}, ${copies}, ${ptw})`)
 		.join(', ');
 }
 

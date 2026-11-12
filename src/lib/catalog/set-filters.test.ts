@@ -48,13 +48,25 @@ describe('AVAILABLE_SQL', () => {
 
 describe('libraryValues / checkedOutValues', () => {
 	// These go straight into SQL, so every value must be coerced to an integer.
-	it('renders library rows as integer tuples', () => {
-		expect(libraryValues([{ bgg_id: 13, copies: 2, play_to_win: true }])).toBe('(13, 2, TRUE)');
+	it('renders library rows as tuples with the Tabletop.Events name', () => {
+		expect(libraryValues([{ bgg_id: 13, name: 'Catan', copies: 2, play_to_win: true }])).toBe(
+			"(13, 'Catan', 2, TRUE)"
+		);
+	});
+
+	// Real names contain quotes ("So Wrong It's Right"); they must not break out of the string.
+	it('escapes single quotes in names', () => {
+		expect(libraryValues([{ bgg_id: 1, name: "It's '); DROP TABLE x; --", copies: 1, play_to_win: false }])).toBe(
+			"(1, 'It''s ''); DROP TABLE x; --', 1, FALSE)"
+		);
 	});
 
 	it('drops rows whose numbers are not usable', () => {
-		const bad = [{ bgg_id: Number.NaN, copies: 1, play_to_win: false }, { bgg_id: 5, copies: 1, play_to_win: false }];
-		expect(libraryValues(bad)).toBe('(5, 1, FALSE)');
+		const bad = [
+			{ bgg_id: Number.NaN, name: 'x', copies: 1, play_to_win: false },
+			{ bgg_id: 5, name: 'y', copies: 1, play_to_win: false }
+		];
+		expect(libraryValues(bad)).toBe("(5, 'y', 1, FALSE)");
 	});
 
 	it('renders checked-out counts as integer pairs', () => {

@@ -211,7 +211,7 @@ export function appendCollectionFilter(where: string): string {
 /** Replace the BGG.CON library tables wholesale. The checked-out table starts empty. */
 export async function loadConLibrary(rows: LibraryRow[]): Promise<void> {
 	if (!conn) throw new Error('catalog is not ready');
-	await conn.query('CREATE OR REPLACE TABLE con_library (game_id INTEGER, copies INTEGER, play_to_win BOOLEAN)');
+	await conn.query('CREATE OR REPLACE TABLE con_library (game_id INTEGER, tte_name VARCHAR, copies INTEGER, play_to_win BOOLEAN)');
 	const values = libraryValues(rows);
 	if (values) await conn.query(`INSERT INTO con_library VALUES ${values}`);
 	await conn.query('CREATE TABLE IF NOT EXISTS con_checked_out (game_id INTEGER, n INTEGER)');
