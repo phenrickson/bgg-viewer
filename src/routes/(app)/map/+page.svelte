@@ -53,25 +53,20 @@
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import SegGroup from '$lib/catalog/rail/SegGroup.svelte';
   import { Container } from '$lib/components/ui/layout';
-  import * as Sheet from '$lib/components/ui/sheet';
+  import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
   import type { CanvasApi } from '$lib/map/surface';
 
   /**
-   * `matchMedia` rather than CSS: the rail has to be the SAME component instance whether it
+   * `MediaQuery` rather than CSS: the rail has to be the SAME component instance whether it
    * is inline or in the sheet — the same reason `/games` does it this way.
    */
   /** The layout's user, for the rail's "My collection only" filter. */
   let { data } = $props();
 
-  let narrow = $state(false);
-  $effect(() => {
-    const mq = window.matchMedia('(max-width: 60rem)');
-    const sync = () => (narrow = mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  });
+  const narrowQuery = new MediaQuery('max-width: 60rem');
+  const narrow = $derived(narrowQuery.current);
 
   let railOpen = $state(false);
 
@@ -120,10 +115,6 @@
     const out: number[] = [];
     for (let i = 0; i < mask.lit.length; i++) if (mask.lit[i]) out.push(coords.ids[i]);
     return out;
-  });
-  // Leaving narrow with the sheet open would strand a modal over a desktop layout.
-  $effect(() => {
-    if (!narrow) railOpen = false;
   });
 
   let mode = $state<'pan' | 'lasso'>('pan');
@@ -681,7 +672,7 @@
             <!-- The ONLY way into filters and encodings on narrow: the sidebar is not
                  rendered at that width, so losing this strands the page.
                  PLACEHOLDER COPY (Phil). -->
-            <Button size="sm" variant="outline" class="relative" onclick={() => (railOpen = true)}>
+            <Button size="sm" variant="outline" class="relative" aria-haspopup="dialog" aria-expanded={railOpen} onclick={() => (railOpen = true)}>
               Filters &amp; display
               {#if activeCount}
                 <span
@@ -784,28 +775,13 @@
   </div>
 </Container>
 
-<!-- Narrow: the rail becomes a bottom sheet you deliberately enter, the same call /games
-     made and for the same reason. Left short of full height so a sliver of the map stays
-     visible behind it. -->
-<Sheet.Root bind:open={railOpen}>
-  <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
-    <Sheet.Header class="border-b border-border">
-      <!-- PLACEHOLDER COPY (Phil) — see the trigger above. -->
-      <Sheet.Title>Filters &amp; display</Sheet.Title>
-    </Sheet.Header>
-    <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-        {#if where != null}
-          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-        {/if}
-        <MapRail seam={where != null} bind:view {components} timeline={timelineControls} />
-    </div>
-    <Sheet.Footer class="border-t border-border">
-      <Button size="lg" class="w-full" onclick={() => (railOpen = false)}>
-        Show the map
-      </Button>
-    </Sheet.Footer>
-  </Sheet.Content>
-</Sheet.Root>
+<!-- Narrow: the rail in a bottom sheet you deliberately enter (`RailSheet`, shared with /games and /lineage). -->
+<RailSheet bind:open={railOpen} {narrow} title="Filters & display" done="Show the map">
+  {#if where != null}
+    <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+  {/if}
+  <MapRail seam={where != null} bind:view {components} timeline={timelineControls} />
+</RailSheet>
 
 <style>
   /* Width and fill-height belong to <Container size="wide" fill> — see layout/tokens.ts.

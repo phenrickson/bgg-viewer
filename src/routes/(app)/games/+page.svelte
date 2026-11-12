@@ -38,7 +38,8 @@
   import AdminCollectionPicker from '$lib/catalog/AdminCollectionPicker.svelte';
   import { mapHref } from '$lib/map/route';
   import { Container } from '$lib/components/ui/layout';
-  import * as Sheet from '$lib/components/ui/sheet';
+  import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
   import type { PageData } from './$types';
 
@@ -103,30 +104,18 @@
    * facet groups, complexity. The strip stays exactly where desktop already puts it — behind
    * Visualize — rather than getting a second, narrower copy of itself.
    *
-   * `matchMedia` rather than CSS because Rail has to be the SAME component instance whether
+   * `MediaQuery` rather than CSS because Rail has to be the SAME component instance whether
    * it's inline (desktop) or in the sheet (narrow) — rendering it twice would double every
    * facet query against DuckDB. Same technique ShapeStrip already uses for its own switch.
    */
-  let narrow = $state(false);
-  $effect(() => {
-    const mq = window.matchMedia('(max-width: 40rem)');
-    const sync = () => (narrow = mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  });
+  const narrowQuery = new MediaQuery('max-width: 40rem');
+  const narrow = $derived(narrowQuery.current);
 
-  /** `Sheet.Root`'s own open state — bits-ui owns the focus trap, Escape and the inert
-      background; this file just needs to know whether it's open. */
+  /** Whether the filters sheet is open (`RailSheet`; it closes itself when the page widens). */
   let filtersOpen = $state(false);
 
   /** The count on the trigger — filters must stay legible while they're out of sight. */
   const activeCount = $derived(activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0));
-
-  // Leaving narrow with the sheet open would strand a modal over a desktop layout.
-  $effect(() => {
-    if (!narrow) filtersOpen = false;
-  });
 
   // Still needed for a direct load of /games; `ready` follows `catalog.status` on its own.
   onMount(() => {
@@ -238,50 +227,23 @@
         trigger with a live count of what's applied, and a row of games starting higher up.
       -->
       <div class="flex items-center gap-2 pb-3">
-        <Sheet.Root bind:open={filtersOpen}>
-          <Sheet.Trigger>
-            {#snippet child({ props })}
-              <Button {...props} variant="outline" size="sm" class="relative w-full">
-                Filters
-                {#if activeCount}
-                  <span
-                    class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
-                    >{activeCount}</span
-                  >
-                {/if}
-              </Button>
-            {/snippet}
-          </Sheet.Trigger>
-          <!-- Bottom, not the skill's default `side="right"`: a slide-over reads as a secondary
-               panel beside content (its documented use — record CRUD), where this needs to read
-               as its own screen you've deliberately entered to filter, the way Filters behaves
-               in most mobile apps. Left short of full height on purpose — 92dvh, not 100 — so a
-               sliver of the page stays visible behind it; a totally opaque takeover is what
-               made the first version feel like leaving the app rather than adjusting a query. -->
-          <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
-            <Sheet.Header class="border-b border-border">
-              <Sheet.Title>Filters</Sheet.Title>
-            </Sheet.Header>
-
-            <!-- Fill-height Pattern A from the layout skill: header at natural height, this
-                 region takes what's left and owns its own scroll. No shape strip here — see
-                 the narrow-mode comment above; it isn't a filter, Visualize already covers it. -->
-            <div class="sheet-scroll min-h-0 flex-1 overflow-y-auto p-4">
-              <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-              {#if data.isAdmin}<AdminCollectionPicker />{/if}
-            </div>
-
-            <!-- The live reward loop a desktop workspace gets for free: the count updates as
-                 you check a box, right on the button that gets you back to seeing it. Replaces
-                 the first version's plain "Done" — a label you had to go find beats nothing,
-                 but a number that moves is what makes filtering feel connected to results. -->
-            <Sheet.Footer class="border-t border-border">
-              <Button size="lg" class="w-full" onclick={() => (filtersOpen = false)}>
-                Show {total?.toLocaleString() ?? '…'} games
-              </Button>
-            </Sheet.Footer>
-          </Sheet.Content>
-        </Sheet.Root>
+        <Button variant="outline" size="sm" class="relative w-full" aria-haspopup="dialog" aria-expanded={filtersOpen} onclick={() => (filtersOpen = true)}>
+          Filters
+          {#if activeCount}
+            <span
+              class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+              >{activeCount}</span
+            >
+          {/if}
+        </Button>
+        <!-- The sheet is `RailSheet` (the look and its reasons are there). No shape strip in it:
+             see the narrow-mode comment above; it isn't a filter, Visualize already covers it.
+             The footer is the live reward loop a desktop workspace gets for free: the count
+             updates as you check a box, right on the button that gets you back to seeing it. -->
+        <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show {total?.toLocaleString() ?? '…'} games">
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+          {#if data.isAdmin}<AdminCollectionPicker />{/if}
+        </RailSheet>
       </div>
     {/if}
 
@@ -592,12 +554,4 @@
   /* One column, one scroll direction, results first. */
   .workspace.narrow { grid-template-columns: 1fr; }
 
-  /* Sheet.Content owns the scroll region now, not a hand-rolled `.sheetbody` — but Rail still
-     carries its own `.rail { overflow-y: auto }` for its desktop bounded-scroll use, and
-     nesting one scroll container inside another was exactly the "which way does a swipe go"
-     bug from the first version. Same fix, new host: the sheet's own scroll region wins. */
-  .sheet-scroll { display: flex; flex-direction: column; gap: var(--space-md); }
-  /* flex: none — the rail's `min-height: 0` let it shrink to the sheet's height, and with
-     overflow visible its facets spilled over the admin picker below it. */
-  .sheet-scroll :global(.rail) { overflow-y: visible; flex: none; }
 </style>

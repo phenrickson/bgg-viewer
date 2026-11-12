@@ -36,6 +36,8 @@
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
+  import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import '$lib/map/hud.css';
 
   // --- data ------------------------------------------------------------------------------
@@ -67,6 +69,15 @@
       loadError = e instanceof Error ? e.message : String(e);
     }
   });
+
+  /**
+   * Narrow (a phone): no sidebar, so the canvas gets the width, and the controls open in a
+   * `RailSheet` instead, as on /map at the same breakpoint. With a fixed 17rem sidebar beside
+   * it the canvas was left a sliver, too small to draw in.
+   */
+  const narrowQuery = new MediaQuery('max-width: 60rem');
+  const narrow = $derived(narrowQuery.current);
+  let controlsOpen = $state(false);
 
   // --- state (URL) -----------------------------------------------------------------------
   const s = $derived(currentState(page.state, page.url));
@@ -248,11 +259,14 @@
 {/snippet}
 
 <Container size="wide" fill>
-  <div class="workspace">
-    <!-- One panel, so no tabs: the controls are simply always there, in the map's open-sidebar card. -->
-    <aside class="side" aria-label="Controls">
-      <GenealogyRail {s} oncommit={(next) => commit(next)} />
-    </aside>
+  <div class="workspace" class:narrow>
+    <!-- One panel, so no tabs: the controls are simply always there, in the map's open-sidebar
+         card. On narrow they're in the sheet below instead. -->
+    {#if !narrow}
+      <aside class="side" aria-label="Controls">
+        <GenealogyRail {s} oncommit={(next) => commit(next)} />
+      </aside>
+    {/if}
 
     <div class="canvas">
       {#if loadError}
@@ -333,10 +347,18 @@
       <!-- Right: only the search now. The selected game's card is pinned beside its dot. -->
       <div class="map-hud-stack right">
         <div class="search"><GameSearch compact onpick={recentre} /></div>
+        {#if narrow}
+          <!-- The only way to the controls on narrow: the sidebar isn't rendered there. -->
+          <Button size="sm" variant="outline" aria-haspopup="dialog" aria-expanded={controlsOpen} onclick={() => (controlsOpen = true)}>Controls</Button>
+        {/if}
       </div>
     </div>
   </div>
 </Container>
+
+<RailSheet bind:open={controlsOpen} {narrow} title="Controls" done="Show the games">
+  <GenealogyRail {s} oncommit={(next) => commit(next)} />
+</RailSheet>
 
 <style>
   /* /map's workspace: the sidebar its own width, the canvas the rest. */
@@ -344,6 +366,12 @@
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-md);
     height: 100%; min-height: 0;
   }
+  .workspace.narrow { grid-template-columns: minmax(0, 1fr); }
+  /* On a phone the corners share the width: the left stack (the game, the count, its chips)
+     and the right (search, Controls) take half each; the key gets the full width to wrap in. */
+  .narrow .map-hud-stack.left:not(.bottom) { max-width: 48%; }
+  .narrow .map-hud-stack.left.bottom { max-width: calc(100% - 2 * var(--space-sm)); }
+  .narrow .search { min-width: 0; width: 100%; }
   /* The map's open sidebar card, minus the tab row it doesn't need. */
   .side {
     width: 17rem; min-height: 0; overflow-y: auto;
