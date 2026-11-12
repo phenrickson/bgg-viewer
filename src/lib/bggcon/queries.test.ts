@@ -61,3 +61,28 @@ describe('countsSql', () => {
 		for (const col of ['games', 'on_shelf', 'copies_out', 'not_in_catalog']) expect(sql).toContain(`AS ${col}`);
 	});
 });
+
+describe('listSql: availability groups and Best at', () => {
+	const a = { mode: 'all' as const, where: 'TRUE', availableOnly: false, offset: 0, limit: 10 };
+
+	it('selects the community Best at votes for each game', () => {
+		expect(listSql(a)).toContain('c.best_player_counts');
+		expect(listSql(a)).toContain('c.recommended_player_counts');
+	});
+
+	// Group by status: every copy out, some out, none out.
+	it('filters to games with every copy out', () => {
+		expect(listSql({ ...a, status: 'out' })).toContain('l.copies - COALESCE(o.n, 0) <= 0');
+	});
+	it('filters to games with some copies out', () => {
+		const sql = listSql({ ...a, status: 'partial' });
+		expect(sql).toContain('COALESCE(o.n, 0) > 0');
+		expect(sql).toContain('l.copies - COALESCE(o.n, 0) > 0');
+	});
+	it('filters to games with nothing out', () => {
+		expect(listSql({ ...a, status: 'available' })).toContain('COALESCE(o.n, 0) = 0');
+	});
+	it('counts within a status group too', () => {
+		expect(countSql({ ...a, status: 'out' })).toContain('l.copies - COALESCE(o.n, 0) <= 0');
+	});
+});

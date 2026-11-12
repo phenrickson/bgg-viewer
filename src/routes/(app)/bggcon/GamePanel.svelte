@@ -16,7 +16,7 @@
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import UsersIcon from '@lucide/svelte/icons/users';
   import ClockIcon from '@lucide/svelte/icons/clock';
-  import ShelfStatus from './ShelfStatus.svelte';
+  import Availability from './Availability.svelte';
   import StarButton from './StarButton.svelte';
 
   let { id, libraryIds, asOf }: { id: number; libraryIds: ReadonlySet<number>; asOf: string | null } = $props();
@@ -82,7 +82,7 @@
   <div class="col a">
     <span class="lbl">Availability</span>
     <span class="big"><b class="tnum">{Math.max(0, game.available)}</b> of <b class="tnum">{game.copies}</b>
-      {game.copies === 1 ? 'copy' : 'copies'} on the shelf</span>
+      {game.copies === 1 ? 'copy' : 'copies'} available</span>
     <span class="note">{#if asOfText}As of {asOfText}{/if}{#if game.play_to_win} · play-to-win{/if}</span>
 
     <span class="lbl">About</span>
@@ -114,7 +114,7 @@
           <SimilarRow href="/games/{g.game_id}" name={g.name} year={g.year_published} thumbnail={g.thumbnail}
             similarity={g.similarity} rating={g.average_rating}>
             {#snippet action()}
-              <ShelfStatus available={g.available} copies={g.copies} />
+              <Availability available={g.available} copies={g.copies} />
               <StarButton id={g.game_id} name={g.name} />
             {/snippet}
           </SimilarRow>

@@ -20,7 +20,17 @@ export interface ListArgs {
 	/** Name search, for `missing` (the catalog-backed modes search through `where`). */
 	q?: string;
 	availableOnly: boolean;
+	/** Group by status: every copy out, some out, or none out. */
+	status?: Status;
 }
+
+export type Status = 'out' | 'partial' | 'available';
+
+const STATUS_SQL: Record<Status, string> = {
+	out: 'l.copies - COALESCE(o.n, 0) <= 0',
+	partial: 'COALESCE(o.n, 0) > 0 AND l.copies - COALESCE(o.n, 0) > 0',
+	available: 'COALESCE(o.n, 0) = 0'
+};
 
 const AVAILABLE = 'l.copies - COALESCE(o.n, 0) > 0';
 const int = (n: number) => Math.max(0, Math.trunc(Number.isFinite(n) ? n : 0));
@@ -40,6 +50,7 @@ function fromWhere(a: ListArgs): string {
 		if (a.q?.trim()) parts.push(`l.tte_name ILIKE '%${likeText(a.q.trim())}%' ESCAPE '\'`);
 	}
 	if (a.availableOnly) parts.push(AVAILABLE);
+	if (a.status) parts.push(STATUS_SQL[a.status]);
 	return (
 		`FROM con_library l ${joinCatalog} LEFT JOIN con_checked_out o USING (game_id) ` +
 		`LEFT JOIN thumbnails t USING (game_id) WHERE ${parts.length ? parts.join(' AND ') : 'TRUE'}`
@@ -51,6 +62,7 @@ export function listSql(a: ListArgs & { offset: number; limit: number }): string
 	return (
 		`SELECT l.game_id, COALESCE(c.name, l.tte_name) AS name, c.year_published, c.average_rating,
 		        c.average_weight, c.min_players, c.max_players, c.min_playtime, c.max_playtime,
+		        c.best_player_counts, c.recommended_player_counts,
 		        t.thumbnail, l.copies, l.play_to_win, (l.copies - COALESCE(o.n, 0))::INT AS available,
 		        (c.name IS NOT NULL) AS in_catalog ` +
 		`${fromWhere(a)} ORDER BY (${AVAILABLE}) DESC, ${then}, l.game_id ` +
@@ -81,6 +93,8 @@ export interface LibraryListRow {
 	max_players: number | null;
 	min_playtime: number | null;
 	max_playtime: number | null;
+	best_player_counts: number[] | null;
+	recommended_player_counts: number[] | null;
 	thumbnail: string | null;
 	copies: number;
 	play_to_win: boolean;

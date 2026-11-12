@@ -19,13 +19,8 @@
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
   import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
-  import { countsSql, countSql, type Mode, type ListArgs } from '$lib/bggcon/queries';
+  import { countsSql, countSql, type Mode, type ListArgs, type Status } from '$lib/bggcon/queries';
   import LibraryRows from './LibraryRows.svelte';
-  import GameList from '$lib/catalog/views/GameList.svelte';
-  import { AVAILABLE_SQL } from '$lib/catalog/set-filters';
-  import GamePanel from './GamePanel.svelte';
-  import ShelfStatus from './ShelfStatus.svelte';
-  import StarButton from './StarButton.svelte';
 
   const REFRESH_MS = 60_000;
   const ready = $derived(catalog.status === 'ready');
@@ -35,6 +30,7 @@
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let mode = $state<Mode>('all');
+  let grouping = $state<'list' | 'status'>('list');
   let availableNow = $state(false);
   let libraryIds = $state.raw<ReadonlySet<number>>(new Set());
   let loadError = $state<string | null>(null);
@@ -108,31 +104,24 @@
 
   // A name search looks across the whole library, from any view, so a game can be found and starred.
   const searching = $derived(scope.q.trim() !== '');
-  const listMode = $derived<Mode>(mode === 'focus' && searching ? 'all' : mode);
-  const availableClause = $derived(availableNow ? ` AND game_id IN (${AVAILABLE_SQL})` : '');
-  /** Explore's own GameList, fed the library (or the focus list) through its `where`. */
-  const listWhere = $derived(
-    listMode === 'focus'
-      ? `game_id IN (${[...stars.ids].map((n) => Math.trunc(n)).join(', ') || 'NULL'})${availableClause}`
-      : `${scopeWhere} AND game_id IN (SELECT game_id FROM con_library)${availableClause}`
+  const args = $derived<ListArgs>(
+    mode === 'missing'
+      ? { mode: 'missing', q: scope.q, availableOnly: availableNow }
+      : mode === 'focus' && !searching
+        ? { mode: 'focus', ids: [...stars.ids], availableOnly: availableNow }
+        : { mode: 'all', where: scopeWhere, availableOnly: availableNow }
   );
-  const missingArgs = $derived<ListArgs>({ mode: 'missing', q: scope.q, availableOnly: availableNow });
 
-  /** Games with copies out, for the row tags: the exception, so a small map. */
-  let outById = $state.raw(new Map<number, { available: number; copies: number }>());
-  $effect(() => {
-    if (!catalog.libraryLoaded) return;
-    catalog.checkedOutVersion;
-    query<{ game_id: number; available: number; copies: number }>(
-      `SELECT l.game_id, (l.copies - o.n)::INT AS available, l.copies
-       FROM con_library l JOIN con_checked_out o USING (game_id) WHERE o.n > 0`
-    )
-      .then((r) => (outById = new Map(r.map((x) => [Number(x.game_id), x]))))
-      .catch((e) => console.error('out-tags query failed', e));
-  });
-
-  let openId = $state<number | null>(null);
-  const toggleOpen = (id: number) => (openId = openId === id ? null : id);
+  // PLACEHOLDER copy (Phil): the group names.
+  const GROUPS: { status: Status; title: string }[] = [
+    { status: 'out', title: 'All copies out' },
+    { status: 'partial', title: 'Partly out' },
+    { status: 'available', title: 'Available' }
+  ];
+  const GROUPING_OPTIONS = [
+    { value: 'list' as const, label: 'List' },
+    { value: 'status' as const, label: 'By status' }
+  ];
 
   // PLACEHOLDER copy (Phil): the view names and empty states.
   const MODE_OPTIONS: { value: Mode; label: string }[] = [
@@ -141,7 +130,7 @@
     { value: 'missing', label: 'Not in catalog' }
   ];
   const emptyText = $derived(
-    listMode === 'focus'
+    args.mode === 'focus'
       ? 'Your focus list is empty. Search, or switch to the whole library, and star games to watch them here.'
       : 'No library games match.'
   );
@@ -182,43 +171,32 @@
       {/if}
 
       <div class="canvas">
-        <!-- What you check at the con leads: copies out now, and your focus list. The library's
-             totals are context, so they're a quiet line under it. -->
-        <div class="chead">
-          {#if counts}
-            <p class="count"><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out right now</p>
-            <p class="count focus">
-              <b class="tnum">{focusOnShelf}</b> of {stars.count} in your focus list on the shelf
-            </p>
-          {/if}
-          <span class="asof">
-            {#if asOfText}As of {asOfText}{#if stale} · couldn’t refresh{/if}{/if}
-          </span>
-        </div>
+        <!-- The two numbers that matter at a glance, big; the rest is one quiet line. -->
         {#if counts}
-          <p class="totals">
-            {counts.games.toLocaleString()} games in the library, {counts.on_shelf.toLocaleString()} with a copy on the
-            shelf. {counts.not_in_catalog.toLocaleString()} aren’t in the catalog.
+          <div class="kpis">
+            <p class="kpi"><b class="tnum">{counts.games.toLocaleString()}</b><span>games in the library</span></p>
+            <p class="kpi"><b class="tnum">{counts.copies_out.toLocaleString()}</b><span>copies in use</span></p>
+          </div>
+          <p class="sub">
+            Your focus list: {focusOnShelf} of {stars.count} available · {counts.not_in_catalog.toLocaleString()} library
+            games aren’t in the catalog{#if asOfText} · as of {asOfText}{#if stale} (couldn’t refresh){/if}{/if}
           </p>
         {/if}
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
           <SegmentedControl label="Show" size="md" options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
+          <SegmentedControl label="Group" size="md" options={GROUPING_OPTIONS} value={grouping} onchange={(v) => (grouping = v)} />
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
 
-        {#if mode === 'missing'}
-          <LibraryRows args={missingArgs} {libraryIds} {asOf} empty="No library games match." />
+        {#if grouping === 'status'}
+          {#each GROUPS as g (g.status)}
+            <LibraryRows args={{ ...args, status: g.status }} title={g.title} header={false} {libraryIds} {asOf}
+              empty="None right now." />
+          {/each}
         {:else}
-          <GameList where={listWhere} cards={narrow} onopen={toggleOpen} {openId} empty={emptyText}>
-            {#snippet lead(g)}<StarButton id={g.game_id} name={g.name} />{/snippet}
-            {#snippet tag(g)}
-              {@const o = outById.get(g.game_id)}
-              {#if o}<ShelfStatus available={o.available} copies={o.copies} />{/if}
-            {/snippet}
-            {#snippet panel(g)}<GamePanel id={g.game_id} {libraryIds} {asOf} />{/snippet}
-          </GameList>
+          <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
         {/if}
       </div>
     </div>
@@ -271,35 +249,33 @@
     overflow-y: auto;
     container-type: inline-size;
   }
-  .chead {
+  .kpis {
     display: flex;
-    align-items: baseline;
-    gap: var(--space-sm) var(--space-lg);
     flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-xl);
+    align-items: baseline;
   }
-  .count {
+  .kpi {
     margin: 0;
-    font-size: 0.9rem;
-    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
   }
-  .count b {
-    font-size: 1.4rem;
+  .kpi b {
+    font-size: 2.2rem;
     font-weight: 750;
     letter-spacing: -0.02em;
-    margin-right: 0.15rem;
+    line-height: 1;
   }
-  .count.focus b { color: var(--primary); }
-  .tnum { font-variant-numeric: tabular-nums; }
-  .totals {
-    margin: -0.4rem 0 0;
+  .kpi span {
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+  }
+  .sub {
+    margin: 0;
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
-  .asof {
-    margin-left: auto;
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
-  }
+  .tnum { font-variant-numeric: tabular-nums; }
   .ctl {
     display: flex;
     align-items: center;

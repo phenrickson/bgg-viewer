@@ -35,41 +35,21 @@
      */
     stats,
     /** Marks the card being navigated to, so a tap is acknowledged on the thing tapped. */
-    opening = false,
-    /**
-     * Optional: a tap opens something in place (the BGG.CON dashboard's game panel) instead of
-     * following `href`. The card is then not a link, so it can hold buttons of its own; taps on
-     * those are left to them. `href` stays for keyboard users via the caller's own link.
-     */
-    onopen
+    opening = false
   }: {
     href: string;
     art: Snippet;
     identity: Snippet;
     stats: Snippet;
     opening?: boolean;
-    onopen?: () => void;
   } = $props();
-
-  const tap = (e: MouseEvent) => {
-    if (!(e.target as Element).closest('a, button')) onopen?.();
-  };
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<svelte:element
-  this={onopen ? 'div' : 'a'}
-  class="card"
-  class:opening
-  class:tappable={!!onopen}
-  href={onopen ? undefined : href}
-  onclick={onopen ? tap : undefined}
-  aria-busy={opening || undefined}
->
+<a class="card" class:opening {href} aria-busy={opening || undefined}>
   <span class="art">{@render art()}</span>
   <span class="body">{@render identity()}</span>
   <span class="stats">{@render stats()}</span>
-</svelte:element>
+</a>
 
 <style>
   /*
@@ -94,7 +74,6 @@
     contain-intrinsic-size: auto 5.5rem;
   }
   .card:last-child { border-bottom: none; }
-  .card.tappable { cursor: pointer; }
   .card:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
   .card:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .card.opening {
