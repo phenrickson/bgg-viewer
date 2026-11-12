@@ -36,7 +36,8 @@
   import GameSearch from '$lib/catalog/GameSearch.svelte';
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
-  import * as Sheet from '$lib/components/ui/sheet';
+  import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import '$lib/map/hud.css';
 
   // --- data ------------------------------------------------------------------------------
@@ -71,23 +72,12 @@
 
   /**
    * Narrow (a phone): no sidebar, so the canvas gets the width, and the controls open in a
-   * bottom sheet instead, as on /map at the same breakpoint. With a fixed 17rem sidebar beside
-   * it the canvas was left a sliver, too small to draw in. `matchMedia` rather than CSS, as
-   * /map does, so the rail is rendered in one place at a time.
+   * `RailSheet` instead, as on /map at the same breakpoint. With a fixed 17rem sidebar beside
+   * it the canvas was left a sliver, too small to draw in.
    */
-  let narrow = $state(false);
+  const narrowQuery = new MediaQuery('max-width: 60rem');
+  const narrow = $derived(narrowQuery.current);
   let controlsOpen = $state(false);
-  $effect(() => {
-    const mq = window.matchMedia('(max-width: 60rem)');
-    const sync = () => (narrow = mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  });
-  // Leaving narrow with the sheet open would strand a modal over the desktop layout.
-  $effect(() => {
-    if (!narrow) controlsOpen = false;
-  });
 
   // --- state (URL) -----------------------------------------------------------------------
   const s = $derived(currentState(page.state, page.url));
@@ -359,28 +349,16 @@
         <div class="search"><GameSearch compact onpick={recentre} /></div>
         {#if narrow}
           <!-- The only way to the controls on narrow: the sidebar isn't rendered there. -->
-          <Button size="sm" variant="outline" onclick={() => (controlsOpen = true)}>Controls</Button>
+          <Button size="sm" variant="outline" aria-haspopup="dialog" aria-expanded={controlsOpen} onclick={() => (controlsOpen = true)}>Controls</Button>
         {/if}
       </div>
     </div>
   </div>
 </Container>
 
-<!-- Narrow: the sidebar as a bottom sheet, as /map does; short of full height so a sliver of
-     the canvas stays in view behind it. -->
-<Sheet.Root bind:open={controlsOpen}>
-  <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
-    <Sheet.Header class="border-b border-border">
-      <Sheet.Title>Controls</Sheet.Title>
-    </Sheet.Header>
-    <div class="min-h-0 flex-1 overflow-y-auto p-4">
-      <GenealogyRail {s} oncommit={(next) => commit(next)} />
-    </div>
-    <Sheet.Footer class="border-t border-border">
-      <Button size="lg" class="w-full" onclick={() => (controlsOpen = false)}>Show the games</Button>
-    </Sheet.Footer>
-  </Sheet.Content>
-</Sheet.Root>
+<RailSheet bind:open={controlsOpen} {narrow} title="Controls" done="Show the games">
+  <GenealogyRail {s} oncommit={(next) => commit(next)} />
+</RailSheet>
 
 <style>
   /* /map's workspace: the sidebar its own width, the canvas the rest. */
