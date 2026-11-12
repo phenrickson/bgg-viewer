@@ -114,7 +114,12 @@
     min-width: 0;
   }
   .col.a { flex: 1 1 14rem; }
-  .col.b { flex: 2 1 22rem; }
+  /* Room for five similar games (SimilarRow: 2rem art + padding and border, 0.35rem apart)
+     from the first draw, so the panel doesn't grow when they arrive. */
+  .col.b {
+    flex: 2 1 22rem;
+    min-height: calc(5 * 3.05rem + 4 * 0.35rem + 1.5rem);
+  }
   .lbl {
     font-size: 0.72rem;
     text-transform: uppercase;

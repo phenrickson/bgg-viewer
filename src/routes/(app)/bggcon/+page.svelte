@@ -29,7 +29,6 @@
   import StarButton from './StarButton.svelte';
   import GamePanel from './GamePanel.svelte';
   import { fetchVectors } from '$lib/recommend/vectors';
-  import { loadLikes } from '$lib/bggcon/likes';
 
   const REFRESH_MS = 60_000;
   const ready = $derived(catalog.status === 'ready');
@@ -148,18 +147,8 @@
   // row, and a game opening in place under its row. "Not in catalog" keeps its own list (those
   // games have no catalog columns to show).
   let openId = $state<number | null>(null);
-  // Opens a game once its similar games are looked up (local, a few ms once the vectors are
-  // in), so the panel draws whole rather than growing. The last click wins.
-  let opening = 0;
-  async function toggleOpen(id: number) {
-    if (openId === id) {
-      openId = null;
-      return;
-    }
-    const mine = ++opening;
-    await loadLikes(id, libraryIds).catch(() => {}); // the panel shows its own error
-    if (mine === opening) openId = id;
-  }
+  // Opens at once; the panel keeps room for its similar games while they're looked up.
+  const toggleOpen = (id: number) => (openId = openId === id ? null : id);
   const AVAILABILITY: ExtraColumn[] = [
     { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: 'minmax(8rem, max-content)', cell: availCell }
   ];
