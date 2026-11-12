@@ -30,7 +30,8 @@
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let mode = $state<Mode>('all');
-  let availableNow = $state(false);
+  /** Any game, games with a copy available, or games with a copy checked out ("in use"). */
+  let availability = $state<'any' | 'available' | 'out'>('any');
   let libraryIds = $state.raw<ReadonlySet<number>>(new Set());
   let loadError = $state<string | null>(null);
   let asOf = $state<string | null>(null);
@@ -103,13 +104,23 @@
 
   // A name search looks across the whole library, from any view, so a game can be found and starred.
   const searching = $derived(scope.q.trim() !== '');
+  const shelf = $derived({ availableOnly: availability === 'available', inUseOnly: availability === 'out' });
   const args = $derived<ListArgs>(
     mode === 'missing'
-      ? { mode: 'missing', q: scope.q, availableOnly: availableNow }
+      ? { mode: 'missing', q: scope.q, ...shelf }
       : mode === 'focus' && !searching
-        ? { mode: 'focus', ids: [...stars.ids], availableOnly: availableNow }
-        : { mode: 'all', where: scopeWhere, availableOnly: availableNow }
+        ? { mode: 'focus', ids: [...stars.ids], ...shelf }
+        : { mode: 'all', where: scopeWhere, ...shelf }
   );
+
+  // The counts double as filters: each sets the same view or availability the controls below
+  // and the rail's switch set, and a second click turns it back off.
+  const toggleAvailability = (v: 'available' | 'out') => (availability = availability === v ? 'any' : v);
+  const toggleMode = (v: Mode) => (mode = mode === v ? 'all' : v);
+  const showEverything = () => {
+    mode = 'all';
+    availability = 'any';
+  };
 
   // PLACEHOLDER copy (Phil): the view names and empty states.
   const MODE_OPTIONS: { value: Mode; label: string }[] = [
@@ -146,7 +157,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
     {/if}
@@ -154,18 +165,18 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </div>
       {/if}
 
       <div class="canvas">
         <div class="chead">
           {#if counts}
-            <p class="count"><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></p>
-            <p class="count"><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</p>
-            <p class="count"><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</p>
-            <p class="count focus"><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></p>
-            <p class="count"><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</p>
+            <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
+            <button class="count" aria-pressed={availability === 'available'} onclick={() => toggleAvailability('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
+            <button class="count" aria-pressed={availability === 'out'} onclick={() => toggleAvailability('out')}><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</button>
+            <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
+            <button class="count" aria-pressed={mode === 'missing'} onclick={() => toggleMode('missing')}><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</button>
           {/if}
           <span class="asof">
             {#if asOfText}As of {asOfText}{#if stale} · couldn’t refresh{/if} · refreshes every minute{/if}
@@ -246,8 +257,22 @@
   }
   .count {
     margin: 0;
+    padding: 0 0 0.15rem;
+    font: inherit;
     font-size: 0.9rem;
     white-space: nowrap;
+    color: inherit;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .count:hover { border-bottom-color: var(--border); }
+  .count[aria-pressed='true'] { border-bottom-color: var(--primary); }
+  .count:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
   .count b {
     font-size: 1.4rem;

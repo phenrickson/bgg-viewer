@@ -35,6 +35,12 @@ describe('listSql', () => {
 		expect(sql).toContain('l.copies - COALESCE(o.n, 0) > 0');
 	});
 
+	it('in-use-only narrows to games with a copy checked out', () => {
+		const sql = listSql({ ...base, mode: 'all', where: 'TRUE', inUseOnly: true });
+		const where = sql.slice(sql.indexOf('WHERE'), sql.indexOf('ORDER BY'));
+		expect(where).toContain('TRUE AND COALESCE(o.n, 0) > 0');
+	});
+
 	it('lists games on the shelf first', () => {
 		expect(listSql({ ...base, mode: 'focus', ids: [1] })).toMatch(/ORDER BY \(l\.copies - COALESCE\(o\.n, 0\) > 0\) DESC/);
 	});
@@ -59,5 +65,13 @@ describe('countsSql', () => {
 	it('reports games, games on the shelf, copies out and games not in the catalog', () => {
 		const sql = countsSql();
 		for (const col of ['games', 'on_shelf', 'copies_out', 'not_in_catalog']) expect(sql).toContain(`AS ${col}`);
+	});
+});
+
+describe('listSql: rating', () => {
+	// The app's rating primitive (RatingBar) shows the geek rating.
+	it('selects the geek rating', () => {
+		const sql = listSql({ mode: 'all', where: 'TRUE', availableOnly: false, offset: 0, limit: 1 });
+		expect(sql.slice(0, sql.indexOf('FROM'))).toContain('c.geek_rating');
 	});
 });

@@ -20,9 +20,12 @@ export interface ListArgs {
 	/** Name search, for `missing` (the catalog-backed modes search through `where`). */
 	q?: string;
 	availableOnly: boolean;
+	/** Only games with at least one copy checked out. */
+	inUseOnly?: boolean;
 }
 
 const AVAILABLE = 'l.copies - COALESCE(o.n, 0) > 0';
+const IN_USE = 'COALESCE(o.n, 0) > 0';
 const int = (n: number) => Math.max(0, Math.trunc(Number.isFinite(n) ? n : 0));
 const likeText = (s: string) => s.replace(/'/g, "''").replace(/[%_\\]/g, (c) => `\\${c}`);
 
@@ -40,6 +43,7 @@ function fromWhere(a: ListArgs): string {
 		if (a.q?.trim()) parts.push(`l.tte_name ILIKE '%${likeText(a.q.trim())}%' ESCAPE '\'`);
 	}
 	if (a.availableOnly) parts.push(AVAILABLE);
+	if (a.inUseOnly) parts.push(IN_USE);
 	return (
 		`FROM con_library l ${joinCatalog} LEFT JOIN con_checked_out o USING (game_id) ` +
 		`LEFT JOIN thumbnails t USING (game_id) WHERE ${parts.length ? parts.join(' AND ') : 'TRUE'}`
@@ -49,7 +53,7 @@ function fromWhere(a: ListArgs): string {
 export function listSql(a: ListArgs & { offset: number; limit: number }): string {
 	const then = a.mode === 'all' ? 'c.geek_rating DESC NULLS LAST' : 'lower(COALESCE(c.name, l.tte_name))';
 	return (
-		`SELECT l.game_id, COALESCE(c.name, l.tte_name) AS name, c.year_published, c.average_rating,
+		`SELECT l.game_id, COALESCE(c.name, l.tte_name) AS name, c.year_published, c.average_rating, c.geek_rating,
 		        c.average_weight, c.min_players, c.max_players, c.min_playtime, c.max_playtime,
 		        t.thumbnail, l.copies, l.play_to_win, (l.copies - COALESCE(o.n, 0))::INT AS available,
 		        (c.name IS NOT NULL) AS in_catalog ` +
@@ -76,6 +80,7 @@ export interface LibraryListRow {
 	name: string;
 	year_published: number | null;
 	average_rating: number | null;
+	geek_rating: number | null;
 	average_weight: number | null;
 	min_players: number | null;
 	max_players: number | null;
