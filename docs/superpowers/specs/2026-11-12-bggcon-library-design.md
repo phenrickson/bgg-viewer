@@ -21,7 +21,7 @@ At BGG.CON, Phil wants to:
 2. **Watch availability** for games he's interested in: star them, then check one page that
    shows which are on the shelf and which are checked out.
 
-This is for Phil only to begin with (admin-gated, like the collection filter's Phase 1).
+Open to **any signed-in user** (Phil, 2026-11-12), each with their own focus list. Alerts (§8) stay Phil's only, on his private ntfy topic.
 
 ## The source: Tabletop.Events API (checked 2026-11-12)
 
@@ -82,7 +82,7 @@ Revised 2026-11-12 (Phil): the two are separate concerns and don't depend on eac
 - **The page combines them:** on the shelf = `copies − checked_out`. A game missing from the
   universe can still show "N checked out".
 
-Routes, all admin-only:
+Routes, open to any signed-in user (401 when signed out):
 
 - `GET /api/bggcon/library`: `{ builtAt, games: [{ bgg_id, name, copies, play_to_win }] }`.
   This is the scope.
@@ -175,7 +175,7 @@ itself.
 
 ### 6. Out of scope
 
-- Other attendees and public access.
+- Anonymous access (signed-in users only).
 - SMS. US carrier registration takes days to weeks, so alerts are phone push (§8).
 - Any change to the catalog artifact.
 

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
-import { requireAdmin, parseIds } from './gate';
-import { ADMIN_EMAIL } from '../auth/admin';
+import { requireUser, parseIds } from './gate';
 
 const user = (email: string) => ({ user_id: 'u1', email, display_name: null, bgg_username: null });
 
@@ -14,18 +13,14 @@ function statusOf(fn: () => unknown): number | null {
 	}
 }
 
-describe('requireAdmin', () => {
+describe('requireUser', () => {
 	it('401s when signed out', () => {
-		expect(statusOf(() => requireAdmin(null))).toBe(401);
+		expect(statusOf(() => requireUser(null))).toBe(401);
 	});
 
-	// Phase 1: just Phil. Other accounts get 403, not the data.
-	it('403s for a signed-in non-admin', () => {
-		expect(statusOf(() => requireAdmin(user('someone@example.com')))).toBe(403);
-	});
-
-	it('returns the admin user', () => {
-		expect(requireAdmin(user(ADMIN_EMAIL)).user_id).toBe('u1');
+	// Opened to every registered account (Phil, 2026-11-12), not just the admin.
+	it('lets any signed-in user through', () => {
+		expect(requireUser(user('someone@example.com')).user_id).toBe('u1');
 	});
 });
 

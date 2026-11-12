@@ -1,14 +1,12 @@
 /**
- * BGG.CON routes are admin-only (Phase 1: just Phil). Server endpoints don't inherit the
- * `(app)` layout guard, so every route calls this itself.
+ * BGG.CON routes are open to any signed-in user (Phil, 2026-11-12; each user has their own
+ * stars). Server endpoints don't inherit the `(app)` layout guard, so every route calls this.
  */
 import { error } from '@sveltejs/kit';
-import { isAdmin } from '../auth/admin';
 import type { SessionUser } from '../auth/session';
 
-export function requireAdmin(user: SessionUser | null | undefined): SessionUser {
+export function requireUser(user: SessionUser | null | undefined): SessionUser {
 	if (!user) throw error(401, 'Sign in required.');
-	if (!isAdmin(user)) throw error(403, 'Not available.');
 	return user;
 }
 

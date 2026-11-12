@@ -36,7 +36,7 @@ let thumbnailsReady = $state(false);
 let collectionUsername = $state<string | null>(null);
 
 /**
- * BGG.CON library (admin-only, temporary). `con_library` / `con_checked_out` exist in DuckDB
+ * BGG.CON library (signed-in users, temporary). `con_library` / `con_checked_out` exist in DuckDB
  * once `loadConLibrary` has run; the /bggcon dashboard queries them directly. Separately,
  * `libraryFilter` narrows Explore and the map to the library (and `availableOnly` to games
  * with a copy on the shelf), through the same `appendCollectionFilter` wrapper.

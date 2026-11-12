@@ -1,11 +1,11 @@
-/** The BGG.CON library as games (admin-only). Copy ids stay on the server. */
+/** The BGG.CON library as games (any signed-in user). Copy ids stay on the server. */
 import { json } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/bggcon/gate';
+import { requireUser } from '$lib/server/bggcon/gate';
 import { getLibrary } from '$lib/server/bggcon/library';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	requireAdmin(locals.user);
+	requireUser(locals.user);
 	const lib = await getLibrary();
 	return json({
 		builtAt: lib.builtAt,

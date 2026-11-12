@@ -146,7 +146,7 @@ availability needed copy ids from the snapshot.
   run the workflow.
 - `checked-out.ts` holds checked-out counts per `bgg_id` from the checked-out rows alone, with
   a 60 s TTL. On failure it serves the last value (`ttl-value.ts`) marked `stale`.
-- Routes, all `isAdmin`-gated (401 signed out, 403 for non-admins):
+- Routes, open to any signed-in user (401 signed out):
   - `GET /api/bggcon/library`
   - `GET /api/bggcon/availability` (optional `?ids=`)
   - `GET` and `PUT /api/bggcon/stars`
@@ -178,7 +178,7 @@ DuckDB, so the catalog integration now comes first.
 
 ### 3e. The `/bggcon` dashboard (spec §4, the mockup)
 
-- `src/routes/(app)/bggcon/`: admin-gated, built on Explore's shell, `Rail` (with search and
+- `src/routes/(app)/bggcon/`: for any signed-in user, built on Explore's shell, `Rail` (with search and
   collapsed groups), the `.chead` counts, `SegmentedControl` (Focus list | Whole library),
   `SimilarRow onopen` rows, the open-in-place panel, and the **Not in catalog** view (spec §4).
 - Whole-library paging and sorting in DuckDB, the way `GameList` does it.
@@ -191,10 +191,10 @@ DuckDB, so the catalog integration now comes first.
 
 ### 3f. The library in Explore and Recommend
 
-- `Rail.svelte`: an admin-only "BGG.CON library" switch next to "My Collection" (same markup),
+- `Rail.svelte`: a "BGG.CON library" switch next to "My Collection" (same markup),
   with a chip through `FilterChips`' extra-chip slot. In Explore and the map, a star appears on
   rows while it's on.
-- Recommend: a `'library'` pool, admin-only, using the existing `rankShelf`.
+- Recommend: a `'library'` pool, using the existing `rankShelf`.
 - **Tests:** a `rankShelf` test with a library-sized id set; the existing tests stay green.
 
 ### PR 3 wrap-up
@@ -272,7 +272,7 @@ A report page or artifact on top. To be designed once there's data.
 
 ## Out of scope
 
-- Other users and public access.
+- Anonymous access (signed-in users only).
 - SMS (phone push instead; spec §6).
 - Catalog artifact changes.
 - Moving the dev port.
