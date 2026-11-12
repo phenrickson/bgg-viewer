@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { parseVectors, DIMS } from './vectors';
+import { describe, it, expect, vi } from 'vitest';
+import { parseVectors, DIMS, fetchVectors, loadedVectors, _resetVectors } from './vectors';
+import * as artifactFetch from '../catalog/artifact-fetch';
 import { rowsToArrowIPC, type VectorRow, type ProfileRow } from '$lib/server/vectors/serialize';
 
 const PROFILES: ProfileRow[] = [
@@ -45,5 +46,24 @@ describe('parseVectors', () => {
 		expect(v.profiles.map((p) => p.name)).toEqual(['similar', 'recommender']);
 		expect(v.version).toBe(6);
 		expect(v.model).toBe('embeddings-v2026');
+	});
+});
+
+describe('loadedVectors', () => {
+	it('is null until the fetch resolves, the set after, and null again after a reset', async () => {
+		const bytes = rowsToArrowIPC([row(13, 7)], PROFILES);
+		const spy = vi.spyOn(artifactFetch, 'fetchArtifactBytes').mockResolvedValue(bytes);
+		_resetVectors();
+		expect(loadedVectors()).toBeNull();
+		const p = fetchVectors();
+		expect(loadedVectors()).toBeNull();
+		const got = await p;
+		expect(loadedVectors()).toBe(got);
+		// Memoised: a second call reuses the same fetch.
+		await fetchVectors();
+		expect(spy).toHaveBeenCalledTimes(1);
+		_resetVectors();
+		expect(loadedVectors()).toBeNull();
+		spy.mockRestore();
 	});
 });

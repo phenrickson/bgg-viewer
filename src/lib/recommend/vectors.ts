@@ -106,16 +106,37 @@ export function parseVectors(buf: Uint8Array): VectorSet {
 }
 
 let pending: Promise<VectorSet> | null = null;
+/** The resolved set, once it's in — so a page mounting later can have it on its first pass. */
+let loaded: VectorSet | null = null;
 
 /** Fetch and parse once per session; a failure clears the memo so the next call retries. */
 export function fetchVectors(): Promise<VectorSet> {
-	return (pending ??= (async () => parseVectors(await fetchArtifactBytes('/api/vectors')))().catch((e) => {
-		pending = null;
-		throw e;
-	}));
+	if (pending) return pending;
+	const p: Promise<VectorSet> = (async () => parseVectors(await fetchArtifactBytes('/api/vectors')))().then(
+		(v) => {
+			// A reset while this was in flight drops it.
+			if (pending === p) loaded = v;
+			return v;
+		},
+		(e) => {
+			if (pending === p) pending = null;
+			throw e;
+		}
+	);
+	return (pending = p);
+}
+
+/**
+ * The vectors if they've already loaded this session, else null — synchronously. A promise's
+ * `.then` always lands a microtask later, so a remounting page that only had `fetchVectors()`
+ * would answer its first pass without them (Recommend fell back to the warehouse that way).
+ */
+export function loadedVectors(): VectorSet | null {
+	return loaded;
 }
 
 /** Test seam / sign-out: drop the memo so the next call refetches. */
 export function _resetVectors(): void {
 	pending = null;
+	loaded = null;
 }
