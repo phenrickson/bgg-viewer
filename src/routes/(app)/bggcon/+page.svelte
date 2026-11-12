@@ -19,8 +19,15 @@
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
   import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
-  import { countsSql, countSql, type Mode, type ListArgs } from '$lib/bggcon/queries';
+  import {
+    countsSql, countSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT, AVAILABLE_SORT,
+    type Mode, type ListArgs, type LibraryListRow
+  } from '$lib/bggcon/queries';
+  import GameList, { type ExtraColumn, type GameListRow } from '$lib/catalog/views/GameList.svelte';
   import LibraryRows from './LibraryRows.svelte';
+  import ShelfStatus from './ShelfStatus.svelte';
+  import StarButton from './StarButton.svelte';
+  import GamePanel from './GamePanel.svelte';
 
   const REFRESH_MS = 60_000;
   const ready = $derived(catalog.status === 'ready');
@@ -133,10 +140,26 @@
       ? 'Your focus list is empty. Search, or switch to the whole library, and star games to watch them here.'
       : 'No library games match.'
   );
+  // Explore's table over the library: geek rating, complexity and availability, a star on each
+  // row, and a game opening in place under its row. "Not in catalog" keeps its own list (those
+  // games have no catalog columns to show).
+  let openId = $state<number | null>(null);
+  const AVAILABILITY: ExtraColumn[] = [
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, hint: 'copies available now', width: 'minmax(8rem, max-content)', cell: availCell }
+  ];
+
   const asOfText = $derived(
     asOf ? new Date(asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null
   );
 </script>
+
+{#snippet availCell(r: GameListRow)}
+  <ShelfStatus available={Number(r.available)} copies={Number(r.copies)} />
+{/snippet}
+{#snippet star(r: GameListRow)}<StarButton id={r.game_id} name={r.name} />{/snippet}
+{#snippet panel(r: GameListRow)}
+  <GamePanel game={r as unknown as LibraryListRow} {libraryIds} {asOf} />
+{/snippet}
 
 <svelte:head><title>BGG.CON Library · Boardgame-Viz</title></svelte:head>
 
@@ -189,7 +212,22 @@
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
 
-        <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
+        {#if args.mode === 'missing'}
+          <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
+        {:else}
+          <GameList
+            where={tableWhere(args)}
+            cards={narrow}
+            join={LIBRARY_JOIN}
+            select={LIBRARY_SELECT}
+            columns={['name', 'geek', 'weight']}
+            extra={AVAILABILITY}
+            lead={star}
+            onopen={(id) => (openId = openId === id ? null : id)}
+            {openId}
+            detail={panel}
+          />
+        {/if}
       </div>
     </div>
   </Container>

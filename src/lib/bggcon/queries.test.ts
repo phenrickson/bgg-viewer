@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listSql, countSql, countsSql } from './queries';
+import { listSql, countSql, countsSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT } from './queries';
 
 const base = { availableOnly: false, offset: 0, limit: 50 };
 
@@ -73,5 +73,28 @@ describe('listSql: rating', () => {
 	it('selects the geek rating', () => {
 		const sql = listSql({ mode: 'all', where: 'TRUE', availableOnly: false, offset: 0, limit: 1 });
 		expect(sql.slice(0, sql.indexOf('FROM'))).toContain('c.geek_rating');
+	});
+});
+
+describe('tableWhere (the library through GameList)', () => {
+	it('whole library: the scope, limited to library games', () => {
+		const w = tableWhere({ mode: 'all', where: 'users_rated >= 30', availableOnly: false });
+		expect(w).toBe('users_rated >= 30');
+	});
+
+	it('focus: the starred ids; none matches nothing', () => {
+		expect(tableWhere({ mode: 'focus', ids: [13, 7865], availableOnly: false })).toBe('l.game_id IN (13, 7865)');
+		expect(tableWhere({ mode: 'focus', ids: [], availableOnly: false })).toBe('FALSE');
+	});
+
+	it('adds the availability filters', () => {
+		expect(tableWhere({ mode: 'all', where: 'TRUE', availableOnly: true })).toBe('TRUE AND l.copies - COALESCE(o.n, 0) > 0');
+		expect(tableWhere({ mode: 'all', where: 'TRUE', availableOnly: false, inUseOnly: true })).toBe('TRUE AND COALESCE(o.n, 0) > 0');
+	});
+
+	it('the join it relies on brings in the library and what is checked out', () => {
+		expect(LIBRARY_JOIN).toContain('JOIN con_library l USING (game_id)');
+		expect(LIBRARY_JOIN).toContain('LEFT JOIN con_checked_out o USING (game_id)');
+		expect(LIBRARY_SELECT).toContain('AS available');
 	});
 });

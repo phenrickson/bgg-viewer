@@ -92,3 +92,29 @@ export interface LibraryListRow {
 	available: number;
 	in_catalog: boolean;
 }
+
+/**
+ * The library as Explore's table (`GameList`) reads it: catalog games joined to the library and
+ * to what's checked out. `GameList` queries `catalog c`, so these add the library's columns and
+ * the `where` for a view. Games the catalog lacks aren't in it; the "Not in catalog" view keeps
+ * its own list.
+ */
+export const LIBRARY_JOIN = 'JOIN con_library l USING (game_id) LEFT JOIN con_checked_out o USING (game_id)';
+export const LIBRARY_SELECT =
+	'c.min_playtime, c.max_playtime, l.copies, l.play_to_win, ' +
+	'(l.copies - COALESCE(o.n, 0))::INT AS available, TRUE AS in_catalog';
+/** Sorts the Availability column by copies available. */
+export const AVAILABLE_SORT = '(l.copies - COALESCE(o.n, 0))';
+
+export function tableWhere(a: ListArgs): string {
+	const parts: string[] = [];
+	if (a.mode === 'focus') {
+		const ids = (a.ids ?? []).filter(Number.isFinite).map((n) => Math.trunc(n));
+		parts.push(ids.length ? `l.game_id IN (${ids.join(', ')})` : 'FALSE');
+	} else {
+		parts.push(a.where || 'TRUE');
+	}
+	if (a.availableOnly) parts.push(AVAILABLE);
+	if (a.inUseOnly) parts.push(IN_USE);
+	return parts.join(' AND ');
+}
