@@ -5,12 +5,13 @@
    * Real screenshots of the app's rooms and tools, taken from the running app. Not a chart
    * from content.json, not an illustration: the product's own pixels. A logged-out visitor
    * sees the chips above and can read what they could ask; this is what an answer looks like.
-   * The frame is a door into the room it shows, via /login?next=.
+   * Each frame is a door into the room it shows, via /login?next=.
    *
-   * One frame that crossfades through them (Phil, 2026-11-11), rather than six screenshots
-   * stacked down the page: a row of their names says what's here and jumps to one. It pauses
-   * while the pointer or focus is on it, and never moves on by itself for anyone who asks for
-   * less motion.
+   * Three frames down the page, each fading between two screens that answer the same kind of
+   * question (Phil, 2026-11-11): the whole catalog (Explore, the Map), finding games to play
+   * (Discover, Recommend), one game (its page, its Lineage). The frames take turns, a third of
+   * a cycle apart, so the page never changes everywhere at once. A frame holds still while the
+   * pointer or focus is on it, and none moves on by itself for anyone who asks for less motion.
    *
    * Light and dark captures, swapped on mode-watcher's `.dark` class, so the frame matches
    * the page around it rather than glowing white in a dark theme. The files live in
@@ -19,126 +20,130 @@
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
-  import { SegmentedControl } from '$lib/components/ui/segmented-control';
 
   let { gate }: { gate: (url: string) => string } = $props();
 
+  type Shot = { key: string; title: string; blurb: string; href: string; alt: string };
+
   // PLACEHOLDER copy
-  const shots = [
-    {
-      key: 'explore',
-      title: 'Explore',
-      blurb: 'Filter the whole catalog down to a set, see its shape, sort it, drill in.',
-      href: '/games?wmin=3.5&ymin=2015',
-      alt: 'Explore: 826 heavyweight games since 2015, with distribution charts for rating, complexity, year and player count above a sortable table.'
-    },
-    {
-      key: 'discover',
-      title: 'Discover',
-      blurb: 'Answer a few questions, get a shortlist.',
-      href: '/discover?best=4&mechs=Cooperative+Game',
-      alt: 'Discover: cooperative games best at 4 players, narrowed to 481 matches with a ranked list.'
-    },
-    {
-      key: 'game',
-      title: 'Every game, in depth',
-      blurb: 'Ratings, player counts as the community voted, and the games most like it.',
-      href: '/games/224517',
-      alt: 'The game page for Brass: Birmingham, with ratings, categories, mechanics and a Similar Games panel.'
-    },
-    {
-      key: 'map',
-      title: 'Map',
-      blurb: 'Every game on one map, placed by what it is like.',
-      href: '/map?p=umap&c=category&s=uniform',
-      alt: 'The map: tens of thousands of board games as dots, grouped by similarity and coloured by category.'
-    },
-    {
-      key: 'recommend',
-      title: 'Recommend',
-      blurb: 'Pick a game you like, get games like it.',
-      href: '/recommend?id=224517',
-      alt: 'Recommend: games like Brass: Birmingham, as a row of box-art tiles under the chosen game.'
-    },
-    {
-      key: 'lineage',
-      title: 'Lineage',
-      blurb: 'Where a game came from, and what sits beside it.',
-      href: '/lineage?game=224517',
-      alt: 'Lineage: Brass: Birmingham in the middle, with similar earlier games above it and later ones below, linked by similarity.'
-    }
+  const frames: Shot[][] = [
+    [
+      {
+        key: 'explore',
+        title: 'Explore',
+        blurb: 'Filter the whole catalog down to a set, see its shape, sort it, drill in.',
+        href: '/games?wmin=3.5&ymin=2015',
+        alt: 'Explore: 826 heavyweight games since 2015, with distribution charts for rating, complexity, year and player count above a sortable table.'
+      },
+      {
+        key: 'map',
+        title: 'Map',
+        blurb: 'Every game on one map, placed by what it is like.',
+        href: '/map?p=umap&c=category&s=uniform',
+        alt: 'The map: tens of thousands of board games as dots, grouped by similarity and coloured by category.'
+      }
+    ],
+    [
+      {
+        key: 'discover',
+        title: 'Discover',
+        blurb: 'Answer a few questions, get a shortlist.',
+        href: '/discover?best=4&mechs=Cooperative+Game',
+        alt: 'Discover: cooperative games best at 4 players, narrowed to 481 matches with a ranked list.'
+      },
+      {
+        key: 'recommend',
+        title: 'Recommend',
+        blurb: 'Pick a game you like, get games like it.',
+        href: '/recommend?id=224517',
+        alt: 'Recommend: games like Brass: Birmingham, as a row of box-art tiles under the chosen game.'
+      }
+    ],
+    [
+      {
+        key: 'game',
+        title: 'Every game, in depth',
+        blurb: 'Ratings and ranks, player counts as the community voted, and the games most like it.',
+        href: '/games/224517',
+        alt: 'The game page for Brass: Birmingham: its ratings and ranks, categories, mechanics and a Similar Games panel.'
+      },
+      {
+        key: 'lineage',
+        title: 'Lineage',
+        blurb: 'Where a game came from, and what sits beside it.',
+        href: '/lineage?game=224517',
+        alt: 'Lineage: Brass: Birmingham in the middle, with similar earlier games above it and later ones below, linked by similarity.'
+      }
+    ]
   ];
 
-  /** Long enough to read a caption and take in a screenshot; the fade is the last ~0.6 s. */
-  const DWELL = 6000;
-  let at = $state(0);
-  let paused = $state(false);
+  /** Between one frame changing and the next: each frame changes every three of these. */
+  const BEAT = 2500;
+  /** Which screen each frame shows, and which frames are being held still. */
+  let at = $state(frames.map(() => 0));
+  let held = $state(frames.map(() => false));
   let reduced = $state(false);
-  const shot = $derived(shots[at]);
 
   onMount(() => {
     reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  });
-  // Moves on only while nothing's holding it; a pick restarts the wait.
-  $effect(() => {
-    void at;
-    if (paused || reduced) return;
-    const t = setTimeout(() => (at = (at + 1) % shots.length), DWELL);
-    return () => clearTimeout(t);
+    if (reduced) return;
+    let turn = 0;
+    const t = setInterval(() => {
+      const f = turn++ % frames.length;
+      if (!held[f]) at[f] = (at[f] + 1) % frames[f].length;
+    }, BEAT);
+    return () => clearInterval(t);
   });
 </script>
 
-<section
-  class="show"
-  aria-label="What you'll see"
-  aria-roledescription="carousel"
-  onpointerenter={() => (paused = true)}
-  onpointerleave={() => (paused = false)}
-  onfocusin={() => (paused = true)}
-  onfocusout={() => (paused = false)}
->
-  <SegmentedControl
-    class="picks"
-    size="md"
-    label="Screenshots"
-    options={shots.map((s, i) => ({ value: i, label: s.title }))}
-    value={at}
-    onchange={(i) => (at = i)}
-  />
-
-  <a class="frame" href={gate(shot.href)}>
-    <div class="cap" aria-live="polite">
-      <span class="t">{shot.title} <span class="arw">→</span></span>
-      <span class="b">{shot.blurb}</span>
-    </div>
-    <!-- Every screenshot in one grid cell, so the frame keeps one height and they crossfade in
-         place. Only the one showing is announced. -->
-    <div class="stage">
-      {#each shots as s, i (s.key)}
-        <div class="slide" class:on={i === at} aria-hidden={i !== at}>
-          <img class="light" src="/landing/{s.key}-light.webp" alt={i === at ? s.alt : ''} loading={i === 0 ? 'eager' : 'lazy'} width="1440" height="896" />
-          <img class="dark" src="/landing/{s.key}-dark.webp" alt="" aria-hidden="true" loading={i === 0 ? 'eager' : 'lazy'} width="1440" height="896" />
-        </div>
-      {/each}
-    </div>
-  </a>
+<section class="show" aria-label="What you'll see">
+  {#each frames as shots, f (f)}
+    {@const shot = shots[at[f]]}
+    <a
+      class="frame"
+      href={gate(shot.href)}
+      onpointerenter={() => (held[f] = true)}
+      onpointerleave={() => (held[f] = false)}
+      onfocus={() => (held[f] = true)}
+      onblur={() => (held[f] = false)}
+    >
+      <!-- Both captions in one grid cell, so the caption keeps its height as it changes. -->
+      <div class="cap">
+        {#each shots as s, i (s.key)}
+          <div class="line" class:on={i === at[f]} aria-hidden={i !== at[f]}>
+            <span class="t">{s.title} <span class="arw">→</span></span>
+            <span class="b">{s.blurb}</span>
+          </div>
+        {/each}
+      </div>
+      <div class="stage">
+        {#each shots as s, i (s.key)}
+          <div class="slide" class:on={i === at[f]} aria-hidden={i !== at[f]}>
+            <img class="light" src="/landing/{s.key}-light.webp" alt={i === at[f] ? s.alt : ''} loading="lazy" width="1440" height="896" />
+            <img class="dark" src="/landing/{s.key}-dark.webp" alt="" aria-hidden="true" loading="lazy" width="1440" height="896" />
+          </div>
+        {/each}
+      </div>
+    </a>
+  {/each}
 </section>
 
 <style>
-  .show { display: flex; flex-direction: column; gap: 1rem; }
-  /* Six names don't fit one line at phone width: let the track wrap rather than scroll. */
-  .show :global(.picks) { flex-wrap: wrap; align-self: flex-start; }
+  .show { display: flex; flex-direction: column; gap: clamp(2rem, 4vw, 3.5rem); }
 
   .frame { display: flex; flex-direction: column; gap: .7rem; text-decoration: none; color: inherit; }
-  .cap { display: flex; flex-direction: column; gap: .15rem; }
+  .cap { display: grid; }
+  .line { grid-area: 1 / 1; display: flex; flex-direction: column; gap: .15rem; }
   .t { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
   .arw { opacity: .7; }
   .b { font-size: .92rem; color: var(--muted-foreground); }
 
+  /* A screen and its caption fade together. */
   .stage { display: grid; }
-  .slide { grid-area: 1 / 1; opacity: 0; transition: opacity 600ms ease; }
-  .slide.on { opacity: 1; }
-  @media (prefers-reduced-motion: reduce) { .slide { transition: none; } }
+  .slide { grid-area: 1 / 1; }
+  .line, .slide { opacity: 0; transition: opacity 600ms ease; }
+  .line.on, .slide.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .line, .slide { transition: none; } }
 
   img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
     box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent), 0 8px 24px -12px color-mix(in oklch, var(--foreground) 25%, transparent); }
