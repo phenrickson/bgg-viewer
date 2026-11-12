@@ -51,8 +51,11 @@
     where,
     /** The signed-in account's own BGG username, if linked — enables the "My collection only"
         checkbox below. `null`/absent for admins with no linked account and anonymous users. */
-    bggUsername = null
-  }: { scope: Scope; where: string; bggUsername?: string | null } = $props();
+    bggUsername = null,
+    /** BGG.CON library pages only: binding this shows an "Available now" switch (games with a
+        copy on the shelf). Left unbound, as Explore does, the switch isn't there. */
+    availableNow = $bindable(undefined)
+  }: { scope: Scope; where: string; bggUsername?: string | null; availableNow?: boolean } = $props();
 
   /**
    * Self-serve collection filter, grouped visually with Universe rather than living at the
@@ -239,6 +242,20 @@
             : 'Filter to just the games in your BGG collection.'}
         </p>
         {#if collectionStatus === 'error'}<p class="note err">{collectionError}</p>{/if}
+      {/if}
+      {#if availableNow !== undefined}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={availableNow}
+          class="toggle"
+          onclick={() => (availableNow = !availableNow)}
+        >
+          <span class="track" class:on={availableNow}><span class="knob"></span></span>
+          <span class="switch-label">Available now</span>
+        </button>
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <p class="note">Only games with a copy on the shelf.</p>
       {/if}
     </div>
 
