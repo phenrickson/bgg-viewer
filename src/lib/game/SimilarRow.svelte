@@ -21,7 +21,7 @@
     name,
     year = null,
     thumbnail = null,
-    similarity,
+    similarity = null,
     rating = null,
     children,
     action,
@@ -33,7 +33,8 @@
     name: string;
     year?: number | null;
     thumbnail?: string | null;
-    similarity: number;
+    /** Left out where there's no seed to be similar to (the BGG.CON library list). */
+    similarity?: number | null;
     rating?: number | null;
     children?: Snippet;
     action?: Snippet;
