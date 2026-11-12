@@ -217,7 +217,7 @@
         </div>
 
         <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
-        {#if data.user}<a href="/bggcon" class:active={onBggcon}>BGG.CON<NavBadge /></a>{/if}
+        {#if data.user}<a href="/bggcon" class="con" class:active={onBggcon}>BGG.CON<NavBadge /></a>{/if}
 
         <!-- Last, and stays last. Games is the catalog and Tools acts on it; About is the one
              item that explains them rather than being one. The modelling room and Collection
@@ -366,6 +366,10 @@
   .mainnav .trigger:hover { color: var(--foreground); }
   .mainnav a.active,
   .mainnav .trigger.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+
+  /* TEMPORARY (BGG.CON 2026): label and badge on one line; wrapped, the badge made the link
+     two lines tall and pushed the rest of the nav to wrap. */
+  .mainnav a.con { display: inline-flex; align-items: center; white-space: nowrap; }
 
   /* Only what differs from a plain nav link — everything shared lives in the rule above. */
   .menu { position: relative; display: flex; }

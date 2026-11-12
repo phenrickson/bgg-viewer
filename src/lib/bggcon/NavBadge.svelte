@@ -22,12 +22,14 @@
 {/if}
 
 <style>
+  /* Compact: it rides on a nav link and mustn't make that link taller or much wider. */
   :global(.nav-badge) {
-    margin-left: 0.35rem;
-    font-size: 0.65rem;
-    padding: 0 0.4rem;
-    gap: 0.3rem;
-    vertical-align: middle;
+    margin-left: 0.3rem;
+    height: 1rem;
+    font-size: 0.6rem;
+    line-height: 1;
+    padding: 0 0.35rem;
+    gap: 0.25rem;
   }
   .dot {
     width: 0.4rem;
