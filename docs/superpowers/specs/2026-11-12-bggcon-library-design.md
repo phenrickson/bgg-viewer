@@ -239,7 +239,9 @@ site. Removing it is one PR: delete those folders and the call sites. The GCS ob
    stars first and treat the Explore scope as second priority.
 4. **How large is the checked-out set at peak?** We'll only know at the con. It's the
    setting for the TTL.
-5. **The library's opening hours,** for the recorder's schedule. Until they're known, it runs
-   around the clock.
+5. ~~The library's opening hours~~ **Settled:** the con runs continuously from Wed 18 Nov 9:00 AM
+   to Sun 22 Nov 3:00 PM Central (America/Chicago), about 102 h. The recorder's window is a
+   config start/end (from the test day, Tue 17 Nov, to Sun 3:00 PM). Scheduler fires every
+   minute, and outside the window the job exits at once with no Tabletop.Events request.
 6. **Where the recorder keeps its state file and how it reads stars:** read access to the
    viewer bucket's `bggcon/` for the warehouse job's service account.
