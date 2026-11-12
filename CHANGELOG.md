@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.34](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.33...bgg-viewer-v0.0.34) (2026-11-12)
+
+
+### Bug Fixes
+
+* **recommend:** rank locally when coming back to the page ([#101](https://github.com/phenrickson/bgg-viewer/issues/101)) ([58a03f8](https://github.com/phenrickson/bgg-viewer/commit/58a03f83df83bd4ae8544e5a6deaa98f26f9467a))
+
 ## [0.0.33](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.32...bgg-viewer-v0.0.33) (2026-11-12)
 
 
