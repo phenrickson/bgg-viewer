@@ -99,7 +99,7 @@ Library games that aren't in the catalog's working set don't appear in Explore. 
 ### 4. The `/bggcon` page (standalone, phone-first)
 
 - One list of starred games, available ones first, then checked-out ones. Each row shows:
-  - thumbnail and name (reuse `GameRow`);
+  - art and name;
   - "N of M copies";
   - a play-to-win badge.
 - A search box over the library to add stars.
@@ -107,8 +107,24 @@ Library games that aren't in the catalog's working set don't appear in Explore. 
   is visible** (`visibilitychange`) and once on refocus.
 - It can be added to the home screen. It should work as a page of its own, with no need to
   go through Explore.
-- Built from existing components (`GameRow`, `Button`, `SegGroup`), with no new styles.
 - Copy is Phil's. Placeholders are marked once in the source.
+
+**Components (checked against the repo on 2026-11-12). Compose these; no new styles.**
+
+| Need | Existing component |
+|---|---|
+| A starred game's card | `$lib/catalog/GameCard.svelte`, the shared shell with `art`, `identity` and stat snippets. Availability ("N of M") goes in a stat cell. |
+| A row in a wide layout | `$lib/discover/GameRow.svelte`, if its `DiscoverGame` shape fits a catalog game. Otherwise use GameCard alone; don't fork the row. |
+| Play-to-win marker | `$lib/components/ui/badge` |
+| Star toggle, refresh | `$lib/components/ui/button`. The star is a Button variant, not a new control. |
+| Available / All switch | `$lib/components/ui/segmented-control` |
+| Page layout | `Stack` / `AutoGrid` from `$lib/components/ui/layout` |
+| Explore's scope chip | the existing `FilterChips.svelte` / rail patterns, the way the collection filter shows up |
+
+The generic `frontend-patterns` skill's TanStack `DataTable`, `Card.Kpi` and LayerChart
+patterns don't apply. This repo has none of them, and this page doesn't need any.
+Colors follow `style-rules`: available and checked-out use the semantic status tokens and
+never color alone, so the "N of M" text carries the state too.
 
 ### 5. Politeness budget
 
