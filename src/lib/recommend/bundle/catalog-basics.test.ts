@@ -31,6 +31,8 @@ function stubVectors(profiles: string[], rows = 2, dims = 64): VectorSet {
 		index: new Map(),
 		profiles: profiles.map((name) => ({ name }) as VectorSet['profiles'][number]),
 		version: 6,
+		deployed: 6,
+		rowVersion: null,
 		model: 'embeddings-v2026'
 	};
 }

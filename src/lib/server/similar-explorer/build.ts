@@ -129,7 +129,9 @@ function querySql(): string {
       IFNULL(f.family_ids, []) AS family_ids,
       IFNULL(f.family_labels, []) AS family_labels,
       IFNULL(r.related_ids, []) AS related_ids,
-      pl.product_line_id
+      pl.product_line_id,
+      s.embedding_version,
+      s.embedding_model
     FROM \`${PROJECT}.analytics.game_similarity_search\` s
     LEFT JOIN fam f ON f.game_id = s.game_id
     LEFT JOIN rel r ON r.game_id = s.game_id

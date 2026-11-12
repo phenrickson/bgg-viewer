@@ -21,9 +21,12 @@ export interface NetworkData {
 	/**
 	 * Memo of `topK` results, keyed by node. Each list is a full scan of the set (~2ms per
 	 * node), and re-centring on a neighbour re-asks for most of the lists just computed, so
-	 * the caller keeps one cache per (k, eligibility) and hands it in. Optional.
+	 * the caller keeps one cache per eligibility and hands it in. Optional. A list serves any
+	 * k up to its length, so one scanned at `scanK` serves every k on the slider.
 	 */
 	cache?: Map<number, { i: number; sim: number }[]>;
+	/** How many to keep per scan, at least: the largest k the caller will ask for. */
+	scanK?: number;
 }
 
 export interface NetworkOpts {
@@ -33,15 +36,31 @@ export interface NetworkOpts {
 	hops: 1 | 2 | 3;
 	/** Keep an edge only when both ends list each other (drops one-way "hub" links). */
 	mutual: boolean;
+	/**
+	 * Similarity floor: a game's neighbours are its `k` closest that score at least this, so
+	 * a game with nothing close gets few or none, as in the tree. Omitted: no floor.
+	 */
+	floor?: number;
+	/**
+	 * Games expanded by hand: each adds its own neighbours as a ring beyond it, wherever it
+	 * sits. Rings expand every game to a depth; this expands one, past it.
+	 */
+	open?: ReadonlySet<number>;
 }
 
 export interface NetworkNode {
 	/** Dataset index. */
 	i: number;
-	/** 0 = source, 1 = its neighbour, 2 = neighbour's neighbour, 3 = one further. */
-	hop: 0 | 1 | 2 | 3;
+	/** Steps from the source: 1 = its neighbour, 2 = neighbour's neighbour, and so on (an expanded game's neighbours sit one past it). */
+	hop: number;
 	/** Cosine similarity to the source. */
 	sim: number;
+	/** The expanded game that brought it in; absent for the rings'. */
+	from?: number;
+	/** Neighbours of its own not yet in the graph: what expanding it would add. */
+	more: number;
+	/** Expanded by hand (`NetworkOpts.open`). */
+	open: boolean;
 }
 
 export interface NetworkEdge {
@@ -65,9 +84,10 @@ export function dot(emb: Float32Array, dim: number, a: number, b: number): numbe
 }
 
 /** Top-`k` eligible neighbours of `from`, best first, as `{ i, sim }`. */
-export function topK(d: NetworkData, from: number, k: number): { i: number; sim: number }[] {
+export function topK(d: NetworkData, from: number, want: number): { i: number; sim: number }[] {
 	const hit = d.cache?.get(from);
-	if (hit) return hit;
+	if (hit && hit.length >= want) return hit.length === want ? hit : hit.slice(0, want);
+	const k = Math.max(want, d.scanK ?? want);
 	// Small bounded insertion list: k is tens, n is tens of thousands.
 	const best: { i: number; sim: number }[] = [];
 	let floor = -Infinity;
@@ -82,22 +102,43 @@ export function topK(d: NetworkData, from: number, k: number): { i: number; sim:
 		if (best.length === k) floor = best[k - 1].sim;
 	}
 	d.cache?.set(from, best);
-	return best;
+	return best.length > want ? best.slice(0, want) : best;
 }
 
 export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts): EgoNetwork {
 	const lists = new Map<number, { i: number; sim: number }[]>();
-	const hopOf = new Map<number, 0 | 1 | 2 | 3>([[source, 0]]);
+	// The floor is applied over `topK`, so its cache serves every floor.
+	const floor = o.floor ?? -Infinity;
+	const near = (i: number) => topK(d, i, o.k).filter((x) => x.sim >= floor);
+	const hopOf = new Map<number, number>([[source, 0]]);
+	const from = new Map<number, number>();
 
 	// Ring by ring: the previous ring's lists name the next ring's nodes, and every node in
 	// the graph gets a list of its own so edges between them are found.
-	lists.set(source, topK(d, source, o.k));
+	lists.set(source, near(source));
 	let ring: number[] = [source];
-	for (let h = 1 as 1 | 2 | 3; h <= o.hops; h++) {
+	for (let h = 1; h <= o.hops; h++) {
 		const next: number[] = [];
 		for (const i of ring) for (const nb of lists.get(i)!) if (!hopOf.has(nb.i)) { hopOf.set(nb.i, h); next.push(nb.i); }
-		for (const i of next) lists.set(i, topK(d, i, o.k));
+		for (const i of next) lists.set(i, near(i));
 		ring = next;
+	}
+
+	// Then the hand-expanded games, until none adds more: one can be brought in by another.
+	const pending = new Set(o.open ?? []);
+	for (let grew = true; grew && pending.size; ) {
+		grew = false;
+		for (const x of pending) {
+			if (!hopOf.has(x)) continue;
+			pending.delete(x);
+			grew = true;
+			for (const nb of lists.get(x)!) {
+				if (hopOf.has(nb.i)) continue;
+				hopOf.set(nb.i, hopOf.get(x)! + 1);
+				from.set(nb.i, x);
+				lists.set(nb.i, near(nb.i));
+			}
+		}
 	}
 
 	const edges: NetworkEdge[] = [];
@@ -118,9 +159,29 @@ export function buildEgoNetwork(d: NetworkData, source: number, o: NetworkOpts):
 	const nodes: NetworkNode[] = [...hopOf].map(([i, hop]) => ({
 		i,
 		hop,
-		sim: i === source ? 1 : dot(d.emb, d.dim, source, i)
+		sim: i === source ? 1 : dot(d.emb, d.dim, source, i),
+		...(from.has(i) ? { from: from.get(i)! } : {}),
+		more: lists.get(i)!.filter((x) => !hopOf.has(x.i)).length,
+		open: !!o.open?.has(i)
 	}));
 	return { source, nodes, edges };
+}
+
+/**
+ * Each node's parent for motion: the neighbour one ring in that it's most similar to (by
+ * edge similarity), so a new game grows out of the game that pulled it in. The source's is -1.
+ */
+export function egoParents(g: EgoNetwork): Map<number, number> {
+	const hop = new Map(g.nodes.map((n) => [n.i, n.hop]));
+	const best = new Map<number, { via: number; sim: number }>();
+	const offer = (child: number, via: number, sim: number) => {
+		if (hop.get(via)! !== hop.get(child)! - 1) return;
+		const cur = best.get(child);
+		if (!cur || sim > cur.sim) best.set(child, { via, sim });
+	};
+	for (const e of g.edges) { offer(e.a, e.b, e.sim); offer(e.b, e.a, e.sim); }
+	// A hand-expanded game's neighbours hang off it, so they grow out of it and fold back into it.
+	return new Map(g.nodes.map((n) => [n.i, n.i === g.source ? -1 : n.from ?? best.get(n.i)?.via ?? g.source]));
 }
 
 // --- layout ------------------------------------------------------------------------------
@@ -138,7 +199,7 @@ export interface NetworkLayout {
 	py: Float32Array;
 }
 
-export interface SimNode extends SimulationNodeDatum { i: number; hop: 0 | 1 | 2 | 3 }
+export interface SimNode extends SimulationNodeDatum { i: number; hop: number }
 export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mutual: boolean }
 
 /**
@@ -147,10 +208,19 @@ export interface SimLink extends SimulationLinkDatum<SimNode> { sim: number; mut
  * rather than piling up. Layout units are arbitrary; only the ratios matter. Returns the
  * simulation stopped, with the centre pinned at the origin.
  */
-export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () => 5) {
+export function egoSimulation(
+	g: EgoNetwork,
+	radius: (i: number) => number = () => 5,
+	seed?: ReadonlyMap<number, [number, number]>
+) {
+	// A seed is the previous layout (simulation units), shifted so this graph's centre sits at
+	// the origin it's pinned to: games already placed start where they were.
+	const s0 = seed?.get(g.source);
 	const ns: SimNode[] = g.nodes.map((n, j) => {
-		// Hop rings as the seed so the first ticks don't start from a random burst.
-		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][n.hop];
+		const s = seed?.get(n.i);
+		if (s) return { i: n.i, hop: n.hop, x: s[0] - (s0?.[0] ?? 0), y: s[1] - (s0?.[1] ?? 0) };
+		// Hop rings otherwise, so the first ticks don't start from a random burst.
+		const a = (j / g.nodes.length) * Math.PI * 2, r = [0, 120, 260, 420][Math.min(3, n.hop)];
 		return { i: n.i, hop: n.hop, x: Math.cos(a) * r, y: Math.sin(a) * r };
 	});
 	const at = new Map(ns.map((n) => [n.i, n]));
@@ -171,8 +241,45 @@ export function egoSimulation(g: EgoNetwork, radius: (i: number) => number = () 
  * pull into knots, a neighbour that only links to the centre hangs off on its own. The
  * result is in NDC so `EmbeddingMap` can animate points from their map spots into it.
  */
-export function layoutEgoNetwork(g: EgoNetwork, radius: (i: number) => number = () => 5): NetworkLayout {
-	const { sim, nodes: ns } = egoSimulation(g, radius);
+export function layoutEgoNetwork(
+	g: EgoNetwork,
+	radius: (i: number) => number = () => 5,
+	seed?: ReadonlyMap<number, [number, number]>,
+	/**
+	 * Hold the seeded games exactly where they were and place only the new ones, each started
+	 * beside the game that brought it in. For a change of k, rings or floor on the same centre:
+	 * a gentle restart still re-formed the graph, since the links themselves change (games that
+	 * stayed moved a median 5–17% of the canvas, measured 2026-11-11); held, they don't move.
+	 */
+	hold = false
+): NetworkLayout {
+	const { sim, nodes: ns } = egoSimulation(g, radius, seed);
+	if (hold && seed) {
+		const par = egoParents(g);
+		const at = new Map(ns.map((n) => [n.i, n]));
+		let r = 1;
+		const rand = () => (r = (r * 16807) % 2147483647) / 2147483647;
+		// `ns` is breadth-first, so a new game's parent is placed before it.
+		for (const n of ns) {
+			if (seed.has(n.i)) { n.fx = n.x; n.fy = n.y; continue; }
+			if (n.i === g.source) continue;
+			const p = at.get(par.get(n.i)!)!;
+			// Outward from the centre, spread a little, so it grows the graph rather than its middle.
+			const out = p.x || p.y ? Math.atan2(p.y!, p.x!) : rand() * Math.PI * 2;
+			const a = out + (rand() - 0.5) * 2;
+			n.x = p.x! + Math.cos(a) * 40; n.y = p.y! + Math.sin(a) * 40;
+		}
+		// No centring: it shifts every game toward the centroid each tick, and with the old ones
+		// pinned only the new ones keep the shift, which dragged them back through the middle.
+		// The centre is pinned at the origin anyway.
+		sim.force('center', null);
+		sim.alpha(0.3);
+	} else {
+		// Seeded mostly from a previous layout (a new centre): a gentle restart, so games that
+		// stay settle near where they were instead of the whole graph re-forming.
+		const seeded = seed ? g.nodes.filter((n) => seed.has(n.i)).length / g.nodes.length : 0;
+		if (seeded > 0.5) sim.alpha(0.3);
+	}
 	sim.tick(300);
 
 	let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;

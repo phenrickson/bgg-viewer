@@ -2,6 +2,7 @@
 // for information about these interfaces
 /// <reference types="vite/client" />
 import type { SessionUser } from '$lib/server/auth/session';
+import type { GenealogyState } from '$lib/map/genealogy-url';
 
 declare global {
 	/** Injected by vite.config.ts's `define`, from package.json's version — the same number
@@ -19,7 +20,10 @@ declare global {
 			breadcrumbs?: { label: string; href?: string }[];
 			subtitle?: string;
 		}
-		// interface PageState {}
+		/** Shallow-routing state (`pushState`/`replaceState`); see `genealogy-url.ts` `currentState`. */
+		interface PageState {
+			genealogy?: GenealogyState;
+		}
 		// interface Platform {}
 	}
 }

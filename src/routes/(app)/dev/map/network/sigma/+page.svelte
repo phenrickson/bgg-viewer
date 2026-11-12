@@ -3,7 +3,7 @@
    * `/dev/map/network/sigma` — the same ego network drawn by Sigma.js, for comparison with
    * the regl layer at `/dev/map/network`: same graph, same layout, different renderer.
    *
-   * Vectors come from the dev similarity dataset (`/dev/similar/dataset`). All copy
+   * Vectors come from the shipped vectors artifact (`fetchVectors()`). All copy
    * PLACEHOLDER.
    */
   import { onMount, untrack } from 'svelte';

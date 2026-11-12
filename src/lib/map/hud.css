@@ -1,0 +1,52 @@
+/*
+ * The chrome that floats over a canvas tool, in /map's look: one translucent surface for every
+ * HUD member, stacked in columns over the plot rather than each docking to a corner on its own
+ * (which is what let /map's tools and selection panel overlap).
+ *
+ * Copied from /map's page-scoped `.hud` / `.stack` / `.lasso` / `.state` / `.chip` rules for
+ * /lineage; the map still carries its own (moving it onto this file is a follow-up).
+ * Global, so the names carry a `map-` prefix: an unprefixed `.stack` or `.chip` could meet a
+ * Tailwind utility, and the global utility layer beats a component's scoped rule.
+ */
+.map-hud {
+	display: inline-flex; align-items: center; gap: 0.4rem;
+	padding: 0.3rem 0.5rem; border-radius: var(--radius);
+	background: color-mix(in oklch, var(--card) 88%, transparent);
+	border: 1px solid var(--border);
+	backdrop-filter: blur(6px);
+	font-size: 0.85rem;
+}
+
+/* Members keep their own width (`align-items`), and only they take the pointer. */
+.map-hud-stack {
+	position: absolute; top: var(--space-sm); z-index: 2;
+	display: flex; flex-direction: column; gap: var(--space-sm);
+	max-height: calc(100% - 2 * var(--space-sm));
+	pointer-events: none;
+}
+.map-hud-stack > * { pointer-events: auto; }
+.map-hud-stack.left { left: var(--space-sm); align-items: flex-start; }
+.map-hud-stack.bottom { top: auto; bottom: var(--space-sm); }
+.map-hud-stack.right { right: var(--space-sm); align-items: flex-end; min-height: 0; max-width: min(24rem, 48%); }
+
+/* A card floating over the plot — /map's selection panel. */
+.map-hud-panel {
+	width: max-content; max-width: 100%; min-height: 0;
+	display: flex; flex-direction: column; gap: var(--space-sm);
+	border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+	box-shadow: 0 2px 12px rgb(0 0 0 / 0.3);
+	padding: var(--space-sm) var(--space-md);
+	font-size: 0.85rem;
+}
+
+.map-hud-chip {
+	border: 1px solid var(--border); background: var(--muted); color: var(--foreground);
+	border-radius: 999px; padding: 0.15rem 0.6rem; font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+.map-hud-chip:hover { border-color: var(--primary); }
+
+.map-hud-state {
+	position: absolute; inset: 0; display: grid; place-items: center;
+	color: var(--muted-foreground);
+}
+.map-hud-state.error { color: var(--destructive, var(--foreground)); }

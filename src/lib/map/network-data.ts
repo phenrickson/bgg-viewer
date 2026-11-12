@@ -1,43 +1,62 @@
 /**
- * The vectors the ego network is built from: the dev similarity dataset's full 64-d
- * embeddings (`/dev/similar/dataset`), L2-normalised and aligned to the coordinates
- * artifact's order so a graph index is a map index. Dev-only by construction — that
- * dataset is ~9 MB and never ships.
+ * The vectors the ego network is built from: the shipped vectors artifact (`fetchVectors()`,
+ * the same memoised load Recommend ranks with), aligned to the coordinates artifact's order
+ * so a graph index is a map index.
  */
-import { tableFromIPC } from 'apache-arrow';
+import { fetchVectors, type VectorSet } from '$lib/recommend/vectors';
 import type { CoordinateSet } from './coordinates';
 import type { GameFacts } from './facts';
 import type { NetworkData } from './network';
+
+/**
+ * The vectors (already L2-normalised) placed at their coordinates-artifact row. `have[i]`
+ * marks rows that got a vector; games the vectors have but the coordinates don't are skipped.
+ * Shared with the genealogy loader.
+ *
+ * The two artifacts are built separately, so they can come from different embedding runs;
+ * the older one then quietly lacks some games. That's no reason to block the page, so this
+ * aligns anyway and warns.
+ */
+/**
+ * The vectors placed in coordinates order, keeping only games on the active embedding version:
+ * the deployed one, or the newest in the artifact when the build couldn't read it. The artifact
+ * keeps every version for Recommend, but a dot product across two runs means nothing, so a
+ * straggler left on an old run is treated as having no vector here.
+ */
+export function alignVectors(vs: VectorSet, coords: CoordinateSet, label: string): { emb: Float32Array; dim: number; have: Uint8Array } {
+	const active = Number.isFinite(vs.deployed) ? vs.deployed : vs.version;
+	if (!Number.isFinite(active)) {
+		console.warn(`[${label}] the vectors artifact has no embedding version — can't check it against the coordinates.`);
+	} else if (active !== coords.version) {
+		console.warn(
+			`[${label}] the active embedding is v${active} but the coordinates are v${coords.version}; games only in one of them are missing.`
+		);
+	}
+	const rv = vs.rowVersion ?? null;
+	const dim = vs.ids.length ? vs.vec.length / vs.ids.length : 64;
+	const n = coords.ids.length;
+	const emb = new Float32Array(n * dim);
+	const have = new Uint8Array(n);
+	let stale = 0;
+	for (let o = 0; o < vs.ids.length; o++) {
+		const i = coords.index.get(vs.ids[o]);
+		if (i == null) continue;
+		if (rv && Number.isFinite(active) && rv[o] !== active) { stale++; continue; }
+		emb.set(vs.vec.subarray(o * dim, (o + 1) * dim), i * dim);
+		have[i] = 1;
+	}
+	if (stale) console.warn(`[${label}] ${stale} games are on an older embedding than v${active}; left out until they're re-embedded.`);
+	return { emb, dim, have };
+}
 
 export async function loadNetworkData(
 	coords: CoordinateSet,
 	facts: GameFacts,
 	minRatings: () => number
 ): Promise<NetworkData> {
-	const res = await fetch('/dev/similar/dataset');
-	if (!res.ok) throw new Error(`embedding dataset fetch failed (${res.status})`);
-	const t = tableFromIPC(new Uint8Array(await res.arrayBuffer()));
-	const ids = t.getChild('game_id')!.toArray() as Int32Array;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const col = t.getChild('embedding') as any;
-	const n = coords.ids.length;
-	const dim: number = col.get(0)?.length ?? 64;
-	const emb = new Float32Array(n * dim);
-	const have = new Uint8Array(n);
-	for (let o = 0; o < t.numRows; o++) {
-		const i = coords.index.get(ids[o]);
-		if (i == null) continue;
-		// A list cell is an Arrow Vector — `.get(d)` works, `[d]` doesn't.
-		const v = (col.get(o)?.toArray() ?? null) as ArrayLike<number> | null;
-		if (!v) continue;
-		let norm = 0;
-		for (let d = 0; d < dim; d++) norm += v[d] * v[d];
-		norm = Math.sqrt(norm) || 1;
-		for (let d = 0; d < dim; d++) emb[i * dim + d] = v[d] / norm;
-		have[i] = 1;
-	}
+	const { emb, dim, have } = alignVectors(await fetchVectors(), coords, 'network');
 	return {
-		n, dim, emb,
+		n: coords.ids.length, dim, emb,
 		eligible: (i) => have[i] === 1 && facts.upcoming[i] === 0 && facts.usersRated[i] >= minRatings()
 	};
 }

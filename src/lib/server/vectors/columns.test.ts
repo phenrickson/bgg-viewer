@@ -6,7 +6,8 @@ const TABLES = {
 	features: 'p.analytics.games_features',
 	gss: 'p.analytics.game_similarity_search',
 	lines: 'p.analytics.game_product_line',
-	profiles: 'p.analytics.similarity_profiles'
+	profiles: 'p.analytics.similarity_profiles',
+	deployed: 'p.monitoring.deployed_models'
 };
 
 describe('vectorsQuerySql', () => {

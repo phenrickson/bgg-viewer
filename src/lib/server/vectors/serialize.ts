@@ -2,9 +2,11 @@
  * Vectors rows → Arrow IPC, the shape `$lib/recommend/vectors.ts` reads.
  *
  * Columns: `game_id` Int32, `embedding` FixedSizeList<Float32, 64>, `complexity` Float32,
- * `users_rated` Int32, `geek_pct` Float32, `line` Int32 (null = no product line).
- * Schema metadata: the latest `embedding_version`, the `embedding_model`, `dims`, and the
- * `similarity_profiles` rows as JSON — the rules the browser ranks with.
+ * `users_rated` Int32, `geek_pct` Float32, `line` Int32 (null = no product line),
+ * `embedding_version` Int32 (the row's own run).
+ * Schema metadata: the latest `embedding_version`, the `deployed_embedding_version` (empty when
+ * unknown), the `embedding_model`, `dims`, and the `similarity_profiles` rows as JSON — the
+ * rules the browser ranks with.
  *
  * Unlike coordinates, rows from more than one embedding version are allowed: `game_neighbors`
  * compares across them, and matching it exactly is the bar (the build script logs how many).
@@ -27,6 +29,7 @@ import {
 export const DIMS = 64;
 
 export const META_VERSION = 'embedding_version';
+export const META_DEPLOYED = 'deployed_embedding_version';
 export const META_MODEL = 'embedding_model';
 export const META_PROFILES = 'similarity_profiles';
 export const META_DIMS = 'dims';
@@ -64,7 +67,7 @@ function num(v: unknown): number {
 	return Number(v);
 }
 
-export function rowsToArrowIPC(rows: VectorRow[], profiles: ProfileRow[]): Uint8Array {
+export function rowsToArrowIPC(rows: VectorRow[], profiles: ProfileRow[], deployed: number | null = null): Uint8Array {
 	const flat = new Float32Array(rows.length * DIMS);
 	rows.forEach((r, i) => {
 		if (r.embedding?.length !== DIMS) {
@@ -83,13 +86,15 @@ export function rowsToArrowIPC(rows: VectorRow[], profiles: ProfileRow[]): Uint8
 		complexity: vectorFromArray(rows.map((r) => (r.complexity == null ? NaN : Number(r.complexity))), new Float32()),
 		users_rated: vectorFromArray(rows.map((r) => num(r.users_rated)), new Int32()),
 		geek_pct: vectorFromArray(rows.map((r) => Number(r.geek_pct ?? 0)), new Float32()),
-		line: vectorFromArray(rows.map((r) => (r.line == null ? null : num(r.line))), new Int32())
+		line: vectorFromArray(rows.map((r) => (r.line == null ? null : num(r.line))), new Int32()),
+		embedding_version: vectorFromArray(rows.map((r) => (r.embedding_version == null ? null : num(r.embedding_version))), new Int32())
 	};
 
 	const versions = rows.map((r) => num(r.embedding_version)).filter(Number.isFinite);
 	const bare = new Table(columns);
 	const metadata = new Map<string, string>([
 		[META_VERSION, versions.length ? String(Math.max(...versions)) : ''],
+		[META_DEPLOYED, deployed == null ? '' : String(deployed)],
 		[META_MODEL, rows[0]?.embedding_model ?? ''],
 		[META_DIMS, String(DIMS)],
 		[META_PROFILES, JSON.stringify(profiles)]

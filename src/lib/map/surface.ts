@@ -29,6 +29,13 @@ export interface OverlayApi {
 	/** The pointer is down and panning. A layer may skip its markers until release. */
 	dragging: boolean;
 	/**
+	 * How settled the camera is: 0 while it's moving (a pan or zoom, by any input), fading back
+	 * to 1 shortly after it stops. A layer multiplies its text's alpha by it, so labels aren't
+	 * re-placed on every frame of a zoom (where they jitter and swap) and come back once the
+	 * view rests.
+	 */
+	rest: number;
+	/**
 	 * What regl is currently multiplying point sizes by. Its default `pointScaleMode: 'asinh'`
 	 * grows points with the camera, so a marker drawn at a constant radius drifts away from
 	 * the dot it marks as you zoom — worst on large dots, which start closest to their ring.
@@ -60,6 +67,12 @@ export interface Driver {
 	/** Stretch the data square to the canvas width (the strip) instead of keeping it square. */
 	stretch?: boolean;
 	/**
+	 * The layer animates its own positions, handing over new `x`/`y` every frame. Position
+	 * changes then draw with no regl transition, and the lines and overlay stay up through
+	 * them, so labels and links travel with their points instead of blinking out for a flight.
+	 */
+	instant?: boolean;
+	/**
 	 * Per-point alpha. A single number applies to every point; an ARRAY is indexed by the
 	 * point's colour bucket, exactly like `palette` — so a layer that already encodes
 	 * lit/dimmed in the bucket gets opacity for free, without spending regl's other value
@@ -74,9 +87,18 @@ export interface Driver {
 	lines?: Line[];
 	/** Paint over the points — rings, labels. Called on every camera change and draw. */
 	overlay?: (ctx: CanvasRenderingContext2D, api: OverlayApi) => void;
+	/**
+	 * Paint UNDER the points, in screen space — links, for a layer that moves them every frame.
+	 * Canvas 2-D strokes a curve natively in microseconds, where `lines` rebuilds all of regl's
+	 * line geometry on every change (quadratic in the vertex count: a 2,000-link network froze
+	 * its glide for over a second). Setting this makes the GL canvas transparent so it shows.
+	 */
+	underlay?: (ctx: CanvasRenderingContext2D, api: OverlayApi) => void;
 	onhover?: (i: number) => void;
 	/** regl's `select`: one point for a click, many for a lasso. */
 	onselect?: (points: number[]) => void;
+	/** A click on empty canvas (no point under it, and not the end of a drag). */
+	onclear?: () => void;
 }
 
 export interface ExportOptions {

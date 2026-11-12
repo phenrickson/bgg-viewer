@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildEgoNetwork, topK, type NetworkData } from './network';
+import { buildEgoNetwork, topK, egoParents, egoSimulation, layoutEgoNetwork, type NetworkData } from './network';
 
 // Six unit vectors in 2-d: three clustered near +x, three near +y.
 function data(): NetworkData {
@@ -10,6 +10,15 @@ function data(): NetworkData {
 }
 
 describe('topK', () => {
+	it('one scan at scanK serves every smaller k without another', () => {
+		const cache = new Map<number, { i: number; sim: number }[]>();
+		let scans = 0;
+		const d = { ...data(), cache, scanK: 4, eligible: (i: number) => (i === 1 && scans++, true) };
+		expect(topK(d, 0, 2).map((x) => x.i)).toEqual([1, 2]);
+		expect(cache.get(0)!.length).toBe(4);
+		expect(topK(d, 0, 3).map((x) => x.i)).toEqual([1, 2, 3]);
+		expect(scans).toBe(1);
+	});
 	it('returns the nearest by cosine, best first, excluding self', () => {
 		const got = topK(data(), 0, 2).map((x) => x.i);
 		expect(got).toEqual([1, 2]);
@@ -39,5 +48,107 @@ describe('buildEgoNetwork', () => {
 		const strict = buildEgoNetwork(d, 0, { k: 3, hops: 2, mutual: true });
 		expect(strict.edges.every((e) => e.mutual)).toBe(true);
 		expect(strict.edges.length).toBeLessThan(loose.edges.length);
+	});
+});
+
+describe('buildEgoNetwork floor', () => {
+	it('links only neighbours at or above the floor', () => {
+		// 0's near cluster (1, 2) is within cos(0.2) ≈ 0.98; the far one (3–5) is under 0.2.
+		const g = buildEgoNetwork(data(), 0, { k: 5, hops: 1, mutual: false, floor: 0.9 });
+		expect(g.nodes.map((n) => n.i).sort()).toEqual([0, 1, 2]);
+		expect(g.edges.every((e) => e.sim >= 0.9)).toBe(true);
+	});
+	it('a floor above everything leaves the centre alone', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 5, hops: 2, mutual: false, floor: 0.999 });
+		expect(g.nodes.map((n) => n.i)).toEqual([0]);
+	});
+});
+
+describe('buildEgoNetwork open', () => {
+	// A chain at k = 1: 0's nearest is 1, 1's is 2, 2's is 3. One ring holds just 0 and 1.
+	const chain = (): NetworkData => {
+		const angles = [0, 0.3, 0.36, 0.4];
+		return { n: 4, dim: 2, emb: new Float32Array(angles.flatMap((a) => [Math.cos(a), Math.sin(a)])), eligible: () => true };
+	};
+	it('an expanded game adds its own neighbours one ring past it, hung off it', () => {
+		const base = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false });
+		expect(base.nodes.map((n) => n.i).sort()).toEqual([0, 1]);
+		expect(base.nodes.find((n) => n.i === 1)!.more).toBe(1);
+		const g = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false, open: new Set([1]) });
+		const two = g.nodes.find((n) => n.i === 2)!;
+		expect([two.hop, two.from, egoParents(g).get(2)]).toEqual([2, 1, 1]);
+		expect(g.nodes.find((n) => n.i === 1)!.open).toBe(true);
+	});
+	it('an expanded game not yet in the graph expands once another brings it in', () => {
+		const g = buildEgoNetwork(chain(), 0, { k: 1, hops: 1, mutual: false, open: new Set([2, 1]) });
+		const three = g.nodes.find((n) => n.i === 3)!;
+		expect([three.hop, three.from]).toEqual([3, 2]);
+	});
+});
+
+describe('egoParents', () => {
+	it('hangs each game off its most similar neighbour one ring in; the source off nothing', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });
+		const parents = egoParents(g);
+		expect(parents.get(0)).toBe(-1);
+		const hop = new Map(g.nodes.map((n) => [n.i, n.hop]));
+		for (const n of g.nodes) {
+			if (n.i === 0) continue;
+			expect(hop.get(parents.get(n.i)!)).toBe(n.hop - 1);
+		}
+	});
+});
+
+describe('layoutEgoNetwork hold, outward', () => {
+	it("new games grow out past the game that brought them in, not back through the middle", () => {
+		// Many games around 0; expanding the far one (index 1) adds ones further out still.
+		const angles = [0, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6, -0.1, -0.12, 0.1, 0.12];
+		const d: NetworkData = { n: angles.length, dim: 2, emb: new Float32Array(angles.flatMap((a) => [Math.cos(a), Math.sin(a)])), eligible: () => true };
+		const g0 = buildEgoNetwork(d, 0, { k: 5, hops: 1, mutual: false });
+		const l0 = layoutEgoNetwork(g0, () => 5);
+		const seed = new Map(g0.nodes.map((n, j) => [n.i, [l0.px[j], l0.py[j]] as [number, number]]));
+		const x = g0.nodes.find((n) => n.more > 0 && n.i !== 0)!.i;
+		const g1 = buildEgoNetwork(d, 0, { k: 5, hops: 1, mutual: false, open: new Set([x]) });
+		const l1 = layoutEgoNetwork(g1, () => 5, seed, true);
+		const at = new Map(g1.nodes.map((n, j) => [n.i, Math.hypot(l1.px[j], l1.py[j])]));
+		const added = g1.nodes.filter((n) => n.from === x);
+		expect(added.length).toBeGreaterThan(0);
+		const far = added.filter((n) => at.get(n.i)! > at.get(x)! * 0.9).length;
+		expect(far / added.length).toBeGreaterThanOrEqual(0.5);
+	});
+});
+
+describe('layoutEgoNetwork hold', () => {
+	it('keeps the games that stay exactly where they were; new ones start beside their parent', () => {
+		const d = data();
+		const g0 = buildEgoNetwork(d, 0, { k: 2, hops: 1, mutual: false });
+		const l0 = layoutEgoNetwork(g0, () => 5);
+		const seed = new Map(g0.nodes.map((n, j) => [n.i, [l0.px[j], l0.py[j]] as [number, number]]));
+		const g1 = buildEgoNetwork(d, 0, { k: 4, hops: 1, mutual: false });
+		const l1 = layoutEgoNetwork(g1, () => 5, seed, true);
+		const at1 = new Map(g1.nodes.map((n, j) => [n.i, [l1.px[j], l1.py[j]]]));
+		for (const [i, p] of seed) expect(at1.get(i)).toEqual([p[0] - seed.get(0)![0], p[1] - seed.get(0)![1]]);
+		expect(g1.nodes.length).toBeGreaterThan(g0.nodes.length);
+	});
+});
+
+describe('layoutEgoNetwork seed', () => {
+	it('starts seeded games where they were, shifted so the centre is at the origin', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 2, hops: 1, mutual: false });
+		const seed = new Map<number, [number, number]>([[0, [100, 100]], [1, [160, 100]], [2, [100, 40]]]);
+		const { nodes } = egoSimulation(g, () => 5, seed);
+		const at = new Map(nodes.map((n) => [n.i, [n.x, n.y]]));
+		expect(at.get(0)).toEqual([0, 0]);
+		expect(at.get(1)).toEqual([60, 0]);
+		expect(at.get(2)).toEqual([0, -60]);
+	});
+	it('a seeded layout keeps games near where they were', () => {
+		const g = buildEgoNetwork(data(), 0, { k: 3, hops: 2, mutual: false });
+		const first = layoutEgoNetwork(g);
+		const seed = new Map(g.nodes.map((n, j) => [n.i, [first.px[j], first.py[j]] as [number, number]]));
+		const again = layoutEgoNetwork(g, () => 5, seed);
+		for (let j = 0; j < g.nodes.length; j++) {
+			expect(Math.hypot(again.px[j] - first.px[j], again.py[j] - first.py[j])).toBeLessThan(40);
+		}
 	});
 });

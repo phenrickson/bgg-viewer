@@ -49,7 +49,7 @@
   const surface = useSurface();
   if (!surface) throw new Error('NetworkLayer must be mounted inside a PointCanvas');
 
-  const DIAMETER: Record<0 | 1 | 2 | 3, number> = { 0: 16, 1: 11, 2: 7, 3: 5 };
+  const DIAMETER: Record<number, number> = { 0: 16, 1: 11, 2: 7, 3: 5 };
   const n = $derived(coords.ids.length);
   const hopOf = $derived(new Map(layout.graph.nodes.map((x) => [x.i, x.hop])));
   const simOf = $derived(new Map(layout.graph.nodes.map((x) => [x.i, x.sim])));

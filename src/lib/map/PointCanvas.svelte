@@ -15,8 +15,8 @@
   import { onMount, untrack, type Snippet } from 'svelte';
   import { dev } from '$app/environment';
   import type createScatterplot from 'regl-scatterplot';
-  import { readTheme, toHex, type MapTheme } from './palette';
-  import { provideSurface, MAX_DIAMETER, type Driver, type Surface, type CanvasApi, type ExportOptions } from './surface';
+  import { readTheme, toHex, toRgb, type MapTheme } from './palette';
+  import { provideSurface, MAX_DIAMETER, type Driver, type Surface, type CanvasApi, type ExportOptions, type OverlayApi } from './surface';
 
   let {
     mode = 'pan',
@@ -55,12 +55,36 @@
   let host: HTMLDivElement;
   let glCanvas: HTMLCanvasElement;
   let overlay: HTMLCanvasElement;
+  /** Beneath the GL canvas: a layer's `underlay` (links), painted with the overlay. */
+  let underlayCanvas: HTMLCanvasElement;
   let plot = $state<ReturnType<typeof createScatterplot> | null>(null);
   let theme = $state<MapTheme | null>(null);
   let width = $state(0);
   let height = $state(0);
   let hovered = $state(-1);
   let dragging = false;
+  /** regl reported a point for the current press (see `onclear` in `init`). */
+  let pickedThisPress = false;
+
+  // --- camera rest (`OverlayApi.rest`) ------------------------------------------------------
+  /** 0 while the camera moves; after it has been still for `REST_IDLE`, eases back to 1. */
+  let rest = 1;
+  let lastView = 0;
+  let restRaf = 0;
+  const REST_IDLE = 120, REST_FADE = 220;
+  function onView() {
+    lastView = performance.now();
+    rest = 0;
+    if (!restRaf) restRaf = requestAnimationFrame(restTick);
+  }
+  /** Runs from the first camera move until the text is fully back; repaints while it fades in. */
+  function restTick(now: number) {
+    const t = (now - lastView - REST_IDLE) / REST_FADE;
+    if (t <= 0) { restRaf = requestAnimationFrame(restTick); return; }
+    rest = t >= 1 ? 1 : 1 - (1 - t) ** 3;
+    drawOverlay();
+    restRaf = rest < 1 ? requestAnimationFrame(restTick) : 0;
+  }
 
   // --- the driver ----------------------------------------------------------------------
   // One layer drives at a time; the last to call `drive` wins, and a layer releasing a
@@ -82,8 +106,11 @@
   /** Theme-dependent settings. Colours must be hex: the library reads them on the CPU. */
   $effect(() => {
     if (!plot || !theme || !driver) return;
+    const bg = toRgb(theme.background).map((c) => c / 255);
     plot.set({
-      backgroundColor: toHex(theme.background),
+      // Transparent when the layer paints an underlay, so it shows through; the host's own
+      // background stands in. Same RGB either way (regl reads its brightness for the lasso).
+      backgroundColor: driver.underlay ? [bg[0], bg[1], bg[2], 0] : toHex(theme.background),
       pointColor: driver.palette.map(toHex),
       pointColorHover: toHex(theme.accent),
       pointColorActive: toHex(theme.accent),
@@ -215,19 +242,32 @@
    */
   const scratch: Array<Map<string, Float32Array | Uint8Array>> = [new Map(), new Map()];
   let gen = 0;
-  /** Call once per draw, before the four `permute` calls that belong to it. */
+  /** Call once per draw, before the scratch writes (`keep`, `permute`) that belong to it. */
   function flipScratch(): void { gen ^= 1; }
 
-  /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
-  function permute<T extends Float32Array | Uint8Array>(perm: Perm | null, src: T, key: string): T {
-    if (!perm) return src;
-    const order = perm.order;
+  /** This generation's buffer for `key`, shaped like `src`. */
+  function bankFor<T extends Float32Array | Uint8Array>(src: T, key: string): T {
     const bank = scratch[gen];
     let out = bank.get(key) as T | undefined;
     if (!out || out.length !== src.length || out.constructor !== src.constructor) {
       out = new (src.constructor as new (n: number) => T)(src.length);
       bank.set(key, out);
     }
+    return out;
+  }
+
+  /** A copy of `src` in this generation's buffer for `key`. */
+  function keep<T extends Float32Array | Uint8Array>(src: T, key: string): T {
+    const out = bankFor(src, key);
+    out.set(src);
+    return out;
+  }
+
+  /** Reorder a per-point array into draw order, into this generation's buffer for `key`. */
+  function permute<T extends Float32Array | Uint8Array>(perm: Perm | null, src: T, key: string): T {
+    if (!perm) return src;
+    const order = perm.order;
+    const out = bankFor(src, key);
     for (let k = 0; k < order.length; k++) out[k] = src[order[k]];
     return out;
   }
@@ -245,17 +285,25 @@
     let { x, y } = d;
     const p = plot;
     void redrawTick;
-    const first = lastX === null;
+    // A layer that tweens its own positions (`instant`) redraws every frame: no regl
+    // transition, no zero-position opening flight, and the overlay and lines stay up.
+    const instant = !!d.instant;
+    const first = lastX === null && !instant;
     const moved = x !== lastX;
     lastX = x;
-    drawn = false;
+    if (!instant) drawn = false;
     const duration = first ? 1400 : 800;
     const visible = untrack(() => d.visible);
     // A hidden point stays where it was last drawn, so when a later layer shows it again
     // it travels from there rather than from wherever this layer parked it. That's what
     // keeps map → network → map a flight of the nodes only.
+    // A tweening layer gets here every frame, and two catalog-sized slices a frame was ~300 KB
+    // of garbage at 60 fps, so it copies into this generation's scratch. Only an `instant`
+    // draw does: it has no regl transition still reading the arrays a frame later, so
+    // a transitioning draw keeps its own fresh copy.
+    flipScratch();
     if (shownX && shownY && visible.length < x.length) {
-      const mx = shownX.slice(), my = shownY.slice();
+      const mx = instant ? keep(shownX, 'mx') : shownX.slice(), my = instant ? keep(shownY, 'my') : shownY.slice();
       for (const i of visible) { mx[i] = x[i]; my[i] = y[i]; }
       x = mx; y = my;
     }
@@ -265,7 +313,6 @@
     // Rebuild before drawing: the draw, the filter and every event mapping must agree on
     // one permutation, and the encodings that define it are the ones being drawn now.
     const perm = buildOrder(d);
-    flipScratch();
     const px = permute(perm, x, 'x'), py = permute(perm, y, 'y');
     const pc = permute(perm, colour, 'c'), ps = permute(perm, size, 's');
     enqueueDraw(async () => {
@@ -284,10 +331,11 @@
       // then blink out once it lands. Lines go too (they'd join the old spots); inside
       // the queue, because an annotation draw overlapping a transition wedges regl.
       setFilter(visible, px.length);
-      if (linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
+      if (!instant && linesShown !== null && moved) { linesShown = null; await settle(p.drawAnnotations([]), 300); }
+      const flies = moved && !instant;
       await drawRetry(
-        () => p.draw({ x: px, y: py, valueA: pc, valueB: ps }, { preventFilterReset: true, transition: moved, transitionDuration: duration }),
-        moved ? duration * 2 + 500 : 1500
+        () => p.draw({ x: px, y: py, valueA: pc, valueB: ps }, { preventFilterReset: true, transition: flies, transitionDuration: duration }),
+        flies ? duration * 2 + 500 : 1500
       );
       drawn = true; applyFilter(); applyLines(); scheduleOverlay();
     });
@@ -383,20 +431,33 @@
       : Math.max(minScale, scaling);
   }
 
-  function drawOverlay() {
-    if (!overlay || !plot || !theme || width === 0) return;
+  /** A 2-D canvas sized to the host at the device pixel ratio, cleared, in CSS-pixel units. */
+  function prepare2d(c: HTMLCanvasElement, t: MapTheme): CanvasRenderingContext2D {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (overlay.width !== Math.round(width * dpr)) { overlay.width = Math.round(width * dpr); overlay.height = Math.round(height * dpr); }
-    const ctx = overlay.getContext('2d')!;
+    if (c.width !== Math.round(width * dpr) || c.height !== Math.round(height * dpr)) {
+      c.width = Math.round(width * dpr); c.height = Math.round(height * dpr);
+    }
+    const ctx = c.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.font = `600 12px ${theme.font}`;
+    ctx.font = `600 12px ${t.font}`;
     ctx.textBaseline = 'middle';
+    return ctx;
+  }
+
+  function drawOverlay() {
+    if (!overlay || !plot || !theme || width === 0) return;
     const p = plot;
-    driver?.overlay?.(ctx, {
+    const api: OverlayApi = {
       screen: (i) => { const s = p.getScreenPosition(toSlot(i)); return s ? [s[0], s[1]] : null; },
-      width, height, theme, hovered, drawn, dragging, pointScale: pointScale()
-    });
+      width, height, theme, hovered, drawn, dragging, rest, pointScale: pointScale()
+    };
+    // Only a driver that paints under the points gets a backing store: sizing and clearing a
+    // full-DPR canvas each frame for /map, which never draws there, was pure waste. Released,
+    // it shrinks to nothing, which also drops the last driver's links.
+    if (underlayCanvas && driver?.underlay) driver.underlay(prepare2d(underlayCanvas, theme), api);
+    else if (underlayCanvas && underlayCanvas.width) { underlayCanvas.width = 0; underlayCanvas.height = 0; }
+    driver?.overlay?.(prepare2d(overlay, theme), api);
   }
 
   // --- export ----------------------------------------------------------------------------
@@ -430,20 +491,26 @@
     out.width = img.width; out.height = img.height;
     const ctx = out.getContext('2d')!;
     if (!transparent) { ctx.fillStyle = theme.background; ctx.fillRect(0, 0, out.width, out.height); }
-    ctx.drawImage(pts, 0, 0);
-    // The overlay in on-screen coordinates under a uniform scale: the same placement the
-    // viewer sees, rendered at the export's resolution.
+    // Underlay and overlay in on-screen coordinates under a uniform scale: the same placement
+    // the viewer sees, rendered at the export's resolution.
     const s = img.width / width;
+    const p = plot;
+    const api: OverlayApi = {
+      screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
+      // On-screen scale, not the export's: the uniform transform carries the resolution
+      // multiple, so markers match what the viewer saw.
+      width, height, theme, hovered: -1, drawn: true, dragging: false, rest: 1, pointScale: pointScale()
+    };
+    if (driver?.underlay) {
+      ctx.setTransform(s, 0, 0, s, 0, 0);
+      driver.underlay(ctx, api);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    ctx.drawImage(pts, 0, 0);
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.font = `600 12px ${theme.font}`;
     ctx.textBaseline = 'middle';
-    const p = plot;
-    driver?.overlay?.(ctx, {
-      screen: (i) => { const q = p.getScreenPosition(toSlot(i)); return q ? [q[0], q[1]] : null; },
-      // On-screen scale, not the export's: the uniform transform above already carries the
-      // resolution multiple, so markers match what the viewer saw.
-      width, height, theme, hovered: -1, drawn: true, dragging: false, pointScale: pointScale()
-    });
+    driver?.overlay?.(ctx, api);
     if (title) {
       ctx.font = `600 16px ${theme.font}`;
       ctx.textBaseline = 'alphabetic';
@@ -499,6 +566,7 @@
     // The highlight is ours (the overlay), so regl's own selection is dropped straight
     // after — otherwise its tint would linger and its next click would replace, not toggle.
     plot.subscribe('select', ({ points }) => {
+      pickedThisPress = true;
       plot?.deselect({ preventEvent: true });
       driver?.onselect?.(points.map(toLayer));
     });
@@ -506,12 +574,25 @@
     // inside its own animation frame, and deferring to the next one leaves rings and
     // labels trailing the dots by a frame while panning — visible as a wobble.
     plot.subscribe('draw', () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } drawOverlay(); });
+    // Any camera move — wheel, drag, pinch, a programmatic zoom — starts the text's rest fade.
+    plot.subscribe('view', onView);
     const reset = () => plot?.reset();
     glCanvas.addEventListener('dblclick', reset);
     // A drag, for layers that hide their markers while panning: down on the canvas, up
     // anywhere (the pointer may leave the canvas mid-drag).
-    const down = () => { dragging = true; };
+    // A click on empty canvas (`onclear`): the press didn't travel (not a pan) and regl didn't
+    // report a point for it. Decided a tick after the click, once regl's own click handling has
+    // had its say — not from `hovered`, which can still name the last point if the pointer
+    // jumped (regl only clears it on a later move).
+    let pressAt: [number, number] | null = null;
+    const down = (e: PointerEvent) => { dragging = true; pressAt = [e.clientX, e.clientY]; pickedThisPress = false; };
     const up = () => { if (dragging) { dragging = false; scheduleOverlay(); } };
+    const click = (e: MouseEvent) => {
+      const still = pressAt && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) < 4;
+      pressAt = null;
+      if (still) setTimeout(() => { if (!pickedThisPress) driver?.onclear?.(); }, 0);
+    };
+    glCanvas.addEventListener('click', click);
     glCanvas.addEventListener('pointerdown', down);
     window.addEventListener('pointerup', up);
 
@@ -527,14 +608,19 @@
       ro.disconnect(); mo.disconnect();
       glCanvas.removeEventListener('dblclick', reset);
       glCanvas.removeEventListener('pointerdown', down);
+      glCanvas.removeEventListener('click', click);
       window.removeEventListener('pointerup', up);
       if (raf) cancelAnimationFrame(raf);
+      if (restRaf) cancelAnimationFrame(restRaf);
       plot?.destroy(); plot = null;
     };
   }
 </script>
 
 <div class="host" class:lasso={mode === 'lasso'} class:fixed-camera={cameraFixed} class:inert={!interactive} class:frameless={!frame} bind:this={host}>
+  <!-- First, so it paints beneath: positioned elements stack in DOM order, and `.gl` is
+       positioned too (no z-index anywhere, so the layers' HTML above stays on top). -->
+  <canvas bind:this={underlayCanvas} class="underlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   <canvas bind:this={glCanvas} class="gl"></canvas>
   <canvas bind:this={overlay} class="overlay" style:width="{width}px" style:height="{height}px" aria-hidden="true"></canvas>
   {@render children?.()}
@@ -552,6 +638,7 @@
     background: var(--background);
   }
   .gl {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
@@ -562,7 +649,7 @@
   .host.fixed-camera .gl { cursor: default; }
   .host.inert .gl { pointer-events: none; }
   .host.frameless { border: 0; border-radius: 0; }
-  .overlay {
+  .overlay, .underlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
