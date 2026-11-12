@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankCatalog, rankShelf } from './rank';
+import { rankCatalog, rankShelf, shelfPercentiles } from './rank';
 import { DIMS, type Profile, type VectorSet } from './vectors';
 
 /** A game for a fixture: `sim` is its cosine similarity to the seed (game 1, at angle 0). */
@@ -200,5 +200,43 @@ describe('rankShelf', () => {
 
 	it('returns empty lists for a seed with no vector', () => {
 		expect(rankShelf(shelf, 999, owned)).toEqual({ similar: [], recommender: [], sicko: [] });
+	});
+});
+
+describe('shelfPercentiles', () => {
+	const set = (pcts: number[]) => makeSet(pcts.map((pct, i) => ({ id: i + 1, sim: 0.5, pct })), [OPEN]);
+
+	// The share of the other shelf games strictly below each one; ties count as not below.
+	it('ranks each game among the others, ties not below', () => {
+		const v = set([0.2, 0.5, 0.5, 0.9]);
+		const out = shelfPercentiles(v, [0, 1, 2, 3]);
+		expect([0, 1, 2, 3].map((r) => out.get(r))).toEqual([0, 1 / 3, 1 / 3, 1]);
+	});
+
+	it('is 0 for a shelf of one', () => {
+		expect(shelfPercentiles(set([0.4]), [0]).get(0)).toBe(0);
+	});
+
+	// A BGG.CON-sized shelf runs on every click of the library dashboard; it must not stall it.
+	it('handles a few thousand games quickly', () => {
+		const n = 5000;
+		const v = set(Array.from({ length: n }, (_, i) => (i * 7919) % 1000 / 1000));
+		const t = performance.now();
+		shelfPercentiles(v, Array.from({ length: n }, (_, i) => i));
+		expect(performance.now() - t).toBeLessThan(50);
+	});
+});
+
+describe('rankShelf at library size', () => {
+	it('ranks a few thousand games quickly', () => {
+		const n = 5000;
+		const v = makeSet(
+			Array.from({ length: n }, (_, i) => ({ id: i + 1, sim: ((i * 31) % 997) / 997, pct: ((i * 7919) % 1000) / 1000 })),
+			[OPEN]
+		);
+		const owned = new Set(Array.from({ length: n }, (_, i) => i + 1));
+		const t = performance.now();
+		rankShelf(v, 1, owned, 5);
+		expect(performance.now() - t).toBeLessThan(50);
 	});
 });
