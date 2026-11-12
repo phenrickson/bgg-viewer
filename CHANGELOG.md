@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.32](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.31...bgg-viewer-v0.0.32) (2026-11-12)
+
+
+### Features
+
+* **lineage:** Lineage, a Timeline / Network tool at /lineage ([#88](https://github.com/phenrickson/bgg-viewer/issues/88)) ([1c6243a](https://github.com/phenrickson/bgg-viewer/commit/1c6243a4f4246b66f36338a20a5aee1d5bec2ea7))
+
 ## [0.0.31](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.30...bgg-viewer-v0.0.31) (2026-11-10)
 
 
