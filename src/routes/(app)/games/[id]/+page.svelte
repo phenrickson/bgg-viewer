@@ -12,6 +12,7 @@
    * you had to rebuild the set — which broke the "and do it again for other games" half of
    * the loop far more than anything on this page.
    */
+  import { compactCounts } from '$lib/catalog/players';
   import { onMount, untrack } from 'svelte';
   import { replaceState } from '$app/navigation';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
@@ -304,25 +305,12 @@
     if (p.recommended >= p.notRecommended) return 'rec';
     return 'not';
   }
-  /** "1, 3" but "1–4" — a run of three or more reads worse spelled out than bridged. */
-  function compact(counts: string[]): string {
-    const out: string[] = [];
-    for (let i = 0; i < counts.length; ) {
-      let j = i;
-      const plain = (s: string) => !s.includes('+') && Number.isFinite(Number(s));
-      while (j + 1 < counts.length && plain(counts[j]) && plain(counts[j + 1]) &&
-             Number(counts[j + 1]) === Number(counts[j]) + 1) j++;
-      out.push(j > i + 1 ? `${counts[i]}–${counts[j]}` : counts.slice(i, j + 1).join(', '));
-      i = j + 1;
-    }
-    return out.join(', ');
-  }
   const verdicts = $derived(new Map((g?.playerCounts ?? []).map((p) => [p.count, verdictOf(p)])));
   const bestCounts = $derived((g?.playerCounts ?? []).filter((p) => verdicts.get(p.count) === 'best').map((p) => p.count));
   const recCounts = $derived((g?.playerCounts ?? []).filter((p) => verdicts.get(p.count) === 'rec').map((p) => p.count));
   /** The top line leads with the ★ row so the fact and the chart's mark can't disagree. */
-  const bestLabel = $derived(bestCounts.length ? compact(bestCounts) : bestRow);
-  const recLabel = $derived(recCounts.length ? compact(recCounts) : null);
+  const bestLabel = $derived(bestCounts.length ? compactCounts(bestCounts) : bestRow);
+  const recLabel = $derived(recCounts.length ? compactCounts(recCounts) : null);
 
   const fmtDate = (v: string | null | undefined): string | null => {
     if (!v) return null;

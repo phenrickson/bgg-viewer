@@ -12,12 +12,8 @@
   import { loadLikes, cachedLikes, type Like } from '$lib/bggcon/likes';
   import type { LibraryListRow } from '$lib/bggcon/queries';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
-  import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
-  import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
-  import { boxPlayersLabel } from '$lib/catalog/players';
+  import { boxPlayersLabel, compactCounts } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
-  import UsersIcon from '@lucide/svelte/icons/users';
-  import ClockIcon from '@lucide/svelte/icons/clock';
   import ShelfStatus from './ShelfStatus.svelte';
   import StarButton from './StarButton.svelte';
 
@@ -48,7 +44,11 @@
   });
 
   const players = $derived(boxPlayersLabel(game.min_players, game.max_players, true));
-  const time = $derived(boxPlaytimeLabel(game.min_playtime, game.max_playtime, true));
+  const time = $derived(boxPlaytimeLabel(game.min_playtime, game.max_playtime));
+  const best = $derived(Array.from(game.best_player_counts ?? []));
+  const bestLabel = $derived(best.length ? compactCounts(best) : null);
+  const rec = $derived(Array.from(game.recommended_player_counts ?? []).filter((n) => !best.includes(n)));
+  const recLabel = $derived(rec.length ? compactCounts(rec) : null);
   const asOfText = $derived(asOf ? new Date(asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null);
 </script>
 
@@ -57,15 +57,13 @@
   <div class="top">
     <div class="about">
       {#if game.in_catalog}
-        <span class="facts">
-          <ComplexityBadge weight={game.average_weight} />
-          {#if players}<span class="fact" title="Players"><UsersIcon aria-hidden="true" /><span class="sr-only">Players</span>{players}</span>{/if}
-          {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
-        </span>
-        {#if game.best_player_counts?.length || game.recommended_player_counts?.length}
-          <span class="fact"><span class="lbl">Best at</span>
-            <PlayerPips best={game.best_player_counts} recommended={game.recommended_player_counts} /></span>
-        {/if}
+        <!-- The game page's facts strip, as it states them there. -->
+        <div class="facts tnum">
+          {#if players}<div><span>Players</span><b>{players}</b></div>{/if}
+          {#if time}<div><span>Play time</span><b>{time}</b></div>{/if}
+          {#if bestLabel}<div><span>Best at</span><b class="hl">{bestLabel}</b></div>{/if}
+          {#if recLabel}<div><span>Recommended at</span><b>{recLabel}</b></div>{/if}
+        </div>
         <a class="link" href="/games/{game.game_id}">Open game page →</a>
       {:else}
         <!-- PLACEHOLDER copy (Phil) -->
@@ -105,13 +103,21 @@
 </div>
 
 <style>
-  /* Plain under its row; the list's own divider closes it. */
+  /*
+   * Hangs under its row's title: everything starts at the name column (past the star and art
+   * tracks of GameList's row), so the panel reads as that game's, not as a new block. Plain,
+   * no tint; the list's own divider closes it.
+   */
   .panel {
+    --indent: calc(2.4rem + 1.85rem + 2 * var(--space-md));
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--space-md) var(--space-lg);
+    gap: var(--space-lg);
+    padding: 0.25rem var(--space-md) var(--space-lg) calc(var(--space-md) + var(--indent));
     border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  }
+  @container (max-width: 40rem) {
+    .panel { padding-left: var(--space-md); }
   }
   .top {
     display: flex;
@@ -121,16 +127,37 @@
     gap: var(--space-md) var(--space-xl);
   }
   .about,
-  .avail,
   .like {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.6rem;
     min-width: 0;
   }
-  .avail { align-items: flex-end; text-align: right; }
+  .avail {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+    text-align: right;
+  }
+  /* The game page's facts strip (games/[id]/+page.svelte .facts). */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    font-size: 0.85rem;
+  }
+  .facts div span {
+    color: var(--muted-foreground);
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .facts div b { font-weight: 650; }
+  .facts .hl { color: var(--primary); }
   .lbl {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
@@ -142,19 +169,6 @@
     font-size: 0.75rem;
     color: var(--muted-foreground);
   }
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-  }
-  .fact {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .fact :global(svg) { width: 0.9rem; height: 0.9rem; }
   .link {
     color: var(--primary);
     font-weight: 600;
@@ -162,12 +176,14 @@
     text-decoration: none;
   }
   .link:hover { text-decoration: underline; }
-  /* Room for five cards from the first draw (SimilarRow: 2rem art + padding and border,
-     0.35rem apart), so the panel doesn't grow when they arrive. */
+  /* A reading width, not the panel's: stretched across a wide table the cards opened a gap
+     between each name and its badges. Room for five from the first draw (SimilarRow: 2rem
+     art + padding and border, 0.35rem apart), so the panel doesn't grow when they arrive. */
   .likes {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    max-width: 38rem;
     min-height: calc(5 * 3.05rem + 4 * 0.35rem);
   }
   .tnum { font-variant-numeric: tabular-nums; }
