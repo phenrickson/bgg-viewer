@@ -60,7 +60,10 @@
     showUniverse = true,
     /** Gather Series & families, People & publishers and Exact numbers into one "Advanced
         filters" group, closed by default (the BGG.CON dashboard). Explore keeps them separate. */
-    groupAdvanced = false
+    groupAdvanced = false,
+    /** Show the name search at the top. Off where the page puts it above its list instead
+        (the BGG.CON dashboard), so it isn't missed. */
+    showSearch = true
   }: {
     scope: Scope;
     where: string;
@@ -68,6 +71,7 @@
     availableNow?: boolean;
     showUniverse?: boolean;
     groupAdvanced?: boolean;
+    showSearch?: boolean;
   } = $props();
 
   /**
@@ -201,10 +205,12 @@
 
 <aside class="rail">
   <div class="pinned">
+    {#if showSearch}
     <label class="find">
       <span class="vh">Search game names in this set</span>
       <input type="search" placeholder="Name contains…" bind:value={scope.q} />
     </label>
+    {/if}
 
     <div class="grp top">
       <!--

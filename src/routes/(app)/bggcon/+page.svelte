@@ -192,7 +192,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
     {/if}
@@ -200,7 +200,7 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </div>
       {/if}
 
@@ -211,7 +211,6 @@
             <button class="count" aria-pressed={availability === 'available'} onclick={() => toggleAvailability('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
             <button class="count" aria-pressed={availability === 'out'} onclick={() => toggleAvailability('out')}><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</button>
             <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
-            <button class="count" aria-pressed={mode === 'missing'} onclick={() => toggleMode('missing')}><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</button>
           {/if}
         </div>
         {#if asOfText}
@@ -220,6 +219,12 @@
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
+          <!-- Above the list rather than in the rail, where it was easy to miss. Searches the whole
+               library from any view (see `searching`). Styled as the rail's search was. -->
+          <label class="find">
+            <span class="sr-only">Search game names in the library</span>
+            <input type="search" placeholder="Search the library…" bind:value={scope.q} />
+          </label>
           <SegmentedControl label="Show" size="md" options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
@@ -339,6 +344,26 @@
     margin: calc(-1 * var(--space-sm)) 0 0;
     font-size: 0.75rem;
     color: var(--muted-foreground);
+  }
+  .find {
+    position: relative; /* anchors the sr-only label (see .canvas) */
+    flex: 1 1 14rem;
+    max-width: 22rem;
+  }
+  .find input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--background);
+    color: var(--foreground);
+    padding: 0.35rem 0.6rem;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .find input:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
   }
   .ctl {
     display: flex;
