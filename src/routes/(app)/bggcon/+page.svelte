@@ -20,11 +20,10 @@
   import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
   import {
-    countsSql, countSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT, AVAILABLE_SORT,
+    countsSql, countSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT,
     type Mode, type ListArgs, type LibraryListRow
   } from '$lib/bggcon/queries';
   import GameList, { type ExtraColumn, type GameListRow } from '$lib/catalog/views/GameList.svelte';
-  import LibraryRows from './LibraryRows.svelte';
   import ShelfStatus from './ShelfStatus.svelte';
   import StarButton from './StarButton.svelte';
   import GamePanel from './GamePanel.svelte';
@@ -138,14 +137,9 @@
     { value: 'focus', label: 'Focus list' },
     { value: 'missing', label: 'Not in catalog' }
   ];
-  const emptyText = $derived(
-    args.mode === 'focus'
-      ? 'Your focus list is empty. Search, or switch to the whole library, and star games to watch them here.'
-      : 'No library games match.'
-  );
-  // Explore's table over the library: geek rating, complexity and availability, a star on each
-  // row, and a game opening in place under its row. "Not in catalog" keeps its own list (those
-  // games have no catalog columns to show).
+  // Explore's table over the library, for every view: geek rating, complexity and availability,
+  // a star on each row, and a game opening in place under its row. Games the catalog lacks
+  // show "—" for rating and complexity.
   let openId = $state<number | null>(null);
   // Opens at once; the panel keeps room for its similar games while they're looked up.
   const toggleOpen = (id: number) => (openId = openId === id ? null : id);
@@ -204,7 +198,7 @@
         </div>
       {/if}
 
-      <div class="canvas" class:scrolls={args.mode === 'missing'}>
+      <div class="canvas">
         <div class="chead">
           {#if counts}
             <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
@@ -229,13 +223,11 @@
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
 
-        {#if args.mode === 'missing'}
-          <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
-        {:else}
-          <GameList
+        <GameList
             where={tableWhere(args)}
             cards={narrow}
-            join={LIBRARY_JOIN}
+            source={LIBRARY_FROM}
+            nameSql={LIBRARY_NAME}
             select={LIBRARY_SELECT}
             columns={['name', 'geek', 'weight']}
             extra={AVAILABILITY}
@@ -246,7 +238,6 @@
             {openId}
             detail={panel}
           />
-        {/if}
       </div>
     </div>
   </Container>
@@ -301,9 +292,6 @@
        list, and stretch the whole page into empty space below the footer. */
     position: relative;
   }
-  /* Only the "Not in catalog" list scrolls the canvas; the table (GameList) scrolls inside
-     itself, as on Explore, and a canvas scroll beside it was a second scrollbar. */
-  .canvas.scrolls { overflow-y: auto; }
   /* Header, controls and list share one capped column, so nothing floats to the far edge. */
   .canvas > :global(*) {
     max-width: 64rem;

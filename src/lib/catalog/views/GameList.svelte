@@ -65,6 +65,10 @@
      * of the columns below show, `extra` adds its own (Availability), `lead` is the star, and
      * `onopen`/`openId`/`detail` open a game in place under its row instead of linking to it.
      */
+    /** The rows' source, aliased `c` for the catalog (the BGG.CON library starts from the library). */
+    source = 'catalog c',
+    /** The name column (the library falls back to its own name for games the catalog lacks). */
+    nameSql = 'c.name',
     join = '',
     select = '',
     columns,
@@ -81,6 +85,8 @@
     where: string;
     universe?: Scope['universe'];
     cards?: boolean;
+    source?: string;
+    nameSql?: string;
     join?: string;
     select?: string;
     columns?: string[];
@@ -232,6 +238,8 @@
     const ord = `${z(sortCol.sql)} ${desc ? 'DESC' : 'ASC'} NULLS LAST${sortCol.then ? `, ${sortCol.then}` : ''}`;
     const offset = page * PAGE_SIZE;
     const j = join;
+    const src = source;
+    const nm = nameSql;
     const sel = select ? `, ${select}` : '';
     const mine = ++token;
     // Read so a thumbnails load after first render re-runs this query and repaints rows
@@ -243,15 +251,15 @@
     catalog.checkedOutVersion;
     loading = true;
     Promise.all([
-      query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog c ${j} WHERE ${w}`),
+      query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM ${src} ${j} WHERE ${w}`),
       query<Row>(
-        `SELECT c.game_id, c.name, c.year_published, ${z('c.geek_rating')} AS geek_rating,
+        `SELECT game_id, ${nm} AS name, c.year_published, ${z('c.geek_rating')} AS geek_rating,
                 ${z('c.average_rating')} AS average_rating, ${z('c.average_weight')} AS average_weight, c.users_rated, c.min_players, c.max_players,
                 c.best_player_counts, c.recommended_player_counts,
                 c.designers, c.publishers, c.categories,
                 c.predicted_geek_rating, c.predicted_rating, c.predicted_complexity,
                 c.predicted_users_rated, c.predicted_hurdle_prob, t.thumbnail${sel}
-         FROM catalog c LEFT JOIN thumbnails t USING (game_id) ${j}
+         FROM ${src} LEFT JOIN thumbnails t USING (game_id) ${j}
          WHERE ${w} ORDER BY ${ord}, game_id LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])

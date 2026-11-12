@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listSql, countSql, countsSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT, AVAILABLE_SORT } from './queries';
+import { listSql, countSql, countsSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT } from './queries';
 
 const base = { availableOnly: false, offset: 0, limit: 50 };
 
@@ -77,25 +77,35 @@ describe('listSql: rating', () => {
 });
 
 describe('tableWhere (the library through GameList)', () => {
-	it('whole library: the scope, limited to library games', () => {
+	// The table reads the library first (LIBRARY_FROM), so each view says which games it wants.
+	it('whole library: catalog-matched games, filtered by the scope', () => {
 		const w = tableWhere({ mode: 'all', where: 'users_rated >= 30', availableOnly: false });
-		expect(w).toBe('users_rated >= 30');
+		expect(w).toBe('c.game_id IS NOT NULL AND (users_rated >= 30)');
 	});
 
-	it('focus: the starred ids; none matches nothing', () => {
+	it('focus: the starred ids, catalog or not; none matches nothing', () => {
 		expect(tableWhere({ mode: 'focus', ids: [13, 7865], availableOnly: false })).toBe('l.game_id IN (13, 7865)');
 		expect(tableWhere({ mode: 'focus', ids: [], availableOnly: false })).toBe('FALSE');
 	});
 
-	it('adds the availability filters', () => {
-		expect(tableWhere({ mode: 'all', where: 'TRUE', availableOnly: true })).toBe('TRUE AND l.copies - COALESCE(o.n, 0) > 0');
-		expect(tableWhere({ mode: 'all', where: 'TRUE', availableOnly: false, inUseOnly: true })).toBe('TRUE AND COALESCE(o.n, 0) > 0');
+	it('not in catalog: library games the catalog lacks, searchable by their library name', () => {
+		expect(tableWhere({ mode: 'missing', availableOnly: false })).toBe('c.game_id IS NULL');
+		expect(tableWhere({ mode: 'missing', q: "it's", availableOnly: false })).toBe(
+			"c.game_id IS NULL AND l.tte_name ILIKE '%it''s%' ESCAPE '\\'"
+		);
 	});
 
-	it('the join it relies on brings in the library and what is checked out', () => {
-		expect(LIBRARY_JOIN).toContain('JOIN con_library l USING (game_id)');
-		expect(LIBRARY_JOIN).toContain('LEFT JOIN con_checked_out o USING (game_id)');
+	it('adds the availability filters', () => {
+		expect(tableWhere({ mode: 'focus', ids: [1], availableOnly: true })).toBe('l.game_id IN (1) AND l.copies - COALESCE(o.n, 0) > 0');
+		expect(tableWhere({ mode: 'focus', ids: [1], availableOnly: false, inUseOnly: true })).toBe('l.game_id IN (1) AND COALESCE(o.n, 0) > 0');
+	});
+
+	it('reads from the library, joining the catalog and what is checked out', () => {
+		expect(LIBRARY_FROM).toMatch(/^con_library l LEFT JOIN catalog c USING \(game_id\)/);
+		expect(LIBRARY_FROM).toContain('LEFT JOIN con_checked_out o USING (game_id)');
+		expect(LIBRARY_NAME).toBe('COALESCE(c.name, l.tte_name)');
 		expect(LIBRARY_SELECT).toContain('AS available');
+		expect(LIBRARY_SELECT).toContain('(c.game_id IS NOT NULL) AS in_catalog');
 	});
 });
 
