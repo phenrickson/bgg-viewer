@@ -157,7 +157,7 @@
     then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
   });
   const AVAILABILITY: ExtraColumn[] = [
-    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: 'minmax(8rem, max-content)', cell: availCell }
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '8.5rem', cell: availCell }
   ];
 
   const asOfText = $derived(

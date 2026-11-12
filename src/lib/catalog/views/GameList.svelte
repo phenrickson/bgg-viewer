@@ -169,11 +169,14 @@
     ...extra.map((e) => ({ key: e.key, label: e.label, align: 'l' as const, sql: e.sql, then: e.then, hint: e.hint, width: e.width }))
   ]);
   const shown = (key: string) => COLS.some((c) => c.key === key);
-  /** Track widths, matching the stylesheet's, for a caller that picks its own columns. */
+  /**
+   * Track widths for a caller that picks its own columns: FIXED, not `max-content`. Every row is
+   * its own grid, so a content-sized track came out wider in the header ("COMPLEXITY") than in
+   * the rows, and the centered gauges sat off-center under their headers.
+   */
   const WIDTH: Record<string, string> = {
-    name: 'minmax(11rem, 1fr)', year: 'minmax(3.4rem, max-content)', geek: 'minmax(4rem, max-content)',
-    rating: 'minmax(3.4rem, max-content)', weight: 'minmax(4.6rem, max-content)',
-    best: 'minmax(6.2rem, max-content)', rated: 'minmax(5rem, max-content)'
+    name: 'minmax(11rem, 1fr)', year: '3.4rem', geek: '5.5rem', rating: '3.4rem',
+    weight: '5.5rem', best: '6.2rem', rated: '5rem'
   };
   // Only when the caller picks columns; Explore keeps the stylesheet's templates and their
   // container-query fallbacks.
