@@ -14,7 +14,11 @@
 >
 
 <style>
+  /* Positioned so its `sr-only` text anchors here. Unanchored, that absolutely positioned text
+     was placed against the page, a hundred rows down, escaping the table's scroll and making
+     the whole page scroll (a second scrollbar). */
   .shelf {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
