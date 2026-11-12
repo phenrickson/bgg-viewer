@@ -163,7 +163,7 @@
 {/snippet}
 {#snippet star(r: GameListRow)}<StarButton id={r.game_id} name={r.name} />{/snippet}
 {#snippet panel(r: GameListRow)}
-  <GamePanel game={r as unknown as LibraryListRow} {libraryIds} {asOf} />
+  <GamePanel game={r as unknown as LibraryListRow} {libraryIds} {narrow} />
 {/snippet}
 
 <svelte:head><title>BGG.CON Library · Boardgame-Viz</title></svelte:head>
