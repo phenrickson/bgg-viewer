@@ -369,11 +369,11 @@
 <!-- Narrow: the sidebar as a bottom sheet, as /map does; short of full height so a sliver of
      the canvas stays in view behind it. -->
 <Sheet.Root bind:open={controlsOpen}>
-  <Sheet.Content side="bottom" class="flex h-[85dvh] max-h-[85dvh] flex-col p-0">
+  <Sheet.Content side="bottom" class="flex h-[92dvh] max-h-[92dvh] flex-col p-0">
     <Sheet.Header class="border-b border-border">
       <Sheet.Title>Controls</Sheet.Title>
     </Sheet.Header>
-    <div class="min-h-0 flex-1 overflow-y-auto px-4">
+    <div class="min-h-0 flex-1 overflow-y-auto p-4">
       <GenealogyRail {s} oncommit={(next) => commit(next)} />
     </div>
     <Sheet.Footer class="border-t border-border">
