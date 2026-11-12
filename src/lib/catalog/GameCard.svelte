@@ -100,7 +100,7 @@
     text-align: left;
     cursor: pointer;
   }
-  .card.open .body :global(.nm) { color: var(--primary); }
+  .card.open { background: color-mix(in oklch, var(--primary) 7%, transparent); }
   .card:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
   .card:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .card.opening {

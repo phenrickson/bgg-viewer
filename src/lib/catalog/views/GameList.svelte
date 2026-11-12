@@ -364,8 +364,7 @@
   </div>
   {/if}
 
-  <!-- `--gl-cols`: the column template, for a caller's `detail` to line its own rows up under. -->
-  <div class="rows" style:--gl-cols={template}>
+  <div class="rows">
     {#each rows as r, i (r.game_id)}
       {#if cards}
         <div class="cardwrap" class:lead={!!lead}>
@@ -715,8 +714,7 @@
     border-bottom: none;
   }
   div.row:not(.head) { cursor: pointer; }
-  /* The open row is marked by its name, not a tint. */
-  .row.open .nm { color: var(--primary); }
+  .row.open { background: color-mix(in oklch, var(--primary) 7%, transparent); }
   a.row:hover,
   div.row:not(.head):hover {
     background: color-mix(in oklch, var(--primary) 7%, transparent);
