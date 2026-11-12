@@ -3,7 +3,16 @@
   /** A row as a caller's snippet sees it: the catalog columns plus whatever its `select` adds. */
   export type GameListRow = { game_id: number; name: string } & Record<string, unknown>;
   /** A column a caller adds (the BGG.CON library's Availability): sorted by `sql`, drawn by `cell`. */
-  export type ExtraColumn = { key: string; label: string; sql: string; hint?: string; width: string; cell: Snippet<[GameListRow]> };
+  export type ExtraColumn = {
+    key: string;
+    label: string;
+    sql: string;
+    /** Orders ties within this column's sort, whichever way it runs (e.g. geek rating, high first). */
+    then?: string;
+    hint?: string;
+    width: string;
+    cell: Snippet<[GameListRow]>;
+  };
 </script>
 
 <script lang="ts">
@@ -127,7 +136,7 @@
     predicted_hurdle_prob: number | null;
   };
 
-  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string; domain?: string; width?: string };
+  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string; domain?: string; width?: string; then?: string };
   const COLS_RATED: Col[] = [
     { key: 'name', label: 'Game', align: 'l', sql: 'lower(name)' },
     { key: 'year', label: 'Year', align: 'r', sql: 'year_published' },
@@ -154,7 +163,7 @@
   ];
   const COLS = $derived<Col[]>([
     ...(upcoming ? COLS_UPCOMING : COLS_RATED).filter((c) => !columns || columns.includes(c.key)),
-    ...extra.map((e) => ({ key: e.key, label: e.label, align: 'l' as const, sql: e.sql, hint: e.hint, width: e.width }))
+    ...extra.map((e) => ({ key: e.key, label: e.label, align: 'l' as const, sql: e.sql, then: e.then, hint: e.hint, width: e.width }))
   ]);
   const shown = (key: string) => COLS.some((c) => c.key === key);
   /** Track widths, matching the stylesheet's, for a caller that picks its own columns. */
@@ -206,7 +215,7 @@
   let token = 0;
   $effect(() => {
     const w = where;
-    const ord = `${z(sortCol.sql)} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
+    const ord = `${z(sortCol.sql)} ${desc ? 'DESC' : 'ASC'} NULLS LAST${sortCol.then ? `, ${sortCol.then}` : ''}`;
     const offset = page * PAGE_SIZE;
     const j = join;
     const sel = select ? `, ${select}` : '';
