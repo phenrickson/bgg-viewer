@@ -1,7 +1,12 @@
 # BGG.CON library: scope + availability page — design
 
 **Date:** 2026-11-12
-**Status:** Draft, awaiting Phil's review. No plan yet.
+**Status:** Approved. Plan: `docs/superpowers/plans/2026-11-12-bggcon-library.md`.
+Decided on 2026-11-12:
+- The API caps pages at 100 (it silently drops to 25 above that), so a full pull is 86 calls.
+- Stars and the snapshot go in GCS under `bggcon/`. That needs a write grant scoped to that
+  folder, which is the plan's PR 2; bgg-viewer currently has read-only access.
+- Review from the MacBook uses a dev-only server proxy for artifacts (plan PR 1).
 **Branch:** `feat/bggcon-library` (one PR: spec, plan and implementation together)
 **Lifetime:** Temporary. Built for BGG.CON 2026, then removed in one PR (see §7).
 
