@@ -21,9 +21,6 @@
   import { stars } from '$lib/bggcon/stars.svelte';
   import { countsSql, countSql, type Mode, type ListArgs } from '$lib/bggcon/queries';
   import LibraryRows from './LibraryRows.svelte';
-  import type { PageData } from './$types';
-
-  let { data }: { data: PageData } = $props();
 
   const REFRESH_MS = 60_000;
   const ready = $derived(catalog.status === 'ready');
@@ -32,7 +29,7 @@
   let filtersOpen = $state(false);
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
-  let mode = $state<Mode>('focus');
+  let mode = $state<Mode>('all');
   let availableNow = $state(false);
   let libraryIds = $state.raw<ReadonlySet<number>>(new Set());
   let loadError = $state<string | null>(null);
@@ -100,7 +97,9 @@
   });
 
   /** The Rail's facet counts are scoped to the library, not the whole catalog. */
-  const railWhere = $derived(`${toWhere(scope)} AND game_id IN (SELECT game_id FROM con_library)`);
+  // The library decides membership and spans rated and brand-new games, so no universe clause.
+  const scopeWhere = $derived(toWhere(scope, { anyUniverse: true }));
+  const railWhere = $derived(`${scopeWhere} AND game_id IN (SELECT game_id FROM con_library)`);
 
   // A name search looks across the whole library, from any view, so a game can be found and starred.
   const searching = $derived(scope.q.trim() !== '');
@@ -109,13 +108,13 @@
       ? { mode: 'missing', q: scope.q, availableOnly: availableNow }
       : mode === 'focus' && !searching
         ? { mode: 'focus', ids: [...stars.ids], availableOnly: availableNow }
-        : { mode: 'all', where: toWhere(scope), availableOnly: availableNow }
+        : { mode: 'all', where: scopeWhere, availableOnly: availableNow }
   );
 
   // PLACEHOLDER copy (Phil): the view names and empty states.
   const MODE_OPTIONS: { value: Mode; label: string }[] = [
-    { value: 'focus', label: 'Focus list' },
     { value: 'all', label: 'Whole library' },
+    { value: 'focus', label: 'Focus list' },
     { value: 'missing', label: 'Not in catalog' }
   ];
   const emptyText = $derived(
@@ -147,7 +146,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <Rail bind:scope where={railWhere} bggUsername={data.user?.bgg_username ?? null} bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} bind:availableNow />
         </RailSheet>
       </div>
     {/if}
@@ -155,7 +154,7 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} bggUsername={data.user?.bgg_username ?? null} bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} bind:availableNow />
         </div>
       {/if}
 

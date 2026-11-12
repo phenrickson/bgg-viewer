@@ -342,11 +342,19 @@ export function stepYear(
 	return { yearMin: lo, yearMax: lo + width };
 }
 
-/** Compile the scope to a SQL WHERE body (without the `WHERE` keyword). */
-export function toWhere(scope: Scope): string {
+/**
+ * Compile the scope to a SQL WHERE body (without the `WHERE` keyword).
+ *
+ * `anyUniverse` leaves out the universe clause (rated's `users_rated >= 30`, or upcoming's
+ * this-year-and-later): for a set that already decides its own membership and spans both,
+ * the BGG.CON library dashboard. The user's filters still apply.
+ */
+export function toWhere(scope: Scope, opts: { anyUniverse?: boolean } = {}): string {
 	const parts: string[] = [];
 	const col = columnsFor(scope.universe);
-	if (scope.universe === 'upcoming')
+	if (opts.anyUniverse) {
+		// no universe clause
+	} else if (scope.universe === 'upcoming')
 		// Published this year or later. The `IS NOT NULL` guard matters because the catalog
 		// LEFT JOINs predictions: an unscored upcoming game is a real row with five null model
 		// columns, and it would sit in every sort as a blank rather than being absent.

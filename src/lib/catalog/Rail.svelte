@@ -54,8 +54,17 @@
     bggUsername = null,
     /** BGG.CON library pages only: binding this shows an "Available now" switch (games with a
         copy on the shelf). Left unbound, as Explore does, the switch isn't there. */
-    availableNow = $bindable(undefined)
-  }: { scope: Scope; where: string; bggUsername?: string | null; availableNow?: boolean } = $props();
+    availableNow = $bindable(undefined),
+    /** Show the Universe control (Top 10,000 / All rated / Upcoming). Off on the BGG.CON
+        dashboard, whose set is the library and spans every universe. */
+    showUniverse = true
+  }: {
+    scope: Scope;
+    where: string;
+    bggUsername?: string | null;
+    availableNow?: boolean;
+    showUniverse?: boolean;
+  } = $props();
 
   /**
    * Self-serve collection filter, grouped visually with Universe rather than living at the
@@ -205,6 +214,7 @@
         with no room to spare, and Upcoming is a different kind of data rather than a filter
         anyone toggles idly. Here it is the first control in the sheet instead.
       -->
+      {#if showUniverse}
       <SegGroup
         label="Universe"
         two
@@ -223,6 +233,7 @@
             ? 'Everything with 30+ ratings — about 35,000.'
             : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
       </p>
+      {/if}
       {#if bggUsername}
         <button
           type="button"
