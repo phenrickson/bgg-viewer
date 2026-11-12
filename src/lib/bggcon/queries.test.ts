@@ -113,3 +113,12 @@ describe('AVAILABLE_SORT', () => {
 		expect(AVAILABLE_SORT).toBe('(l.copies - COALESCE(o.n, 0) > 0)');
 	});
 });
+
+describe('listSql: player counts', () => {
+	it('selects best and recommended player counts', () => {
+		const sql = listSql({ mode: 'all', where: 'TRUE', availableOnly: false, offset: 0, limit: 1 });
+		const select = sql.slice(0, sql.indexOf('FROM'));
+		expect(select).toContain('c.best_player_counts');
+		expect(select).toContain('c.recommended_player_counts');
+	});
+});

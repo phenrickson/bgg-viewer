@@ -13,6 +13,7 @@
   import type { LibraryListRow } from '$lib/bggcon/queries';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
+  import PlayerPips from '$lib/catalog/encodings/PlayerPips.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
   import UsersIcon from '@lucide/svelte/icons/users';
@@ -52,28 +53,34 @@
 </script>
 
 <div class="panel">
-  <div class="col a">
-    <span class="lbl">Availability</span>
-    <span class="big"><b class="tnum">{Math.max(0, game.available)}</b> of <b class="tnum">{game.copies}</b>
-      {game.copies === 1 ? 'copy' : 'copies'} available</span>
-    <span class="note">{#if asOfText}As of {asOfText}{/if}{#if game.play_to_win} · play-to-win{/if}</span>
-
-    <span class="lbl">About</span>
-    {#if game.in_catalog}
-      <span class="facts">
-        <ComplexityBadge weight={game.average_weight} />
-        {#if players}<span class="fact" title="Players"><UsersIcon aria-hidden="true" /><span class="sr-only">Players</span>{players}</span>{/if}
-        {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
-      </span>
-      <a class="link" href="/games/{game.game_id}">Open game page →</a>
-    {:else}
-      <!-- PLACEHOLDER copy (Phil) -->
-      <span class="note">Not in the catalog (below its ratings cutoff), so there's no profile here.</span>
-      <a class="link" href="https://boardgamegeek.com/boardgame/{game.game_id}" target="_blank" rel="noopener">View on BGG ↗</a>
-    {/if}
+  <!-- What it is on the left, its copies on the right; the games like it get the full width below. -->
+  <div class="top">
+    <div class="about">
+      {#if game.in_catalog}
+        <span class="facts">
+          <ComplexityBadge weight={game.average_weight} />
+          {#if players}<span class="fact" title="Players"><UsersIcon aria-hidden="true" /><span class="sr-only">Players</span>{players}</span>{/if}
+          {#if time}<span class="fact" title="Play time"><ClockIcon aria-hidden="true" /><span class="sr-only">Play time</span>{time}</span>{/if}
+        </span>
+        {#if game.best_player_counts?.length || game.recommended_player_counts?.length}
+          <span class="fact"><span class="lbl">Best at</span>
+            <PlayerPips best={game.best_player_counts} recommended={game.recommended_player_counts} /></span>
+        {/if}
+        <a class="link" href="/games/{game.game_id}">Open game page →</a>
+      {:else}
+        <!-- PLACEHOLDER copy (Phil) -->
+        <span class="note">Not in the catalog (below its ratings cutoff), so there's no profile here.</span>
+        <a class="link" href="https://boardgamegeek.com/boardgame/{game.game_id}" target="_blank" rel="noopener">View on BGG ↗</a>
+      {/if}
+    </div>
+    <div class="avail">
+      <span class="big"><b class="tnum">{Math.max(0, game.available)}</b> of <b class="tnum">{game.copies}</b>
+        {game.copies === 1 ? 'copy' : 'copies'} available</span>
+      <span class="note">{#if asOfText}As of {asOfText}{/if}{#if game.play_to_win} · play-to-win{/if}</span>
+    </div>
   </div>
 
-  <div class="col b">
+  <div class="like">
     <span class="lbl">Like this, in the library</span>
     {#if likesState === 'loading'}
       <span class="note">Finding similar games…</span>
@@ -98,28 +105,30 @@
 </div>
 
 <style>
-  /* Continues its row: the same tint as the open row, and the list's own divider below. */
+  /* Plain under its row; the list's own divider closes it. */
   .panel {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-md) var(--space-xl);
+    flex-direction: column;
+    gap: var(--space-md);
     padding: var(--space-md) var(--space-md) var(--space-lg);
-    background: color-mix(in oklch, var(--primary) 7%, transparent);
     border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
-  .col {
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-md) var(--space-xl);
+  }
+  .about,
+  .avail,
+  .like {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
     min-width: 0;
   }
-  .col.a { flex: 1 1 14rem; }
-  /* Room for five similar games (SimilarRow: 2rem art + padding and border, 0.35rem apart)
-     from the first draw, so the panel doesn't grow when they arrive. */
-  .col.b {
-    flex: 2 1 22rem;
-    min-height: calc(5 * 3.05rem + 4 * 0.35rem + 1.5rem);
-  }
+  .avail { align-items: flex-end; text-align: right; }
   .lbl {
     font-size: 0.72rem;
     text-transform: uppercase;
@@ -127,7 +136,6 @@
     font-weight: 600;
     color: var(--muted-foreground);
   }
-  .lbl:not(:first-child) { margin-top: 0.5rem; }
   .big { font-size: 1.05rem; }
   .big b { font-size: 1.3rem; }
   .note {
@@ -144,7 +152,7 @@
   .fact {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.4rem;
   }
   .fact :global(svg) { width: 0.9rem; height: 0.9rem; }
   .link {
@@ -154,10 +162,13 @@
     text-decoration: none;
   }
   .link:hover { text-decoration: underline; }
+  /* Room for five cards from the first draw (SimilarRow: 2rem art + padding and border,
+     0.35rem apart), so the panel doesn't grow when they arrive. */
   .likes {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    min-height: calc(5 * 3.05rem + 4 * 0.35rem);
   }
   .tnum { font-variant-numeric: tabular-nums; }
 </style>

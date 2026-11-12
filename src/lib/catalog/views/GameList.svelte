@@ -714,7 +714,8 @@
     border-bottom: none;
   }
   div.row:not(.head) { cursor: pointer; }
-  .row.open { background: color-mix(in oklch, var(--primary) 7%, transparent); }
+  /* The open row is marked by its name, not a tint. */
+  .row.open .nm { color: var(--primary); }
   a.row:hover,
   div.row:not(.head):hover {
     background: color-mix(in oklch, var(--primary) 7%, transparent);
