@@ -1,36 +1,34 @@
 <script lang="ts">
   /**
-   * "2 of 3 on shelf" / "All 2 out". The words carry the state; the dot is a second cue, so it
-   * never relies on colour alone (style-rules). Status tokens, not the accent.
+   * Shelf status as a tag. The news is the exception (almost every copy is on the shelf), so a
+   * fully available game shows nothing, a partly checked-out one a quiet note, and one with
+   * every copy out a tag that stands out. Words carry the state; colour is a second cue
+   * (style-rules), and it's a status token, not the accent.
    */
   import { shelfText } from '$lib/bggcon/format';
 
   let { available, copies }: { available: number; copies: number } = $props();
+  const out = $derived(available <= 0);
 </script>
 
-<span class="shelf tnum" class:out={available <= 0}>{shelfText(available, copies)}</span>
+{#if available < copies}
+  <span class="tag tnum" class:out>{shelfText(available, copies)}</span>
+{/if}
 
 <style>
-  .shelf {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
+  .tag {
+    flex: none;
+    font-size: 0.72rem;
     font-weight: 600;
     white-space: nowrap;
+    color: var(--muted-foreground);
     font-variant-numeric: tabular-nums;
   }
-  .shelf::before {
-    content: '';
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--status-ok);
-  }
-  .shelf.out::before {
-    background: var(--status-warn);
-  }
-  .shelf.out {
-    color: var(--muted-foreground);
+  .tag.out {
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    color: var(--foreground);
+    background: color-mix(in oklch, var(--status-warn) 28%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--status-warn) 60%, transparent);
   }
 </style>

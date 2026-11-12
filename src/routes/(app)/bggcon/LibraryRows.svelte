@@ -112,7 +112,7 @@
         {/snippet}
       </SimilarRow>
       {#if open}
-        <GamePanel game={g} {libraryIds} {asOf} />
+        <GamePanel id={g.game_id} {libraryIds} {asOf} />
       {/if}
     </div>
   {/each}

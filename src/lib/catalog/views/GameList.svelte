@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  /** What `lead`, `tag` and `panel` are given: the row's game. */
+  export type ListGame = { game_id: number; name: string };
+</script>
+
 <script lang="ts">
   /**
    * The games in scope — the answer to "find board games matching my criteria".
@@ -25,6 +30,7 @@
   import SortBar from '$lib/catalog/SortBar.svelte';
   import Pager from '$lib/catalog/Pager.svelte';
   import type { Scope } from '$lib/catalog/scope';
+  import type { Snippet } from 'svelte';
 
   let {
     where,
@@ -41,8 +47,37 @@
      * year copy the table does, swap the pip grid for its text form, re-stretch the gauges.
      * That is where the two bugs came from. Now each branch renders only what it shows.
      */
-    cards = false
-  }: { where: string; universe?: Scope['universe']; cards?: boolean } = $props();
+    cards = false,
+    /**
+     * Optional, all off for Explore. The BGG.CON dashboard (`(app)/bggcon`) lists the con
+     * library with the same table, and adds:
+     * - `lead`: a control in the rank slot (its star);
+     * - `tag`: a marker after the name (shelf status, shown only when copies are out);
+     * - `onopen` + `openId` + `panel`: a click opens the game under its row instead of
+     *   navigating; the name stays a link-free button for keyboard users.
+     */
+    lead,
+    tag,
+    onopen,
+    openId = null,
+    panel,
+    empty = 'No games match this scope. Loosen a filter above, or clear one from the bar.'
+  }: {
+    where: string;
+    universe?: Scope['universe'];
+    cards?: boolean;
+    lead?: Snippet<[ListGame]>;
+    tag?: Snippet<[ListGame]>;
+    onopen?: (id: number) => void;
+    openId?: number | null;
+    panel?: Snippet<[ListGame]>;
+    empty?: string;
+  } = $props();
+
+  /** A whole-row click opens, except on the row's own buttons and links. */
+  const rowClick = (id: number) => (e: MouseEvent) => {
+    if (!(e.target as Element).closest('a, button')) onopen?.(id);
+  };
 
   /**
    * The upcoming universe reads the model's estimates rather than what happened — the same
@@ -296,7 +331,7 @@
   <div class="rows">
     {#each rows as r, i (r.game_id)}
       {#if cards}
-        <GameCard href="/games/{r.game_id}">
+        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined}>
           {#snippet art()}
             {#if r.thumbnail}
               <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
@@ -305,7 +340,7 @@
             {/if}
           {/snippet}
           {#snippet identity()}
-            <span class="nm">{r.name}</span>
+            <span class="nm">{r.name}{#if tag} {@render tag(r)}{/if}</span>
             <!-- Year leads the line rather than floating in a corner of its own. The table
                  gives it a sortable column; a card has none, so it becomes the first fact in
                  the same sentence as the player count and the designer. Categories are left
@@ -357,11 +392,25 @@
                 />
               </span>
             {/if}
+            {#if lead}<span class="stat lead">{@render lead(r)}</span>{/if}
           {/snippet}
         </GameCard>
+        {#if panel && openId === r.game_id}{@render panel(r)}{/if}
       {:else}
-      <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
-        <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <svelte:element
+        this={onopen ? 'div' : 'a'}
+        class="row"
+        class:pred={upcoming}
+        class:open={openId === r.game_id}
+        href={onopen ? undefined : `/games/${r.game_id}`}
+        onclick={onopen ? rowClick(r.game_id) : undefined}
+      >
+        {#if lead}
+          <span class="rk">{@render lead(r)}</span>
+        {:else}
+          <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
+        {/if}
 
         {#if r.thumbnail}
           <img class="c-thumb" src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
@@ -371,7 +420,15 @@
         {/if}
 
         <span class="c-name">
-          <span class="nm">{r.name}</span>
+          {#if onopen}
+            <span class="nmline"
+              ><button type="button" class="nm" aria-expanded={openId === r.game_id} onclick={() => onopen(r.game_id)}
+                >{r.name}</button
+              >{#if tag}{@render tag(r)}{/if}</span
+            >
+          {:else}
+            <span class="nm">{r.name}</span>
+          {/if}
           <span class="mt">{metaCore(r)}{#if metaCats(r)} · {metaCats(r)}{/if}</span>
         </span>
 
@@ -432,12 +489,13 @@
 
           <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
         {/if}
-      </a>
+      </svelte:element>
+      {#if panel && openId === r.game_id}{@render panel(r)}{/if}
       {/if}
     {/each}
 
     {#if !rows.length && !loading}
-      <p class="empty">No games match this scope. Loosen a filter above, or clear one from the bar.</p>
+      <p class="empty">{empty}</p>
     {/if}
 
     <!--
@@ -591,22 +649,32 @@
     margin-left: 0.15rem;
   }
 
-  a.row {
+  a.row,
+  div.row:not(.head) {
     text-decoration: none;
     color: inherit;
     border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
-  a.row:last-child {
+  a.row:last-child,
+  div.row:not(.head):last-child {
     border-bottom: none;
   }
-  a.row:hover {
+  a.row:hover,
+  div.row:not(.head):hover {
     background: color-mix(in oklch, var(--primary) 7%, transparent);
   }
   a.row:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: -2px;
   }
-  a.row > span {
+  div.row:not(.head) {
+    cursor: pointer;
+  }
+  div.row.open {
+    background: color-mix(in oklch, var(--primary) 7%, transparent);
+  }
+  a.row > span,
+  div.row > span {
     min-width: 0;
   }
   .rk {
@@ -631,6 +699,27 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .nmline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  button.nm {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+  }
+  button.nm:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  div.row:hover .nm,
   a.row:hover .nm {
     color: var(--primary);
   }

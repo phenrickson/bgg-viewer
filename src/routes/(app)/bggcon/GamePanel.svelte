@@ -19,11 +19,17 @@
   import ShelfStatus from './ShelfStatus.svelte';
   import StarButton from './StarButton.svelte';
 
-  let {
-    game,
-    libraryIds,
-    asOf
-  }: { game: LibraryListRow; libraryIds: ReadonlySet<number>; asOf: string | null } = $props();
+  let { id, libraryIds, asOf }: { id: number; libraryIds: ReadonlySet<number>; asOf: string | null } = $props();
+
+  /** This game's own row (copies, availability, catalog facts), re-read as availability refreshes. */
+  let game = $state<LibraryListRow | null>(null);
+  $effect(() => {
+    const gid = id;
+    catalog.checkedOutVersion;
+    query<LibraryListRow>(listSql({ mode: 'focus', ids: [gid], availableOnly: false, offset: 0, limit: 1 }))
+      .then((r) => (game = r[0] ?? null))
+      .catch((e) => console.error('panel row failed', e));
+  });
 
   const LIKE_N = 5;
   let vectors = $state.raw<VectorSet | null>(loadedVectors());
@@ -42,10 +48,10 @@
 
   $effect(() => {
     const v = vectors;
-    const id = game.game_id;
+    const seed = id;
     catalog.checkedOutVersion; // re-read shelf status when availability refreshes
     if (!v) return;
-    const hits = rankShelf(v, id, libraryIds, LIKE_N).similar;
+    const hits = rankShelf(v, seed, libraryIds, LIKE_N).similar;
     if (!hits.length) {
       likesState = 'none';
       return;
@@ -66,11 +72,12 @@
       });
   });
 
-  const players = $derived(boxPlayersLabel(game.min_players, game.max_players, true));
-  const time = $derived(boxPlaytimeLabel(game.min_playtime, game.max_playtime, true));
+  const players = $derived(game ? boxPlayersLabel(game.min_players, game.max_players, true) : null);
+  const time = $derived(game ? boxPlaytimeLabel(game.min_playtime, game.max_playtime, true) : null);
   const asOfText = $derived(asOf ? new Date(asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null);
 </script>
 
+{#if game}
 <div class="panel">
   <div class="col a">
     <span class="lbl">Availability</span>
@@ -116,6 +123,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <style>
   .panel {
@@ -123,9 +131,9 @@
     flex-wrap: wrap;
     gap: var(--space-md) var(--space-xl);
     padding: var(--space-md) var(--space-md) var(--space-lg);
-    border: 1px solid var(--primary);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
+    margin: 0.25rem var(--space-md) 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     background: var(--card);
   }
   .col {
