@@ -28,6 +28,8 @@
   import ShelfStatus from './ShelfStatus.svelte';
   import StarButton from './StarButton.svelte';
   import GamePanel from './GamePanel.svelte';
+  import { fetchVectors } from '$lib/recommend/vectors';
+  import { loadLikes } from '$lib/bggcon/likes';
 
   const REFRESH_MS = 60_000;
   const ready = $derived(catalog.status === 'ready');
@@ -48,6 +50,8 @@
 
   onMount(() => {
     initCatalog();
+    // The home page starts this too; here for a visit straight to this page.
+    fetchVectors().catch((e) => console.error('vectors failed', e));
     stars.load().catch((e) => console.error('stars failed', e));
   });
 
@@ -120,14 +124,28 @@
         : { mode: 'all', where: scopeWhere, ...shelf }
   );
 
-  // The counts double as filters: each sets the same view or availability the controls below
-  // and the rail's switch set, and a second click turns it back off.
-  const toggleAvailability = (v: 'available' | 'out') => (availability = availability === v ? 'any' : v);
-  const toggleMode = (v: Mode) => (mode = mode === v ? 'all' : v);
-  const showEverything = () => {
-    mode = 'all';
-    availability = 'any';
+  // The counts double as filters, one at a time: each sets the view and availability the
+  // controls below and the rail's switch also set. Clicking the selected one goes back to all.
+  type Pick = 'games' | 'available' | 'out' | 'focus' | 'missing';
+  const PICKS: Record<Pick, { mode: Mode; availability: typeof availability }> = {
+    games: { mode: 'all', availability: 'any' },
+    available: { mode: 'all', availability: 'available' },
+    out: { mode: 'all', availability: 'out' },
+    focus: { mode: 'focus', availability: 'any' },
+    missing: { mode: 'missing', availability: 'any' }
   };
+  const picked = $derived<Pick>(
+    mode === 'focus' ? 'focus'
+      : mode === 'missing' ? 'missing'
+        : availability === 'available' ? 'available'
+          : availability === 'out' ? 'out'
+            : 'games'
+  );
+  function pick(p: Pick) {
+    const next = PICKS[picked === p ? 'games' : p];
+    mode = next.mode;
+    availability = next.availability;
+  }
 
   // PLACEHOLDER copy (Phil): the view names and empty states.
   const MODE_OPTIONS: { value: Mode; label: string }[] = [
@@ -144,6 +162,18 @@
   // row, and a game opening in place under its row. "Not in catalog" keeps its own list (those
   // games have no catalog columns to show).
   let openId = $state<number | null>(null);
+  // Opens a game once its similar games are looked up (local, a few ms once the vectors are
+  // in), so the panel draws whole rather than growing. The last click wins.
+  let opening = 0;
+  async function toggleOpen(id: number) {
+    if (openId === id) {
+      openId = null;
+      return;
+    }
+    const mine = ++opening;
+    await loadLikes(id, libraryIds).catch(() => {}); // the panel shows its own error
+    if (mine === opening) openId = id;
+  }
   const AVAILABILITY: ExtraColumn[] = [
     { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, hint: 'copies available now', width: 'minmax(8rem, max-content)', cell: availCell }
   ];
@@ -195,16 +225,16 @@
       <div class="canvas">
         <div class="chead">
           {#if counts}
-            <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
-            <button class="count" aria-pressed={availability === 'available'} onclick={() => toggleAvailability('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
-            <button class="count" aria-pressed={availability === 'out'} onclick={() => toggleAvailability('out')}><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</button>
-            <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
-            <button class="count" aria-pressed={mode === 'missing'} onclick={() => toggleMode('missing')}><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</button>
+            <button class="count" aria-pressed={picked === 'games'} onclick={() => pick('games')}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
+            <button class="count" aria-pressed={picked === 'available'} onclick={() => pick('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
+            <button class="count" aria-pressed={picked === 'out'} onclick={() => pick('out')}><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</button>
+            <button class="count focus" aria-pressed={picked === 'focus'} onclick={() => pick('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
+            <button class="count" aria-pressed={picked === 'missing'} onclick={() => pick('missing')}><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</button>
           {/if}
-          <span class="asof">
-            {#if asOfText}As of {asOfText}{#if stale} · couldn’t refresh{/if} · refreshes every minute{/if}
-          </span>
         </div>
+        {#if asOfText}
+          <p class="asof">As of {asOfText}{#if stale} · couldn’t refresh{/if} · refreshes every minute</p>
+        {/if}
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
@@ -223,7 +253,8 @@
             columns={['name', 'geek', 'weight']}
             extra={AVAILABILITY}
             lead={star}
-            onopen={(id) => (openId = openId === id ? null : id)}
+            onopen={toggleOpen}
+            zeroIsMissing
             {openId}
             detail={panel}
           />
@@ -322,7 +353,7 @@
   .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
   .asof {
-    margin-left: auto;
+    margin: calc(-1 * var(--space-sm)) 0 0;
     font-size: 0.75rem;
     color: var(--muted-foreground);
   }

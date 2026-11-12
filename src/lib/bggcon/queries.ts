@@ -53,8 +53,8 @@ function fromWhere(a: ListArgs): string {
 export function listSql(a: ListArgs & { offset: number; limit: number }): string {
 	const then = a.mode === 'all' ? 'c.geek_rating DESC NULLS LAST' : 'lower(COALESCE(c.name, l.tte_name))';
 	return (
-		`SELECT l.game_id, COALESCE(c.name, l.tte_name) AS name, c.year_published, c.average_rating, c.geek_rating,
-		        c.average_weight, c.min_players, c.max_players, c.min_playtime, c.max_playtime,
+		`SELECT l.game_id, COALESCE(c.name, l.tte_name) AS name, c.year_published, NULLIF(c.average_rating, 0) AS average_rating,
+		        NULLIF(c.geek_rating, 0) AS geek_rating, NULLIF(c.average_weight, 0) AS average_weight, c.min_players, c.max_players, c.min_playtime, c.max_playtime,
 		        t.thumbnail, l.copies, l.play_to_win, (l.copies - COALESCE(o.n, 0))::INT AS available,
 		        (c.name IS NOT NULL) AS in_catalog ` +
 		`${fromWhere(a)} ORDER BY (${AVAILABLE}) DESC, ${then}, l.game_id ` +

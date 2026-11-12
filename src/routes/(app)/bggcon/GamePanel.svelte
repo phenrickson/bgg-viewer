@@ -4,12 +4,13 @@
    * its availability, what it is, and the games most like it that are in the library, each with
    * its own shelf status and star. Its game page is a link, not the default click.
    *
-   * "Like this, in the library" is Recommend's own `rankShelf`, with the library as the shelf.
+   * "Like this, in the library" is `loadLikes` (Recommend's `rankShelf`, the library as the
+   * shelf). The page looks them up before opening the row, so they're here on the first draw.
    */
-  import { query, catalog } from '$lib/catalog/catalog.svelte';
-  import { fetchVectors, loadedVectors, type VectorSet } from '$lib/recommend/vectors';
-  import { rankShelf } from '$lib/recommend/rank';
-  import { listSql, type LibraryListRow } from '$lib/bggcon/queries';
+  import { untrack } from 'svelte';
+  import { catalog } from '$lib/catalog/catalog.svelte';
+  import { loadLikes, cachedLikes, type Like } from '$lib/bggcon/likes';
+  import type { LibraryListRow } from '$lib/bggcon/queries';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
@@ -25,43 +26,22 @@
     asOf
   }: { game: LibraryListRow; libraryIds: ReadonlySet<number>; asOf: string | null } = $props();
 
-  const LIKE_N = 5;
-  let vectors = $state.raw<VectorSet | null>(loadedVectors());
-  let likes = $state<(LibraryListRow & { similarity: number })[]>([]);
-  let likesState = $state<'loading' | 'ready' | 'none' | 'error'>('loading');
+  // Each open row mounts its own panel, so the first look-up is read once.
+  const first = untrack(() => cachedLikes(game.game_id));
+  let likes = $state<Like[]>(first ?? []);
+  let likesState = $state<'loading' | 'ready' | 'error'>(first ? 'ready' : 'loading');
 
+  // Again when availability changes, so their shelf status stays current.
   $effect(() => {
-    if (vectors) return;
-    fetchVectors()
-      .then((v) => (vectors = v))
-      .catch((e) => {
-        console.error('vectors failed', e);
-        likesState = 'error';
-      });
-  });
-
-  $effect(() => {
-    const v = vectors;
     const id = game.game_id;
-    catalog.checkedOutVersion; // re-read shelf status when availability refreshes
-    if (!v) return;
-    const hits = rankShelf(v, id, libraryIds, LIKE_N).similar;
-    if (!hits.length) {
-      likesState = 'none';
-      return;
-    }
-    const sim = new Map(hits.map((h) => [h.id, h.similarity]));
-    query<LibraryListRow>(
-      listSql({ mode: 'focus', ids: hits.map((h) => h.id), availableOnly: false, offset: 0, limit: LIKE_N })
-    )
-      .then((rows) => {
-        likes = rows
-          .map((r) => ({ ...r, similarity: sim.get(r.game_id) ?? 0 }))
-          .sort((a, b) => b.similarity - a.similarity);
+    catalog.checkedOutVersion;
+    loadLikes(id, libraryIds)
+      .then((l) => {
+        likes = l;
         likesState = 'ready';
       })
       .catch((e) => {
-        console.error('likes query failed', e);
+        console.error('similar games failed', e);
         likesState = 'error';
       });
   });
@@ -97,10 +77,10 @@
     <span class="lbl">Like this, in the library</span>
     {#if likesState === 'loading'}
       <span class="note">Finding similar games…</span>
-    {:else if likesState === 'none'}
-      <span class="note">No similar games in the library to show.</span>
     {:else if likesState === 'error'}
       <span class="note">Couldn't load similar games.</span>
+    {:else if likes.length === 0}
+      <span class="note">No similar games in the library to show.</span>
     {:else}
       <div class="likes">
         {#each likes as g (g.game_id)}
@@ -118,15 +98,14 @@
 </div>
 
 <style>
+  /* Continues its row: the same tint as the open row, and the list's own divider below. */
   .panel {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-md) var(--space-xl);
     padding: var(--space-md) var(--space-md) var(--space-lg);
-    border: 1px solid var(--primary);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    background: var(--card);
+    background: color-mix(in oklch, var(--primary) 7%, transparent);
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
   .col {
     display: flex;

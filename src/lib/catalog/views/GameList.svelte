@@ -63,7 +63,9 @@
     lead,
     onopen,
     openId = null,
-    detail
+    detail,
+    /** Read a 0 geek rating, average rating or weight as missing ("—", sorted last). */
+    zeroIsMissing = false
   }: {
     where: string;
     universe?: Scope['universe'];
@@ -76,7 +78,10 @@
     onopen?: (id: number) => void;
     openId?: number | null;
     detail?: Snippet<[GameListRow]>;
+    zeroIsMissing?: boolean;
   } = $props();
+  const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
+  const z = (col: string) => (zeroIsMissing && ZEROABLE.includes(col.replace(/^c\./, '')) ? `NULLIF(${col}, 0)` : col);
 
   /**
    * The upcoming universe reads the model's estimates rather than what happened — the same
@@ -201,7 +206,7 @@
   let token = 0;
   $effect(() => {
     const w = where;
-    const ord = `${sortCol.sql} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
+    const ord = `${z(sortCol.sql)} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
     const offset = page * PAGE_SIZE;
     const j = join;
     const sel = select ? `, ${select}` : '';
@@ -217,8 +222,8 @@
     Promise.all([
       query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog c ${j} WHERE ${w}`),
       query<Row>(
-        `SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_rating,
-                c.average_weight, c.users_rated, c.min_players, c.max_players,
+        `SELECT c.game_id, c.name, c.year_published, ${z('c.geek_rating')} AS geek_rating,
+                ${z('c.average_rating')} AS average_rating, ${z('c.average_weight')} AS average_weight, c.users_rated, c.min_players, c.max_players,
                 c.best_player_counts, c.recommended_player_counts,
                 c.designers, c.publishers, c.categories,
                 c.predicted_geek_rating, c.predicted_rating, c.predicted_complexity,
@@ -333,7 +338,8 @@
        that reason. -->
   {#if !cards}
   <div class="head row" class:pred={upcoming} style:grid-template-columns={template}>
-    <span class="rk">#</span>
+    <!-- `#` over the rank; nothing over a caller's `lead` (the BGG.CON star), which isn't one. -->
+    <span class="rk">{lead ? '' : '#'}</span>
     <span class="c-thumb" aria-hidden="true"></span>
     {#each COLS as c (c.key)}
       <span class="c-{c.key}" class:r={c.align === 'r'}>

@@ -98,3 +98,12 @@ describe('tableWhere (the library through GameList)', () => {
 		expect(LIBRARY_SELECT).toContain('AS available');
 	});
 });
+
+describe('listSql: zero means missing', () => {
+	// BGG stores a missing geek rating, average rating or weight as 0; this page shows "—".
+	it('reads 0 ratings and weights as NULL', () => {
+		const sql = listSql({ mode: 'all', where: 'TRUE', availableOnly: false, offset: 0, limit: 1 });
+		for (const col of ['geek_rating', 'average_rating', 'average_weight'])
+			expect(sql).toContain(`NULLIF(c.${col}, 0) AS ${col}`);
+	});
+});

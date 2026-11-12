@@ -26,6 +26,7 @@
    */
   import { onMount } from 'svelte';
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
+  import { fetchVectors } from '$lib/recommend/vectors';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
   import { Container } from '$lib/components/ui/layout';
   import WarmGap from '$lib/landing/WarmGap.svelte';
@@ -53,6 +54,8 @@
     if (!loggedIn) return;
     wait = humanise(estimateMs());
     initCatalog();
+    // The similarity vectors too, so Recommend and the BGG.CON panel never wait on a click.
+    fetchVectors().catch((e) => console.error('vectors failed', e));
   });
 
   /**

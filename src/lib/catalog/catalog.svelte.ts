@@ -215,15 +215,21 @@ export async function loadConLibrary(rows: LibraryRow[]): Promise<void> {
 	const values = libraryValues(rows);
 	if (values) await conn.query(`INSERT INTO con_library VALUES ${values}`);
 	await conn.query('CREATE TABLE IF NOT EXISTS con_checked_out (game_id INTEGER, n INTEGER)');
+	lastCheckedOut = null; // a fresh load writes the counts again
 	libraryLoaded = true;
 }
 
 /** Replace the checked-out counts (BGG id → copies out), from `/api/bggcon/availability`. */
+/** The last counts written, so a refresh that changed nothing doesn't re-run every query. */
+let lastCheckedOut: string | null = null;
+
 export async function setConCheckedOut(counts: Record<number, number>): Promise<void> {
 	if (!conn) throw new Error('catalog is not ready');
-	await conn.query('CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)');
 	const values = checkedOutValues(counts);
+	if (values === lastCheckedOut) return;
+	await conn.query('CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)');
 	if (values) await conn.query(`INSERT INTO con_checked_out VALUES ${values}`);
+	lastCheckedOut = values;
 	checkedOutVersion++;
 }
 
