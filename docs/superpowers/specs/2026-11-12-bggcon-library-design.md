@@ -165,17 +165,59 @@ apply; this repo has none of them.
 | What | How often | Requests |
 |---|---|---|
 | Universe (daily job) | once a day, plus manual runs | ~86 |
-| Checked-out set | at most every 60 s, only while someone's looking | 1–5 (paged) |
+| Checked-out set (recorder, §8) | every 60 s while the library is open; backs off on errors | 1 (2–3 at peak) |
 
-If the checked-out set grows past a few pages at peak, the TTL goes up to 5 min. That's one
-constant.
+That's about 1,440 small requests a day, less than one person browsing the library's own page.
+Once the recorder runs, the app reads its latest result rather than calling Tabletop.Events
+itself.
 
 ### 6. Out of scope
 
 - Other attendees and public access.
-- Push notifications when a game comes back.
-- Checkout history, or popularity from `checkout_count`. That's an easy add later.
-- Any change to the warehouse or the catalog artifact.
+- SMS. US carrier registration takes days to weeks, so alerts are phone push (§8).
+- Any change to the catalog artifact.
+
+### 8. Recorder and alerts (bgg-data-warehouse)
+
+Agreed with Phil 2026-11-12. A job that runs whether or not anyone has the app open, so that:
+- alerts can fire;
+- the whole con's checkout history is recorded for a detailed end-of-con report: when copies
+  went out, which games were in the most demand, which games surged.
+
+- **Where:** Cloud Scheduler, once a minute while the library is open, triggers a small Cloud
+  Run job in **bgg-data-warehouse**. GitHub Actions cron can't do one-minute runs (its minimum
+  is 5 minutes, and runs are often delayed).
+- **Each run:**
+  - fetches the checked-out copies (`is_checked_out=1`);
+  - compares them with the previous run's set, which is kept in a small state file;
+  - records only the changes: one **event** per copy that went **out** or came back **in**,
+    with the time it was observed.
+- **Heartbeat:** each run also writes one row with the time and the number of copies out, so
+  gaps in coverage are visible in the report.
+- **Stored in BigQuery:**
+  - raw tables `bggcon_checkout_events (copy_id, bgg_id, name, event, observed_at)` and
+    `bggcon_runs (observed_at, n_out, ok)`, partitioned by day;
+  - Dataform models on top: per-copy out/in intervals, then per-game demand by hour.
+- **No personal data.** Tabletop.Events checkout records name the borrower (badge and user
+  ids). We never fetch or store those, only copy, game and time.
+- **Their own history isn't an option:** listing a game's checkouts needs a logged-in session
+  (`session_id is required`), so we record our own.
+- **Resolution is one minute.** A copy out and back within the same minute can be missed.
+  That's acceptable.
+- **Alerts:**
+  - when a game in Phil's focus list (`bggcon/stars/…`) goes from every copy out to at least
+    one on the shelf, the job sends a phone push through **ntfy**, a private topic held as a
+    secret;
+  - copy counts come from `bggcon/library.json`;
+  - phone push, not SMS: no registration, and it can be ready this week.
+- **Politeness and cost guards:**
+  - it runs only during library hours;
+  - after a 429 or 5xx it skips runs (the next allowed time is kept in the state file);
+  - one run at a time, a short timeout and no retries;
+  - estimated at well under $5 for the con, probably $0 in the free tier; checked against the
+    real bill after the first day of recording.
+- **Must be live and recording before the con opens.** Missed minutes can't be recovered. The
+  report and the Dataform models can be built after the con from the recorded data.
 
 ### 7. Removal after the con
 
@@ -191,3 +233,7 @@ site. Removing it is one PR: delete those folders and the call sites. The GCS ob
    stars first and treat the Explore scope as second priority.
 4. **How large is the checked-out set at peak?** We'll only know at the con. It's the
    setting for the TTL.
+5. **The library's opening hours,** for the recorder's schedule. Until they're known, it runs
+   around the clock.
+6. **Where the recorder keeps its state file and how it reads stars:** read access to the
+   viewer bucket's `bggcon/` for the warehouse job's service account.

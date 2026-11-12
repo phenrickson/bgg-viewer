@@ -15,16 +15,20 @@ Before the con, Phil can review all of it on the MacBook against the dev server 
 
 ## Delivery
 
-There are three PRs, in two repos, merged in the order below. Phil merges every PR.
-Development never happens on `main`. Each tested step is committed and pushed as it's done.
+There are four PRs in two repos (a fifth, the report, comes after the con). Phil merges every
+PR. Development never happens on `main`. Each tested step is committed and pushed as it's done.
 
 | # | Repo | Branch | Depends on |
 |---|---|---|---|
 | 1 | bgg-viewer | `feat/dev-lan-artifacts` (from `main`) | nothing |
-| 2 | bgg-data-warehouse | `feat/terraform-bggcon-writer` (from `main`) | nothing |
-| 3 | bgg-viewer | `feat/bggcon-library` (exists; holds the spec and this plan) | #2 deployed for prod; #1 for MacBook review |
+| 2 | bgg-data-warehouse | `feat/terraform-bggcon-writer` (merged) | nothing |
+| 3 | bgg-viewer | `feat/bggcon-library` (holds the spec and this plan) | #2 deployed; #1 for MacBook review |
+| 4 | bgg-data-warehouse | `feat/bggcon-recorder` (from `main`) | the library snapshot from #3's daily job |
+| 5 | bgg-data-warehouse | `feat/bggcon-report` (after the con) | data recorded by #4 |
 
-PRs 1 and 2 are independent and can go up in parallel.
+**Order against the con:** finish #3 (dashboard and stars), then **#4 must be deployed and
+recording before the library opens.** Missed minutes can't be recovered. #5 can wait until
+after the con.
 
 ---
 
@@ -200,6 +204,58 @@ DuckDB, so the catalog integration now comes first.
 
 ---
 
+## PR 4: the recorder and alerts (bgg-data-warehouse, spec §8)
+
+- **Job:** a small Python job in the warehouse's own style (uv, `src/`, pytest), deployed as a
+  **Cloud Run job**. Each run does the following:
+  1. Reads its state file: the previous checked-out copy ids, and the next allowed run time
+     (used for backoff).
+  2. Fetches the checked-out copies (one at a time, at most 100 per page).
+  3. Compares with the previous set. Each new copy is an `out` event; each copy that's gone
+     is an `in` event.
+  4. Inserts the events and one heartbeat row (`bggcon_runs`) into BigQuery.
+  5. For each `in` event, checks the focus list (`bggcon/stars/…`) and copy counts
+     (`bggcon/library.json`). It sends an ntfy push when a starred game goes from every copy
+     out to at least one on the shelf.
+  6. Saves the new state file.
+
+  On a 429 or 5xx it writes a failed heartbeat, pushes the next allowed run time out to 5
+  minutes, and exits.
+- **Terraform** (through `terraform.yml`):
+  - the Cloud Run job;
+  - a Cloud Scheduler job, every minute, `America/Chicago`, library hours once known;
+  - the two raw BigQuery tables, partitioned by day;
+  - the ntfy topic as a Secret Manager secret;
+  - read access for the job's service account to the viewer bucket's `bggcon/`.
+  - Cost guards: no retries, a 60 s timeout, one task.
+- **The dashboard switches over:** once the recorder is live, `/api/bggcon/availability` reads
+  the recorder's latest set rather than calling Tabletop.Events. That's a follow-up commit
+  on #3's code.
+- **Tests:** pytest for the change detection, covering:
+  - first run;
+  - no change;
+  - copies going out and coming back;
+  - an alert firing only on the move from all copies out to available, and only for starred
+    games;
+  - backoff.
+
+  Tabletop.Events, BigQuery, GCS and ntfy are all mocked.
+- **Verification:**
+  - a manual run of the job writes a heartbeat;
+  - a test push reaches Phil's phone;
+  - **after the first day, compare the job's real cost on the bill with the estimate.**
+
+## PR 5: the end-of-con report (after the con)
+
+Dataform models on the raw events:
+- per-copy out/in intervals;
+- per-game demand by hour (checkouts, time out, time with every copy out);
+- surges (hourly checkouts against the game's own baseline).
+
+A report page or artifact on top. To be designed once there's data.
+
+---
+
 ## Risks and unknowns
 
 - **The con dates set the cut line.** If time runs short, ship through 3e, which covers the page
@@ -216,7 +272,6 @@ DuckDB, so the catalog integration now comes first.
 ## Out of scope
 
 - Other users and public access.
-- Push alerts.
-- Popularity and checkout history.
-- Warehouse or catalog artifact changes.
+- SMS (phone push instead; spec §6).
+- Catalog artifact changes.
 - Moving the dev port.
