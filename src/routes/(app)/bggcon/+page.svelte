@@ -229,6 +229,10 @@
     min-height: 0;
     overflow-y: auto;
     container-type: inline-size;
+    /* The scroll area must be the containing block for absolutely positioned descendants (the
+       rows' screen-reader labels). Without it they're placed against the page, deep down the
+       list, and stretch the whole page into empty space below the footer. */
+    position: relative;
   }
   /* Header, controls and list share one capped column, so nothing floats to the far edge. */
   .canvas > :global(*) {
