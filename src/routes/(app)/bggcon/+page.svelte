@@ -149,6 +149,13 @@
   let openId = $state<number | null>(null);
   // Opens at once; the panel keeps room for its similar games while they're looked up.
   const toggleOpen = (id: number) => (openId = openId === id ? null : id);
+  // Starred first, then by geek rating; re-sorts as games are starred.
+  const STAR_SORT = $derived({
+    label: '★',
+    hint: 'Sort by your focus list',
+    sql: stars.ids.length ? `(game_id IN (${[...stars.ids].map(Math.trunc).join(', ')}))` : 'FALSE',
+    then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
+  });
   const AVAILABILITY: ExtraColumn[] = [
     { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: 'minmax(8rem, max-content)', cell: availCell }
   ];
@@ -230,6 +237,7 @@
             lead={star}
             onopen={toggleOpen}
             zeroIsMissing
+            leadSort={STAR_SORT}
             {openId}
             detail={panel}
           />

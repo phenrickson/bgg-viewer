@@ -74,7 +74,9 @@
     openId = null,
     detail,
     /** Read a 0 geek rating, average rating or weight as missing ("—", sorted last). */
-    zeroIsMissing = false
+    zeroIsMissing = false,
+    /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
+    leadSort
   }: {
     where: string;
     universe?: Scope['universe'];
@@ -88,6 +90,7 @@
     openId?: number | null;
     detail?: Snippet<[GameListRow]>;
     zeroIsMissing?: boolean;
+    leadSort?: { label: string; sql: string; then?: string; hint?: string };
   } = $props();
   const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
   const z = (col: string) => (zeroIsMissing && ZEROABLE.includes(col.replace(/^c\./, '')) ? `NULLIF(${col}, 0)` : col);
@@ -198,7 +201,15 @@
 
   // Falls back to the geek column when the key isn't in this universe's set — switching to
   // Upcoming while sorted by `best` would otherwise leave `sortCol` undefined mid-query.
-  const sortCol = $derived(COLS.find((c) => c.key === sortKey) ?? COLS.find((c) => c.key === 'geek') ?? COLS[0]);
+  const LEAD_COL = $derived<Col | null>(
+    leadSort ? { key: 'lead', label: leadSort.label, align: 'r', sql: leadSort.sql, then: leadSort.then, hint: leadSort.hint } : null
+  );
+  const sortCol = $derived(
+    (sortKey === 'lead' ? LEAD_COL : null) ??
+      COLS.find((c) => c.key === sortKey) ??
+      COLS.find((c) => c.key === 'geek') ??
+      COLS[0]
+  );
   const pages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
   const from = $derived(total === 0 ? 0 : page * PAGE_SIZE + 1);
   const to = $derived(Math.min(total, (page + 1) * PAGE_SIZE));
@@ -348,7 +359,13 @@
   {#if !cards}
   <div class="head row" class:pred={upcoming} style:grid-template-columns={template}>
     <!-- `#` over the rank; nothing over a caller's `lead` (the BGG.CON star), which isn't one. -->
-    <span class="rk">{lead ? '' : '#'}</span>
+    <span class="rk">
+      {#if LEAD_COL}
+        <button class:on={sortKey === 'lead'} onclick={() => sortBy(LEAD_COL)} title={LEAD_COL.hint ?? `Sort by ${LEAD_COL.label}`}>
+          {LEAD_COL.label}<span class="ar">{sortKey === 'lead' ? (desc ? '▼' : '▲') : ''}</span>
+        </button>
+      {:else}{lead ? '' : '#'}{/if}
+    </span>
     <span class="c-thumb" aria-hidden="true"></span>
     {#each COLS as c (c.key)}
       <span class="c-{c.key}" class:r={c.align === 'r'}>
