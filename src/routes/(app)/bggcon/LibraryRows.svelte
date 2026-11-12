@@ -7,6 +7,7 @@
   import { query, catalog } from '$lib/catalog/catalog.svelte';
   import { listSql, countSql, type ListArgs, type LibraryListRow } from '$lib/bggcon/queries';
   import SimilarRow from '$lib/game/SimilarRow.svelte';
+  import SimBadges from '$lib/game/SimBadges.svelte';
   import Pager from '$lib/catalog/Pager.svelte';
   import ComplexityBadge from '$lib/catalog/encodings/ComplexityBadge.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
@@ -85,7 +86,6 @@
         name={g.name}
         year={g.year_published}
         thumbnail={g.thumbnail}
-        rating={g.in_catalog ? g.average_rating : undefined}
         onopen={() => (openId = open ? null : g.game_id)}
         expanded={open}
       >
@@ -100,9 +100,14 @@
         {:else}
           <span class="dim">BGG {g.game_id} · not in the catalog</span>
         {/if}
-        {#snippet action()}
-          <ShelfStatus available={g.available} copies={g.copies} />
-          <StarButton id={g.game_id} name={g.name} />
+        {#snippet middle()}
+          <!-- Beside the name, not at the far edge: on a wide screen the eye shouldn't have to
+               cross the row to connect a game with whether it's on the shelf (Phil). -->
+          <span class="status">
+            {#if g.in_catalog}<SimBadges rating={g.average_rating} />{/if}
+            <ShelfStatus available={g.available} copies={g.copies} />
+            <StarButton id={g.game_id} name={g.name} />
+          </span>
         {/snippet}
       </SimilarRow>
       {#if open}
@@ -151,6 +156,12 @@
     gap: 0.2rem;
   }
   .fact :global(svg) { width: 0.8rem; height: 0.8rem; }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
   .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
   .empty {
