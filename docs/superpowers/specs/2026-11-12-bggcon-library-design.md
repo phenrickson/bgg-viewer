@@ -9,6 +9,8 @@ Decided on 2026-11-12:
 - Review from the MacBook uses a dev-only server proxy for artifacts (plan PR 1).
 **Branch:** `feat/bggcon-library` (one PR: spec, plan and implementation together)
 **Lifetime:** Temporary. Built for BGG.CON 2026, then removed in one PR (see §7).
+**Con opens:** 9:00 AM Central, Wednesday 18 November 2026. The recorder (§8) must be
+recording before then.
 
 ## Why
 
@@ -202,8 +204,12 @@ Agreed with Phil 2026-11-12. A job that runs whether or not anyone has the app o
   ids). We never fetch or store those, only copy, game and time.
 - **Their own history isn't an option:** listing a game's checkouts needs a logged-in session
   (`session_id is required`), so we record our own.
-- **Resolution is one minute.** A copy out and back within the same minute can be missed.
-  That's acceptable.
+- **Each copy's `lastcheckout_id` is stored too.** If it changes while the copy stays out,
+  the copy was returned and checked out again between runs, and that's recorded as an `in`
+  plus an `out`.
+  - The one gap left: a copy that goes out and comes back within the same minute is never
+    seen as out. That's rare; the daily pull's `checkout_count` still counts it, without
+    times. Accepted.
 - **Alerts:**
   - when a game in Phil's focus list (`bggcon/stars/…`) goes from every copy out to at least
     one on the shelf, the job sends a phone push through **ntfy**, a private topic held as a

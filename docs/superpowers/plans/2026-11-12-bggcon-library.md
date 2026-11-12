@@ -26,8 +26,9 @@ PR. Development never happens on `main`. Each tested step is committed and pushe
 | 4 | bgg-data-warehouse | `feat/bggcon-recorder` (from `main`) | the library snapshot from #3's daily job |
 | 5 | bgg-data-warehouse | `feat/bggcon-report` (after the con) | data recorded by #4 |
 
-**Order against the con:** finish #3 (dashboard and stars), then **#4 must be deployed and
-recording before the library opens.** Missed minutes can't be recovered. #5 can wait until
+**Order against the con (opens 9:00 AM Central, Wed 18 Nov 2026):** finish #3 (dashboard and
+stars), then **#4 must be deployed and recording before then.** Aim for Tue 17 Nov, so there's a
+day of data and a first bill to check. Missed minutes can't be recovered. #5 can wait until
 after the con.
 
 ---
