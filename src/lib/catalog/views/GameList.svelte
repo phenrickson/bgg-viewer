@@ -359,6 +359,9 @@
   <!-- The header row belongs to the table and only to the table. Cards have no columns for it
        to head, and it is also the sort control — which `SortBar` takes over above, for exactly
        that reason. -->
+  <div class="rows">
+    <!-- The header lives inside the scroll area (sticky), so it shares the rows' width: outside
+         it, the rows lost the scrollbar's width and every column sat off from its header. -->
   {#if !cards}
   <div class="head row" class:pred={upcoming} style:grid-template-columns={template}>
     <!-- `#` over the rank; nothing over a caller's `lead` (the BGG.CON star), which isn't one. -->
@@ -383,8 +386,6 @@
     {/each}
   </div>
   {/if}
-
-  <div class="rows">
     {#each rows as r, i (r.game_id)}
       {#if cards}
         <div class="cardwrap" class:lead={!!lead}>
