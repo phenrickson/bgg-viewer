@@ -13,7 +13,7 @@ import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 import { recordLoad } from '$lib/landing/estimate';
 import { fetchArtifactBytes } from './artifact-fetch';
-import { withSetFilters, libraryValues, checkedOutValues, type LibraryRow } from './set-filters';
+import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, type LibraryRow } from './set-filters';
 
 export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -227,8 +227,7 @@ export async function setConCheckedOut(counts: Record<number, number>): Promise<
 	if (!conn) throw new Error('catalog is not ready');
 	const values = checkedOutValues(counts);
 	if (values === lastCheckedOut) return;
-	await conn.query('CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)');
-	if (values) await conn.query(`INSERT INTO con_checked_out VALUES ${values}`);
+	await conn.query(checkedOutSql(counts));
 	lastCheckedOut = values;
 	checkedOutVersion++;
 }

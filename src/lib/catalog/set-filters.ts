@@ -59,3 +59,14 @@ export function checkedOutValues(counts: Record<number, number>): string {
 		.map(([id, n]) => `(${id}, ${n})`)
 		.join(', ');
 }
+
+/**
+ * Replace `con_checked_out` in ONE statement. As a create-then-insert pair, two refreshes that
+ * overlapped both inserted into the same fresh table, listing every checked-out game twice.
+ */
+export function checkedOutSql(counts: Record<number, number>): string {
+	const values = checkedOutValues(counts);
+	return values
+		? `CREATE OR REPLACE TABLE con_checked_out AS SELECT * FROM (VALUES ${values}) v(game_id, n)`
+		: 'CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)';
+}

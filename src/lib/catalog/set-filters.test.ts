@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { withSetFilters, libraryValues, checkedOutValues, AVAILABLE_SQL } from './set-filters';
+import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, AVAILABLE_SQL } from './set-filters';
 
 const off = { collection: false, library: false, availableOnly: false };
 
@@ -75,5 +75,21 @@ describe('libraryValues / checkedOutValues', () => {
 
 	it('is empty for nothing checked out', () => {
 		expect(checkedOutValues({})).toBe('');
+	});
+});
+
+describe('checkedOutSql', () => {
+	// One statement, so two overlapping refreshes replace each other instead of both inserting
+	// into the same table (which doubled every checked-out game).
+	it('replaces the table in a single statement', () => {
+		const sql = checkedOutSql({ 13: 2, 7865: 1 });
+		expect(sql).toBe(
+			'CREATE OR REPLACE TABLE con_checked_out AS SELECT * FROM (VALUES (13, 2), (7865, 1)) v(game_id, n)'
+		);
+		expect(sql).not.toContain(';');
+	});
+
+	it('creates it empty, with its types, when nothing is out', () => {
+		expect(checkedOutSql({})).toBe('CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)');
 	});
 });
