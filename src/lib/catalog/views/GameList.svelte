@@ -23,6 +23,7 @@
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import GameCard from '$lib/catalog/GameCard.svelte';
   import SortBar from '$lib/catalog/SortBar.svelte';
+  import Pager from '$lib/catalog/Pager.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
   let {
@@ -242,15 +243,6 @@
 
 <!-- One definition, rendered in one of two places: beside the count on a table, at the foot of
      the list on cards. See the `{#if cards}` branches below for why. -->
-{#snippet pager()}
-  <span class="pager">
-    <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
-    <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
-    <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
-    <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
-    <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
-  </span>
-{/snippet}
 
 <div class="bar">
   <span class="pos">
@@ -276,7 +268,7 @@
     />
   {/if}
 
-  {#if pages > 1 && !cards}{@render pager()}{/if}
+  {#if pages > 1 && !cards}<Pager bind:page {pages} />{/if}
 </div>
 
 <div class="listwrap">
@@ -459,7 +451,7 @@
     {#if pages > 1 && cards}
       <div class="footpager">
         <span class="dim">{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
-        {@render pager()}
+        <Pager bind:page {pages} touch />
       </div>
     {/if}
   </div>
@@ -488,33 +480,6 @@
   }
   .tnum {
     font-variant-numeric: tabular-nums;
-  }
-  .pager {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .pager button {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--foreground);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.76rem;
-    padding: 0.15rem 0.5rem;
-  }
-  .pager button:hover:not(:disabled) {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-  .pager button:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-  .pager .pg {
-    padding: 0 0.35rem;
-    color: var(--foreground);
   }
 
   /* Grows to its rows, then stops at the space available — `flex: 1` instead would stretch a
@@ -742,9 +707,6 @@
     font-size: 0.78rem;
     border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
-  /* Touch sizing, since down here the pager is the only thing to hit and there is room for it
-     to be comfortable — the copy in `.bar` is sharing a row and stays compact. */
-  .footpager .pager button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
 
   .empty {
     padding: var(--space-xl) var(--space-lg);
