@@ -19,7 +19,7 @@
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
   import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
-  import { countsSql, countSql, type Mode, type ListArgs, type Status } from '$lib/bggcon/queries';
+  import { countsSql, countSql, type Mode, type ListArgs } from '$lib/bggcon/queries';
   import LibraryRows from './LibraryRows.svelte';
 
   const REFRESH_MS = 60_000;
@@ -30,7 +30,6 @@
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let mode = $state<Mode>('all');
-  let grouping = $state<'list' | 'status'>('list');
   let availableNow = $state(false);
   let libraryIds = $state.raw<ReadonlySet<number>>(new Set());
   let loadError = $state<string | null>(null);
@@ -112,17 +111,6 @@
         : { mode: 'all', where: scopeWhere, availableOnly: availableNow }
   );
 
-  // PLACEHOLDER copy (Phil): the group names.
-  const GROUPS: { status: Status; title: string }[] = [
-    { status: 'out', title: 'All copies out' },
-    { status: 'partial', title: 'Partly out' },
-    { status: 'available', title: 'Available' }
-  ];
-  const GROUPING_OPTIONS = [
-    { value: 'list' as const, label: 'List' },
-    { value: 'status' as const, label: 'By status' }
-  ];
-
   // PLACEHOLDER copy (Phil): the view names and empty states.
   const MODE_OPTIONS: { value: Mode; label: string }[] = [
     { value: 'all', label: 'Whole library' },
@@ -171,33 +159,26 @@
       {/if}
 
       <div class="canvas">
-        <!-- The two numbers that matter at a glance, big; the rest is one quiet line. -->
-        {#if counts}
-          <div class="kpis">
-            <p class="kpi"><b class="tnum">{counts.games.toLocaleString()}</b><span>games in the library</span></p>
-            <p class="kpi"><b class="tnum">{counts.copies_out.toLocaleString()}</b><span>copies in use</span></p>
-          </div>
-          <p class="sub">
-            Your focus list: {focusOnShelf} of {stars.count} available · {counts.not_in_catalog.toLocaleString()} library
-            games aren’t in the catalog{#if asOfText} · as of {asOfText}{#if stale} (couldn’t refresh){/if}{/if}
-          </p>
-        {/if}
+        <div class="chead">
+          {#if counts}
+            <p class="count"><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></p>
+            <p class="count"><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</p>
+            <p class="count"><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</p>
+            <p class="count focus"><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></p>
+            <p class="count"><b class="tnum">{counts.not_in_catalog.toLocaleString()}</b> not in the catalog</p>
+          {/if}
+          <span class="asof">
+            {#if asOfText}As of {asOfText}{#if stale} · couldn’t refresh{/if} · refreshes every minute{/if}
+          </span>
+        </div>
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
           <SegmentedControl label="Show" size="md" options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
-          <SegmentedControl label="Group" size="md" options={GROUPING_OPTIONS} value={grouping} onchange={(v) => (grouping = v)} />
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
 
-        {#if grouping === 'status'}
-          {#each GROUPS as g (g.status)}
-            <LibraryRows args={{ ...args, status: g.status }} title={g.title} header={false} {libraryIds} {asOf}
-              empty="None right now." />
-          {/each}
-        {:else}
-          <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
-        {/if}
+        <LibraryRows {args} {libraryIds} {asOf} empty={emptyText} />
       </div>
     </div>
   </Container>
@@ -249,33 +230,31 @@
     overflow-y: auto;
     container-type: inline-size;
   }
-  .kpis {
+  .chead {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm) var(--space-xl);
     align-items: baseline;
+    gap: var(--space-sm) var(--space-lg);
+    flex-wrap: wrap;
   }
-  .kpi {
+  .count {
     margin: 0;
-    display: flex;
-    flex-direction: column;
+    font-size: 0.9rem;
+    white-space: nowrap;
   }
-  .kpi b {
-    font-size: 2.2rem;
+  .count b {
+    font-size: 1.4rem;
     font-weight: 750;
     letter-spacing: -0.02em;
-    line-height: 1;
+    margin-right: 0.15rem;
   }
-  .kpi span {
-    font-size: 0.85rem;
-    color: var(--muted-foreground);
-  }
-  .sub {
-    margin: 0;
-    font-size: 0.8rem;
-    color: var(--muted-foreground);
-  }
+  .count.focus b { color: var(--primary); }
+  .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
+  .asof {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
   .ctl {
     display: flex;
     align-items: center;
