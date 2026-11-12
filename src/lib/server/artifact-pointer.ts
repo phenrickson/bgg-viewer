@@ -54,6 +54,9 @@ const project = () => env.GCP_PROJECT_ID || 'bgg-data-warehouse';
 const bucketName = () => env.CATALOG_BUCKET || `${project()}-bgg-viewer-artifacts`;
 const bucket = () => (storage ??= new Storage({ projectId: project() })).bucket(bucketName());
 
+/** The artifacts bucket, shared with `bggcon/store.ts` (one client per process). */
+export const artifactBucket = bucket;
+
 /**
  * Floor to a fixed 24h boundary rather than using `now`.
  *
