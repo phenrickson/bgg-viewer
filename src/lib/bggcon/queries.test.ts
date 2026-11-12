@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listSql, countSql, countsSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT } from './queries';
+import { listSql, countSql, countsSql, tableWhere, LIBRARY_JOIN, LIBRARY_SELECT, AVAILABLE_SORT } from './queries';
 
 const base = { availableOnly: false, offset: 0, limit: 50 };
 
@@ -105,5 +105,11 @@ describe('listSql: zero means missing', () => {
 		const sql = listSql({ mode: 'all', where: 'TRUE', availableOnly: false, offset: 0, limit: 1 });
 		for (const col of ['geek_rating', 'average_rating', 'average_weight'])
 			expect(sql).toContain(`NULLIF(c.${col}, 0) AS ${col}`);
+	});
+});
+
+describe('AVAILABLE_SORT', () => {
+	it('sorts on whether a copy is available, not how many', () => {
+		expect(AVAILABLE_SORT).toBe('(l.copies - COALESCE(o.n, 0) > 0)');
 	});
 });

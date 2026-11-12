@@ -103,8 +103,8 @@ export const LIBRARY_JOIN = 'JOIN con_library l USING (game_id) LEFT JOIN con_ch
 export const LIBRARY_SELECT =
 	'c.min_playtime, c.max_playtime, l.copies, l.play_to_win, ' +
 	'(l.copies - COALESCE(o.n, 0))::INT AS available, TRUE AS in_catalog';
-/** Sorts the Availability column by copies available. */
-export const AVAILABLE_SORT = '(l.copies - COALESCE(o.n, 0))';
+/** Sorts the Availability column on whether a copy is available. */
+export const AVAILABLE_SORT = '(l.copies - COALESCE(o.n, 0) > 0)';
 
 export function tableWhere(a: ListArgs): string {
 	const parts: string[] = [];
