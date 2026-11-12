@@ -160,11 +160,15 @@
     gap: 0.2rem;
   }
   .fact :global(svg) { width: 0.8rem; height: 0.8rem; }
+  /* Rating beside the name; availability at the row's right edge. */
   .status {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 0.75rem;
-    flex-wrap: wrap;
+    width: 100%;
+  }
+  .status :global(.shelf) {
+    margin-left: auto;
   }
   .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }

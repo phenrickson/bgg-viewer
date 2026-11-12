@@ -230,6 +230,10 @@
     overflow-y: auto;
     container-type: inline-size;
   }
+  /* Header, controls and list share one capped column, so nothing floats to the far edge. */
+  .canvas > :global(*) {
+    max-width: 56rem;
+  }
   .chead {
     display: flex;
     align-items: baseline;
