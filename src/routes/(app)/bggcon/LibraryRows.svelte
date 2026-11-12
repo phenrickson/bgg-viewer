@@ -88,7 +88,9 @@
         thumbnail={g.thumbnail}
         onopen={() => (openId = open ? null : g.game_id)}
         expanded={open}
+        badges={false}
       >
+        {#snippet lead()}<StarButton id={g.game_id} name={g.name} />{/snippet}
         {#if g.in_catalog}
           {@const players = boxPlayersLabel(g.min_players, g.max_players, true)}
           {@const time = boxPlaytimeLabel(g.min_playtime, g.max_playtime, true)}
@@ -106,7 +108,6 @@
           <span class="status">
             {#if g.in_catalog}<SimBadges rating={g.average_rating} />{/if}
             <ShelfStatus available={g.available} copies={g.copies} />
-            <StarButton id={g.game_id} name={g.name} />
           </span>
         {/snippet}
       </SimilarRow>

@@ -27,7 +27,9 @@
     action,
     middle,
     onopen,
-    expanded
+    expanded,
+    lead,
+    badges = true
   }: {
     href: string;
     name: string;
@@ -43,6 +45,10 @@
     onopen?: () => void;
     /** With `onopen`: whether what it opens is open. */
     expanded?: boolean;
+    /** Before the art, outside the link: a control of its own (the BGG.CON star). */
+    lead?: Snippet;
+    /** Show the similarity/rating badges at the end. Off where a row shows them elsewhere. */
+    badges?: boolean;
   } = $props();
 </script>
 
@@ -55,6 +61,7 @@
   class:whole={!!onopen}
   onclick={onopen ? (e) => !(e.target as Element).closest('a, button') && onopen() : undefined}
 >
+  {#if lead}{@render lead()}{/if}
   <svelte:element
     this={onopen ? 'button' : 'a'}
     class="main"
@@ -75,7 +82,9 @@
     </span>
   </svelte:element>
   {#if middle}<span class="mid">{@render middle()}</span>{/if}
-  <span class="end"><SimBadges {similarity} {rating} />{#if action}{@render action()}{/if}</span>
+  {#if badges || action}
+    <span class="end">{#if badges}<SimBadges {similarity} {rating} />{/if}{#if action}{@render action()}{/if}</span>
+  {/if}
 </div>
 
 <style>
