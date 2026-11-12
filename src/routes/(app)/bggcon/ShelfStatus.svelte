@@ -1,14 +1,17 @@
 <script lang="ts">
   /**
-   * "2 of 3 available" / "All 2 out". The words carry the state; the dot is a second cue, so it
-   * never relies on colour alone (style-rules). Status tokens, not the accent.
+   * "2/3 available": available over copies. The leading number carries the state (0 = all out); the dot
+   * is a second cue, so it never relies on colour alone (style-rules). The words are in the
+   * tooltip and for screen readers. Status tokens, not the accent.
    */
-  import { shelfText } from '$lib/bggcon/format';
+  import { shelfText, shelfLabel } from '$lib/bggcon/format';
 
   let { available, copies }: { available: number; copies: number } = $props();
 </script>
 
-<span class="shelf tnum" class:out={available <= 0}>{shelfText(available, copies)}</span>
+<span class="shelf tnum" class:out={available <= 0} title={shelfLabel(available, copies)}
+  ><span aria-hidden="true">{shelfText(available, copies)}</span><span class="sr-only">{shelfLabel(available, copies)}</span></span
+>
 
 <style>
   .shelf {

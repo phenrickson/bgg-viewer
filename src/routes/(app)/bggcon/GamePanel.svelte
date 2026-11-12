@@ -14,6 +14,7 @@
   import SimilarRow from '$lib/game/SimilarRow.svelte';
   import { boxPlayersLabel, compactCounts } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
+  import { shelfLabel } from '$lib/bggcon/format';
   import ShelfStatus from './ShelfStatus.svelte';
   import StarButton from './StarButton.svelte';
 
@@ -72,8 +73,7 @@
       {/if}
     </div>
     <div class="avail">
-      <span class="big"><b class="tnum">{Math.max(0, game.available)}</b> of <b class="tnum">{game.copies}</b>
-        {game.copies === 1 ? 'copy' : 'copies'} available</span>
+      <span class="big" title={shelfLabel(game.available, game.copies)}><b class="tnum">{Math.max(0, game.available)}/{game.copies}</b> available</span>
       <span class="note">{#if asOfText}As of {asOfText}{/if}{#if game.play_to_win} · play-to-win{/if}</span>
     </div>
   </div>

@@ -1,5 +1,9 @@
-/** "2 of 3 available" / "Checked out" / "All 4 out". PLACEHOLDER copy (Phil). */
+/** "2/3 available": copies available over copies in the library. */
 export function shelfText(available: number, copies: number): string {
-	if (available > 0) return `${available} of ${copies} available`;
-	return copies === 1 ? 'Checked out' : `All ${copies} out`;
+	return `${Math.max(0, available)}/${copies} available`;
+}
+
+/** "2 of 3 copies available": the words behind `shelfText`, for a tooltip and screen readers. */
+export function shelfLabel(available: number, copies: number): string {
+	return `${Math.max(0, available)} of ${copies} ${copies === 1 ? 'copy' : 'copies'} available`;
 }
