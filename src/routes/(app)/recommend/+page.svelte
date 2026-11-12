@@ -36,7 +36,7 @@
   import TagChip from '$lib/game/TagChip.svelte';
   import { boxPlayersLabel } from '$lib/catalog/players';
   import { boxPlaytimeLabel } from '$lib/catalog/playtime';
-  import { fetchVectors, type VectorSet } from '$lib/recommend/vectors';
+  import { fetchVectors, loadedVectors, type VectorSet } from '$lib/recommend/vectors';
   import { rankCatalog, rankShelf } from '$lib/recommend/rank';
   import {
     withoutIds,
@@ -139,9 +139,10 @@
 
   // --- every game's vector: every pool ranks from these ---------------------------------------
   // Loaded in the background once the catalog is in, for everyone. Raw state: ~38k vectors,
-  // never mutated, so no deep proxy.
-  let vectors = $state.raw<VectorSet | null>(null);
-  let vectorsState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  // never mutated, so no deep proxy. Coming back to the page (from a game's page, say) they're
+  // already in: start with them, so the first answer is ranked here, not the warehouse's.
+  let vectors = $state.raw<VectorSet | null>(loadedVectors());
+  let vectorsState = $state<'idle' | 'loading' | 'ready' | 'error'>(untrack(() => vectors) ? 'ready' : 'idle');
   $effect(() => {
     if (catalog.status !== 'ready' || untrack(() => vectorsState) !== 'idle') return;
     vectorsState = 'loading';
