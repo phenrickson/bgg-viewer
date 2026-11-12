@@ -657,8 +657,10 @@
     -webkit-appearance: none;
     margin: 0;
   }
+  /* Inside the field, not around it: the rail is its own scroll area and clips anything drawn
+     past its edges, which cut the ring off the name search. */
   input:focus-visible {
     outline: 2px solid var(--primary);
-    outline-offset: 1px;
+    outline-offset: -2px;
   }
 </style>
