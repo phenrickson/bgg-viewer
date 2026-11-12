@@ -175,7 +175,7 @@ DuckDB, so the catalog integration now comes first.
 
 - `src/routes/(app)/bggcon/`: admin-gated, built on Explore's shell, `Rail` (with search and
   collapsed groups), the `.chead` counts, `SegmentedControl` (Focus list | Whole library),
-  `SimilarRow onopen` rows, and the open-in-place panel.
+  `SimilarRow onopen` rows, the open-in-place panel, and the **Not in catalog** view (spec §4).
 - Whole-library paging and sorting in DuckDB, the way `GameList` does it.
 - The panel's "Like this, in the library" uses `rankShelf(vectors, id, libraryIds, n)`.
 - The 60 s visible-only refresh feeds `con_checked_out`.

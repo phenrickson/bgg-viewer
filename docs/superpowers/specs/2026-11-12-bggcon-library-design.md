@@ -125,7 +125,7 @@ Agreed with Phil from a mockup on 2026-11-12
 - **Header: counts in Explore's `.chead .count` style,** repeated: games in the library, on
   the shelf, checked out, and focus list (· N on the shelf), plus an "as of" time. No new tile
   component.
-- **Show: `SegmentedControl` (md)** with *Focus list | Whole library*. A search always looks
+- **Show: `SegmentedControl` (md)** with *Focus list | Whole library | Not in catalog*. A search always looks
   across the whole library, so a game can be found and starred from either view.
 - **Rows: Recommend's list rows (`SimilarRow` with `onopen`).** Each row has:
   - a star (`Button` ghost `icon-sm` + lucide Star);
@@ -145,8 +145,14 @@ Agreed with Phil from a mockup on 2026-11-12
 - **Refresh:** availability refetches every 60 s **only while the tab is visible**
   (`visibilitychange`), and once on refocus.
 - **Library games that aren't in the catalog** still list by their Tabletop.Events name, with
-  availability and a star, but they can't be filtered or recommended. The match rate is
-  measured during the build and reported.
+  availability and a star, but they can't be filtered or recommended.
+  - Measured 2026-11-12 against the 12 Oct catalog: 5,860 of 6,366 games matched (92.1%).
+  - The 506 misses are below the catalog's ratings cutoff, a deliberate threshold. They're
+    probably in the warehouse.
+  - So the Show control gets a third option, **Not in catalog**: `con_library` games not in
+    `catalog`, paged like the whole library. Each row has the name, BGG id, copies,
+    availability, a star and a BGG link.
+  - The header shows "N not in the catalog". The list is there to follow up on after the con.
 - Copy is Phil's. Placeholders are marked once in the source.
 
 Colors follow `style-rules`. On the shelf and checked out use blue and orange status tokens,
