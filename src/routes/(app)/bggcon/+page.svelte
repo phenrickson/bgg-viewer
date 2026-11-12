@@ -186,7 +186,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
     {/if}
@@ -194,7 +194,7 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </div>
       {/if}
 
@@ -229,7 +229,7 @@
             source={LIBRARY_FROM}
             nameSql={LIBRARY_NAME}
             select={LIBRARY_SELECT}
-            columns={['name', 'geek', 'weight']}
+            columns={['name', 'year', 'geek', 'weight']}
             extra={AVAILABILITY}
             lead={star}
             onopen={toggleOpen}

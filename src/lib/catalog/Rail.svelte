@@ -29,6 +29,7 @@
     type PlayerCountMode,
     type Scope
   } from './scope';
+  import { untrack } from 'svelte';
   import { catalog, fetchAndApplyCollection, clearCollectionFilter } from './catalog.svelte';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
@@ -63,7 +64,9 @@
     groupAdvanced = false,
     /** Show the name search at the top. Off where the page puts it above its list instead
         (the BGG.CON dashboard), so it isn't missed. */
-    showSearch = true
+    showSearch = true,
+    /** Start with Categories open (the BGG.CON dashboard). Explore starts it shut. */
+    categoriesOpen = false
   }: {
     scope: Scope;
     where: string;
@@ -72,6 +75,7 @@
     showUniverse?: boolean;
     groupAdvanced?: boolean;
     showSearch?: boolean;
+    categoriesOpen?: boolean;
   } = $props();
 
   /**
@@ -140,7 +144,8 @@
     advanced: false,
     complexity: true,
     year: false,
-    categories: false,
+    // Read once: after that it's the reader's to open and shut.
+    categories: untrack(() => categoriesOpen),
     mechanics: false,
     families: false,
     // These two were plain `<details>` with no state; RailGroup binds `open`, so they get
