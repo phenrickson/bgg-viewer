@@ -17,6 +17,7 @@
  */
 import { Storage } from '@google-cloud/storage';
 import { env } from '$env/dynamic/private';
+import { artifactsViaServer, devArtifactUrl } from './dev-artifacts';
 
 export interface ArtifactPointer {
 	hash: string;
@@ -101,11 +102,14 @@ export function createArtifactPointer({ pointerName, label }: ArtifactPointerOpt
 		clock: () => number = Date.now,
 		sign: (name: string, expires: number) => Promise<string> = async (name, expires) =>
 			(await bucket().file(name).getSignedUrl({ version: 'v2', action: 'read', expires }))[0],
-		read?: () => Promise<Buffer>
+		read?: () => Promise<Buffer>,
+		viaServer: () => boolean = artifactsViaServer
 	): Promise<SignedArtifact> {
 		const pointer = await getPointer(clock, read);
 		const expires = windowStart(clock()) + EXPIRY_MS;
-		const url = await sign(pointer.name, expires);
+		// Dev only (`just dev-lan`): a same-origin URL the dev server answers itself, because
+		// another machine's origin isn't on the bucket's CORS list. See `dev-artifacts.ts`.
+		const url = viaServer() ? devArtifactUrl(pointer.name) : await sign(pointer.name, expires);
 
 		/**
 		 * The failure mode this design introduces. The old TTL always self-healed: worst case

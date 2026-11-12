@@ -187,3 +187,25 @@ describe('staleness', () => {
 		warn.mockRestore();
 	});
 });
+
+describe('dev: artifacts via the server', () => {
+	/**
+	 * `just dev-lan` serves the dev server to another machine, whose origin isn't on the
+	 * bucket's CORS list. With the flag on, the endpoint hands back a same-origin URL instead
+	 * of a signed one; the hash and staleness are unchanged, so the client can't tell.
+	 */
+	it('returns the same-origin dev URL, and signs nothing, when the flag is on', async () => {
+		const p = createArtifactPointer({ pointerName: 'catalog-current.json', label: 'catalog' });
+		const sign = vi.fn(fakeSign);
+		const out = await p.getSignedArtifact(() => 1_000_000, sign, readerFor('bbbbbbbbbbbbbbbb'), () => true);
+		expect(out.url).toBe('/api/dev/artifact?name=thing-bbbbbbbbbbbbbbbb.arrow.gz');
+		expect(out.hash).toBe('bbbbbbbbbbbbbbbb');
+		expect(sign).not.toHaveBeenCalled();
+	});
+
+	it('signs as before when the flag is off', async () => {
+		const p = createArtifactPointer({ pointerName: 'catalog-current.json', label: 'catalog' });
+		const out = await p.getSignedArtifact(() => 1_000_000, fakeSign, readerFor('cccccccccccccccc'), () => false);
+		expect(out.url).toMatch(/^https:\/\/storage\.googleapis\.com\//);
+	});
+});
