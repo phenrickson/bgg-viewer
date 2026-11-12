@@ -3,9 +3,12 @@
  *
  * Tabletop.Events lists physical COPIES (8,545 rows, 2026-11-12), not games: one game can
  * have several copies, each with its own id and checkout state. Explore and `/bggcon` think
- * in games keyed by BGG id, so copies are grouped here once, at snapshot time. Availability
- * is then just "copies minus the checked-out ones", computed against the small, frequently
- * refreshed checked-out set.
+ * in games keyed by BGG id, so both sides count by BGG id:
+ *
+ * - the universe (`groupLibrary`): which games, and how many copies. Built daily.
+ * - availability (`checkedOutByGame`): how many copies are out right now. Polled.
+ *
+ * The two are deliberately independent; the page combines them ("N of M on the shelf").
  *
  * Pure: no fetching, no clock.
  */
@@ -27,7 +30,6 @@ export interface LibraryGame {
 	name: string;
 	copies: number;
 	play_to_win: boolean;
-	copy_ids: string[];
 }
 
 export interface Grouped {
@@ -57,35 +59,22 @@ export function groupLibrary(rows: TteRow[]): Grouped {
 		const g = byId.get(r.bgg_id);
 		if (g) {
 			g.copies++;
-			g.copy_ids.push(r.id);
 			g.play_to_win ||= !!r.is_play_to_win;
 		} else {
 			byId.set(r.bgg_id, {
 				bgg_id: r.bgg_id,
 				name: r.name,
 				copies: 1,
-				play_to_win: !!r.is_play_to_win,
-				copy_ids: [r.id]
+				play_to_win: !!r.is_play_to_win
 			});
 		}
 	}
 	return { games: [...byId.values()], dropped };
 }
 
-export interface GameAvailability {
-	available: number;
-	copies: number;
-}
-
-/** Per game: how many copies are on the shelf, given the ids of copies checked out right now. */
-export function availability(
-	games: LibraryGame[],
-	checkedOut: Set<string>
-): Record<number, GameAvailability> {
-	const out: Record<number, GameAvailability> = {};
-	for (const g of games) {
-		const gone = g.copy_ids.reduce((n, id) => n + (checkedOut.has(id) ? 1 : 0), 0);
-		out[g.bgg_id] = { available: g.copies - gone, copies: g.copies };
-	}
+/** Checked-out copies per BGG id, from the checked-out rows alone. */
+export function checkedOutByGame(rows: TteRow[]): Record<number, number> {
+	const out: Record<number, number> = {};
+	for (const r of rows) if (r.bgg_id) out[r.bgg_id] = (out[r.bgg_id] ?? 0) + 1;
 	return out;
 }

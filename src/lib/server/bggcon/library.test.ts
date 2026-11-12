@@ -1,9 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { loadLibrary, SNAPSHOT_NAME, type Snapshot } from './library';
+import { readLibrary, buildSnapshot, SNAPSHOT_NAME, type Snapshot } from './library';
 import type { JsonStore } from './store';
 import type { TteRow } from './group';
 
-const HOUR = 3_600_000;
 const NOW = Date.parse('2026-11-20T12:00:00Z');
 
 const row: TteRow = {
@@ -16,65 +15,39 @@ const row: TteRow = {
 	custom_fields: { ItemType: 'Standalone' }
 };
 
-const snapshot = (ageHours: number): Snapshot => ({
-	builtAt: new Date(NOW - ageHours * HOUR).toISOString(),
-	games: [{ bgg_id: 1, name: 'Old', copies: 1, play_to_win: false, copy_ids: ['o'] }],
+const snapshot: Snapshot = {
+	builtAt: '2026-11-19T06:00:00.000Z',
+	games: [{ bgg_id: 1, name: 'Old', copies: 1, play_to_win: false }],
 	dropped: { outOfCirculation: 0, notStandalone: 0, noBggId: 0 }
-});
+};
 
-function memStore(seed: Record<string, unknown> = {}) {
+function memStore(seed: Record<string, unknown> = {}): JsonStore {
 	const files = new Map(Object.entries(seed));
-	const store: JsonStore = {
+	return {
 		read: vi.fn(async (name: string) => (files.has(name) ? structuredClone(files.get(name)) : null)) as JsonStore['read'],
-		write: vi.fn(async (name: string, value: unknown) => void files.set(name, value))
+		write: vi.fn(async () => {
+			throw new Error('the app never writes the library');
+		})
 	};
-	return { store, files };
 }
 
-const clock = () => NOW;
-
-describe('loadLibrary', () => {
-	// A cold instance must not cost Tabletop.Events 86 requests when a recent snapshot exists.
-	it('uses a snapshot younger than 6 h without calling Tabletop.Events', async () => {
-		const { store } = memStore({ [SNAPSHOT_NAME]: snapshot(5) });
-		const fetchRows = vi.fn(async () => [row]);
-		const lib = await loadLibrary({ store, fetchRows, clock });
-		expect(lib.games[0].name).toBe('Old');
-		expect(fetchRows).not.toHaveBeenCalled();
+describe('readLibrary', () => {
+	// The universe is built by a daily job, not on a page load: reading it is all the app does.
+	it('returns the snapshot from the bucket, whatever its age', async () => {
+		const store = memStore({ [SNAPSHOT_NAME]: snapshot });
+		expect(await readLibrary(store)).toEqual(snapshot);
+		expect(store.write).not.toHaveBeenCalled();
 	});
 
-	it('rebuilds a snapshot older than 6 h, and saves it', async () => {
-		const { store, files } = memStore({ [SNAPSHOT_NAME]: snapshot(7) });
-		const lib = await loadLibrary({ store, fetchRows: async () => [row], clock });
-		expect(lib.games.map((g) => g.name)).toEqual(['Catan']);
-		expect(lib.builtAt).toBe(new Date(NOW).toISOString());
-		expect((files.get(SNAPSHOT_NAME) as Snapshot).games[0].name).toBe('Catan');
+	it('throws a clear error when the job has not built one yet', async () => {
+		await expect(readLibrary(memStore())).rejects.toThrow(/not built yet/);
 	});
+});
 
-	it('builds and saves one when there is no snapshot yet', async () => {
-		const { store, files } = memStore();
-		await loadLibrary({ store, fetchRows: async () => [row], clock });
-		expect(files.has(SNAPSHOT_NAME)).toBe(true);
-	});
-
-	it('falls back to an old snapshot when Tabletop.Events fails', async () => {
-		const { store } = memStore({ [SNAPSHOT_NAME]: snapshot(30) });
-		const lib = await loadLibrary({ store, fetchRows: async () => Promise.reject(new Error('down')), clock });
-		expect(lib.games[0].name).toBe('Old');
-	});
-
-	it('throws when Tabletop.Events fails and there is no snapshot', async () => {
-		const { store } = memStore();
-		await expect(
-			loadLibrary({ store, fetchRows: async () => Promise.reject(new Error('down')), clock })
-		).rejects.toThrow('down');
-	});
-
-	// The fresh library is in hand; a bucket hiccup on the save shouldn't throw it away.
-	it('still returns the rebuilt library when saving it fails', async () => {
-		const { store } = memStore();
-		store.write = vi.fn(async () => Promise.reject(new Error('403')));
-		const lib = await loadLibrary({ store, fetchRows: async () => [row], clock });
-		expect(lib.games).toHaveLength(1);
+describe('buildSnapshot', () => {
+	it('groups the rows and stamps the build time', () => {
+		const snap = buildSnapshot([row, { ...row, id: 'c2' }], () => NOW);
+		expect(snap.builtAt).toBe('2026-11-20T12:00:00.000Z');
+		expect(snap.games).toEqual([{ bgg_id: 13, name: 'Catan', copies: 2, play_to_win: false }]);
 	});
 });

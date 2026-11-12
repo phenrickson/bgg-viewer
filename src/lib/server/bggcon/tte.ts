@@ -3,8 +3,8 @@
  * 2026-11-12).
  *
  * Politeness is the design constraint: pages are fetched one at a time with a pause between
- * them, never in parallel. The callers' caches decide how often this runs (snapshot every
- * 6 h, checked-out set at most once a minute).
+ * them, never in parallel. The library pull runs in the daily job
+ * (`scripts/build-bggcon-library.ts`); the checked-out read at most once a minute.
  */
 import type { TteRow } from './group';
 
@@ -51,8 +51,6 @@ async function allPages(params: Record<string, string>, f: Fetch, pause: Pause):
 export const fetchLibrary = (f: Fetch = fetch, pause: Pause = realPause): Promise<TteRow[]> =>
 	allPages({}, f, pause);
 
-/** Ids of the copies checked out right now. The API filters, so this is a page or a few. */
-export async function fetchCheckedOut(f: Fetch = fetch, pause: Pause = realPause): Promise<Set<string>> {
-	const rows = await allPages({ is_checked_out: '1' }, f, pause);
-	return new Set(rows.map((r) => r.id));
-}
+/** The copies checked out right now. The API filters, so this is a page or a few. */
+export const fetchCheckedOut = (f: Fetch = fetch, pause: Pause = realPause): Promise<TteRow[]> =>
+	allPages({ is_checked_out: '1' }, f, pause);

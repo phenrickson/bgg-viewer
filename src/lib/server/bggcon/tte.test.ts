@@ -76,10 +76,10 @@ describe('fetchLibrary', () => {
 });
 
 describe('fetchCheckedOut', () => {
-	it('asks the API for checked-out copies only, and returns their ids', async () => {
+	it('asks the API for checked-out copies only, and returns those rows', async () => {
 		const f = fakeApi([[{ ...ROWS[0], is_checked_out: 1 }]]);
-		const ids = await fetchCheckedOut(f, noPause);
-		expect(ids).toEqual(new Set(['00006FF8-B2CE-11F1-A13A-DF81FC8507AB']));
+		const rows = await fetchCheckedOut(f, noPause);
+		expect(rows.map((r) => r.bgg_id)).toEqual([470815]);
 		expect(new URL(f.mock.calls[0][0]).searchParams.get('is_checked_out')).toBe('1');
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupLibrary, availability, type TteRow } from './group';
+import { groupLibrary, checkedOutByGame, type TteRow } from './group';
 
 let n = 0;
 const row = (over: Partial<TteRow> = {}): TteRow => ({
@@ -24,8 +24,7 @@ describe('groupLibrary', () => {
 			bgg_id: 7865,
 			name: '10 Days in Africa',
 			copies: 2,
-			play_to_win: false,
-			copy_ids: ['a', 'b']
+			play_to_win: false
 		});
 	});
 
@@ -59,26 +58,19 @@ describe('groupLibrary', () => {
 	});
 });
 
-describe('availability', () => {
-	const { games } = groupLibrary([
-		row({ id: 'x1', bgg_id: 1 }),
-		row({ id: 'x2', bgg_id: 1 }),
-		row({ id: 'y1', bgg_id: 2 })
-	]);
-
-	it('counts copies on the shelf per game', () => {
-		expect(availability(games, new Set(['x1']))).toEqual({
-			1: { available: 1, copies: 2 },
-			2: { available: 1, copies: 1 }
-		});
+describe('checkedOutByGame', () => {
+	// Availability stands on its own: it needs only the checked-out rows, never the library.
+	it('counts checked-out copies per BGG id', () => {
+		expect(
+			checkedOutByGame([row({ bgg_id: 1 }), row({ bgg_id: 1 }), row({ bgg_id: 2 })])
+		).toEqual({ 1: 2, 2: 1 });
 	});
 
-	it('reports zero when every copy is checked out', () => {
-		expect(availability(games, new Set(['y1']))[2]).toEqual({ available: 0, copies: 1 });
+	it('skips copies with no BGG id', () => {
+		expect(checkedOutByGame([row({ bgg_id: null })])).toEqual({});
 	});
 
-	// A checked-out copy the snapshot doesn't know (added since) mustn't break or go negative.
-	it('ignores checked-out ids it does not know', () => {
-		expect(availability(games, new Set(['zzz']))[1]).toEqual({ available: 2, copies: 2 });
+	it('is empty when nothing is checked out', () => {
+		expect(checkedOutByGame([])).toEqual({});
 	});
 });
