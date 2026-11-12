@@ -285,7 +285,7 @@
   }
   /* Header, controls and list share one capped column, so nothing floats to the far edge. */
   .canvas > :global(*) {
-    max-width: 56rem;
+    max-width: 64rem;
   }
   .chead {
     display: flex;

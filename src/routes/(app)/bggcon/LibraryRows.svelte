@@ -129,7 +129,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-    max-width: 56rem;
+    max-width: 64rem;
   }
   .bar {
     display: flex;
