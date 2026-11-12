@@ -146,7 +146,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <Rail bind:scope where={railWhere} showUniverse={false} bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow />
         </RailSheet>
       </div>
     {/if}
@@ -154,7 +154,7 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} bind:availableNow />
+          <Rail bind:scope where={railWhere} showUniverse={false} groupAdvanced bind:availableNow />
         </div>
       {/if}
 

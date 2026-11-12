@@ -57,13 +57,17 @@
     availableNow = $bindable(undefined),
     /** Show the Universe control (Top 10,000 / All rated / Upcoming). Off on the BGG.CON
         dashboard, whose set is the library and spans every universe. */
-    showUniverse = true
+    showUniverse = true,
+    /** Gather Series & families, People & publishers and Exact numbers into one "Advanced
+        filters" group, closed by default (the BGG.CON dashboard). Explore keeps them separate. */
+    groupAdvanced = false
   }: {
     scope: Scope;
     where: string;
     bggUsername?: string | null;
     availableNow?: boolean;
     showUniverse?: boolean;
+    groupAdvanced?: boolean;
   } = $props();
 
   /**
@@ -129,6 +133,7 @@
    * state rather than overwriting it on every rerun.
    */
   const facetOpen = $state({
+    advanced: false,
     complexity: true,
     year: false,
     categories: false,
@@ -357,6 +362,16 @@
     bind:selected={scope.mechanics}
     bind:open={facetOpen.mechanics}
   />
+  {#if groupAdvanced}
+    <RailGroup title="Advanced filters" badge={scope.families.length + entityCount + exactCount} bind:open={facetOpen.advanced}>
+      {@render advanced()}
+    </RailGroup>
+  {:else}
+    {@render advanced()}
+  {/if}
+</aside>
+
+{#snippet advanced()}
   <FacetList
     title="Series & families"
     column="families"
@@ -415,7 +430,7 @@
         </div>
       </div>
   </RailGroup>
-</aside>
+{/snippet}
 
 <style>
   /* No card chrome: the rail is a column of controls, not content. A bordered panel would
