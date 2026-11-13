@@ -41,7 +41,12 @@ export function ensureConLibrary(): Promise<void> {
 	}));
 }
 
+/** The page's choice of feed: auto follows the date (live until the recorder starts). */
+export type SourceChoice = 'auto' | 'live' | 'recorder';
+
 export interface AvailabilityStamp {
+	/** Which feed answered. */
+	source: 'live' | 'recorder';
 	/** Null before the recorder has written anything. */
 	asOf: string | null;
 	stale: boolean;
@@ -50,15 +55,16 @@ export interface AvailabilityStamp {
 }
 
 /** Refresh the checked-out counts and checkouts for the whole library. */
-export async function refreshAvailability(): Promise<AvailabilityStamp> {
-	const res = await fetch('/api/bggcon/availability');
+export async function refreshAvailability(choice: SourceChoice = 'auto'): Promise<AvailabilityStamp> {
+	const res = await fetch(`/api/bggcon/availability${choice === 'auto' ? '' : `?source=${choice}`}`);
 	if (!res.ok) throw new Error(`availability request failed (${res.status})`);
 	const data = (await res.json()) as {
+		source: 'live' | 'recorder';
 		as_of: string | null;
 		stale: boolean;
 		checked_out: Record<number, number>;
 		checkouts: Record<number, number> | null;
 	};
 	await setConCheckedOut(data.checked_out, data.checkouts ?? {});
-	return { asOf: data.as_of, stale: data.stale, hasCheckouts: data.checkouts !== null };
+	return { source: data.source, asOf: data.as_of, stale: data.stale, hasCheckouts: data.checkouts !== null };
 }

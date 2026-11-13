@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chooseSource, fromRecorder, fromLive, RECORDER_START, STALE_AFTER_MS } from './availability';
+import { chooseSource, parseSource, fromRecorder, fromLive, RECORDER_START, STALE_AFTER_MS } from './availability';
 
 const T = new Date('2026-11-18T16:00:00Z');
 
@@ -67,5 +67,16 @@ describe('fromLive', () => {
 			checked_out: { 13: 1 },
 			checkouts: null
 		});
+	});
+});
+
+describe('parseSource', () => {
+	// The page's Auto / Live / Recorder choice, as ?source= on the endpoint.
+	it('reads live and recorder; anything else is auto (follow the date)', () => {
+		expect(parseSource('live')).toBe('live');
+		expect(parseSource('recorder')).toBe('recorder');
+		expect(parseSource('auto')).toBeUndefined();
+		expect(parseSource(null)).toBeUndefined();
+		expect(parseSource('LIVE; drop')).toBeUndefined();
 	});
 });

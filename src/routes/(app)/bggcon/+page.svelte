@@ -17,7 +17,7 @@
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
-  import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
+  import { ensureConLibrary, refreshAvailability, type SourceChoice } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
   import {
     countsSql, countSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT, CHECKOUTS_SORT,
@@ -43,12 +43,43 @@
   let loadError = $state<string | null>(null);
   let asOf = $state<string | null>(null);
   let stale = $state(false);
-  /** False in live mode (before the recorder starts, or the fallback): no checkouts to count. */
+  /** False in live mode (before the recorder starts, or chosen): no checkouts to count. */
   let hasCheckouts = $state(false);
+  /** Which feed answered the last refresh. */
+  let source = $state<'live' | 'recorder' | null>(null);
+
+  // The feed to read: Auto follows the date (live until the recorder starts Tuesday). Remembered
+  // in this browser only; storage can be unavailable, so every access is guarded.
+  const SOURCE_KEY = 'bggcon:source';
+  function savedChoice(): SourceChoice {
+    try {
+      const v = localStorage.getItem(SOURCE_KEY);
+      return v === 'live' || v === 'recorder' ? v : 'auto';
+    } catch {
+      return 'auto';
+    }
+  }
+  let sourceChoice = $state<SourceChoice>('auto');
+  function chooseSource(v: SourceChoice) {
+    sourceChoice = v;
+    try {
+      localStorage.setItem(SOURCE_KEY, v);
+    } catch {
+      /* not remembered; still applies now */
+    }
+    refresh();
+  }
+  // PLACEHOLDER copy (Phil).
+  const SOURCE_OPTIONS: { value: SourceChoice; label: string }[] = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'live', label: 'Live' },
+    { value: 'recorder', label: 'Recorder' }
+  ];
   let counts = $state<{ games: number; on_shelf: number; copies_out: number; not_in_catalog: number } | null>(null);
   let focusOnShelf = $state(0);
 
   onMount(() => {
+    sourceChoice = savedChoice();
     initCatalog();
     // The home page starts this too; here for a visit straight to this page.
     fetchVectors().catch((e) => console.error('vectors failed', e));
@@ -57,7 +88,8 @@
 
   async function refresh() {
     try {
-      const s = await refreshAvailability();
+      const s = await refreshAvailability(sourceChoice);
+      source = s.source;
       asOf = s.asOf;
       stale = s.stale;
       hasCheckouts = s.hasCheckouts;
@@ -215,9 +247,19 @@
             <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
           {/if}
         </div>
-        {#if asOfText}
-          <p class="asof">As of {asOfText}{#if stale} · couldn’t refresh{/if} · refreshes every minute</p>
-        {/if}
+        <!-- Where the availability comes from, said plainly, with the choice beside it.
+             PLACEHOLDER copy (Phil). -->
+        <div class="feed">
+          {#if source}
+            <p class="asof">
+              {source === 'live' ? 'Live from Tabletop.Events' : 'From the recorder'}
+              {#if asOfText} · as of {asOfText}{:else} · nothing recorded yet{/if}
+              {#if stale}<span class="warn"> · {source === 'recorder' ? 'the recorder has stopped' : 'couldn’t refresh'}</span>{/if}
+              · refreshes every minute
+            </p>
+          {/if}
+          <SegmentedControl label="Availability feed" size="sm" options={SOURCE_OPTIONS} value={sourceChoice} onchange={chooseSource} />
+        </div>
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
@@ -350,11 +392,19 @@
   .count.focus b { color: var(--primary); }
   .dim { color: var(--muted-foreground); }
   .tnum { font-variant-numeric: tabular-nums; }
+  .feed {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-md);
+    margin-top: calc(-1 * var(--space-sm));
+  }
   .asof {
-    margin: calc(-1 * var(--space-sm)) 0 0;
+    margin: 0;
     font-size: 0.75rem;
     color: var(--muted-foreground);
   }
+  .asof .warn { color: var(--color-negative); }
   .find {
     position: relative; /* anchors the sr-only label (see .canvas) */
     flex: 1 1 14rem;

@@ -7,8 +7,9 @@
  *   (bgg-data-warehouse) and never calls Tabletop.Events. One caller, however many viewers.
  *   If the recorder stops, the file's `as_of` stops moving and the response says `stale`; the
  *   server does NOT fall back to asking Tabletop.Events itself.
- * - **`BGGCON_AVAILABILITY=live|recorder`** on the service overrides the date: a fallback for
- *   the operator if the recorder breaks mid-con. In live mode there are no con checkouts.
+ * - **The page's Auto / Live / Recorder choice** (`?source=` on the endpoint) overrides the
+ *   date, so a viewer can see either feed. Live is still one shared fetch a minute per instance,
+ *   so the worst case during the con is two requests a minute. Live has no con checkouts.
  */
 import type { TtlResult } from './ttl-value';
 
@@ -35,6 +36,11 @@ export interface Availability {
 	checked_out: Record<number, number>;
 	/** BGG id → checkouts since the con opened; null in live mode, where there's no such count. */
 	checkouts: Record<number, number> | null;
+}
+
+/** `?source=`: `live` or `recorder`; anything else means auto (follow the date). */
+export function parseSource(param: string | null): Source | undefined {
+	return param === 'live' || param === 'recorder' ? param : undefined;
 }
 
 export function chooseSource(now: Date, setting?: string): Source {

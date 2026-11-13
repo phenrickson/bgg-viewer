@@ -8,13 +8,13 @@ import { checkedOutByGame } from './group';
 import { fetchCheckedOut } from './tte';
 import { createTtlValue } from './ttl-value';
 import { gcsStore } from './store';
-import { env } from '$env/dynamic/private';
 import {
 	chooseSource,
 	fromLive,
 	fromRecorder,
 	RECORDER_FILE,
 	type Availability,
+	type Source,
 	type RecorderFile
 } from './availability';
 
@@ -36,9 +36,9 @@ const recorderFile = createTtlValue({
 	load: () => gcsStore.read<RecorderFile>(RECORDER_FILE)
 });
 
-/** Availability from the source `chooseSource` picks for now. */
-export async function getAvailability(now = new Date(), setting = env.BGGCON_AVAILABILITY): Promise<Availability> {
-	return chooseSource(now, setting) === 'recorder'
+/** Availability from the chosen source, or (auto) the one `chooseSource` picks for now. */
+export async function getAvailability(source?: Source, now = new Date()): Promise<Availability> {
+	return chooseSource(now, source) === 'recorder'
 		? fromRecorder((await recorderFile.get()).value, now)
 		: fromLive(await cached.get());
 }
