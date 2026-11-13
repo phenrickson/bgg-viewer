@@ -84,6 +84,8 @@
     detail,
     /** Read a 0 geek rating, average rating or weight as missing ("—", sorted last). */
     zeroIsMissing = false,
+    /** On a phone, cards without the stats row (see GameCard's `plain`). */
+    plainCards = false,
     /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
     leadSort
   }: {
@@ -101,6 +103,7 @@
     openId?: number | null;
     detail?: Snippet<[GameListRow]>;
     zeroIsMissing?: boolean;
+    plainCards?: boolean;
     leadSort?: { label: string; sql: string; then?: string; hint?: string };
   } = $props();
   const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
@@ -403,7 +406,7 @@
       {#if cards}
         <div class="cardwrap" class:lead={!!lead}>
         {#if lead}{@render lead(r)}{/if}
-        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined} expanded={openId === r.game_id}>
+        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined} expanded={openId === r.game_id} plain={plainCards}>
           {#snippet art()}
             {#if r.thumbnail}
               <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />

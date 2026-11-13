@@ -305,6 +305,7 @@
             lead={star}
             onopen={toggleOpen}
             zeroIsMissing
+            plainCards
             leadSort={STAR_SORT}
             {openId}
             detail={panel}
