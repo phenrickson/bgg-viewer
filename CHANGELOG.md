@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.36](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.35...bgg-viewer-v0.0.36) (2026-11-13)
+
+
+### Bug Fixes
+
+* **bggcon:** make the dashboard work on a phone ([#106](https://github.com/phenrickson/bgg-viewer/issues/106)) ([3d1de16](https://github.com/phenrickson/bgg-viewer/commit/3d1de16b040cb78891a9b16d601894bd0010161c))
+
 ## [0.0.35](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.34...bgg-viewer-v0.0.35) (2026-11-13)
 
 
