@@ -11,8 +11,8 @@
     then?: string;
     hint?: string;
     width: string;
-    /** Header alignment, to match the cell (right for a number). Left by default. */
-    align?: 'l' | 'r';
+    /** Header alignment, to match the cell (right for a number, centre for a status). Left by default. */
+    align?: 'l' | 'r' | 'c';
     cell: Snippet<[GameListRow]>;
   };
 </script>
@@ -147,7 +147,7 @@
     predicted_hurdle_prob: number | null;
   };
 
-  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string; domain?: string; width?: string; then?: string };
+  type Col = { key: string; label: string; align: 'l' | 'r' | 'c'; sql: string; hint?: string; domain?: string; width?: string; then?: string };
   const COLS_RATED: Col[] = [
     { key: 'name', label: 'Game', align: 'l', sql: 'lower(name)' },
     { key: 'year', label: 'Year', align: 'r', sql: 'year_published' },
@@ -384,7 +384,7 @@
     </span>
     <span class="c-thumb" aria-hidden="true"></span>
     {#each COLS as c (c.key)}
-      <span class="c-{c.key}" class:r={c.align === 'r'}>
+      <span class="c-{c.key}" class:r={c.align === 'r'} class:c={c.align === 'c'}>
         <button class:on={c.key === sortKey} onclick={() => sortBy(c)} title={c.hint ?? `Sort by ${c.label}`}>
           {c.label}<span class="ar">{c.key === sortKey ? (desc ? '▼' : '▲') : ''}</span>
         </button>
@@ -711,6 +711,9 @@
     color: inherit;
     cursor: pointer;
     text-align: inherit;
+  }
+  .head span.c {
+    text-align: center;
   }
   .head span.r {
     text-align: right;

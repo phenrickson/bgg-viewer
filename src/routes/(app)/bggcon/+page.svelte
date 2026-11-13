@@ -154,7 +154,7 @@
     then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
   });
   const AVAILABILITY: ExtraColumn[] = [
-    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '6.8rem', cell: availCell },
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '6.8rem', align: 'c', cell: availCell },
     // Checkouts since the con opened (the recorder's count): sorted high to low, the hottest games.
     { key: 'checkouts', label: 'Checkouts', sql: CHECKOUTS_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'times checked out since the con opened', width: '4.8rem', align: 'r', cell: checkoutsCell }
   ];
@@ -165,7 +165,7 @@
 </script>
 
 {#snippet availCell(r: GameListRow)}
-  <ShelfStatus available={Number(r.available)} copies={Number(r.copies)} />
+  <span class="availcell"><ShelfStatus available={Number(r.available)} copies={Number(r.copies)} /></span>
 {/snippet}
 {#snippet checkoutsCell(r: GameListRow)}
   <span class="checkouts tnum">{hasCheckouts ? Number(r.checkouts) : '—'}</span>
@@ -323,6 +323,11 @@
     cursor: pointer;
   }
   .count:hover { border-bottom-color: var(--border); }
+  /* Centred under its centred header. */
+  .availcell {
+    display: flex;
+    justify-content: center;
+  }
   /* GameList's own number cells: right-aligned, small. */
   .checkouts {
     display: block;
