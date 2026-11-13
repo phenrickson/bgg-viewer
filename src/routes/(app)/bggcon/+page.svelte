@@ -255,6 +255,8 @@
       {/if}
 
       <div class="canvas">
+        <!-- Not on a phone: the list gets the screen there (Phil). -->
+        {#if !narrow}
         <div class="chead">
           {#if counts}
             <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
@@ -263,6 +265,7 @@
             <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
           {/if}
         </div>
+        {/if}
         <!-- Where the availability comes from, said plainly, with the choice beside it.
              PLACEHOLDER copy (Phil). -->
         {#if narrow}
@@ -425,22 +428,9 @@
   .asof .warn { color: var(--color-negative); }
   .sheetfeed { padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
 
-  /* Phone: the header gives the list the screen. Counts as a compact 2×2, the feed in Filters
-     (one line here), the view control at its small size. */
+  /* Phone: the header gives the list the screen. No counts, the feed in Filters (one line
+     here), the view control at its small size. */
   @media (max-width: 40rem) {
-    .chead {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-sm) var(--space-md);
-    }
-    .count {
-      white-space: normal;
-      text-align: left;
-      font-size: 0.8rem;
-      line-height: 1.25;
-    }
-    .count b { font-size: 1.15rem; }
-    .count .dim { display: none; }
     .ctl { gap: var(--space-sm); }
     .find { flex-basis: 100%; max-width: none; }
   }
