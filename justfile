@@ -8,6 +8,7 @@
 #   just setup      # install dependencies
 #   just dev        # dev server (foreground, Ctrl-C to stop)
 #   just dev-bg     # dev server (background)
+#   just dev-lan    # dev server for another computer on the network (e.g. the MacBook)
 #   just stop       # stop it, however it was started
 #   just status     # is it up?
 #   just vizzes     # regenerate landing content, print the /dev/vizzes review URL
@@ -67,6 +68,26 @@ dev:
 # Run the dev server reachable from a phone on the same network.
 dev-mobile:
     -pnpm exec vite dev --port {{port}} --host
+
+# For another computer on the network (e.g. the MacBook). `dev-mobile` alone isn't enough there:
+# the browser loads the catalog, thumbnails, vectors and coordinates from signed GCS URLs, and
+# the bucket's CORS list allows localhost:5173 but not http://<this-pc's-ip>:5173. So the load
+# is refused, and nothing reports an error because GCS still answers 200. ARTIFACTS_VIA_SERVER
+# makes the dev server serve those files itself, same-origin (src/lib/server/dev-artifacts.ts).
+#
+# One-time on Windows: allow node.exe inbound on Private networks (Windows prompts the first
+# time you run this; pick Private), and make sure the wifi network is set to Private. Then open
+# the "Network:" URL Vite prints on the other machine. Same port, so it also still serves
+# localhost here.
+# Run the dev server for another computer on the same network.
+[unix]
+dev-lan:
+    -ARTIFACTS_VIA_SERVER=1 pnpm exec vite dev --port {{port}} --host
+
+# Run the dev server for another computer on the same network.
+[windows]
+dev-lan:
+    -$env:ARTIFACTS_VIA_SERVER = '1'; pnpm exec vite dev --port {{port}} --host
 
 # Offline: serves the catalog from .cache/catalog.arrow.gz and renders game pages from it, so
 # no request reaches BigQuery or the warehouse. Run `just dev` once with network access first

@@ -4,6 +4,7 @@
   import { ModeWatcher, toggleMode } from 'mode-watcher';
   import { page, navigating } from '$app/stores';
   import GameSearch from '$lib/catalog/GameSearch.svelte';
+  import NavBadge from '$lib/bggcon/NavBadge.svelte'; // TEMPORARY (BGG.CON 2026)
   import { Container } from '$lib/components/ui/layout';
 
   let { data, children } = $props();
@@ -72,6 +73,8 @@
   const inGames = $derived(onExplore || onDiscover || onWhatsNew);
   const onMap = $derived(path === '/map' || path.startsWith('/map/'));
   const onRecommend = $derived(path === '/recommend' || path.startsWith('/recommend/'));
+  // TEMPORARY (BGG.CON 2026): remove with the rest of the feature after the con.
+  const onBggcon = $derived(path === '/bggcon' || path.startsWith('/bggcon/'));
   const onLineage = $derived(path === '/lineage');
   const inTools = $derived(onMap || onRecommend || onLineage);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
@@ -213,6 +216,9 @@
           {/if}
         </div>
 
+        <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
+        {#if data.user}<a href="/bggcon" class="con" class:active={onBggcon}>BGG.CON<NavBadge /></a>{/if}
+
         <!-- Last, and stays last. Games is the catalog and Tools acts on it; About is the one
              item that explains them rather than being one. The modelling room and Collection
              slot in before it; it can grow its own menu (methodology, freshness) without
@@ -261,6 +267,8 @@
               <a href="/recommend" role="menuitem" class:on={onRecommend}><b>Recommend</b></a>
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
               <a href="/lineage" role="menuitem" class:on={onLineage}><b>Lineage</b></a>
+              <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
+              {#if data.user}<a href="/bggcon" role="menuitem" class:on={onBggcon}><b>BGG.CON<NavBadge /></b></a>{/if}
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}
@@ -358,6 +366,10 @@
   .mainnav .trigger:hover { color: var(--foreground); }
   .mainnav a.active,
   .mainnav .trigger.active { color: var(--foreground); background: var(--muted); font-weight: 550; }
+
+  /* TEMPORARY (BGG.CON 2026): label and badge on one line; wrapped, the badge made the link
+     two lines tall and pushed the rest of the nav to wrap. */
+  .mainnav a.con { display: inline-flex; align-items: center; white-space: nowrap; }
 
   /* Only what differs from a plain nav link — everything shared lives in the rule above. */
   .menu { position: relative; display: flex; }

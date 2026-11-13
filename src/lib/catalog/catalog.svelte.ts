@@ -13,6 +13,7 @@ import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 import { recordLoad } from '$lib/landing/estimate';
 import { fetchArtifactBytes } from './artifact-fetch';
+import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, checkoutsSql, type LibraryRow } from './set-filters';
 
 export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -34,6 +35,18 @@ let thumbnailsReady = $state(false);
  */
 let collectionUsername = $state<string | null>(null);
 
+/**
+ * BGG.CON library (signed-in users, temporary). `con_library` / `con_checked_out` exist in DuckDB
+ * once `loadConLibrary` has run; the /bggcon dashboard queries them directly. Separately,
+ * `libraryFilter` narrows Explore and the map to the library (and `availableOnly` to games
+ * with a copy on the shelf), through the same `appendCollectionFilter` wrapper.
+ */
+let libraryLoaded = $state(false);
+let libraryFilter = $state(false);
+let availableOnly = $state(false);
+/** Bumped whenever the checked-out table changes, so queries that read it re-run. */
+let checkedOutVersion = $state(0);
+
 /** Reactive, read-only view of load state for the UI. */
 export const catalog = {
 	get status() {
@@ -50,6 +63,18 @@ export const catalog = {
 	},
 	get collectionUsername() {
 		return collectionUsername;
+	},
+	get libraryLoaded() {
+		return libraryLoaded;
+	},
+	get libraryFilter() {
+		return libraryFilter;
+	},
+	get availableOnly() {
+		return availableOnly;
+	},
+	get checkedOutVersion() {
+		return checkedOutVersion;
 	}
 };
 
@@ -171,11 +196,57 @@ export async function fetchAndApplyCollection(username: string): Promise<{ updat
 	return { updatedAt: data.updated_at };
 }
 
-/** Wrap a `where` body with the active collection filter, if any — see `applyCollectionFilter`. */
+/**
+ * Wrap a `where` body with the active set filters: the owned collection (see
+ * `applyCollectionFilter`) and the BGG.CON library (see `loadConLibrary`). SQL in `set-filters.ts`.
+ */
 export function appendCollectionFilter(where: string): string {
-	return collectionUsername != null
-		? `${where} AND game_id IN (SELECT game_id FROM owned_collection)`
-		: where;
+	return withSetFilters(where, {
+		collection: collectionUsername != null,
+		library: libraryLoaded && libraryFilter,
+		availableOnly
+	});
+}
+
+/** Replace the BGG.CON library tables wholesale. The checked-out table starts empty. */
+export async function loadConLibrary(rows: LibraryRow[]): Promise<void> {
+	if (!conn) throw new Error('catalog is not ready');
+	await conn.query('CREATE OR REPLACE TABLE con_library (game_id INTEGER, tte_name VARCHAR, copies INTEGER, play_to_win BOOLEAN)');
+	const values = libraryValues(rows);
+	if (values) await conn.query(`INSERT INTO con_library VALUES ${values}`);
+	await conn.query('CREATE TABLE IF NOT EXISTS con_checked_out (game_id INTEGER, n INTEGER)');
+	await conn.query('CREATE TABLE IF NOT EXISTS con_checkouts (game_id INTEGER, n INTEGER)');
+	lastCheckedOut = null; // a fresh load writes the counts again
+	libraryLoaded = true;
+}
+
+/** The last counts written, so a refresh that changed nothing doesn't re-run every query. */
+let lastCheckedOut: string | null = null;
+
+/**
+ * Replace the checked-out counts (BGG id → copies out) and each game's checkouts since the con
+ * opened, from `/api/bggcon/availability`. Each table is replaced in one statement.
+ */
+export async function setConCheckedOut(
+	counts: Record<number, number>,
+	checkouts: Record<number, number> = {}
+): Promise<void> {
+	if (!conn) throw new Error('catalog is not ready');
+	const values = `${checkedOutValues(counts)}|${checkedOutValues(checkouts)}`;
+	if (values === lastCheckedOut) return;
+	await conn.query(checkedOutSql(counts));
+	await conn.query(checkoutsSql(checkouts));
+	lastCheckedOut = values;
+	checkedOutVersion++;
+}
+
+/** Narrow Explore and the map to the library (needs `loadConLibrary` first). */
+export function setLibraryFilter(on: boolean): void {
+	libraryFilter = on;
+}
+
+export function setAvailableOnly(on: boolean): void {
+	availableOnly = on;
 }
 
 /** Resolve a game's name from its id (map built once at load) — for the plot tooltip. */

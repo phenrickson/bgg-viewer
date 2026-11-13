@@ -29,6 +29,7 @@
     type PlayerCountMode,
     type Scope
   } from './scope';
+  import { untrack } from 'svelte';
   import { catalog, fetchAndApplyCollection, clearCollectionFilter } from './catalog.svelte';
   import EntityFilter from './EntityFilter.svelte';
   import FacetList from './FacetList.svelte';
@@ -51,8 +52,31 @@
     where,
     /** The signed-in account's own BGG username, if linked — enables the "My collection only"
         checkbox below. `null`/absent for admins with no linked account and anonymous users. */
-    bggUsername = null
-  }: { scope: Scope; where: string; bggUsername?: string | null } = $props();
+    bggUsername = null,
+    /** BGG.CON library pages only: binding this shows an "Available now" switch (games with a
+        copy on the shelf). Left unbound, as Explore does, the switch isn't there. */
+    availableNow = $bindable(undefined),
+    /** Show the Universe control (Top 10,000 / All rated / Upcoming). Off on the BGG.CON
+        dashboard, whose set is the library and spans every universe. */
+    showUniverse = true,
+    /** Gather Series & families, People & publishers and Exact numbers into one "Advanced
+        filters" group, closed by default (the BGG.CON dashboard). Explore keeps them separate. */
+    groupAdvanced = false,
+    /** Show the name search at the top. Off where the page puts it above its list instead
+        (the BGG.CON dashboard), so it isn't missed. */
+    showSearch = true,
+    /** Start with Categories open (the BGG.CON dashboard). Explore starts it shut. */
+    categoriesOpen = false
+  }: {
+    scope: Scope;
+    where: string;
+    bggUsername?: string | null;
+    availableNow?: boolean;
+    showUniverse?: boolean;
+    groupAdvanced?: boolean;
+    showSearch?: boolean;
+    categoriesOpen?: boolean;
+  } = $props();
 
   /**
    * Self-serve collection filter, grouped visually with Universe rather than living at the
@@ -117,9 +141,11 @@
    * state rather than overwriting it on every rerun.
    */
   const facetOpen = $state({
+    advanced: false,
     complexity: true,
     year: false,
-    categories: false,
+    // Read once: after that it's the reader's to open and shut.
+    categories: untrack(() => categoriesOpen),
     mechanics: false,
     families: false,
     // These two were plain `<details>` with no state; RailGroup binds `open`, so they get
@@ -184,10 +210,12 @@
 
 <aside class="rail">
   <div class="pinned">
+    {#if showSearch}
     <label class="find">
       <span class="vh">Search game names in this set</span>
       <input type="search" placeholder="Name contains…" bind:value={scope.q} />
     </label>
+    {/if}
 
     <div class="grp top">
       <!--
@@ -202,6 +230,7 @@
         with no room to spare, and Upcoming is a different kind of data rather than a filter
         anyone toggles idly. Here it is the first control in the sheet instead.
       -->
+      {#if showUniverse}
       <SegGroup
         label="Universe"
         two
@@ -220,6 +249,7 @@
             ? 'Everything with 30+ ratings — about 35,000.'
             : 'Announced for this year or later — about 4,800. Nobody has played these, so every number is the model’s estimate.'}
       </p>
+      {/if}
       {#if bggUsername}
         <button
           type="button"
@@ -239,6 +269,20 @@
             : 'Filter to just the games in your BGG collection.'}
         </p>
         {#if collectionStatus === 'error'}<p class="note err">{collectionError}</p>{/if}
+      {/if}
+      {#if availableNow !== undefined}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={availableNow}
+          class="toggle"
+          onclick={() => (availableNow = !availableNow)}
+        >
+          <span class="track" class:on={availableNow}><span class="knob"></span></span>
+          <span class="switch-label">Available now</span>
+        </button>
+        <!-- Copy note: placeholder — Phil writes final copy. -->
+        <p class="note">Only games with a copy on the shelf.</p>
       {/if}
     </div>
 
@@ -329,6 +373,16 @@
     bind:selected={scope.mechanics}
     bind:open={facetOpen.mechanics}
   />
+  {#if groupAdvanced}
+    <RailGroup title="Advanced filters" badge={scope.families.length + entityCount + exactCount} bind:open={facetOpen.advanced}>
+      {@render advanced()}
+    </RailGroup>
+  {:else}
+    {@render advanced()}
+  {/if}
+</aside>
+
+{#snippet advanced()}
   <FacetList
     title="Series & families"
     column="families"
@@ -387,7 +441,7 @@
         </div>
       </div>
   </RailGroup>
-</aside>
+{/snippet}
 
 <style>
   /* No card chrome: the rail is a column of controls, not content. A bordered panel would
@@ -614,8 +668,10 @@
     -webkit-appearance: none;
     margin: 0;
   }
+  /* Inside the field, not around it: the rail is its own scroll area and clips anything drawn
+     past its edges, which cut the ring off the name search. */
   input:focus-visible {
     outline: 2px solid var(--primary);
-    outline-offset: 1px;
+    outline-offset: -2px;
   }
 </style>

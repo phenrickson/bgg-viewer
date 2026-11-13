@@ -107,13 +107,22 @@ const SHELF_CAP = 1;
 const SHELF_TOP_K = 10;
 
 /** Each owned row's `PERCENT_RANK` of `geekPct` within the shelf: (rank − 1) / (n − 1), 0 when n = 1. */
-function shelfPercentiles(v: VectorSet, rows: number[]): Map<number, number> {
-	const pcts = rows.map((r) => v.geekPct[r]);
+export function shelfPercentiles(v: VectorSet, rows: number[]): Map<number, number> {
+	// Sorted once, then a binary search per game: a scan of the whole shelf per game was
+	// quadratic, ~half a second on the BGG.CON library's few thousand games.
+	const sorted = Float64Array.from(rows, (r) => v.geekPct[r]).sort();
+	const below = (x: number) => {
+		let lo = 0;
+		let hi = sorted.length;
+		while (lo < hi) {
+			const mid = (lo + hi) >> 1;
+			if (sorted[mid] < x) lo = mid + 1;
+			else hi = mid;
+		}
+		return lo;
+	};
 	const out = new Map<number, number>();
-	for (const r of rows) {
-		const below = pcts.filter((p) => p < v.geekPct[r]).length;
-		out.set(r, rows.length > 1 ? below / (rows.length - 1) : 0);
-	}
+	for (const r of rows) out.set(r, rows.length > 1 ? below(v.geekPct[r]) / (rows.length - 1) : 0);
 	return out;
 }
 

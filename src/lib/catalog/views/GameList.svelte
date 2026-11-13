@@ -1,3 +1,22 @@
+<script lang="ts" module>
+  import type { Snippet } from 'svelte';
+  /** A row as a caller's snippet sees it: the catalog columns plus whatever its `select` adds. */
+  export type GameListRow = { game_id: number; name: string } & Record<string, unknown>;
+  /** A column a caller adds (the BGG.CON library's Availability): sorted by `sql`, drawn by `cell`. */
+  export type ExtraColumn = {
+    key: string;
+    label: string;
+    sql: string;
+    /** Orders ties within this column's sort, whichever way it runs (e.g. geek rating, high first). */
+    then?: string;
+    hint?: string;
+    width: string;
+    /** Header alignment, to match the cell (right for a number, centre for a status). Left by default. */
+    align?: 'l' | 'r' | 'c';
+    cell: Snippet<[GameListRow]>;
+  };
+</script>
+
 <script lang="ts">
   /**
    * The games in scope — the answer to "find board games matching my criteria".
@@ -23,6 +42,7 @@
   import ComplexityMeter from '$lib/catalog/encodings/ComplexityMeter.svelte';
   import GameCard from '$lib/catalog/GameCard.svelte';
   import SortBar from '$lib/catalog/SortBar.svelte';
+  import Pager from '$lib/catalog/Pager.svelte';
   import type { Scope } from '$lib/catalog/scope';
 
   let {
@@ -40,8 +60,48 @@
      * year copy the table does, swap the pip grid for its text form, re-stretch the gauges.
      * That is where the two bugs came from. Now each branch renders only what it shows.
      */
-    cards = false
-  }: { where: string; universe?: Scope['universe']; cards?: boolean } = $props();
+    cards = false,
+    /*
+     * The rest are optional and unused by Explore. The BGG.CON library dashboard reads the same
+     * table over the library: `join`/`select` add the library to the query, `columns` picks which
+     * of the columns below show, `extra` adds its own (Availability), `lead` is the star, and
+     * `onopen`/`openId`/`detail` open a game in place under its row instead of linking to it.
+     */
+    /** The rows' source, aliased `c` for the catalog (the BGG.CON library starts from the library). */
+    source = 'catalog c',
+    /** The name column (the library falls back to its own name for games the catalog lacks). */
+    nameSql = 'c.name',
+    join = '',
+    select = '',
+    columns,
+    extra = [],
+    lead,
+    onopen,
+    openId = null,
+    detail,
+    /** Read a 0 geek rating, average rating or weight as missing ("—", sorted last). */
+    zeroIsMissing = false,
+    /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
+    leadSort
+  }: {
+    where: string;
+    universe?: Scope['universe'];
+    cards?: boolean;
+    source?: string;
+    nameSql?: string;
+    join?: string;
+    select?: string;
+    columns?: string[];
+    extra?: ExtraColumn[];
+    lead?: Snippet<[GameListRow]>;
+    onopen?: (id: number) => void;
+    openId?: number | null;
+    detail?: Snippet<[GameListRow]>;
+    zeroIsMissing?: boolean;
+    leadSort?: { label: string; sql: string; then?: string; hint?: string };
+  } = $props();
+  const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
+  const z = (col: string) => (zeroIsMissing && ZEROABLE.includes(col.replace(/^c\./, '')) ? `NULLIF(${col}, 0)` : col);
 
   /**
    * The upcoming universe reads the model's estimates rather than what happened — the same
@@ -87,7 +147,7 @@
     predicted_hurdle_prob: number | null;
   };
 
-  type Col = { key: string; label: string; align: 'l' | 'r'; sql: string; hint?: string; domain?: string };
+  type Col = { key: string; label: string; align: 'l' | 'r' | 'c'; sql: string; hint?: string; domain?: string; width?: string; then?: string };
   const COLS_RATED: Col[] = [
     { key: 'name', label: 'Game', align: 'l', sql: 'lower(name)' },
     { key: 'year', label: 'Year', align: 'r', sql: 'year_published' },
@@ -112,7 +172,27 @@
     { key: 'hurdle', label: 'P(hurdle)', align: 'l', sql: 'predicted_hurdle_prob', hint: 'chance it gathers enough ratings to earn a geek rating', domain: '0–100%' },
     { key: 'rated', label: 'P. Ratings', align: 'r', sql: 'predicted_users_rated' }
   ];
-  const COLS = $derived(upcoming ? COLS_UPCOMING : COLS_RATED);
+  const COLS = $derived<Col[]>([
+    ...(upcoming ? COLS_UPCOMING : COLS_RATED).filter((c) => !columns || columns.includes(c.key)),
+    ...extra.map((e) => ({ key: e.key, label: e.label, align: e.align ?? 'l', sql: e.sql, then: e.then, hint: e.hint, width: e.width }))
+  ]);
+  const shown = (key: string) => COLS.some((c) => c.key === key);
+  /**
+   * Track widths for a caller that picks its own columns: FIXED, not `max-content`. Every row is
+   * its own grid, so a content-sized track came out wider in the header ("COMPLEXITY") than in
+   * the rows, and the centered gauges sat off-center under their headers.
+   */
+  const WIDTH: Record<string, string> = {
+    name: 'minmax(11rem, 1fr)', year: '3.2rem', geek: '5rem', rating: '3.4rem',
+    weight: '5rem', best: '6.2rem', rated: '5rem'
+  };
+  // Only when the caller picks columns; Explore keeps the stylesheet's templates and their
+  // container-query fallbacks.
+  const template = $derived(
+    columns || extra.length
+      ? ['minmax(2.4rem, max-content)', '1.85rem', ...COLS.map((c) => c.width ?? WIDTH[c.key] ?? 'max-content')].join(' ')
+      : undefined
+  );
   const PAGE_SIZE = 100;
 
   let sortKey = $state('geek');
@@ -132,7 +212,15 @@
 
   // Falls back to the geek column when the key isn't in this universe's set — switching to
   // Upcoming while sorted by `best` would otherwise leave `sortCol` undefined mid-query.
-  const sortCol = $derived(COLS.find((c) => c.key === sortKey) ?? COLS[2]);
+  const LEAD_COL = $derived<Col | null>(
+    leadSort ? { key: 'lead', label: leadSort.label, align: 'r', sql: leadSort.sql, then: leadSort.then, hint: leadSort.hint } : null
+  );
+  const sortCol = $derived(
+    (sortKey === 'lead' ? LEAD_COL : null) ??
+      COLS.find((c) => c.key === sortKey) ??
+      COLS.find((c) => c.key === 'geek') ??
+      COLS[0]
+  );
   const pages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
   const from = $derived(total === 0 ? 0 : page * PAGE_SIZE + 1);
   const to = $derived(Math.min(total, (page + 1) * PAGE_SIZE));
@@ -149,24 +237,31 @@
   let token = 0;
   $effect(() => {
     const w = where;
-    const ord = `${sortCol.sql} ${desc ? 'DESC' : 'ASC'} NULLS LAST`;
+    const ord = `${z(sortCol.sql)} ${desc ? 'DESC' : 'ASC'} NULLS LAST${sortCol.then ? `, ${sortCol.then}` : ''}`;
     const offset = page * PAGE_SIZE;
+    const j = join;
+    const src = source;
+    const nm = nameSql;
+    const sel = select ? `, ${select}` : '';
     const mine = ++token;
     // Read so a thumbnails load after first render re-runs this query and repaints rows
     // with real art — the LEFT JOIN itself is unconditional (see catalog.svelte.ts), this
     // is only what makes the *second* pass happen once there's something new to show.
     catalog.thumbnailsReady;
+    // The BGG.CON library's availability refreshing (each minute, on that page only) re-reads
+    // its Availability column and filters.
+    catalog.checkedOutVersion;
     loading = true;
     Promise.all([
-      query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM catalog WHERE ${w}`),
+      query<{ n: number }>(`SELECT COUNT(*)::INT AS n FROM ${src} ${j} WHERE ${w}`),
       query<Row>(
-        `SELECT c.game_id, c.name, c.year_published, c.geek_rating, c.average_rating,
-                c.average_weight, c.users_rated, c.min_players, c.max_players,
+        `SELECT game_id, ${nm} AS name, c.year_published, ${z('c.geek_rating')} AS geek_rating,
+                ${z('c.average_rating')} AS average_rating, ${z('c.average_weight')} AS average_weight, c.users_rated, c.min_players, c.max_players,
                 c.best_player_counts, c.recommended_player_counts,
                 c.designers, c.publishers, c.categories,
                 c.predicted_geek_rating, c.predicted_rating, c.predicted_complexity,
-                c.predicted_users_rated, c.predicted_hurdle_prob, t.thumbnail
-         FROM catalog c LEFT JOIN thumbnails t USING (game_id)
+                c.predicted_users_rated, c.predicted_hurdle_prob, t.thumbnail${sel}
+         FROM ${src} LEFT JOIN thumbnails t USING (game_id) ${j}
          WHERE ${w} ORDER BY ${ord}, game_id LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     ])
@@ -242,15 +337,6 @@
 
 <!-- One definition, rendered in one of two places: beside the count on a table, at the foot of
      the list on cards. See the `{#if cards}` branches below for why. -->
-{#snippet pager()}
-  <span class="pager">
-    <button disabled={page === 0} onclick={() => (page = 0)} title="First page">«</button>
-    <button disabled={page === 0} onclick={() => (page = Math.max(0, page - 1))}>‹ Prev</button>
-    <span class="pg tnum">{(page + 1).toLocaleString()} / {pages.toLocaleString()}</span>
-    <button disabled={page >= pages - 1} onclick={() => (page = Math.min(pages - 1, page + 1))}>Next ›</button>
-    <button disabled={page >= pages - 1} onclick={() => (page = pages - 1)} title="Last page">»</button>
-  </span>
-{/snippet}
 
 <div class="bar">
   <span class="pos">
@@ -276,19 +362,29 @@
     />
   {/if}
 
-  {#if pages > 1 && !cards}{@render pager()}{/if}
+  {#if pages > 1 && !cards}<Pager bind:page {pages} />{/if}
 </div>
 
 <div class="listwrap">
   <!-- The header row belongs to the table and only to the table. Cards have no columns for it
        to head, and it is also the sort control — which `SortBar` takes over above, for exactly
        that reason. -->
+  <div class="rows">
+    <!-- The header lives inside the scroll area (sticky), so it shares the rows' width: outside
+         it, the rows lost the scrollbar's width and every column sat off from its header. -->
   {#if !cards}
-  <div class="head row" class:pred={upcoming}>
-    <span class="rk">#</span>
+  <div class="head row" class:pred={upcoming} style:grid-template-columns={template}>
+    <!-- `#` over the rank; nothing over a caller's `lead` (the BGG.CON star), which isn't one. -->
+    <span class="rk">
+      {#if LEAD_COL}
+        <button class:on={sortKey === 'lead'} onclick={() => sortBy(LEAD_COL)} title={LEAD_COL.hint ?? `Sort by ${LEAD_COL.label}`}>
+          {LEAD_COL.label}<span class="ar">{sortKey === 'lead' ? (desc ? '▼' : '▲') : ''}</span>
+        </button>
+      {:else}{lead ? '' : '#'}{/if}
+    </span>
     <span class="c-thumb" aria-hidden="true"></span>
     {#each COLS as c (c.key)}
-      <span class="c-{c.key}" class:r={c.align === 'r'}>
+      <span class="c-{c.key}" class:r={c.align === 'r'} class:c={c.align === 'c'}>
         <button class:on={c.key === sortKey} onclick={() => sortBy(c)} title={c.hint ?? `Sort by ${c.label}`}>
           {c.label}<span class="ar">{c.key === sortKey ? (desc ? '▼' : '▲') : ''}</span>
         </button>
@@ -300,11 +396,11 @@
     {/each}
   </div>
   {/if}
-
-  <div class="rows">
     {#each rows as r, i (r.game_id)}
       {#if cards}
-        <GameCard href="/games/{r.game_id}">
+        <div class="cardwrap" class:lead={!!lead}>
+        {#if lead}{@render lead(r)}{/if}
+        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined} expanded={openId === r.game_id}>
           {#snippet art()}
             {#if r.thumbnail}
               <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
@@ -345,17 +441,22 @@
                 >
               </span>
             {:else}
+              {#if shown('geek')}
               <span class="stat">
                 <span class="stat-lbl">Geek</span>
                 <RatingBar value={r.geek_rating} />
               </span>
+              {/if}
+              {#if shown('weight')}
               <span class="stat">
                 <span class="stat-lbl">Cplx</span>
                 <ComplexityMeter weight={r.average_weight} barHeight="3px" />
               </span>
+              {/if}
               <!-- PlayerPips' compact form, not its pip grid. The grid earns its keep scanned
                    down a table column; alone on a card, six mostly-muted numerals with one
                    picked out read as noise rather than as an answer. -->
+              {#if shown('best')}
               <span class="stat">
                 <span class="stat-lbl">Best at</span>
                 <PlayerPips
@@ -364,12 +465,33 @@
                   compact
                 />
               </span>
+              {/if}
+              {#each extra as e (e.key)}
+                <span class="stat"><span class="stat-lbl">{e.label}</span>{@render e.cell(r)}</span>
+              {/each}
             {/if}
           {/snippet}
         </GameCard>
+        </div>
+        {#if openId === r.game_id && detail}{@render detail(r)}{/if}
       {:else}
-      <a class="row" class:pred={upcoming} href="/games/{r.game_id}">
-        <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
+      <!-- With `onopen`, the row opens the game in place: a click anywhere on it outside its own
+           links and buttons, or on the name (a button, so keyboard users reach it too). -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <svelte:element
+        this={onopen ? 'div' : 'a'}
+        class="row"
+        class:pred={upcoming}
+        class:open={openId === r.game_id}
+        href={onopen ? undefined : `/games/${r.game_id}`}
+        style:grid-template-columns={template}
+        onclick={onopen ? (e: MouseEvent) => !(e.target as Element).closest('a, button') && onopen(r.game_id) : undefined}
+      >
+        {#if lead}
+          <span class="rk">{@render lead(r)}</span>
+        {:else}
+          <span class="rk tnum">{(page * PAGE_SIZE + i + 1).toLocaleString()}</span>
+        {/if}
 
         {#if r.thumbnail}
           <img class="c-thumb" src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
@@ -378,12 +500,18 @@
           <span class="c-thumb ph" aria-hidden="true">{r.name.charAt(0).toUpperCase()}</span>
         {/if}
 
-        <span class="c-name">
+        <svelte:element
+          this={onopen ? 'button' : 'span'}
+          class="c-name"
+          type={onopen ? 'button' : undefined}
+          aria-expanded={onopen ? openId === r.game_id : undefined}
+          onclick={onopen ? () => onopen(r.game_id) : undefined}
+        >
           <span class="nm">{r.name}</span>
           <span class="mt">{metaCore(r)}{#if metaCats(r)} · {metaCats(r)}{/if}</span>
-        </span>
+        </svelte:element>
 
-        <span class="c-year r tnum">{r.year_published ?? '—'}</span>
+        {#if shown('year')}<span class="c-year r tnum">{r.year_published ?? '—'}</span>{/if}
 
         {#if upcoming}
           <!-- Each cell wears the encoding its rated twin already wears, so a reader learns
@@ -424,23 +552,31 @@
 
           <span class="c-rated r tnum dim">{r.predicted_users_rated == null ? '—' : Math.round(r.predicted_users_rated).toLocaleString()}</span>
         {:else}
+          {#if shown('geek')}
           <span class="c-geek">
             <RatingBar value={r.geek_rating} />
           </span>
+          {/if}
 
-          <span class="c-rating r tnum dim">{num(r.average_rating)}</span>
+          {#if shown('rating')}<span class="c-rating r tnum dim">{num(r.average_rating)}</span>{/if}
 
+          {#if shown('weight')}
           <span class="c-weight">
             <ComplexityMeter weight={r.average_weight} barHeight="3px" />
           </span>
+          {/if}
 
+          {#if shown('best')}
           <span class="c-best">
             <PlayerPips best={r.best_player_counts} recommended={r.recommended_player_counts} />
           </span>
+          {/if}
 
-          <span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>
+          {#if shown('rated')}<span class="c-rated r tnum dim">{(r.users_rated ?? 0).toLocaleString()}</span>{/if}
+          {#each extra as e (e.key)}<span class="c-extra">{@render e.cell(r)}</span>{/each}
         {/if}
-      </a>
+      </svelte:element>
+      {#if openId === r.game_id && detail}{@render detail(r)}{/if}
       {/if}
     {/each}
 
@@ -459,7 +595,7 @@
     {#if pages > 1 && cards}
       <div class="footpager">
         <span class="dim">{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
-        {@render pager()}
+        <Pager bind:page {pages} touch />
       </div>
     {/if}
   </div>
@@ -488,33 +624,6 @@
   }
   .tnum {
     font-variant-numeric: tabular-nums;
-  }
-  .pager {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .pager button {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--foreground);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.76rem;
-    padding: 0.15rem 0.5rem;
-  }
-  .pager button:hover:not(:disabled) {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-  .pager button:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-  .pager .pg {
-    padding: 0 0.35rem;
-    color: var(--foreground);
   }
 
   /* Grows to its rows, then stops at the space available — `flex: 1` instead would stretch a
@@ -603,6 +712,9 @@
     cursor: pointer;
     text-align: inherit;
   }
+  .head span.c {
+    text-align: center;
+  }
   .head span.r {
     text-align: right;
   }
@@ -626,7 +738,8 @@
     margin-left: 0.15rem;
   }
 
-  a.row {
+  a.row,
+  div.row:not(.head) {
     text-decoration: none;
     color: inherit;
     border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
@@ -634,16 +747,38 @@
   a.row:last-child {
     border-bottom: none;
   }
-  a.row:hover {
+  div.row:not(.head) { cursor: pointer; }
+  /* The open row is marked by its name, not a tint. */
+  .row.open .nm { color: var(--primary); }
+  a.row:hover,
+  div.row:not(.head):hover {
     background: color-mix(in oklch, var(--primary) 7%, transparent);
   }
   a.row:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: -2px;
   }
-  a.row > span {
+  a.row > span,
+  div.row > span,
+  .row > .c-name {
     min-width: 0;
   }
+  /* The name as a button, when the row opens in place. */
+  button.c-name {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .cardwrap.lead {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .cardwrap.lead > :global(:last-child) { flex: 1; min-width: 0; }
   .rk {
     text-align: right;
     font-size: 0.72rem;
@@ -666,7 +801,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  a.row:hover .nm {
+  a.row:hover .nm,
+  div.row:hover .nm {
     color: var(--primary);
   }
   .c-name .mt {
@@ -742,9 +878,6 @@
     font-size: 0.78rem;
     border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
   }
-  /* Touch sizing, since down here the pager is the only thing to hit and there is room for it
-     to be comfortable — the copy in `.bar` is sharing a row and stays compact. */
-  .footpager .pager button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
 
   .empty {
     padding: var(--space-xl) var(--space-lg);

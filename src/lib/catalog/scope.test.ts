@@ -766,3 +766,20 @@ describe('tag lists in the URL', () => {
 		expect(s.categories).toEqual(['Fantasy', 'Party Game']);
 	});
 });
+
+describe('toWhere with anyUniverse', () => {
+	// The BGG.CON library spans rated and brand-new games, so its dashboard drops the universe.
+	it('leaves out the universe clause, keeping the user filters', () => {
+		const w = toWhere({ ...DEFAULT_SCOPE, yearMin: 2020 }, { anyUniverse: true });
+		expect(w).not.toContain('users_rated >= 30');
+		expect(w).toContain('year_published >= 2020');
+	});
+
+	it('is still a valid where body with no filters at all', () => {
+		expect(toWhere({ ...DEFAULT_SCOPE }, { anyUniverse: true })).toBe('TRUE');
+	});
+
+	it('changes nothing when not asked', () => {
+		expect(toWhere({ ...DEFAULT_SCOPE })).toContain('users_rated >= 30');
+	});
+});

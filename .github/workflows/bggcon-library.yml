@@ -1,0 +1,46 @@
+name: bggcon library
+
+# TEMPORARY, for BGG.CON 2026: rebuild the con library snapshot (games and copy counts) once a
+# day, and on demand (Run workflow) when new games are added. The app only reads the snapshot;
+# availability is polled separately and doesn't depend on it. Spec:
+# docs/superpowers/specs/2026-11-12-bggcon-library-design.md. Delete after the con.
+on:
+  schedule:
+    # 10:00 UTC, early morning in Texas, before the library opens.
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: bggcon-library
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: bgg-data-warehouse
+
+jobs:
+  build:
+    name: Build the library snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same CI identity viewer-artifacts.yml uses; it already has objectAdmin on the bucket.
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_BGG_DW }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.9 --activate
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      # `dlx`, not a devDependency: see viewer-artifacts.yml for why tsx stays out of package.json.
+      - name: Build and save the snapshot
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: pnpm dlx tsx@4 scripts/build-bggcon-library.ts

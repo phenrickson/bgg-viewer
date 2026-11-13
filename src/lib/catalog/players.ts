@@ -15,3 +15,20 @@ export function boxPlayersLabel(
 	const count = one ? `${n}` : `${lo}–${hi}`;
 	return short ? count : `${count} ${n === 1 ? 'player' : 'players'}`;
 }
+
+/**
+ * Player counts as the game page's "Best at" states them: "1, 3" but "1–4", since a run of
+ * three or more reads worse spelled out than bridged. "6+" stays as it is.
+ */
+export function compactCounts(counts: (string | number)[]): string {
+	const c = counts.map(String);
+	const plain = (s: string) => !s.includes('+') && Number.isFinite(Number(s));
+	const out: string[] = [];
+	for (let i = 0; i < c.length; ) {
+		let j = i;
+		while (j + 1 < c.length && plain(c[j]) && plain(c[j + 1]) && Number(c[j + 1]) === Number(c[j]) + 1) j++;
+		out.push(j > i + 1 ? `${c[i]}–${c[j]}` : c.slice(i, j + 1).join(', '));
+		i = j + 1;
+	}
+	return out.join(', ');
+}

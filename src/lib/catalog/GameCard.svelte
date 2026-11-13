@@ -35,21 +35,38 @@
      */
     stats,
     /** Marks the card being navigated to, so a tap is acknowledged on the thing tapped. */
-    opening = false
+    opening = false,
+    /** Makes the card a button that calls this (opening the game in place), instead of a link. */
+    onopen,
+    /** With `onopen`: whether what it opens is open. */
+    expanded = false
   }: {
     href: string;
     art: Snippet;
     identity: Snippet;
     stats: Snippet;
     opening?: boolean;
+    onopen?: () => void;
+    expanded?: boolean;
   } = $props();
 </script>
 
-<a class="card" class:opening {href} aria-busy={opening || undefined}>
+<svelte:element
+  this={onopen ? 'button' : 'a'}
+  class="card"
+  class:opening
+  class:open={onopen && expanded}
+  href={onopen ? undefined : href}
+  type={onopen ? 'button' : undefined}
+  role={onopen ? 'button' : undefined}
+  aria-expanded={onopen ? expanded : undefined}
+  onclick={onopen}
+  aria-busy={opening || undefined}
+>
   <span class="art">{@render art()}</span>
   <span class="body">{@render identity()}</span>
   <span class="stats">{@render stats()}</span>
-</a>
+</svelte:element>
 
 <style>
   /*
@@ -74,6 +91,16 @@
     contain-intrinsic-size: auto 5.5rem;
   }
   .card:last-child { border-bottom: none; }
+  button.card {
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .card.open .body :global(.nm) { color: var(--primary); }
   .card:hover { background: color-mix(in oklch, var(--primary) 7%, transparent); }
   .card:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
   .card.opening {
