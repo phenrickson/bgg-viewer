@@ -36,6 +36,9 @@
     stats,
     /** Marks the card being navigated to, so a tap is acknowledged on the thing tapped. */
     opening = false,
+    /** No stats row: art beside the identity only, the art centred against it (the BGG.CON
+     *  library on a phone, where the stats weren't worth the height). */
+    plain = false,
     /** Makes the card a button that calls this (opening the game in place), instead of a link. */
     onopen,
     /** With `onopen`: whether what it opens is open. */
@@ -46,6 +49,7 @@
     identity: Snippet;
     stats: Snippet;
     opening?: boolean;
+    plain?: boolean;
     onopen?: () => void;
     expanded?: boolean;
   } = $props();
@@ -55,6 +59,7 @@
   this={onopen ? 'button' : 'a'}
   class="card"
   class:opening
+  class:plain
   class:open={onopen && expanded}
   href={onopen ? undefined : href}
   type={onopen ? 'button' : undefined}
@@ -65,7 +70,7 @@
 >
   <span class="art">{@render art()}</span>
   <span class="body">{@render identity()}</span>
-  <span class="stats">{@render stats()}</span>
+  {#if !plain}<span class="stats">{@render stats()}</span>{/if}
 </svelte:element>
 
 <style>
@@ -113,6 +118,8 @@
   /* Top-aligned, not centred: the title beside it may be one line or three, and a centred
      thumbnail drifts down the card as the title grows. */
   .art { grid-area: art; align-self: start; }
+  .card.plain { grid-template-areas: 'art body'; }
+  .card.plain .art { align-self: center; }
   /* Both the real image and any placeholder, so a background thumbnails load never reflows
      the card it fills in. */
   .art :global(img),

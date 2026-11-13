@@ -13,6 +13,9 @@
     width: string;
     /** Header alignment, to match the cell (right for a number, centre for a status). Left by default. */
     align?: 'l' | 'r' | 'c';
+    /** On a card (phone): a labelled stat (default), or a line under the name, for a value too
+     *  wide for a quarter of a card (the BGG.CON library's availability). */
+    card?: 'stat' | 'line';
     cell: Snippet<[GameListRow]>;
   };
 </script>
@@ -81,6 +84,8 @@
     detail,
     /** Read a 0 geek rating, average rating or weight as missing ("—", sorted last). */
     zeroIsMissing = false,
+    /** On a phone, cards without the stats row (see GameCard's `plain`). */
+    plainCards = false,
     /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
     leadSort
   }: {
@@ -98,6 +103,7 @@
     openId?: number | null;
     detail?: Snippet<[GameListRow]>;
     zeroIsMissing?: boolean;
+    plainCards?: boolean;
     leadSort?: { label: string; sql: string; then?: string; hint?: string };
   } = $props();
   const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
@@ -400,7 +406,7 @@
       {#if cards}
         <div class="cardwrap" class:lead={!!lead}>
         {#if lead}{@render lead(r)}{/if}
-        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined} expanded={openId === r.game_id}>
+        <GameCard href="/games/{r.game_id}" onopen={onopen ? () => onopen(r.game_id) : undefined} expanded={openId === r.game_id} plain={plainCards}>
           {#snippet art()}
             {#if r.thumbnail}
               <img src={r.thumbnail} alt="" loading="lazy" aria-hidden="true" />
@@ -416,6 +422,9 @@
                  out entirely — they are the tail of that sentence and the ellipsis always
                  landed inside them, spending a third of the width on a fragment of a word. -->
             <span class="mt">{r.year_published ?? '—'} · {metaCore(r)}</span>
+            {#each extra.filter((e) => e.card === 'line') as e (e.key)}
+              <span class="cardline">{@render e.cell(r)}</span>
+            {/each}
           {/snippet}
           {#snippet stats()}
             {#if upcoming}
@@ -466,7 +475,7 @@
                 />
               </span>
               {/if}
-              {#each extra as e (e.key)}
+              {#each extra.filter((e) => e.card !== 'line') as e (e.key)}
                 <span class="stat"><span class="stat-lbl">{e.label}</span>{@render e.cell(r)}</span>
               {/each}
             {/if}
@@ -644,6 +653,9 @@
     overflow-y: auto;
     min-height: 0;
     flex: 1;
+    /* A swipe that reaches the end of the list stays in the list, instead of carrying on into
+       the page and bouncing it (on a phone, the whole page slid to show empty space). */
+    overscroll-behavior: contain;
   }
 
   /* One grid template shared by the header and every row, so they can't drift.
@@ -773,6 +785,7 @@
     text-align: left;
     cursor: pointer;
   }
+  .cardline { display: flex; }
   .cardwrap.lead {
     display: flex;
     align-items: center;
