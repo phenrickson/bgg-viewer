@@ -269,12 +269,10 @@
         <!-- Where the availability comes from, said plainly, with the choice beside it.
              PLACEHOLDER copy (Phil). -->
         {#if narrow}
-          <!-- On a phone: one line here; the full line and the feed choice are in Filters. -->
-          {#if source}
-            <p class="asof">
-              {source === 'live' ? 'Live' : 'Recorder'}{#if asOfText} · {asOfText}{/if}
-              {#if stale}<span class="warn"> · {source === 'recorder' ? 'recorder stopped' : 'couldn’t refresh'}</span>{/if}
-            </p>
+          <!-- On a phone the feed line and its choice are in Filters; here only a warning, and
+               only when the data has stopped updating. -->
+          {#if source && stale}
+            <p class="asof"><span class="warn">{source === 'recorder' ? 'The recorder has stopped' : 'Couldn’t refresh'}{#if asOfText} · last {asOfText}{/if}</span></p>
           {/if}
         {:else}
           {@render feed()}
