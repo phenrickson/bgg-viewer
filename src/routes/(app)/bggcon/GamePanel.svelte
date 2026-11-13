@@ -21,8 +21,10 @@
   let {
     game,
     libraryIds,
-    asOf
-  }: { game: LibraryListRow; libraryIds: ReadonlySet<number>; asOf: string | null } = $props();
+    asOf,
+    /** On a phone: no availability block (the card already shows it) and compact similar games. */
+    narrow = false
+  }: { game: LibraryListRow; libraryIds: ReadonlySet<number>; asOf: string | null; narrow?: boolean } = $props();
 
   // Each open row mounts its own panel, so the first look-up is read once.
   const first = untrack(() => cachedLikes(game.game_id));
@@ -72,10 +74,12 @@
         <a class="link" href="https://boardgamegeek.com/boardgame/{game.game_id}" target="_blank" rel="noopener">View on BGG ↗</a>
       {/if}
     </div>
+    {#if !narrow}
     <div class="avail">
       <span class="big" title={shelfLabel(game.available, game.copies)}><b class="tnum">{Math.max(0, game.available)}/{game.copies}</b> available</span>
       <span class="note">{#if asOfText}As of {asOfText}{/if}{#if game.play_to_win} · play-to-win{/if}</span>
     </div>
+    {/if}
   </div>
 
   <div class="like">
@@ -90,7 +94,7 @@
       <div class="likes">
         {#each likes as g (g.game_id)}
           <SimilarRow href="/games/{g.game_id}" name={g.name} year={g.year_published} thumbnail={g.thumbnail}
-            similarity={g.similarity} rating={g.average_rating}>
+            similarity={g.similarity} rating={g.average_rating} badges={!narrow}>
             {#snippet action()}
               <ShelfStatus available={g.available} copies={g.copies} />
               <StarButton id={g.game_id} name={g.name} />
