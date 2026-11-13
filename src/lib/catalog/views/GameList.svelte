@@ -650,6 +650,9 @@
     overflow-y: auto;
     min-height: 0;
     flex: 1;
+    /* A swipe that reaches the end of the list stays in the list, instead of carrying on into
+       the page and bouncing it (on a phone, the whole page slid to show empty space). */
+    overscroll-behavior: contain;
   }
 
   /* One grid template shared by the header and every row, so they can't drift.

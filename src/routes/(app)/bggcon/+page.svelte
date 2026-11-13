@@ -222,7 +222,11 @@
   <GamePanel game={r as unknown as LibraryListRow} {libraryIds} {asOf} />
 {/snippet}
 
-<svelte:head><title>BGG.CON Library · Boardgame-Viz</title></svelte:head>
+<svelte:head>
+  <title>BGG.CON Library · Boardgame-Viz</title>
+  <!-- Only the list scrolls here; no bouncing the page around it on a phone. -->
+  <style>html, body { overscroll-behavior: none; }</style>
+</svelte:head>
 
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
