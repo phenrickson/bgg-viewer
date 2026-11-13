@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, AVAILABLE_SQL } from './set-filters';
+import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, checkoutsSql, AVAILABLE_SQL } from './set-filters';
 
 const off = { collection: false, library: false, availableOnly: false };
 
@@ -91,5 +91,15 @@ describe('checkedOutSql', () => {
 
 	it('creates it empty, with its types, when nothing is out', () => {
 		expect(checkedOutSql({})).toBe('CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)');
+	});
+});
+
+describe('checkoutsSql', () => {
+	// Each game's checkouts since the con opened, replaced in one statement like the counts out.
+	it('replaces con_checkouts in a single statement', () => {
+		expect(checkoutsSql({ 13: 9 })).toBe(
+			'CREATE OR REPLACE TABLE con_checkouts AS SELECT * FROM (VALUES (13, 9)) v(game_id, n)'
+		);
+		expect(checkoutsSql({})).toBe('CREATE OR REPLACE TABLE con_checkouts (game_id INTEGER, n INTEGER)');
 	});
 });

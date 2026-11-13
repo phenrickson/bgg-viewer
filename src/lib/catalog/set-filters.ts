@@ -64,9 +64,14 @@ export function checkedOutValues(counts: Record<number, number>): string {
  * Replace `con_checked_out` in ONE statement. As a create-then-insert pair, two refreshes that
  * overlapped both inserted into the same fresh table, listing every checked-out game twice.
  */
-export function checkedOutSql(counts: Record<number, number>): string {
+export const checkedOutSql = (counts: Record<number, number>): string => countsTableSql('con_checked_out', counts);
+
+/** Each game's checkouts since the con opened (the recorder's `checkouts`), the same way. */
+export const checkoutsSql = (counts: Record<number, number>): string => countsTableSql('con_checkouts', counts);
+
+function countsTableSql(table: 'con_checked_out' | 'con_checkouts', counts: Record<number, number>): string {
 	const values = checkedOutValues(counts);
 	return values
-		? `CREATE OR REPLACE TABLE con_checked_out AS SELECT * FROM (VALUES ${values}) v(game_id, n)`
-		: 'CREATE OR REPLACE TABLE con_checked_out (game_id INTEGER, n INTEGER)';
+		? `CREATE OR REPLACE TABLE ${table} AS SELECT * FROM (VALUES ${values}) v(game_id, n)`
+		: `CREATE OR REPLACE TABLE ${table} (game_id INTEGER, n INTEGER)`;
 }

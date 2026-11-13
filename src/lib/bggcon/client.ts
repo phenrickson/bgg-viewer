@@ -42,15 +42,23 @@ export function ensureConLibrary(): Promise<void> {
 }
 
 export interface AvailabilityStamp {
-	asOf: string;
+	/** Null before the recorder has written anything. */
+	asOf: string | null;
 	stale: boolean;
+	/** Whether checkouts since the con opened are counted: the recorder counts them, live mode can't. */
+	hasCheckouts: boolean;
 }
 
-/** Refresh the checked-out counts for the whole library. */
+/** Refresh the checked-out counts and checkouts for the whole library. */
 export async function refreshAvailability(): Promise<AvailabilityStamp> {
 	const res = await fetch('/api/bggcon/availability');
 	if (!res.ok) throw new Error(`availability request failed (${res.status})`);
-	const data = (await res.json()) as { as_of: string; stale: boolean; checked_out: Record<number, number> };
-	await setConCheckedOut(data.checked_out);
-	return { asOf: data.as_of, stale: data.stale };
+	const data = (await res.json()) as {
+		as_of: string | null;
+		stale: boolean;
+		checked_out: Record<number, number>;
+		checkouts: Record<number, number> | null;
+	};
+	await setConCheckedOut(data.checked_out, data.checkouts ?? {});
+	return { asOf: data.as_of, stale: data.stale, hasCheckouts: data.checkouts !== null };
 }

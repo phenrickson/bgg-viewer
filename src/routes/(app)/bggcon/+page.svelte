@@ -20,7 +20,7 @@
   import { ensureConLibrary, refreshAvailability } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
   import {
-    countsSql, countSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT,
+    countsSql, countSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT, CHECKOUTS_SORT,
     type Mode, type ListArgs, type LibraryListRow
   } from '$lib/bggcon/queries';
   import GameList, { type ExtraColumn, type GameListRow } from '$lib/catalog/views/GameList.svelte';
@@ -43,6 +43,8 @@
   let loadError = $state<string | null>(null);
   let asOf = $state<string | null>(null);
   let stale = $state(false);
+  /** False in live mode (before the recorder starts, or the fallback): no checkouts to count. */
+  let hasCheckouts = $state(false);
   let counts = $state<{ games: number; on_shelf: number; copies_out: number; not_in_catalog: number } | null>(null);
   let focusOnShelf = $state(0);
 
@@ -58,6 +60,7 @@
       const s = await refreshAvailability();
       asOf = s.asOf;
       stale = s.stale;
+      hasCheckouts = s.hasCheckouts;
     } catch (e) {
       console.error('availability refresh failed', e);
       stale = true;
@@ -151,7 +154,9 @@
     then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
   });
   const AVAILABILITY: ExtraColumn[] = [
-    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '8.5rem', cell: availCell }
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '8.5rem', cell: availCell },
+    // Checkouts since the con opened (the recorder's count): sorted high to low, the hottest games.
+    { key: 'checkouts', label: 'Checkouts', sql: CHECKOUTS_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'times checked out since the con opened', width: '5.5rem', align: 'r', cell: checkoutsCell }
   ];
 
   const asOfText = $derived(
@@ -161,6 +166,9 @@
 
 {#snippet availCell(r: GameListRow)}
   <ShelfStatus available={Number(r.available)} copies={Number(r.copies)} />
+{/snippet}
+{#snippet checkoutsCell(r: GameListRow)}
+  <span class="checkouts tnum">{hasCheckouts ? Number(r.checkouts) : '—'}</span>
 {/snippet}
 {#snippet star(r: GameListRow)}<StarButton id={r.game_id} name={r.name} />{/snippet}
 {#snippet panel(r: GameListRow)}
@@ -315,6 +323,13 @@
     cursor: pointer;
   }
   .count:hover { border-bottom-color: var(--border); }
+  /* GameList's own number cells: right-aligned, small. */
+  .checkouts {
+    display: block;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
   .count[aria-pressed='true'] { border-bottom-color: var(--primary); }
   .count:focus-visible {
     outline: 2px solid var(--primary);

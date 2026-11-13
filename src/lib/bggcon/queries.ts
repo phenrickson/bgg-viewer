@@ -102,13 +102,17 @@ export interface LibraryListRow {
  * lacks (their name from the library; no rating or complexity, shown as "—").
  */
 export const LIBRARY_FROM =
-	'con_library l LEFT JOIN catalog c USING (game_id) LEFT JOIN con_checked_out o USING (game_id)';
+	'con_library l LEFT JOIN catalog c USING (game_id) LEFT JOIN con_checked_out o USING (game_id) ' +
+	'LEFT JOIN con_checkouts k USING (game_id)';
 export const LIBRARY_NAME = 'COALESCE(c.name, l.tte_name)';
 export const LIBRARY_SELECT =
 	'c.min_playtime, c.max_playtime, l.copies, l.play_to_win, ' +
-	'(l.copies - COALESCE(o.n, 0))::INT AS available, (c.game_id IS NOT NULL) AS in_catalog';
+	'(l.copies - COALESCE(o.n, 0))::INT AS available, (c.game_id IS NOT NULL) AS in_catalog, ' +
+	'COALESCE(k.n, 0)::INT AS checkouts';
 /** Sorts the Availability column on whether a copy is available. */
 export const AVAILABLE_SORT = '(l.copies - COALESCE(o.n, 0) > 0)';
+/** Sorts the Checkouts column: checkouts since the con opened (the recorder's count). */
+export const CHECKOUTS_SORT = 'COALESCE(k.n, 0)';
 
 export function tableWhere(a: ListArgs): string {
 	const parts: string[] = [];

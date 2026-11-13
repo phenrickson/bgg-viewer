@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listSql, countSql, countsSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT } from './queries';
+import { listSql, countSql, countsSql, tableWhere, LIBRARY_FROM, LIBRARY_NAME, LIBRARY_SELECT, AVAILABLE_SORT, CHECKOUTS_SORT } from './queries';
 
 const base = { availableOnly: false, offset: 0, limit: 50 };
 
@@ -106,6 +106,13 @@ describe('tableWhere (the library through GameList)', () => {
 		expect(LIBRARY_NAME).toBe('COALESCE(c.name, l.tte_name)');
 		expect(LIBRARY_SELECT).toContain('AS available');
 		expect(LIBRARY_SELECT).toContain('(c.game_id IS NOT NULL) AS in_catalog');
+	});
+
+	// Each game's checkouts since the con opened, from the recorder; 0 when it has none.
+	it('joins and selects the checkouts, sortable', () => {
+		expect(LIBRARY_FROM).toContain('LEFT JOIN con_checkouts k USING (game_id)');
+		expect(LIBRARY_SELECT).toContain('COALESCE(k.n, 0)::INT AS checkouts');
+		expect(CHECKOUTS_SORT).toBe('COALESCE(k.n, 0)');
 	});
 });
 

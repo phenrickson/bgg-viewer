@@ -13,7 +13,7 @@ import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 import { recordLoad } from '$lib/landing/estimate';
 import { fetchArtifactBytes } from './artifact-fetch';
-import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, type LibraryRow } from './set-filters';
+import { withSetFilters, libraryValues, checkedOutValues, checkedOutSql, checkoutsSql, type LibraryRow } from './set-filters';
 
 export type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -215,19 +215,27 @@ export async function loadConLibrary(rows: LibraryRow[]): Promise<void> {
 	const values = libraryValues(rows);
 	if (values) await conn.query(`INSERT INTO con_library VALUES ${values}`);
 	await conn.query('CREATE TABLE IF NOT EXISTS con_checked_out (game_id INTEGER, n INTEGER)');
+	await conn.query('CREATE TABLE IF NOT EXISTS con_checkouts (game_id INTEGER, n INTEGER)');
 	lastCheckedOut = null; // a fresh load writes the counts again
 	libraryLoaded = true;
 }
 
-/** Replace the checked-out counts (BGG id → copies out), from `/api/bggcon/availability`. */
 /** The last counts written, so a refresh that changed nothing doesn't re-run every query. */
 let lastCheckedOut: string | null = null;
 
-export async function setConCheckedOut(counts: Record<number, number>): Promise<void> {
+/**
+ * Replace the checked-out counts (BGG id → copies out) and each game's checkouts since the con
+ * opened, from `/api/bggcon/availability`. Each table is replaced in one statement.
+ */
+export async function setConCheckedOut(
+	counts: Record<number, number>,
+	checkouts: Record<number, number> = {}
+): Promise<void> {
 	if (!conn) throw new Error('catalog is not ready');
-	const values = checkedOutValues(counts);
+	const values = `${checkedOutValues(counts)}|${checkedOutValues(checkouts)}`;
 	if (values === lastCheckedOut) return;
 	await conn.query(checkedOutSql(counts));
+	await conn.query(checkoutsSql(checkouts));
 	lastCheckedOut = values;
 	checkedOutVersion++;
 }

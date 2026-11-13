@@ -11,6 +11,8 @@
     then?: string;
     hint?: string;
     width: string;
+    /** Header alignment, to match the cell (right for a number). Left by default. */
+    align?: 'l' | 'r';
     cell: Snippet<[GameListRow]>;
   };
 </script>
@@ -172,7 +174,7 @@
   ];
   const COLS = $derived<Col[]>([
     ...(upcoming ? COLS_UPCOMING : COLS_RATED).filter((c) => !columns || columns.includes(c.key)),
-    ...extra.map((e) => ({ key: e.key, label: e.label, align: 'l' as const, sql: e.sql, then: e.then, hint: e.hint, width: e.width }))
+    ...extra.map((e) => ({ key: e.key, label: e.label, align: e.align ?? 'l', sql: e.sql, then: e.then, hint: e.hint, width: e.width }))
   ]);
   const shown = (key: string) => COLS.some((c) => c.key === key);
   /**
