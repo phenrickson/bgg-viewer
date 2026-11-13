@@ -183,8 +183,8 @@
    * the rows, and the centered gauges sat off-center under their headers.
    */
   const WIDTH: Record<string, string> = {
-    name: 'minmax(11rem, 1fr)', year: '3.4rem', geek: '5.5rem', rating: '3.4rem',
-    weight: '5.5rem', best: '6.2rem', rated: '5rem'
+    name: 'minmax(11rem, 1fr)', year: '3.2rem', geek: '4.6rem', rating: '3.4rem',
+    weight: '5.2rem', best: '6.2rem', rated: '5rem'
   };
   // Only when the caller picks columns; Explore keeps the stylesheet's templates and their
   // container-query fallbacks.

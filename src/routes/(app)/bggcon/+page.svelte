@@ -154,9 +154,9 @@
     then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
   });
   const AVAILABILITY: ExtraColumn[] = [
-    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '8.5rem', cell: availCell },
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '7.4rem', cell: availCell },
     // Checkouts since the con opened (the recorder's count): sorted high to low, the hottest games.
-    { key: 'checkouts', label: 'Checkouts', sql: CHECKOUTS_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'times checked out since the con opened', width: '5.5rem', align: 'r', cell: checkoutsCell }
+    { key: 'checkouts', label: 'Checkouts', sql: CHECKOUTS_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'times checked out since the con opened', width: '4.8rem', align: 'r', cell: checkoutsCell }
   ];
 
   const asOfText = $derived(
