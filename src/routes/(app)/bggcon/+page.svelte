@@ -186,7 +186,7 @@
     then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST'
   });
   const AVAILABILITY: ExtraColumn[] = [
-    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '6.8rem', align: 'c', cell: availCell },
+    { key: 'avail', label: 'Availability', sql: AVAILABLE_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'copies available now', width: '6.8rem', align: 'c', card: 'line', cell: availCell },
     // Checkouts since the con opened (the recorder's count): sorted high to low, the hottest games.
     { key: 'checkouts', label: 'Checkouts', sql: CHECKOUTS_SORT, then: 'NULLIF(c.geek_rating, 0) DESC NULLS LAST', hint: 'times checked out since the con opened', width: '4.8rem', align: 'r', cell: checkoutsCell }
   ];
@@ -198,6 +198,21 @@
 
 {#snippet availCell(r: GameListRow)}
   <span class="availcell"><ShelfStatus available={Number(r.available)} copies={Number(r.copies)} /></span>
+{/snippet}
+<!-- Where the availability comes from, said plainly, with the choice beside it.
+     PLACEHOLDER copy (Phil). -->
+{#snippet feed()}
+  <div class="feed">
+    {#if source}
+      <p class="asof">
+        {source === 'live' ? 'Live from Tabletop.Events' : 'From the recorder'}
+        {#if asOfText} · as of {asOfText}{:else} · nothing recorded yet{/if}
+        {#if stale}<span class="warn"> · {source === 'recorder' ? 'the recorder has stopped' : 'couldn’t refresh'}</span>{/if}
+        · refreshes every minute
+      </p>
+    {/if}
+    <SegmentedControl label="Availability feed" size="sm" options={SOURCE_OPTIONS} value={sourceChoice} onchange={chooseSource} />
+  </div>
 {/snippet}
 {#snippet checkoutsCell(r: GameListRow)}
   <span class="checkouts tnum">{hasCheckouts ? Number(r.checkouts) : '—'}</span>
@@ -226,6 +241,7 @@
           Filters
         </Button>
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
+          <div class="sheetfeed">{@render feed()}</div>
           <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
@@ -249,17 +265,17 @@
         </div>
         <!-- Where the availability comes from, said plainly, with the choice beside it.
              PLACEHOLDER copy (Phil). -->
-        <div class="feed">
+        {#if narrow}
+          <!-- On a phone: one line here; the full line and the feed choice are in Filters. -->
           {#if source}
             <p class="asof">
-              {source === 'live' ? 'Live from Tabletop.Events' : 'From the recorder'}
-              {#if asOfText} · as of {asOfText}{:else} · nothing recorded yet{/if}
-              {#if stale}<span class="warn"> · {source === 'recorder' ? 'the recorder has stopped' : 'couldn’t refresh'}</span>{/if}
-              · refreshes every minute
+              {source === 'live' ? 'Live' : 'Recorder'}{#if asOfText} · {asOfText}{/if}
+              {#if stale}<span class="warn"> · {source === 'recorder' ? 'recorder stopped' : 'couldn’t refresh'}</span>{/if}
             </p>
           {/if}
-          <SegmentedControl label="Availability feed" size="sm" options={SOURCE_OPTIONS} value={sourceChoice} onchange={chooseSource} />
-        </div>
+        {:else}
+          {@render feed()}
+        {/if}
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
         <div class="ctl">
@@ -269,7 +285,7 @@
             <span class="sr-only">Search game names in the library</span>
             <input type="search" placeholder="Search the library…" bind:value={scope.q} />
           </label>
-          <SegmentedControl label="Show" size="md" options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
+          <SegmentedControl label="Show" size={narrow ? 'sm' : 'md'} options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
           <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
 
@@ -370,6 +386,8 @@
     display: flex;
     justify-content: center;
   }
+  /* On a phone card it's a line under the name, read from the left. */
+  :global(.cardline) .availcell { justify-content: flex-start; }
   /* GameList's own number cells: right-aligned, small. */
   .checkouts {
     display: block;
@@ -405,6 +423,27 @@
     color: var(--muted-foreground);
   }
   .asof .warn { color: var(--color-negative); }
+  .sheetfeed { padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
+
+  /* Phone: the header gives the list the screen. Counts as a compact 2×2, the feed in Filters
+     (one line here), the view control at its small size. */
+  @media (max-width: 40rem) {
+    .chead {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-sm) var(--space-md);
+    }
+    .count {
+      white-space: normal;
+      text-align: left;
+      font-size: 0.8rem;
+      line-height: 1.25;
+    }
+    .count b { font-size: 1.15rem; }
+    .count .dim { display: none; }
+    .ctl { gap: var(--space-sm); }
+    .find { flex-basis: 100%; max-width: none; }
+  }
   .find {
     position: relative; /* anchors the sr-only label (see .canvas) */
     flex: 1 1 14rem;

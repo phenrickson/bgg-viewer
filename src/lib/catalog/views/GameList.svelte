@@ -13,6 +13,9 @@
     width: string;
     /** Header alignment, to match the cell (right for a number, centre for a status). Left by default. */
     align?: 'l' | 'r' | 'c';
+    /** On a card (phone): a labelled stat (default), or a line under the name, for a value too
+     *  wide for a quarter of a card (the BGG.CON library's availability). */
+    card?: 'stat' | 'line';
     cell: Snippet<[GameListRow]>;
   };
 </script>
@@ -416,6 +419,9 @@
                  out entirely — they are the tail of that sentence and the ellipsis always
                  landed inside them, spending a third of the width on a fragment of a word. -->
             <span class="mt">{r.year_published ?? '—'} · {metaCore(r)}</span>
+            {#each extra.filter((e) => e.card === 'line') as e (e.key)}
+              <span class="cardline">{@render e.cell(r)}</span>
+            {/each}
           {/snippet}
           {#snippet stats()}
             {#if upcoming}
@@ -466,7 +472,7 @@
                 />
               </span>
               {/if}
-              {#each extra as e (e.key)}
+              {#each extra.filter((e) => e.card !== 'line') as e (e.key)}
                 <span class="stat"><span class="stat-lbl">{e.label}</span>{@render e.cell(r)}</span>
               {/each}
             {/if}
@@ -773,6 +779,7 @@
     text-align: left;
     cursor: pointer;
   }
+  .cardline { display: flex; }
   .cardwrap.lead {
     display: flex;
     align-items: center;
