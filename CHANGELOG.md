@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.35](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.34...bgg-viewer-v0.0.35) (2026-11-13)
+
+
+### Features
+
+* **bggcon:** BGG.CON 2026 library dashboard ([#104](https://github.com/phenrickson/bgg-viewer/issues/104)) ([b8ca462](https://github.com/phenrickson/bgg-viewer/commit/b8ca46224903682056d9895fccadae15b3b77306))
+
 ## [0.0.34](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.33...bgg-viewer-v0.0.34) (2026-11-12)
 
 
