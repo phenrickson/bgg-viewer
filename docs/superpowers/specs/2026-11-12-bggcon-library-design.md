@@ -21,7 +21,7 @@ At BGG.CON, Phil wants to:
 2. **Watch availability** for games he's interested in: star them, then check one page that
    shows which are on the shelf and which are checked out.
 
-Open to **any signed-in user** (Phil, 2026-11-12), each with their own focus list. Alerts (§8) stay Phil's only, on his private ntfy topic.
+Open to **any signed-in user** (Phil, 2026-11-12), each with their own focus list. Alerts (§8) are open to any of them too, each on their own ntfy topic (Phil, 2026-11-13).
 
 ## The source: Tabletop.Events API (checked 2026-11-12)
 
@@ -186,9 +186,10 @@ Agreed with Phil 2026-11-12. A job that runs whether or not anyone has the app o
 - the whole con's checkout history is recorded for a detailed end-of-con report: when copies
   went out, which games were in the most demand, which games surged.
 
-- **Where:** Cloud Scheduler, once a minute while the library is open, triggers a small Cloud
-  Run job in **bgg-data-warehouse**. GitHub Actions cron can't do one-minute runs (its minimum
-  is 5 minutes, and runs are often delayed).
+- **Where:** Cloud Scheduler, once a minute while the library is open, calls a small Cloud Run
+  service in **bgg-data-warehouse** (bgg-data-warehouse #172; it began as a job, but a job took
+  10–60 s to start, so runs overlapped). GitHub Actions cron can't do one-minute runs (its
+  minimum is 5 minutes, and runs are often delayed).
 - **Each run:**
   - fetches the checked-out copies (`is_checked_out=1`);
   - compares them with the previous run's set, which is kept in a small state file;
@@ -210,12 +211,21 @@ Agreed with Phil 2026-11-12. A job that runs whether or not anyone has the app o
   - The one gap left: a copy that goes out and comes back within the same minute is never
     seen as out. That's rare; the daily pull's `checkout_count` still counts it, without
     times. Accepted.
-- **Alerts:**
-  - when a game in Phil's focus list (`bggcon/stars/…`) goes from every copy out to at least
-    one on the shelf, the job sends a phone push through **ntfy**, a private topic held as a
-    secret;
+- **Alerts** (per user, agreed with Phil 2026-11-13):
+  - when a game in a user's focus list (`bggcon/stars/…`) goes from every copy out to at least
+    one on the shelf, the job sends that user a phone push through **ntfy**, on their own topic;
+  - **each user gets a topic** from the dashboard, made once and saved alongside their stars,
+    then shown to them every visit to subscribe to in the ntfy app:
+    - `bggcon-2026-{bgg_username}` when their account has a BGG username linked;
+    - otherwise `bggcon-2026-{word}-{word}-{NN}`, generated (a BGG username is not required);
+    - never built from an email, since topic names pass through ntfy.sh's public server;
+  - topics are easy to type rather than secret: anyone who knows one can read its alerts.
+    Accepted for a small group of users;
+  - the job sends alerts to every user with a topic; no deploy-time secret or user setting;
   - copy counts come from `bggcon/library.json`;
-  - phone push, not SMS: no registration, and it can be ready this week.
+  - phone push, not SMS: no registration, and it can be ready this week;
+  - delivery to a phone was checked by hand on 2026-11-13 (a test topic, locked phone, tap
+    opens the dashboard).
 - **Politeness and cost guards:**
   - it runs only during library hours;
   - after a 429 or 5xx it skips runs (the next allowed time is kept in the state file);
