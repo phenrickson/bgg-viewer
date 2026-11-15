@@ -27,7 +27,11 @@ function memStore(seed: Record<string, unknown> = {}): JsonStore {
 		read: vi.fn(async (name: string) => (files.has(name) ? structuredClone(files.get(name)) : null)) as JsonStore['read'],
 		write: vi.fn(async () => {
 			throw new Error('the app never writes the library');
-		})
+		}),
+		create: vi.fn(async () => {
+			throw new Error('the app never writes the library');
+		}),
+		list: vi.fn(async () => [...files.keys()])
 	};
 }
 
