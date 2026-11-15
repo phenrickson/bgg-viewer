@@ -11,7 +11,13 @@ export interface JsonStore {
 	/** The parsed file, or null when it doesn't exist. */
 	read<T>(name: string): Promise<T | null>;
 	write(name: string, value: unknown): Promise<void>;
+	/** Write only if the file doesn't exist yet; false when it already did. */
+	create(name: string, value: unknown): Promise<boolean>;
+	/** The names of the files under `prefix`. */
+	list(prefix: string): Promise<string[]>;
 }
+
+const JSON_META = { contentType: 'application/json', cacheControl: 'no-store' };
 
 export const gcsStore: JsonStore = {
 	async read<T>(name: string): Promise<T | null> {
@@ -26,9 +32,25 @@ export const gcsStore: JsonStore = {
 	async write(name, value) {
 		await artifactBucket()
 			.file(name)
-			.save(JSON.stringify(value), {
-				resumable: false,
-				metadata: { contentType: 'application/json', cacheControl: 'no-store' }
-			});
+			.save(JSON.stringify(value), { resumable: false, metadata: JSON_META });
+	},
+	async create(name, value) {
+		try {
+			await artifactBucket()
+				.file(name)
+				.save(JSON.stringify(value), {
+					resumable: false,
+					metadata: JSON_META,
+					preconditionOpts: { ifGenerationMatch: 0 }
+				});
+			return true;
+		} catch (e) {
+			if ((e as { code?: number }).code === 412) return false;
+			throw e;
+		}
+	},
+	async list(prefix) {
+		const [files] = await artifactBucket().getFiles({ prefix });
+		return files.map((f) => f.name);
 	}
 };
