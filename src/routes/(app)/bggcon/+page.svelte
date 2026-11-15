@@ -14,6 +14,7 @@
   import Rail from '$lib/catalog/Rail.svelte';
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import AlertsButton from './AlertsButton.svelte';
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
@@ -244,6 +245,7 @@
         <Button variant="outline" size="sm" class="w-full" aria-haspopup="dialog" aria-expanded={filtersOpen} onclick={() => (filtersOpen = true)}>
           Filters
         </Button>
+        <AlertsButton {narrow} />
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
           <div class="sheetfeed">{@render feed()}</div>
           <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
@@ -267,6 +269,7 @@
             <button class="count" aria-pressed={availability === 'available'} onclick={() => toggleAvailability('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
             <button class="count" aria-pressed={availability === 'out'} onclick={() => toggleAvailability('out')}><b class="tnum">{counts.copies_out.toLocaleString()}</b> copies out</button>
             <button class="count focus" aria-pressed={mode === 'focus'} onclick={() => toggleMode('focus')}><b class="tnum">{stars.count}</b> in your focus list <span class="dim">· {focusOnShelf} available</span></button>
+            <AlertsButton {narrow} />
           {/if}
         </div>
         {/if}
