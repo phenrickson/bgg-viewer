@@ -34,8 +34,16 @@
   const daySeries = $derived(
     days
       .filter((d) => d.points.length)
-      .map((d) => ({ key: d.day, label: d.day, color: DAY_COLORS[d.day] }))
+      .map((d) => ({
+        key: d.day,
+        label: d.day,
+        color: DAY_COLORS[d.day],
+        // Today is drawn heavier so its short, growing line isn't lost under the others.
+        props: d.today ? { 'stroke-width': 3.5 } : {}
+      }))
   );
+  const today = $derived(days.find((d) => d.today && d.points.length) ?? null);
+  const todayEnd = $derived(today ? today.points[today.points.length - 1] : null);
   const totals = $derived(byDay(activity).map((d) => ({ day: d.day, checkouts: d.checkouts ?? 0, partial: d.partial, toCome: d.checkouts === null })));
 </script>
 
@@ -60,7 +68,16 @@
             series={daySeries}
             legend
             props={{ xAxis: { format: (h: number) => hourLabel(h), ticks: HOURS.filter((h) => h % 3 === 2) }, spline: { 'stroke-width': 2 } }}
-          />
+          >
+            {#snippet aboveMarks({ context })}
+              {#if today && todayEnd}
+                {@const cx = context.xScale(todayEnd.hour)}
+                {@const cy = context.yScale(todayEnd.checkouts)}
+                <circle {cx} {cy} r="4.5" fill={DAY_COLORS[today.day]} stroke="var(--card)" stroke-width="2" />
+                <text x={cx} y={cy + 18} text-anchor="middle" font-size="11" fill="var(--foreground)">{today.day} so far</text>
+              {/if}
+            {/snippet}
+          </LineChart>
         {:else}
           <p class="dim">No complete library hours yet.</p>
         {/if}

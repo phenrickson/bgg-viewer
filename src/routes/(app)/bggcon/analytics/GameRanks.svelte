@@ -8,33 +8,15 @@
    * LayerChart draws the axes and scales; the dumbbell and the band are marks on its scales.
    */
   import { BarChart } from 'layerchart';
+  import { topGames, type GameKind } from '$lib/bggcon/analytics';
   import type { BggconGame } from '$lib/server/warehouse/types';
 
-  type Kind = 'checkouts' | 'demand' | 'steam' | 'time';
-  let { games, kind, narrow }: { games: BggconGame[]; kind: Kind; narrow: boolean } = $props();
+  let { games, kind, narrow }: { games: BggconGame[]; kind: GameKind; narrow: boolean } = $props();
 
-  const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-  const share = (g: BggconGame) => (g.minutes_all_out ?? 0) / Math.max(1, g.open_minutes);
   const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
 
-  const RANK: Record<Kind, { keep: (g: BggconGame) => boolean; by: (g: BggconGame) => number }> = {
-    checkouts: { keep: (g) => g.checkouts > 0, by: (g) => g.checkouts },
-    demand: { keep: (g) => g.copies != null && g.open_minutes > 0, by: share },
-    steam: { keep: (g) => g.checkouts_last_3h > g.checkouts_prev_3h, by: (g) => g.checkouts_last_3h - g.checkouts_prev_3h },
-    time: { keep: (g) => g.time_out_median != null, by: (g) => g.time_out_median ?? 0 }
-  };
-
-  const rows = $derived(
-    games
-      .filter(RANK[kind].keep)
-      .sort((a, b) => RANK[kind].by(b) - RANK[kind].by(a))
-      .slice(0, 10)
-      .map((g) => ({
-        ...g,
-        label: short(g.name ?? `#${g.bgg_id}`, narrow ? 18 : 28) + (kind === 'demand' ? ` · ${g.copies}` : ''),
-        share: share(g)
-      }))
-  );
+  const rows = $derived(topGames(games, kind, narrow ? 18 : 28));
+  const labelOf = $derived(new Map(rows.map((r) => [r.key, r.label])));
 
   const x = $derived(
     kind === 'checkouts' ? 'checkouts' : kind === 'demand' ? 'share' : kind === 'steam' ? 'checkouts_last_3h' : 'time_out_q3'
@@ -50,18 +32,18 @@
   <div class="chart-area" style="--chart-h: {rows.length * 1.6 + 2.5}rem">
     <BarChart
       data={rows}
-      y="label"
+      y="key"
       {x}
       {xDomain}
       orientation="horizontal"
       bandPadding={0.35}
       padding={{ left: narrow ? 120 : 190, bottom: 24, right: 12 }}
       series={[{ key: x, label: kind === 'demand' ? 'All out' : kind === 'time' ? 'Time out' : 'Checkouts', color: 'var(--chart-1)' }]}
-      props={{ xAxis: { format: xFormat, ticks: 4 } }}
+      props={{ xAxis: { format: xFormat, ticks: 4 }, yAxis: { format: (k: string) => labelOf.get(k) ?? k } }}
     >
       {#snippet marks({ context })}
         {#each rows as r (r.bgg_id)}
-          {@const y = context.yScale(r.label) + (context.yScale.bandwidth?.() ?? 0) / 2}
+          {@const y = context.yScale(r.key) + (context.yScale.bandwidth?.() ?? 0) / 2}
           {@const h = context.yScale.bandwidth?.() ?? 0}
           {#if !custom}
             <rect x={context.xScale(0)} y={y - h / 2} width={Math.max(0, context.xScale(kind === 'demand' ? r.share : r.checkouts) - context.xScale(0))} height={h} rx="3" fill="var(--chart-1)" />

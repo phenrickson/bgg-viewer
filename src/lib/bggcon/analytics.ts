@@ -6,7 +6,7 @@
  * before `as_of`), so the current hour never looks like a drop. The library closes at midnight,
  * so the per-hour views run 8 AM to 11 PM.
  */
-import type { BggconActivity } from '$lib/server/warehouse/types';
+import type { BggconActivity, BggconGame } from '$lib/server/warehouse/types';
 
 export const CON_DAYS = [
 	{ day: 'Tue', date: 17 },
@@ -22,6 +22,7 @@ export const LIBRARY_DAYS = CON_DAYS.slice(1);
 export const HOURS = Array.from({ length: 16 }, (_, i) => i + 8);
 
 const HOUR_MS = 60 * 60 * 1000;
+const BUCKET_MS = 15 * 60 * 1000;
 const fmt = new Intl.DateTimeFormat('en-US', {
 	timeZone: 'America/Chicago',
 	weekday: 'short',
@@ -73,7 +74,8 @@ export function kpis(a: BggconActivity): {
 		asOf === null
 			? 0
 			: a.buckets
-					.filter((b) => Date.parse(b.start) > asOf - HOUR_MS && Date.parse(b.start) <= asOf)
+					// Every 15-minute bucket that overlaps the hour before `as_of`.
+					.filter((b) => Date.parse(b.start) > asOf - HOUR_MS - BUCKET_MS && Date.parse(b.start) <= asOf)
 					.reduce((s, b) => s + b.checkouts, 0);
 	const best = hourly(a)
 		.filter((h) => h.complete && h.checkouts > 0)
@@ -104,13 +106,51 @@ export function averageByHour(a: BggconActivity): { hour: number; average: numbe
 }
 
 /** Each library day's checkouts per complete, open hour (8 AM–11 PM). */
-export function eachDay(a: BggconActivity): { day: string; points: { hour: number; checkouts: number }[] }[] {
+export function eachDay(
+	a: BggconActivity
+): { day: string; today: boolean; points: { hour: number; checkouts: number }[] }[] {
 	const hs = hourly(a).filter((h) => h.complete && h.open);
+	const today = a.as_of ? chicago(a.as_of).date : null;
 	return LIBRARY_DAYS.map(({ day, date }) => ({
 		day,
+		today: date === today,
 		points: hs
 			.filter((h) => h.date === date && HOURS.includes(h.hour))
 			.sort((x, y) => x.hour - y.hour)
 			.map((h) => ({ hour: h.hour, checkouts: h.checkouts }))
 	}));
+}
+
+export type GameKind = 'checkouts' | 'demand' | 'steam' | 'time';
+export type RankedGame = BggconGame & { key: string; label: string; share: number };
+
+/** Share of open time with every copy out (0–1). */
+export const allOutShare = (g: BggconGame) => (g.minutes_all_out ?? 0) / Math.max(1, g.open_minutes);
+
+const RANK: Record<GameKind, { keep: (g: BggconGame) => boolean; by: (g: BggconGame) => number }> = {
+	checkouts: { keep: (g) => g.checkouts > 0, by: (g) => g.checkouts },
+	demand: { keep: (g) => g.copies != null && g.open_minutes > 0, by: allOutShare },
+	steam: {
+		keep: (g) => g.checkouts_last_3h > g.checkouts_prev_3h,
+		by: (g) => g.checkouts_last_3h - g.checkouts_prev_3h
+	},
+	time: { keep: (g) => g.time_out_median != null, by: (g) => g.time_out_median ?? 0 }
+};
+
+/**
+ * The top 10 games for one chart. Rows are keyed by BGG id: labels are shortened to fit, and
+ * two editions that shorten alike must stay two rows.
+ */
+export function topGames(games: BggconGame[], kind: GameKind, maxName: number): RankedGame[] {
+	const short = (s: string) => (s.length > maxName ? `${s.slice(0, maxName - 1)}…` : s);
+	return games
+		.filter(RANK[kind].keep)
+		.sort((x, y) => RANK[kind].by(y) - RANK[kind].by(x))
+		.slice(0, 10)
+		.map((g) => ({
+			...g,
+			key: String(g.bgg_id),
+			label: short(g.name ?? `#${g.bgg_id}`) + (kind === 'demand' ? ` · ${g.copies}` : ''),
+			share: allOutShare(g)
+		}));
 }
