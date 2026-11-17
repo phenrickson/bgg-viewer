@@ -12,6 +12,7 @@
    * any interaction.
    */
   import { onMount } from 'svelte';
+  import { Spinner } from '$lib/components/ui/spinner';
   import { afterNavigate } from '$app/navigation';
   import { browser } from '$app/environment';
   import {
@@ -210,7 +211,7 @@
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
 {:else if !ready}
   <div class="state">
-    <span class="spin"></span>
+    <Spinner />
     <p>Loading the catalog into your browser — this happens once.</p>
   </div>
 {:else if where != null && baseWhere != null}
@@ -343,25 +344,6 @@
   }
   .state.err {
     color: var(--color-negative);
-  }
-  .spin {
-    width: 0.9rem;
-    height: 0.9rem;
-    flex: none;
-    border-radius: 50%;
-    border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    border-top-color: var(--primary);
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .spin {
-      animation: none;
-    }
   }
 
   /* Two independently scrolling columns, each bounded by the shell's height — so a long
