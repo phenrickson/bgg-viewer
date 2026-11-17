@@ -242,7 +242,7 @@
                 toolsOpen = false;
               }}
             >
-              BGG.CON<LiveIndicator /> <span class="caret" aria-hidden="true">▾</span>
+              <LiveIndicator />BGG.CON <span class="caret" aria-hidden="true">▾</span>
             </button>
 
             {#if conOpen}
@@ -310,7 +310,7 @@
               <a href="/lineage" role="menuitem" class:on={onLineage}><b>Lineage</b></a>
               <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
               {#if data.user}
-                <span class="grp" aria-hidden="true">BGG.CON<LiveIndicator /></span>
+                <span class="grp" aria-hidden="true"><LiveIndicator />BGG.CON</span>
                 <a href="/bggcon" role="menuitem" class:on={onConLibrary}><b>Library</b></a>
                 <a href="/bggcon/analytics" role="menuitem" class:on={onConAnalytics}><b>Analytics</b></a>
               {/if}

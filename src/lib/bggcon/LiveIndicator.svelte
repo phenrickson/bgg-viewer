@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * TEMPORARY (BGG.CON 2026). A pulsing dot beside the nav's BGG.CON while the con runs, to draw
-   * the eye there; nothing before or after. No pill, no text (Phil). Re-checks each minute so an
+   * TEMPORARY (BGG.CON 2026). A pulsing dot before the nav's BGG.CON while the con runs, to draw
+   * the eye there; nothing before or after. No pill, no text; in front, so it reads as a status light, not part of the menu caret (Phil). Re-checks each minute so an
    * open tab picks it up on its own.
    */
   import { onMount } from 'svelte';
@@ -23,7 +23,7 @@
     display: inline-block;
     width: 0.4rem;
     height: 0.4rem;
-    margin-left: 0.3rem;
+    margin-right: 0.35rem;
     vertical-align: middle;
     border-radius: 50%;
     background: var(--primary);
