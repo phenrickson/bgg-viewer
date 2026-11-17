@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.37](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.36...bgg-viewer-v0.0.37) (2026-11-17)
+
+
+### Features
+
+* **bggcon:** library analytics page ([#109](https://github.com/phenrickson/bgg-viewer/issues/109)) ([02452c0](https://github.com/phenrickson/bgg-viewer/commit/02452c0553d09a22caf60f68c8a118e95ebe5a3c))
+
 ## [0.0.36](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.35...bgg-viewer-v0.0.36) (2026-11-15)
 
 
