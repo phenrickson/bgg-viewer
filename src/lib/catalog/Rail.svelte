@@ -486,6 +486,14 @@
   .grp.top {
     border-top: none;
   }
+  /* Spacing separates neighbours; with nothing above (the library hides the search, and the
+     universe switch above the toggles), there's nothing to separate from. */
+  .pinned > .grp.top:first-child {
+    padding-top: 0;
+  }
+  .grp > .toggle:first-child {
+    margin-top: 0;
+  }
   .lbl {
     font-size: 0.72rem;
     text-transform: uppercase;
