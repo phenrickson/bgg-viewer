@@ -210,10 +210,8 @@
 {#snippet availCell(r: GameListRow)}
   <span class="availcell"><ShelfStatus available={Number(r.available)} copies={Number(r.copies)} /></span>
 {/snippet}
-<!-- Where the availability comes from, said plainly, with the choice beside it.
-     PLACEHOLDER copy (Phil). -->
-<!-- `brief`: the one-line version for the phone's Filters sheet.
-     PLACEHOLDER copy (Phil). -->
+<!-- Where the availability comes from, said plainly, with the choice beside it. `brief` is the
+     one-line version for the phone's Filters sheet. PLACEHOLDER copy (Phil). -->
 {#snippet feed(brief = false)}
   <div class="feed">
     {#if source && brief}
@@ -246,7 +244,13 @@
   <style>html, body { overscroll-behavior: none; }</style>
 </svelte:head>
 
-<svelte:window onkeydown={(e) => { if (expanded && e.key === 'Escape') expandWanted = false; }} />
+<!-- Esc leaves full screen, unless it belongs to something else first: a search box (Esc
+     clears it) or an open dialog (Esc closes it). -->
+<svelte:window
+  onkeydown={(e) => {
+    if (expanded && e.key === 'Escape' && !(e.target as Element).closest('input, textarea, select, dialog')) expandWanted = false;
+  }}
+/>
 
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
@@ -453,7 +457,7 @@
     flex-wrap: wrap;
     gap: var(--space-sm) var(--space-md);
   }
-  /* Under the counts in the header, it tucks up to them; in the filters it starts the column. */
+  /* Under the counts in the header, it tucks up to them; in the phone's sheet it starts it. */
   .canvas > .feed {
     margin-top: calc(-1 * var(--space-sm));
   }

@@ -213,7 +213,13 @@
 
 <svelte:head><title>Explore · Boardgame-Viz</title></svelte:head>
 
-<svelte:window onkeydown={(e) => { if (expanded && e.key === 'Escape') expandWanted = false; }} />
+<!-- Esc leaves full screen, unless it belongs to something else first: a search box (Esc
+     clears it) or an open dialog (Esc closes it). -->
+<svelte:window
+  onkeydown={(e) => {
+    if (expanded && e.key === 'Escape' && !(e.target as Element).closest('input, textarea, select, dialog')) expandWanted = false;
+  }}
+/>
 
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
@@ -406,6 +412,8 @@
   }
   /* Covers the screen, nav included, until Exit or Esc. */
   .canvas.expanded {
+    /* Visualize can run taller than the screen, and a fixed box has no page to scroll. */
+    overflow-y: auto;
     position: fixed;
     inset: 0;
     z-index: 40;
