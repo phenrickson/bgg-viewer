@@ -252,13 +252,15 @@
     {#if narrow}
       <div class="workspace">{@render canvas(where, baseWhere)}</div>
     {:else}
-      <!-- The filters are shadcn's Sidebar: its trigger (beside the count) slides it off the
-           page and back, and the games take the width it leaves. It sits inside the page, under
+      <!-- The filters are shadcn's Sidebar, its floating variant: a card that the trigger (beside
+           the count) slides off the page and back, and the games take the width it leaves. It sits inside the page, under
            the top nav, so the Root is absolute in the provider rather than fixed to the window. -->
       <Sidebar.Provider class="relative h-full min-h-0 gap-(--space-lg)">
-        <Sidebar.Root class="absolute h-full">
+        <Sidebar.Root variant="floating" class="absolute h-full p-0">
           <Sidebar.Content>
-            <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+            <Sidebar.Group>
+              <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+            </Sidebar.Group>
           </Sidebar.Content>
           {#if data.isAdmin}<Sidebar.Footer><AdminCollectionPicker /></Sidebar.Footer>{/if}
         </Sidebar.Root>
