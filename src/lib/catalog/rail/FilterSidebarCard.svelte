@@ -21,9 +21,8 @@
   const open = $derived(sidebar.state === 'expanded');
 </script>
 
-<!-- As tall as its filters, capped at the page (a long list scrolls inside), rather than the
-     Sidebar's full height: a short rail left a tall empty card. -->
-<Sidebar.Root variant="floating" collapsible="icon" class="absolute top-0 bottom-auto h-auto max-h-full p-px">
+<!-- The card runs the page's full height, open or shut; a long rail scrolls inside it. -->
+<Sidebar.Root variant="floating" collapsible="icon" class="absolute h-full p-px">
   <Sidebar.Header class="flex-row items-center justify-between pb-0 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pb-2">
     <span class="title group-data-[collapsible=icon]:hidden">Filters</span>
     <Button
