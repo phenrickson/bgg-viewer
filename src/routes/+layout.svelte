@@ -78,12 +78,17 @@
   const onLineage = $derived(path === '/lineage');
   const inTools = $derived(onMap || onRecommend || onLineage);
   // Home is the fallback, so every other destination must be named here or it lights up Home.
-  const onHome = $derived(!inGames && !inTools && !onAbout);
+  const onHome = $derived(!inGames && !inTools && !onAbout && !onBggcon);
+  const onConLibrary = $derived(path === '/bggcon');
+  const onConAnalytics = $derived(path === '/bggcon/analytics');
 
   let gamesOpen = $state(false);
   let gamesMenu = $state<HTMLElement | null>(null);
   let toolsOpen = $state(false);
   let toolsMenu = $state<HTMLElement | null>(null);
+  // TEMPORARY (BGG.CON 2026).
+  let conOpen = $state(false);
+  let conMenu = $state<HTMLElement | null>(null);
 
   /**
    * The narrow-screen menu. Six text targets — Home, Games, About, Settings, Log out, theme —
@@ -101,22 +106,25 @@
     path;
     gamesOpen = false;
     toolsOpen = false;
+    conOpen = false;
     navOpen = false;
   });
 
   /** Click-away and Escape, the two ways every menu is expected to close. */
   $effect(() => {
-    if (!gamesOpen && !toolsOpen && !navOpen) return;
+    if (!gamesOpen && !toolsOpen && !conOpen && !navOpen) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (gamesOpen && gamesMenu && !gamesMenu.contains(t)) gamesOpen = false;
       if (toolsOpen && toolsMenu && !toolsMenu.contains(t)) toolsOpen = false;
+      if (conOpen && conMenu && !conMenu.contains(t)) conOpen = false;
       if (navOpen && navMenu && !navMenu.contains(t)) navOpen = false;
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         gamesOpen = false;
         toolsOpen = false;
+        conOpen = false;
         navOpen = false;
       }
     };
@@ -155,6 +163,7 @@
             onclick={() => {
               gamesOpen = !gamesOpen;
               toolsOpen = false;
+              conOpen = false;
             }}
           >
             Games <span class="caret" aria-hidden="true">▾</span>
@@ -193,6 +202,7 @@
             onclick={() => {
               toolsOpen = !toolsOpen;
               gamesOpen = false;
+              conOpen = false;
             }}
           >
             Tools <span class="caret" aria-hidden="true">▾</span>
@@ -216,8 +226,39 @@
           {/if}
         </div>
 
-        <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
-        {#if data.user}<a href="/bggcon" class="con" class:active={onBggcon}>BGG.CON<NavBadge /></a>{/if}
+        <!-- TEMPORARY (BGG.CON 2026). A menu like Games and Tools: the library and its analytics.
+             PLACEHOLDER labels (Phil). -->
+        {#if data.user}
+          <div class="menu" bind:this={conMenu}>
+            <button
+              type="button"
+              class="trigger con"
+              class:active={onBggcon}
+              aria-expanded={conOpen}
+              aria-haspopup="true"
+              onclick={() => {
+                conOpen = !conOpen;
+                gamesOpen = false;
+                toolsOpen = false;
+              }}
+            >
+              BGG.CON<NavBadge /> <span class="caret" aria-hidden="true">▾</span>
+            </button>
+
+            {#if conOpen}
+              <div class="pop" role="menu">
+                <a href="/bggcon" role="menuitem" class:on={onConLibrary}>
+                  <b>Library</b>
+                  <span>What’s in the con library and what’s on the shelf now</span>
+                </a>
+                <a href="/bggcon/analytics" role="menuitem" class:on={onConAnalytics}>
+                  <b>Analytics</b>
+                  <span>Checkouts over the con and the busiest games</span>
+                </a>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <!-- Last, and stays last. Games is the catalog and Tools acts on it; About is the one
              item that explains them rather than being one. The modelling room and Collection
@@ -268,7 +309,11 @@
               <a href="/map" role="menuitem" class:on={onMap}><b>Map</b></a>
               <a href="/lineage" role="menuitem" class:on={onLineage}><b>Lineage</b></a>
               <!-- TEMPORARY (BGG.CON 2026). PLACEHOLDER label (Phil). -->
-              {#if data.user}<a href="/bggcon" role="menuitem" class:on={onBggcon}><b>BGG.CON<NavBadge /></b></a>{/if}
+              {#if data.user}
+                <span class="grp" aria-hidden="true">BGG.CON<NavBadge /></span>
+                <a href="/bggcon" role="menuitem" class:on={onConLibrary}><b>Library</b></a>
+                <a href="/bggcon/analytics" role="menuitem" class:on={onConAnalytics}><b>Analytics</b></a>
+              {/if}
               <hr />
               <a href="/about" role="menuitem" class:on={onAbout}><b>About</b></a>
               {#if data.user}
@@ -369,7 +414,7 @@
 
   /* TEMPORARY (BGG.CON 2026): label and badge on one line; wrapped, the badge made the link
      two lines tall and pushed the rest of the nav to wrap. */
-  .mainnav a.con { display: inline-flex; align-items: center; white-space: nowrap; }
+  .mainnav .con { display: inline-flex; align-items: center; white-space: nowrap; }
 
   /* Only what differs from a plain nav link — everything shared lives in the rule above. */
   .menu { position: relative; display: flex; }

@@ -8,7 +8,6 @@
   import * as Card from '$lib/components/ui/card';
   import { AutoGrid, Container, Stack } from '$lib/components/ui/layout';
   import { chicago, kpis } from '$lib/bggcon/analytics';
-  import BggconNav from '../BggconNav.svelte';
   import ActivityRow from './ActivityRow.svelte';
   import ConTimeline from './ConTimeline.svelte';
   import GameRanks from './GameRanks.svelte';
@@ -40,7 +39,7 @@
 <Container size="wide">
   <Stack>
     <header class="head" class:narrow>
-      <BggconNav current="analytics" />
+      <h1>BGG.CON analytics</h1>
       {#if asOf}<span class="dim">as of {asOf} Chicago</span>{/if}
     </header>
 
@@ -88,6 +87,7 @@
 </Container>
 
 <style>
+  .head h1 { margin: 0; font-size: var(--text-heading); }
   .head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; padding-top: var(--space-md); }
   .dim { color: var(--muted-foreground); font-size: 0.8rem; font-weight: 400; }
   h2 { font-size: 1.05rem; font-weight: 650; margin: 0 0 var(--space-md); display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }

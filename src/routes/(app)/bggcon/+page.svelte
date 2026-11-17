@@ -18,7 +18,6 @@
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
-  import BggconNav from './BggconNav.svelte';
   import { ensureConLibrary, refreshAvailability, type SourceChoice } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
   import {
@@ -243,7 +242,6 @@
   <Container size="wide" fill>
     {#if narrow}
       <div class="flex items-center gap-2 pb-3">
-        <BggconNav current="library" />
         <Button variant="outline" size="sm" class="w-full" aria-haspopup="dialog" aria-expanded={filtersOpen} onclick={() => (filtersOpen = true)}>
           Filters
         </Button>
@@ -266,7 +264,6 @@
         <!-- Not on a phone: the list gets the screen there (Phil). -->
         {#if !narrow}
         <div class="chead">
-          <BggconNav current="library" />
           {#if counts}
             <button class="count" aria-pressed={mode === 'all' && availability === 'any'} onclick={showEverything}><b class="tnum">{counts.games.toLocaleString()}</b> games <span class="dim">in the library</span></button>
             <button class="count" aria-pressed={availability === 'available'} onclick={() => toggleAvailability('available')}><b class="tnum">{counts.on_shelf.toLocaleString()}</b> available</button>
