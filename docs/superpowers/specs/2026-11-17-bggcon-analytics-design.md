@@ -87,7 +87,8 @@ Dropped (Phil): player-count and playing-time breakdowns.
 - `raw.bggcon_runs (observed_at, n_out, ok)`: one row per recorder minute; the latest run is
   "now" for the API.
 - **Copies per game:** `bggcon/library.json` in the viewer bucket (built daily by the viewer).
-  The API's service account gets read access to that object (Terraform, via Actions). The bucket
+  The API runs as the pipeline service account, which already has project-wide object read, so
+  no new grant is needed. The bucket
   deletes `bggcon/` objects after 30 days; whether to keep the file longer is a post-con
   decision, not part of this work.
 
