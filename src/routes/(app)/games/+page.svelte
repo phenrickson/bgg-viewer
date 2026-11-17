@@ -40,6 +40,7 @@
   import { mapHref } from '$lib/map/route';
   import { Container } from '$lib/components/ui/layout';
   import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import FilterSidebar from '$lib/catalog/rail/FilterSidebar.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
   import * as Sidebar from '$lib/components/ui/sidebar';
@@ -252,18 +253,14 @@
     {#if narrow}
       <div class="workspace">{@render canvas(where, baseWhere)}</div>
     {:else}
-      <!-- The filters are shadcn's Sidebar, its floating variant: a card that the trigger (beside
-           the count) slides off the page and back, and the games take the width it leaves. It sits inside the page, under
-           the top nav, so the Root is absolute in the provider rather than fixed to the window. -->
-      <Sidebar.Provider class="relative h-full min-h-0 gap-(--space-lg)">
-        <Sidebar.Root variant="floating" class="absolute h-full p-0">
-          <Sidebar.Content>
-            <Sidebar.Group>
-              <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-            </Sidebar.Group>
-          </Sidebar.Content>
-          {#if data.isAdmin}<Sidebar.Footer><AdminCollectionPicker /></Sidebar.Footer>{/if}
-        </Sidebar.Root>
+      <!-- The filters are a card that collapses to a narrow strip (FilterSidebar; the provider
+           clips, so a collapsed card can't hang out past the page). -->
+      <!-- The floating strip adds 1rem for padding we don't use, so its icon width is set
+           1rem under the button's footprint: the strip just fits the button. -->
+      <Sidebar.Provider class="relative h-full min-h-0 gap-(--space-lg) overflow-hidden" style="--sidebar-width-icon: 1.75rem">
+        <FilterSidebar {activeCount} footer={data.isAdmin ? adminPicker : undefined}>
+          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+        </FilterSidebar>
         <Sidebar.Inset class="min-h-0 bg-transparent">{@render canvas(where, baseWhere)}</Sidebar.Inset>
       </Sidebar.Provider>
     {/if}
@@ -272,10 +269,11 @@
 
 <!-- Takes the two clauses as arguments: out here they aren't narrowed to non-null by the
      `{:else if where != null …}` above. -->
+{#snippet adminPicker()}<AdminCollectionPicker />{/snippet}
+
 {#snippet canvas(where: string, baseWhere: string)}
       <div class="canvas">
         <div class="chead">
-          {#if !narrow}<Sidebar.Trigger aria-label="Show or hide filters" />{/if}
           <p class="count">
             <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
             <span>{total === 1 ? 'game' : 'games'}</span>
