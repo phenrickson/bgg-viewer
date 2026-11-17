@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.38](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.37...bgg-viewer-v0.0.38) (2026-11-17)
+
+
+### Features
+
+* **explore,bggcon:** full-screen results and BGG.CON library polish ([#111](https://github.com/phenrickson/bgg-viewer/issues/111)) ([41f7fef](https://github.com/phenrickson/bgg-viewer/commit/41f7fef68d7f55d238c2885e93f5b26bb4926be5))
+
 ## [0.0.37](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.36...bgg-viewer-v0.0.37) (2026-11-17)
 
 
