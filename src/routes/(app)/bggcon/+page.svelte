@@ -37,9 +37,8 @@
   const ready = $derived(catalog.status === 'ready');
   const narrowQuery = new MediaQuery('max-width: 40rem');
   const narrow = $derived(narrowQuery.current);
-  /** A short screen (an iPad in landscape, a short laptop window): the feed line and its
-      choice move from the header to the top of the filters, as on a phone, so the list starts
-      higher. */
+  /** A short screen (an iPad in landscape, a short laptop window): no feed line or choice, so
+      the list starts higher. Only the stopped-updating warning stays (Phil). */
   const shortQuery = new MediaQuery('max-height: 50rem');
   const short = $derived(shortQuery.current);
   let filtersOpen = $state(false);
@@ -213,7 +212,7 @@
 {/snippet}
 <!-- Where the availability comes from, said plainly, with the choice beside it.
      PLACEHOLDER copy (Phil). -->
-<!-- `brief`: the one-line version for the filters column (a phone's sheet, a short screen).
+<!-- `brief`: the one-line version for the phone's Filters sheet.
      PLACEHOLDER copy (Phil). -->
 {#snippet feed(brief = false)}
   <div class="feed">
@@ -276,7 +275,6 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          {#if short}<div class="railfeed">{@render feed(true)}</div>{/if}
           <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </div>
       {/if}
@@ -315,8 +313,8 @@
         <!-- Where the availability comes from, said plainly, with the choice beside it.
              PLACEHOLDER copy (Phil). -->
         {#if narrow || short}
-          <!-- On a phone or a short screen the feed line and its choice are in Filters; here
-               only a warning, and only when the data has stopped updating. -->
+          <!-- On a phone the feed line and its choice are in Filters; on a short screen they're
+               left out. Here only a warning, and only when the data has stopped updating. -->
           {#if source && stale}
             <p class="asof"><span class="warn">{source === 'recorder' ? 'The recorder has stopped' : 'Couldn’t refresh'}{#if asOfText} · last {asOfText}{/if}</span></p>
           {/if}
@@ -462,7 +460,7 @@
     color: var(--muted-foreground);
   }
   .asof .warn { color: var(--color-negative); }
-  /* The feed at the top of the filters (the phone's sheet, a short screen's rail column). */
+  /* The feed at the top of the phone's Filters sheet. */
   .railfeed { flex: none; padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
 
   /* Phone: the header gives the list the screen. No counts, the feed in Filters (one line
