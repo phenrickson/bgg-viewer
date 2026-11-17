@@ -432,8 +432,8 @@
   /* No card chrome: the rail is a column of controls, not content. A bordered panel would
      also frame a lot of empty space below the collapsed groups as if something were missing.
      The section rules carry the structure instead. */
-  /* No padding of its own: whatever holds it (the filters card, Map's panel, the sheet) pads it. */
   .rail {
+    padding-right: var(--space-sm);
     font-size: 0.85rem;
     /* Its own scroll region: a long facet list must never stretch the workspace. */
     overflow-y: auto;
@@ -485,14 +485,6 @@
   }
   .grp.top {
     border-top: none;
-  }
-  /* Spacing separates neighbours; with nothing above (the library hides the search, and the
-     universe switch above the toggles), there's nothing to separate from. */
-  .pinned > .grp.top:first-child {
-    padding-top: 0;
-  }
-  .grp > .toggle:first-child {
-    margin-top: 0;
   }
   .lbl {
     font-size: 0.72rem;
