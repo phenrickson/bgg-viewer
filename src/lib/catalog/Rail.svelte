@@ -208,7 +208,7 @@
     {#if showSearch}
     <label class="find">
       <span class="vh">Search game names in this set</span>
-      <input type="search" placeholder="Name contains…" bind:value={scope.q} />
+      <input type="search" placeholder="Search for a game…" bind:value={scope.q} />
     </label>
     {/if}
 
