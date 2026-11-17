@@ -250,7 +250,7 @@
         <AlertsButton {narrow} />
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
           <div class="sheetfeed">{@render feed()}</div>
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
     {/if}
@@ -260,7 +260,7 @@
     {:else}
       <!-- The filters card collapses to a narrow strip, as on Explore. -->
       <FilterSidebar activeCount={activeFilters(scope).length}>
-        {#snippet rail()}<Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />{/snippet}
+        {#snippet rail()}<Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />{/snippet}
         {@render canvas()}
       </FilterSidebar>
     {/if}
