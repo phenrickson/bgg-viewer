@@ -18,6 +18,8 @@ const { load } = await import('./+page.server');
 const USER = { email: 'someone@example.com' };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const run = (user: unknown) => (load as any)({ locals: { user } });
+// The page shows at once; the warehouse data streams in as one promise.
+const data = async (user: unknown) => (await run(user)).analytics;
 
 const activity = { as_of: '2026-11-18T16:20:00+00:00', hours: [], buckets: [] };
 const games = { as_of: '2026-11-18T16:20:00+00:00', games: [] };
@@ -34,13 +36,18 @@ describe('/bggcon/analytics load', () => {
 		expect(getBggconActivity).not.toHaveBeenCalled();
 	});
 
-	it('returns both responses', async () => {
-		expect(await run(USER)).toEqual({ activity, games, error: null });
+	it('returns at once, with the data as a promise', async () => {
+		let release!: () => void;
+		getBggconGames.mockReturnValue(new Promise((r) => (release = () => r(games))));
+		const result = await run(USER);
+		expect(result.analytics).toBeInstanceOf(Promise);
+		release();
+		expect(await result.analytics).toEqual({ activity, games, error: null });
 	});
 
 	it('turns a warehouse failure into a message', async () => {
 		getBggconGames.mockRejectedValue(new Error('warehouse GET /bggcon/games failed (500)'));
-		expect(await run(USER)).toEqual({
+		expect(await data(USER)).toEqual({
 			activity: null,
 			games: null,
 			error: 'warehouse GET /bggcon/games failed (500)'
@@ -51,6 +58,6 @@ describe('/bggcon/analytics load', () => {
 		warehouseClient.mockImplementationOnce(() => {
 			throw new Error('WAREHOUSE_API_URL is not set');
 		});
-		expect(await run(USER)).toMatchObject({ activity: null, games: null, error: 'WAREHOUSE_API_URL is not set' });
+		expect(await data(USER)).toMatchObject({ activity: null, games: null, error: 'WAREHOUSE_API_URL is not set' });
 	});
 });

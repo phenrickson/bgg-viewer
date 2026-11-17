@@ -7,10 +7,11 @@ import type { PageServerLoad } from './$types';
  * Open to any signed-in user, like /bggcon. The page's own check matters: the (app) layout guard
  * runs in parallel with this load, so it can't stop the warehouse call by itself.
  *
- * A warehouse failure renders as a message on the page, never a 500.
+ * The data is returned as a promise, not awaited: SvelteKit streams it, so navigating here
+ * shows the page at once and the charts fill in when the warehouse answers. A warehouse failure
+ * resolves to a message on the page, never a 500.
  */
-export const load: PageServerLoad = async ({ locals }) => {
-	requireUser(locals.user);
+async function analytics() {
 	try {
 		// Built inside the try: warehouseClient() throws synchronously when WAREHOUSE_API_URL is unset.
 		const client = warehouseClient();
@@ -19,4 +20,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	} catch (e) {
 		return { activity: null, games: null, error: e instanceof Error ? e.message : String(e) };
 	}
+}
+
+export const load: PageServerLoad = async ({ locals }) => {
+	requireUser(locals.user);
+	return { analytics: analytics() };
 };
