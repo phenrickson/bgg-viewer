@@ -203,3 +203,35 @@ export interface TableSchema {
 	id: string;
 	schema: SchemaField[];
 }
+
+/** GET /bggcon/activity: checkouts per 15 minutes since the recorder's window opened (UTC ISO). */
+export interface BggconActivity {
+	/** The recorder's latest good run; null before its first. */
+	as_of: string | null;
+	/** Library hours, open/close pairs. */
+	hours: { open: string; close: string }[];
+	buckets: { start: string; checkouts: number }[];
+}
+
+/** One game's row from GET /bggcon/games. */
+export interface BggconGame {
+	bgg_id: number;
+	name: string | null;
+	/** From the library snapshot; null when the game isn't in it. */
+	copies: number | null;
+	checkouts: number;
+	checkouts_last_3h: number;
+	checkouts_prev_3h: number;
+	/** Library-hours minutes with every copy out; null without `copies`. */
+	minutes_all_out: number | null;
+	/** Library-hours minutes from Wed 9 AM to `as_of`. */
+	open_minutes: number;
+	time_out_median: number | null;
+	time_out_q1: number | null;
+	time_out_q3: number | null;
+}
+
+export interface BggconGames {
+	as_of: string | null;
+	games: BggconGame[];
+}
