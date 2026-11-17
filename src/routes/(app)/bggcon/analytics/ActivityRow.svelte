@@ -8,9 +8,13 @@
   import * as Card from '$lib/components/ui/card';
   import { AutoGrid } from '$lib/components/ui/layout';
   import { HOURS, averageByHour, byDay, eachDay } from '$lib/bggcon/analytics';
+  import { Spinner } from '$lib/components/ui/spinner';
   import type { BggconActivity } from '$lib/server/warehouse/types';
 
-  let { activity }: { activity: BggconActivity } = $props();
+  /** `activity` is null while it loads: each card spins in place of its chart. */
+  let { activity }: { activity: BggconActivity | null } = $props();
+  const EMPTY: BggconActivity = { as_of: null, hours: [], buckets: [] };
+  const a = $derived(activity ?? EMPTY);
 
   // Color follows the day, in a fixed order, never its rank.
   const DAY_COLORS: Record<string, string> = {
@@ -23,8 +27,8 @@
   const hourLabel = (h: number) => `${h % 12 || 12}${h < 12 ? 'AM' : 'PM'}`;
   const axisTicks = HOURS.filter((h) => h % 3 === 2).map(hourLabel); // 8AM, 11AM, 2PM, …
 
-  const avg = $derived(averageByHour(activity).map((d) => ({ hour: hourLabel(d.hour), average: Math.round(d.average * 10) / 10 })));
-  const days = $derived(eachDay(activity));
+  const avg = $derived(averageByHour(a).map((d) => ({ hour: hourLabel(d.hour), average: Math.round(d.average * 10) / 10 })));
+  const days = $derived(eachDay(a));
   const lines = $derived(
     HOURS.map((h) => ({
       hour: h,
@@ -44,7 +48,7 @@
   );
   const today = $derived(days.find((d) => d.today && d.points.length) ?? null);
   const todayEnd = $derived(today ? today.points[today.points.length - 1] : null);
-  const totals = $derived(byDay(activity).map((d) => ({ day: d.day, checkouts: d.checkouts ?? 0, partial: d.partial, toCome: d.checkouts === null })));
+  const totals = $derived(byDay(a).map((d) => ({ day: d.day, checkouts: d.checkouts ?? 0, partial: d.partial, toCome: d.checkouts === null })));
 </script>
 
 <AutoGrid min="md">
@@ -52,7 +56,13 @@
     <Card.Header><Card.Title>By time of day</Card.Title><Card.Description>average checkouts per hour, Wed on</Card.Description></Card.Header>
     <Card.Content>
       <div class="chart-area" style="--chart-h: 12rem">
-        <BarChart data={avg} x="hour" y="average" series={[{ key: 'average', label: 'Average', color: 'var(--chart-1)' }]} props={{ xAxis: { ticks: axisTicks } }} />
+        {#if !activity}
+          <div class="loading" style:height="12rem"><Spinner /></div>
+        {:else if avg.length}
+          <BarChart data={avg} x="hour" y="average" series={[{ key: 'average', label: 'Average', color: 'var(--chart-1)' }]} props={{ xAxis: { ticks: axisTicks } }} />
+        {:else}
+          <p class="dim">No complete library hours yet.</p>
+        {/if}
       </div>
     </Card.Content>
   </Card.Root>
@@ -61,7 +71,9 @@
     <Card.Header><Card.Title>Each day</Card.Title><Card.Description>checkouts per hour</Card.Description></Card.Header>
     <Card.Content>
       <div class="chart-area" style="--chart-h: 12rem">
-        {#if daySeries.length}
+        {#if !activity}
+          <div class="loading" style:height="12rem"><Spinner /></div>
+        {:else if daySeries.length}
           <LineChart
             data={lines}
             x="hour"
@@ -89,6 +101,9 @@
     <Card.Header><Card.Title>By day</Card.Title><Card.Description>total checkouts; today so far</Card.Description></Card.Header>
     <Card.Content>
       <div class="chart-area" style="--chart-h: 12rem">
+        {#if !activity}
+          <div class="loading" style:height="12rem"><Spinner /></div>
+        {:else}
         <BarChart data={totals} x="day" y="checkouts" series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}>
           {#snippet aboveMarks({ context })}
             {#each totals as d (d.day)}
@@ -102,11 +117,14 @@
             {/each}
           {/snippet}
         </BarChart>
+        {/if}
       </div>
     </Card.Content>
   </Card.Root>
 </AutoGrid>
 
 <style>
+  /* Holds a card's place while its data loads, so nothing jumps when it arrives. */
+  .loading { display: grid; place-items: center; }
   .dim { color: var(--muted-foreground); font-size: 0.8rem; }
 </style>
