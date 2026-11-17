@@ -2,7 +2,7 @@
 
 Agreed with Phil 2026-11-17. Builds on the BGG.CON library spec
 (`2026-11-12-bggcon-library-design.md`, §8 Recorder). Mockup:
-https://claude.ai/artifact/WWpLVTwZd38XeaQMYb5zgf (made-up numbers; layout and chart forms are
+<https://claude.ai/artifact/WWpLVTwZd38XeaQMYb5zgf> (made-up numbers; layout and chart forms are
 the agreed design).
 
 ## Why
@@ -23,7 +23,7 @@ Phil, 2026-11-17: plan on last year's hours (2026's aren't posted; 2024 and 2025
 Chicago time:
 
 | Day | Open | Close |
-|---|---|---|
+| --- | --- | --- |
 | Wed 18 | 9 AM | midnight |
 | Thu 19 – Sat 21 | 8 AM | midnight |
 | Sun 22 | 8 AM | 1 PM |
