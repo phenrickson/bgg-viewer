@@ -93,8 +93,14 @@
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  /* A square box, so the quarter turn on open stays inside it. The bare glyph's box is tall
+     and narrow; turned, it stuck out past the rail and scrolled it sideways. */
   .chev {
     margin-left: auto;
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1lh;
+    block-size: 1lh;
     color: var(--muted-foreground);
     transition: transform 0.12s ease;
   }
