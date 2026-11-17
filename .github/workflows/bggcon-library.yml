@@ -6,8 +6,11 @@ name: bggcon library
 # docs/superpowers/specs/2026-11-12-bggcon-library-design.md. Delete after the con.
 on:
   schedule:
-    # 10:00 UTC, early morning in Texas, before the library opens.
-    - cron: '0 10 * * *'
+    # Hourly at :23 from 06:00 to 12:00 UTC (midnight to 6am in Texas), before the library opens.
+    # GitHub runs scheduled workflows late or drops them under load: the single 10:00 run started
+    # 6-10 hours late every day of the con. Several tries in the window means at least one lands
+    # in time; a rebuild just rewrites the same snapshot. :23 avoids the busy top of the hour.
+    - cron: '23 6-12 * * *'
   workflow_dispatch:
 
 concurrency:
