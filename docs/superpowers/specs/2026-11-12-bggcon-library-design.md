@@ -249,8 +249,10 @@ site. Removing it is one PR: delete those folders and the call sites. The GCS ob
    stars first and treat the Explore scope as second priority.
 4. **How large is the checked-out set at peak?** We'll only know at the con. It's the
    setting for the TTL.
-5. ~~The library's opening hours~~ **Settled:** the con runs continuously from Wed 18 Nov 9:00 AM
-   to Sun 22 Nov 3:00 PM Central (America/Chicago), about 102 h. The recorder's window is a
+5. ~~The library's opening hours~~ **Settled:** the con runs from Wed 18 Nov 9:00 AM to
+   Sun 22 Nov 3:00 PM Central (America/Chicago). **Corrected 2026-11-17:** the library is not
+   open continuously; it closes overnight (Wed 9 AM–midnight, Thu–Sat 8 AM–midnight, Sun
+   8 AM–1 PM, last year's hours; see the analytics spec). The recorder's window is a
    config start/end (from the test day, Tue 17 Nov, to Sun 3:00 PM). Scheduler fires every
    minute, and outside the window the job exits at once with no Tabletop.Events request.
 6. **Where the recorder keeps its state file and how it reads stars:** read access to the
