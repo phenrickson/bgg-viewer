@@ -42,6 +42,8 @@
   import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
+  import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
+  import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -114,6 +116,10 @@
 
   /** Whether the filters sheet is open (`RailSheet`; it closes itself when the page widens). */
   let filtersOpen = $state(false);
+  /** The results over the whole screen, in either view (wide only: a phone's list already has
+      the screen). Expand sits on the list's bar; Exit on the header row, which both views keep. */
+  let expandWanted = $state(false);
+  const expanded = $derived(expandWanted && !narrow);
 
   /** The count on the trigger — filters must stay legible while they're out of sight. */
   const activeCount = $derived(activeFilters(scope).length + (catalog.collectionUsername ? 1 : 0));
@@ -207,6 +213,14 @@
 
 <svelte:head><title>Explore · Boardgame-Viz</title></svelte:head>
 
+<!-- Esc leaves full screen, unless it belongs to something else first: a search box (Esc
+     clears it) or an open dialog (Esc closes it). -->
+<svelte:window
+  onkeydown={(e) => {
+    if (expanded && e.key === 'Escape' && !(e.target as Element).closest('input, textarea, select, dialog')) expandWanted = false;
+  }}
+/>
+
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
 {:else if !ready}
@@ -256,7 +270,9 @@
         </div>
       {/if}
 
-      <div class="canvas">
+      <!-- "Expand" lifts the whole canvas (header, list, pager) over the screen, minus the shape
+           charts. The same elements move, not a copy, so the page and the scroll carry over. -->
+      <div class="canvas" class:expanded>
         <div class="chead">
           <p class="count">
             <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
@@ -304,19 +320,23 @@
               every game the embedding places. That is the whole integration: same `Scope`,
               same querystring, two views of it.
             -->
-            <a class="tomap" href={mapHref(scope)} data-sveltekit-preload-data="off">
-              Map<span class="arr" aria-hidden="true">→</span>
-            </a>
+            {#if !expanded}
+              <!-- Not in full screen: that's for reading this set, not leaving for another view. -->
+              <a class="tomap" href={mapHref(scope)} data-sveltekit-preload-data="off">
+                Map<span class="arr" aria-hidden="true">→</span>
+              </a>
+            {/if}
           </span>
+          {#if expanded}{@render expandButton()}{/if}
         </div>
 
         {#if !narrow}
-          <ShapeStrip {where} {baseWhere} bind:scope />
+          <div class="shape" class:gone={expanded}><ShapeStrip {where} {baseWhere} bind:scope /></div>
         {/if}
         {#if view === 'visualize'}
           <AnalysisPanel {where} {baseWhere} universe={scope.universe} bind:scope />
         {:else}
-          <GameList {where} universe={scope.universe} cards={narrow} />
+          <GameList {where} universe={scope.universe} cards={narrow} actions={narrow || expanded ? undefined : expandButton} />
         {/if}
 
         <!-- Provenance, not decoration. Every game in this universe was published after the
@@ -331,6 +351,20 @@
     </div>
   </Container>
 {/if}
+
+<!-- Expand after the pager (it acts on the table); Exit at the end of the header row, so
+     Visualize has it too. PLACEHOLDER copy (Phil): the two labels. -->
+{#snippet expandButton()}
+  <Button
+    variant="outline"
+    size="xs"
+    aria-pressed={expanded}
+    title={expanded ? 'Exit full screen' : 'Expand the table to full screen'}
+    onclick={() => (expandWanted = !expanded)}
+  >
+    {#if expanded}<Minimize2Icon /> Exit{:else}<Maximize2Icon /> Expand{/if}
+  </Button>
+{/snippet}
 
 <style>
   .state {
@@ -376,6 +410,19 @@
     /* The list's column set responds to the canvas, not the viewport. */
     container-type: inline-size;
   }
+  /* Covers the screen, nav included, until Exit or Esc. */
+  .canvas.expanded {
+    /* Visualize can run taller than the screen, and a fixed box has no page to scroll. */
+    overflow-y: auto;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    padding: var(--space-lg);
+    background: var(--background);
+  }
+  /* A wrapper that adds no box, so the strip stays a child of the canvas's column. */
+  .shape { display: contents; }
+  .shape.gone { display: none; }
 
   .chead {
     display: flex;

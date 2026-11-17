@@ -59,9 +59,6 @@
     /** Show the Universe control (Top 10,000 / All rated / Upcoming). Off on the BGG.CON
         dashboard, whose set is the library and spans every universe. */
     showUniverse = true,
-    /** Gather Series & families, People & publishers and Exact numbers into one "Advanced
-        filters" group, closed by default (the BGG.CON dashboard). Explore keeps them separate. */
-    groupAdvanced = false,
     /** Show the name search at the top. Off where the page puts it above its list instead
         (the BGG.CON dashboard), so it isn't missed. */
     showSearch = true,
@@ -73,7 +70,6 @@
     bggUsername?: string | null;
     availableNow?: boolean;
     showUniverse?: boolean;
-    groupAdvanced?: boolean;
     showSearch?: boolean;
     categoriesOpen?: boolean;
   } = $props();
@@ -141,7 +137,6 @@
    * state rather than overwriting it on every rerun.
    */
   const facetOpen = $state({
-    advanced: false,
     complexity: true,
     year: false,
     // Read once: after that it's the reader's to open and shut.
@@ -213,7 +208,7 @@
     {#if showSearch}
     <label class="find">
       <span class="vh">Search game names in this set</span>
-      <input type="search" placeholder="Name contains…" bind:value={scope.q} />
+      <input type="search" placeholder="Search for a game…" bind:value={scope.q} />
     </label>
     {/if}
 
@@ -373,16 +368,6 @@
     bind:selected={scope.mechanics}
     bind:open={facetOpen.mechanics}
   />
-  {#if groupAdvanced}
-    <RailGroup title="Advanced filters" badge={scope.families.length + entityCount + exactCount} bind:open={facetOpen.advanced}>
-      {@render advanced()}
-    </RailGroup>
-  {:else}
-    {@render advanced()}
-  {/if}
-</aside>
-
-{#snippet advanced()}
   <FacetList
     title="Series & families"
     column="families"
@@ -441,7 +426,7 @@
         </div>
       </div>
   </RailGroup>
-{/snippet}
+</aside>
 
 <style>
   /* No card chrome: the rail is a column of controls, not content. A bordered panel would
@@ -500,6 +485,14 @@
   }
   .grp.top {
     border-top: none;
+  }
+  /* Spacing separates neighbours; with nothing above (the library hides the search, and the
+     universe switch above the toggles), there's nothing to separate from. */
+  .pinned > .grp.top:first-child {
+    padding-top: 0;
+  }
+  .grp > .toggle:first-child {
+    margin-top: 0;
   }
   .lbl {
     font-size: 0.72rem;

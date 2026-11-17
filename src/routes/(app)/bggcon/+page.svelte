@@ -19,6 +19,8 @@
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
   import { SegmentedControl } from '$lib/components/ui/segmented-control';
+  import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
+  import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
   import { ensureConLibrary, refreshAvailability, type SourceChoice } from '$lib/bggcon/client';
   import { stars } from '$lib/bggcon/stars.svelte';
   import {
@@ -35,7 +37,14 @@
   const ready = $derived(catalog.status === 'ready');
   const narrowQuery = new MediaQuery('max-width: 40rem');
   const narrow = $derived(narrowQuery.current);
+  /** A short screen (an iPad in landscape, a short laptop window): no feed line or choice, so
+      the list starts higher. Only the stopped-updating warning stays (Phil). */
+  const shortQuery = new MediaQuery('max-height: 50rem');
+  const short = $derived(shortQuery.current);
   let filtersOpen = $state(false);
+  /** The list over the whole screen (wide only: a phone's list already has it). */
+  let expandWanted = $state(false);
+  const expanded = $derived(expandWanted && !narrow);
 
   let scope = $state<Scope>({ ...DEFAULT_SCOPE });
   let mode = $state<Mode>('all');
@@ -201,11 +210,16 @@
 {#snippet availCell(r: GameListRow)}
   <span class="availcell"><ShelfStatus available={Number(r.available)} copies={Number(r.copies)} /></span>
 {/snippet}
-<!-- Where the availability comes from, said plainly, with the choice beside it.
-     PLACEHOLDER copy (Phil). -->
-{#snippet feed()}
+<!-- Where the availability comes from, said plainly, with the choice beside it. `brief` is the
+     one-line version for the phone's Filters sheet. PLACEHOLDER copy (Phil). -->
+{#snippet feed(brief = false)}
   <div class="feed">
-    {#if source}
+    {#if source && brief}
+      <p class="asof">
+        {source === 'live' ? 'Live' : 'Recorder'}{#if asOfText} · {asOfText}{/if}
+        {#if stale}<span class="warn"> · {source === 'recorder' ? 'stopped' : 'couldn’t refresh'}</span>{/if}
+      </p>
+    {:else if source}
       <p class="asof">
         {source === 'live' ? 'Live from Tabletop.Events' : 'From the recorder'}
         {#if asOfText} · as of {asOfText}{:else} · nothing recorded yet{/if}
@@ -230,6 +244,14 @@
   <style>html, body { overscroll-behavior: none; }</style>
 </svelte:head>
 
+<!-- Esc leaves full screen, unless it belongs to something else first: a search box (Esc
+     clears it) or an open dialog (Esc closes it). -->
+<svelte:window
+  onkeydown={(e) => {
+    if (expanded && e.key === 'Escape' && !(e.target as Element).closest('input, textarea, select, dialog')) expandWanted = false;
+  }}
+/>
+
 {#if catalog.status === 'error'}
   <p class="state err">Couldn’t load the catalog: {catalog.error}</p>
 {:else if loadError}
@@ -248,8 +270,8 @@
         </Button>
         <AlertsButton {narrow} />
         <RailSheet bind:open={filtersOpen} {narrow} title="Filters" done="Show games">
-          <div class="sheetfeed">{@render feed()}</div>
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <div class="railfeed">{@render feed(true)}</div>
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </RailSheet>
       </div>
     {/if}
@@ -257,10 +279,28 @@
     <div class="workspace" class:narrow>
       {#if !narrow}
         <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
+          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
         </div>
       {/if}
+      {@render canvas()}
+    </div>
+  </Container>
+{/if}
 
+<!-- After the pager: it acts on the table. PLACEHOLDER copy (Phil): the two labels. -->
+{#snippet expandButton()}
+  <Button
+    variant="outline"
+    size="xs"
+    aria-pressed={expanded}
+    title={expanded ? 'Exit full screen' : 'Expand the table to full screen'}
+    onclick={() => (expandWanted = !expanded)}
+  >
+    {#if expanded}<Minimize2Icon /> Exit{:else}<Maximize2Icon /> Expand{/if}
+  </Button>
+{/snippet}
+
+{#snippet canvas()}
       <div class="canvas">
         <!-- Not on a phone: the list gets the screen there (Phil). -->
         {#if !narrow}
@@ -276,9 +316,9 @@
         {/if}
         <!-- Where the availability comes from, said plainly, with the choice beside it.
              PLACEHOLDER copy (Phil). -->
-        {#if narrow}
-          <!-- On a phone the feed line and its choice are in Filters; here only a warning, and
-               only when the data has stopped updating. -->
+        {#if narrow || short}
+          <!-- On a phone the feed line and its choice are in Filters; on a short screen they're
+               left out. Here only a warning, and only when the data has stopped updating. -->
           {#if source && stale}
             <p class="asof"><span class="warn">{source === 'recorder' ? 'The recorder has stopped' : 'Couldn’t refresh'}{#if asOfText} · last {asOfText}{/if}</span></p>
           {/if}
@@ -287,6 +327,9 @@
         {/if}
         {#if stars.error}<p class="state err">{stars.error}</p>{/if}
 
+        <!-- The search row and the list, which "Expand" lifts over the whole screen. The same
+             elements move, not a copy, so the search, the page and the scroll carry over. -->
+        <div class="listarea" class:expanded>
         <div class="ctl">
           <!-- Above the list rather than in the rail, where it was easy to miss. Searches the whole
                library from any view (see `searching`). Styled as the rail's search was. -->
@@ -295,8 +338,10 @@
             <input type="search" placeholder="Search the library…" bind:value={scope.q} />
           </label>
           <SegmentedControl label="Show" size={narrow ? 'sm' : 'md'} options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
+        <!-- Its own row under the search, not the end of it, where it was squeezed in beside the
+             views on a mid-width screen (Phil). Renders nothing with no filters on. -->
+        <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
 
         <GameList
             where={tableWhere(args)}
@@ -313,11 +358,12 @@
             leadSort={STAR_SORT}
             {openId}
             detail={panel}
+            actions={narrow ? undefined : expandButton}
+            sortFirst="checkouts"
           />
+        </div>
       </div>
-    </div>
-  </Container>
-{/if}
+{/snippet}
 
 <style>
   /* Shell, state and header rules follow Explore's (`(app)/games/+page.svelte`). */
@@ -356,10 +402,6 @@
        rows' screen-reader labels). Without it they're placed against the page, deep down the
        list, and stretch the whole page into empty space below the footer. */
     position: relative;
-  }
-  /* Header, controls and list share one capped column, so nothing floats to the far edge. */
-  .canvas > :global(*) {
-    max-width: 64rem;
   }
   .chead {
     display: flex;
@@ -414,6 +456,9 @@
     align-items: center;
     flex-wrap: wrap;
     gap: var(--space-sm) var(--space-md);
+  }
+  /* Under the counts in the header, it tucks up to them; in the phone's sheet it starts it. */
+  .canvas > .feed {
     margin-top: calc(-1 * var(--space-sm));
   }
   .asof {
@@ -422,7 +467,8 @@
     color: var(--muted-foreground);
   }
   .asof .warn { color: var(--color-negative); }
-  .sheetfeed { padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
+  /* The feed at the top of the phone's Filters sheet. */
+  .railfeed { flex: none; padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
 
   /* Phone: the header gives the list the screen. No counts, the feed in Filters (one line
      here), the view control at its small size. */
@@ -455,5 +501,21 @@
     align-items: center;
     gap: var(--space-md);
     flex-wrap: wrap;
+  }
+  /* In the canvas it's just more of the canvas's column (same gap); expanded, it covers the
+     screen, nav included, until Exit or Esc. */
+  .listarea {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    min-height: 0;
+    position: relative; /* the sr-only labels' containing block, as on .canvas */
+  }
+  .listarea.expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    padding: var(--space-lg);
+    background: var(--background);
   }
 </style>
