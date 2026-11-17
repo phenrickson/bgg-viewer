@@ -21,8 +21,10 @@
   const open = $derived(sidebar.state === 'expanded');
 </script>
 
-<Sidebar.Root variant="floating" collapsible="icon" class="absolute h-full p-px">
-  <Sidebar.Header class="flex-row items-center justify-between group-data-[collapsible=icon]:flex-col">
+<!-- As tall as its filters, capped at the page (a long list scrolls inside), rather than the
+     Sidebar's full height: a short rail left a tall empty card. -->
+<Sidebar.Root variant="floating" collapsible="icon" class="absolute top-0 bottom-auto h-auto max-h-full p-px">
+  <Sidebar.Header class="flex-row items-center justify-between pb-0 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pb-2">
     <span class="title group-data-[collapsible=icon]:hidden">Filters</span>
     <Button
       variant="ghost"
@@ -37,7 +39,7 @@
     {#if !open && activeCount}<Badge>{activeCount}</Badge>{/if}
   </Sidebar.Header>
   <Sidebar.Content class="group-data-[collapsible=icon]:hidden">
-    <Sidebar.Group>{@render children()}</Sidebar.Group>
+    <Sidebar.Group class="pt-0">{@render children()}</Sidebar.Group>
   </Sidebar.Content>
   {#if footer}
     <Sidebar.Footer class="group-data-[collapsible=icon]:hidden">{@render footer()}</Sidebar.Footer>
