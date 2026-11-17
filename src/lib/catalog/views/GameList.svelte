@@ -87,7 +87,9 @@
     /** On a phone, cards without the stats row (see GameCard's `plain`). */
     plainCards = false,
     /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
-    leadSort
+    leadSort,
+    /** Controls at the end of the bar, after the pager (the library's Expand). */
+    actions
   }: {
     where: string;
     universe?: Scope['universe'];
@@ -105,6 +107,7 @@
     zeroIsMissing?: boolean;
     plainCards?: boolean;
     leadSort?: { label: string; sql: string; then?: string; hint?: string };
+    actions?: Snippet;
   } = $props();
   const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
   const z = (col: string) => (zeroIsMissing && ZEROABLE.includes(col.replace(/^c\./, '')) ? `NULLIF(${col}, 0)` : col);
@@ -368,7 +371,13 @@
     />
   {/if}
 
-  {#if pages > 1 && !cards}<Pager bind:page {pages} />{/if}
+  <!-- One group, so the bar's space-between keeps the pager and the actions together. -->
+  {#if (pages > 1 && !cards) || actions}
+    <span class="end">
+      {#if pages > 1 && !cards}<Pager bind:page {pages} />{/if}
+      {@render actions?.()}
+    </span>
+  {/if}
 </div>
 
 <div class="listwrap">
@@ -623,6 +632,11 @@
     font-size: 0.78rem;
     color: var(--muted-foreground);
     margin-bottom: var(--space-sm);
+  }
+  .end {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem; /* the pager's own gap */
   }
   .pos b {
     color: var(--foreground);
