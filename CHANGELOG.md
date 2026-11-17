@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.39](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.38...bgg-viewer-v0.0.39) (2026-11-17)
+
+
+### Bug Fixes
+
+* **bggcon:** retry the library build hourly before the library opens ([#113](https://github.com/phenrickson/bgg-viewer/issues/113)) ([bcf42b5](https://github.com/phenrickson/bgg-viewer/commit/bcf42b5a623589acfeced5a4e62996c713cb7fbf))
+
 ## [0.0.38](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.37...bgg-viewer-v0.0.38) (2026-11-17)
 
 
