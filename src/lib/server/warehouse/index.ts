@@ -33,5 +33,8 @@ export type {
 	LineageNode,
 	Lineage,
 	SchemaField,
-	TableSchema
+	TableSchema,
+	BggconActivity,
+	BggconGame,
+	BggconGames
 } from './types';

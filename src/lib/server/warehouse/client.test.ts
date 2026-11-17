@@ -230,3 +230,35 @@ describe('createWarehouseClient lineage', () => {
 		expect(err.message).toContain('cannot read p.d.t');
 	});
 });
+
+describe('createWarehouseClient bggcon analytics', () => {
+	const make = (fetchImpl: typeof fetch) =>
+		createWarehouseClient({ baseUrl: 'https://warehouse.example', getIdToken: async () => 'tok', fetch: fetchImpl });
+	const activity = {
+		as_of: '2026-11-18T15:05:00+00:00',
+		hours: [{ open: '2026-11-18T15:00:00+00:00', close: '2026-11-19T06:00:00+00:00' }],
+		buckets: [{ start: '2026-11-18T15:00:00+00:00', checkouts: 1 }]
+	};
+
+	it('GETs /bggcon/activity with the bearer token', async () => {
+		const { fetchImpl, calls } = stubFetch(activity);
+		expect(await make(fetchImpl).getBggconActivity()).toEqual(activity);
+		expect(calls[0].url).toBe('https://warehouse.example/bggcon/activity');
+		expect(new Headers(calls[0].init?.headers).get('Authorization')).toBe('Bearer tok');
+	});
+
+	it('GETs /bggcon/games', async () => {
+		const games = { as_of: null, games: [] };
+		const { fetchImpl, calls } = stubFetch(games);
+		expect(await make(fetchImpl).getBggconGames()).toEqual(games);
+		expect(calls[0].url).toBe('https://warehouse.example/bggcon/games');
+	});
+
+	it('carries the API detail and status on failure', async () => {
+		const { fetchImpl } = stubFetch({ detail: 'BigQuery is down' }, { status: 500 });
+		const err = await make(fetchImpl).getBggconGames().catch((e) => e);
+		expect(err).toBeInstanceOf(WarehouseError);
+		expect(err.status).toBe(500);
+		expect(err.message).toContain('BigQuery is down');
+	});
+});

@@ -10,6 +10,8 @@
  */
 import {
 	GameNotFoundError,
+	type BggconActivity,
+	type BggconGames,
 	WarehouseError,
 	type GameDocument,
 	type Lineage,
@@ -33,6 +35,8 @@ export interface WarehouseClient {
 	getPipelineStatus(days?: number): Promise<PipelineStatus>;
 	getLineage(): Promise<Lineage>;
 	getTableSchema(id: string): Promise<TableSchema>;
+	getBggconActivity(): Promise<BggconActivity>;
+	getBggconGames(): Promise<BggconGames>;
 }
 
 export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClient {
@@ -93,6 +97,18 @@ export function createWarehouseClient(deps: WarehouseClientDeps): WarehouseClien
 			const res = await authedGet(path);
 			if (!res.ok) throw await failure(res, path);
 			return (await res.json()) as TableSchema;
+		},
+
+		async getBggconActivity(): Promise<BggconActivity> {
+			const res = await authedGet('/bggcon/activity');
+			if (!res.ok) throw await failure(res, '/bggcon/activity');
+			return (await res.json()) as BggconActivity;
+		},
+
+		async getBggconGames(): Promise<BggconGames> {
+			const res = await authedGet('/bggcon/games');
+			if (!res.ok) throw await failure(res, '/bggcon/games');
+			return (await res.json()) as BggconGames;
 		}
 	};
 }

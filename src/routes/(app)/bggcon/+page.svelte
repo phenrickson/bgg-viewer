@@ -8,6 +8,7 @@
    * Availability refreshes every minute while the tab is visible.
    */
   import { onMount } from 'svelte';
+  import { Spinner } from '$lib/components/ui/spinner';
   import { MediaQuery } from 'svelte/reactivity';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
   import { DEFAULT_SCOPE, toWhere, type Scope } from '$lib/catalog/scope';
@@ -235,7 +236,7 @@
   <p class="state err">Couldn’t load the BGG.CON library: {loadError}</p>
 {:else if !ready || !catalog.libraryLoaded}
   <div class="state">
-    <span class="spin"></span>
+    <Spinner />
     <p>Loading the catalog and the BGG.CON library…</p>
   </div>
 {:else}
@@ -329,17 +330,6 @@
   }
   .state p { margin: 0; }
   .state.err { color: var(--color-negative); }
-  .spin {
-    width: 0.9rem;
-    height: 0.9rem;
-    flex: none;
-    border-radius: 50%;
-    border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border));
-    border-top-color: var(--primary);
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
   .workspace {
     display: grid;

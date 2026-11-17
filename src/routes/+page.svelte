@@ -25,6 +25,7 @@
    * Copy is PLACEHOLDER — Phil writes the final strings.
    */
   import { onMount } from 'svelte';
+  import { Spinner } from '$lib/components/ui/spinner';
   import { initCatalog, catalog } from '$lib/catalog/catalog.svelte';
   import { fetchVectors } from '$lib/recommend/vectors';
   import { DEFAULT_SCOPE, scopeToParams, type Scope } from '$lib/catalog/scope';
@@ -164,7 +165,7 @@
       {:else if catalog.status === 'error'}
         Catalog failed to load
       {:else}
-        <span class="spin"></span> Warming the catalog — {wait}
+        <Spinner size="0.8rem" /> Warming the catalog — {wait}
       {/if}
     </span>
     {/if}
@@ -239,9 +240,6 @@
   /* Quieter than the ready state around it — a transient aside, not a second headline. */
   .warming .dim { color: var(--muted-foreground); font-weight: 400; }
   .warming .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--color-positive, oklch(0.62 0.14 150)); }
-  .warming .spin { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .warming .spin { animation: none; } }
 
   h1 { font-size: var(--text-display, clamp(1.8rem, 1.1rem + 3vw, 3rem)); font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; margin: 1.1rem 0 .5rem; text-wrap: balance; }
   h1 em { font-style: normal; color: var(--primary); }
