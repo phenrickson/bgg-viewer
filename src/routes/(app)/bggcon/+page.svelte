@@ -334,8 +334,10 @@
             <input type="search" placeholder="Search the library…" bind:value={scope.q} />
           </label>
           <SegmentedControl label="Show" size={narrow ? 'sm' : 'md'} options={MODE_OPTIONS} value={mode} onchange={(v) => (mode = v)} />
-          <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
         </div>
+        <!-- Its own row under the search, not the end of it, where it was squeezed in beside the
+             views on a mid-width screen (Phil). Renders nothing with no filters on. -->
+        <FilterChips bind:scope onclear={() => (scope = { ...DEFAULT_SCOPE })} />
 
         <GameList
             where={tableWhere(args)}
