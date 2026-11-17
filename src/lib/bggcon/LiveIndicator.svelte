@@ -1,8 +1,9 @@
 <script lang="ts">
   /**
    * TEMPORARY (BGG.CON 2026). A pulsing dot before the nav's BGG.CON while the con runs, to draw
-   * the eye there; nothing before or after. No pill, no text; in front, so it reads as a status light, not part of the menu caret (Phil). Re-checks each minute so an
-   * open tab picks it up on its own.
+   * the eye there; nothing before or after. No pill and no text, and in front of the label so it
+   * reads as a status light rather than part of the menu's caret (Phil). Re-checks each minute so
+   * an open tab picks it up on its own.
    */
   import { onMount } from 'svelte';
   import { conPhase } from './window';
