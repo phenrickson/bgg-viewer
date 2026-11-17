@@ -42,6 +42,14 @@ SvelteKit 2 / Svelte 5, LayerChart 2, vitest (viewer).
 - Copy on the page is Phil's: mark placeholder text `// PLACEHOLDER copy (Phil)` once per file.
 - Viewer UI follows the `frontend-patterns` skill: `Container`/`Stack`/`AutoGrid` from
   `$lib/components/ui/layout`, `Card`, LayerChart, `var(--chart-N)` tokens, both themes.
+- **Reuse, don't hand-roll** (Phil, 2026-11-17): build on the existing components first —
+  `$lib/charts` (`ChartFigure`, `MiniColumns`, `TimeSeriesArea`, `StackedColumns`, `scale.ts`,
+  `ramps.ts`), `$lib/components/ui` (`card`, `layout`, `segmented-control`, `button`, `badge`,
+  `sheet`). Read each before writing a new one; a new component needs a ledgered ruling saying
+  why no existing one fits.
+- **Mobile, the existing way** (Phil): a `narrow` flag from
+  `new MediaQuery('max-width: 40rem')` (`svelte/reactivity`), as `/bggcon/+page.svelte` does;
+  layout reflows through `AutoGrid`; no page-level horizontal scroll at 400px.
 
 ## Review Focus
 
