@@ -43,7 +43,6 @@
   import FilterSidebar from '$lib/catalog/rail/FilterSidebar.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
-  import * as Sidebar from '$lib/components/ui/sidebar';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -253,16 +252,10 @@
     {#if narrow}
       <div class="workspace">{@render canvas(where, baseWhere)}</div>
     {:else}
-      <!-- The filters are a card that collapses to a narrow strip (FilterSidebar; the provider
-           clips, so a collapsed card can't hang out past the page). -->
-      <!-- The floating strip adds 1rem for padding we don't use, so its icon width is set
-           1rem under the button's footprint: the strip just fits the button. -->
-      <Sidebar.Provider class="relative h-full min-h-0 gap-(--space-lg) overflow-hidden" style="--sidebar-width-icon: 1.75rem">
-        <FilterSidebar {activeCount} footer={data.isAdmin ? adminPicker : undefined}>
-          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-        </FilterSidebar>
-        <Sidebar.Inset class="min-h-0 bg-transparent">{@render canvas(where, baseWhere)}</Sidebar.Inset>
-      </Sidebar.Provider>
+      <FilterSidebar {activeCount} footer={data.isAdmin ? adminPicker : undefined}>
+        {#snippet rail()}<Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />{/snippet}
+        {@render canvas(where, baseWhere)}
+      </FilterSidebar>
     {/if}
   </Container>
 {/if}

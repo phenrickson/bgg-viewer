@@ -11,10 +11,11 @@
   import { Spinner } from '$lib/components/ui/spinner';
   import { MediaQuery } from 'svelte/reactivity';
   import { initCatalog, query, catalog } from '$lib/catalog/catalog.svelte';
-  import { DEFAULT_SCOPE, toWhere, type Scope } from '$lib/catalog/scope';
+  import { DEFAULT_SCOPE, activeFilters, toWhere, type Scope } from '$lib/catalog/scope';
   import Rail from '$lib/catalog/Rail.svelte';
   import FilterChips from '$lib/catalog/FilterChips.svelte';
   import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
+  import FilterSidebar from '$lib/catalog/rail/FilterSidebar.svelte';
   import AlertsButton from './AlertsButton.svelte';
   import { Container } from '$lib/components/ui/layout';
   import { Button } from '$lib/components/ui/button';
@@ -254,13 +255,19 @@
       </div>
     {/if}
 
-    <div class="workspace" class:narrow>
-      {#if !narrow}
-        <div class="sidebar">
-          <Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />
-        </div>
-      {/if}
+    {#if narrow}
+      <div class="workspace">{@render canvas()}</div>
+    {:else}
+      <!-- The filters card collapses to a narrow strip, as on Explore. -->
+      <FilterSidebar activeCount={activeFilters(scope).length}>
+        {#snippet rail()}<Rail bind:scope where={railWhere} showUniverse={false} showSearch={false} categoriesOpen groupAdvanced bind:availableNow={() => availability === 'available', (v) => (availability = v ? 'available' : 'any')} />{/snippet}
+        {@render canvas()}
+      </FilterSidebar>
+    {/if}
+  </Container>
+{/if}
 
+{#snippet canvas()}
       <div class="canvas">
         <!-- Not on a phone: the list gets the screen there (Phil). -->
         {#if !narrow}
@@ -315,9 +322,7 @@
             detail={panel}
           />
       </div>
-    </div>
-  </Container>
-{/if}
+{/snippet}
 
 <style>
   /* Shell, state and header rules follow Explore's (`(app)/games/+page.svelte`). */
@@ -331,20 +336,13 @@
   .state p { margin: 0; }
   .state.err { color: var(--color-negative); }
 
+  /* Narrow only (wider, FilterSidebar lays out the filters and the list). */
   .workspace {
     display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
-    gap: var(--space-lg);
+    grid-template-columns: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
   }
-  .workspace.narrow { grid-template-columns: minmax(0, 1fr); }
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .sidebar :global(.rail) { flex: 1 1 auto; }
   .canvas {
     display: flex;
     flex-direction: column;
