@@ -353,6 +353,7 @@
             {openId}
             detail={panel}
             actions={narrow ? undefined : expandButton}
+            sortFirst="checkouts"
           />
         </div>
       </div>

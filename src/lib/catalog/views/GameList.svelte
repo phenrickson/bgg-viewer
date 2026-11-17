@@ -38,6 +38,7 @@
    * Sorting and paging both run in DuckDB, so a sort orders the *whole* scoped set, not the
    * page on screen. Column keys map to fixed SQL expressions — never user input.
    */
+  import { untrack } from 'svelte';
   import { catalog, query } from '$lib/catalog/catalog.svelte';
   import Gauge from '$lib/catalog/encodings/Gauge.svelte';
   import RatingBar from '$lib/catalog/encodings/RatingBar.svelte';
@@ -89,7 +90,9 @@
     /** Makes the `lead` column's header a sort (the BGG.CON star: starred first). */
     leadSort,
     /** Controls at the end of the bar, after the pager (the library's Expand). */
-    actions
+    actions,
+    /** The column it opens sorted by, high to low (default the geek rating). Read once. */
+    sortFirst = 'geek'
   }: {
     where: string;
     universe?: Scope['universe'];
@@ -108,6 +111,7 @@
     plainCards?: boolean;
     leadSort?: { label: string; sql: string; then?: string; hint?: string };
     actions?: Snippet;
+    sortFirst?: string;
   } = $props();
   const ZEROABLE = ['geek_rating', 'average_rating', 'average_weight'];
   const z = (col: string) => (zeroIsMissing && ZEROABLE.includes(col.replace(/^c\./, '')) ? `NULLIF(${col}, 0)` : col);
@@ -204,7 +208,7 @@
   );
   const PAGE_SIZE = 100;
 
-  let sortKey = $state('geek');
+  let sortKey = $state(untrack(() => sortFirst));
   let desc = $state(true);
   let page = $state(0);
   let rows = $state<Row[]>([]);
