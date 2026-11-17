@@ -114,6 +114,9 @@
    */
   .panel {
     --indent: calc(2.4rem + 1.85rem + 2 * var(--space-md));
+    /* One reading width for everything in the panel, however wide the table gets (it runs the
+       full width now, and full screen on Expand): the availability ends where the list does. */
+    --measure: 38rem;
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
@@ -124,6 +127,7 @@
     .panel { padding-left: var(--space-md); }
   }
   .top {
+    max-width: var(--measure);
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
@@ -187,7 +191,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    max-width: 38rem;
+    max-width: var(--measure);
     min-height: calc(5 * 3.05rem + 4 * 0.35rem);
   }
   .tnum { font-variant-numeric: tabular-nums; }
