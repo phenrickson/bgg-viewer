@@ -42,6 +42,7 @@
   import RailSheet from '$lib/catalog/rail/RailSheet.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { Button } from '$lib/components/ui/button';
+  import * as Sidebar from '$lib/components/ui/sidebar';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -248,16 +249,31 @@
       </div>
     {/if}
 
-    <div class="workspace" class:narrow>
-      {#if !narrow}
-        <div class="sidebar">
-          <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
-          {#if data.isAdmin}<AdminCollectionPicker />{/if}
-        </div>
-      {/if}
+    {#if narrow}
+      <div class="workspace">{@render canvas(where, baseWhere)}</div>
+    {:else}
+      <!-- The filters are shadcn's Sidebar: its trigger (beside the count) slides it off the
+           page and back, and the games take the width it leaves. It sits inside the page, under
+           the top nav, so the Root is absolute in the provider rather than fixed to the window. -->
+      <Sidebar.Provider class="relative h-full min-h-0 gap-(--space-lg)">
+        <Sidebar.Root class="absolute h-full">
+          <Sidebar.Content>
+            <Rail bind:scope {where} bggUsername={data.user?.bgg_username ?? null} />
+          </Sidebar.Content>
+          {#if data.isAdmin}<Sidebar.Footer><AdminCollectionPicker /></Sidebar.Footer>{/if}
+        </Sidebar.Root>
+        <Sidebar.Inset class="min-h-0 bg-transparent">{@render canvas(where, baseWhere)}</Sidebar.Inset>
+      </Sidebar.Provider>
+    {/if}
+  </Container>
+{/if}
 
+<!-- Takes the two clauses as arguments: out here they aren't narrowed to non-null by the
+     `{:else if where != null …}` above. -->
+{#snippet canvas(where: string, baseWhere: string)}
       <div class="canvas">
         <div class="chead">
+          {#if !narrow}<Sidebar.Trigger aria-label="Show or hide filters" />{/if}
           <p class="count">
             <b class="tnum">{total?.toLocaleString() ?? '—'}</b>
             <span>{total === 1 ? 'game' : 'games'}</span>
@@ -328,9 +344,7 @@
           </p>
         {/if}
       </div>
-    </div>
-  </Container>
-{/if}
+{/snippet}
 
 <style>
   .state {
@@ -346,26 +360,14 @@
     color: var(--color-negative);
   }
 
-  /* Two independently scrolling columns, each bounded by the shell's height — so a long
-     facet list never pushes the games off the screen. */
+  /* Narrow only: one column, one scroll direction, results first (the filters are in the
+     sheet). Wider, the Sidebar provider lays out the filters and the games. */
   /* Width and fill-height belong to <Container size="wide" fill> — see layout/tokens.ts. */
   .workspace {
     display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
-    gap: var(--space-lg);
+    grid-template-columns: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
-  }
-  /* Holds the rail plus the admin-only collection picker below it. The rail keeps its own
-     scroll region (`:global(.rail)`'s overflow-y); the picker stays fixed at the bottom rather
-     than scrolling with a long facet list. */
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .sidebar :global(.rail) {
-    flex: 1 1 auto;
   }
   .canvas {
     display: flex;
@@ -517,23 +519,5 @@
     font-weight: 600;
   }
 
-  /* Between the two-column threshold and the sheet: an ordinary scrolling document, with the
-     rail keeping its own bounded scroll so a stacked rail doesn't push the games a screen and
-     a half down. Below 40rem this stops applying — `.narrow` drops the rail entirely. */
-  @media (max-width: 900px) {
-    .workspace:not(.narrow) {
-      grid-template-columns: 1fr;
-      height: auto;
-    }
-    .workspace:not(.narrow) :global(.rail) {
-      max-height: 20rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: var(--space-md);
-    }
-  }
-
-  /* One column, one scroll direction, results first. */
-  .workspace.narrow { grid-template-columns: 1fr; }
 
 </style>
