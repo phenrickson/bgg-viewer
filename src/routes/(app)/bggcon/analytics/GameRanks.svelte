@@ -47,7 +47,8 @@
     if (kind === 'demand') return [0, 0.5, 1];
     const steps = kind === 'time' ? [15, 30, 60, 120, 180, 240, 360] : [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
     const step = steps.find((s) => max / s <= 3) ?? steps[steps.length - 1];
-    return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    // At least one step, so an all-zero chart still has a scale rather than a 0–0 domain.
+    return Array.from({ length: Math.max(1, Math.ceil(max / step)) + 1 }, (_, i) => i * step);
   });
   const top = $derived(ticks[ticks.length - 1] ?? max);
 
