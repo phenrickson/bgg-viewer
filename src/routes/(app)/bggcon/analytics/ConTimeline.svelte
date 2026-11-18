@@ -1,18 +1,19 @@
 <script lang="ts">
   /**
-   * Over the con: checkouts every 15 minutes, Tue 00:00 to Sun 1 PM Chicago, the whole range
+   * Over the con: checkouts every 15 minutes, Wed 00:00 to the end of Sun, Chicago, the whole range
    * always drawn so the con's shape reads as it fills in. Closed hours are shaded, "now" is
    * marked, and the current 15 minutes (still counting) is faded.
    */
   import { BarChart } from 'layerchart';
   import { chicago, isOpen } from '$lib/bggcon/analytics';
   import type { BggconActivity } from '$lib/server/warehouse/types';
+  import { tipRoot } from './tooltip';
 
   let { activity }: { activity: BggconActivity } = $props();
 
   const STEP = 15 * 60 * 1000;
-  const START = Date.parse('2026-11-17T06:00:00Z'); // Tue 00:00 Chicago
-  const END = Date.parse('2026-11-22T19:00:00Z'); // Sun 1 PM Chicago
+  const START = Date.parse('2026-11-18T06:00:00Z'); // Wed 00:00 Chicago
+  const END = Date.parse('2026-11-23T06:00:00Z'); // Mon 00:00 Chicago: the end of Sunday
 
   const counts = $derived(new Map(activity.buckets.map((b) => [Date.parse(b.start), b.checkouts])));
   const asOf = $derived(activity.as_of ? Date.parse(activity.as_of) : null);
@@ -37,11 +38,11 @@
     x="t"
     y="checkouts"
     bandPadding={0.1}
-    series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-2)' }]}
+    series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}
     props={{
-      xAxis: { ticks: dayStarts, format: (t: Date) => chicago(t.toISOString()).day },
-      yAxis: { format: (v: number) => String(v) },
-      tooltip: { header: { format: (t: Date) => label(t) } }
+      xAxis: { ticks: dayStarts, format: (t: Date) => chicago(t.toISOString()).day, tickMarks: false },
+      yAxis: { format: (v: number) => String(v), ticks: 4, tickMarks: false },
+      tooltip: { root: tipRoot, header: { format: (t: Date) => label(t) } }
     }}
   >
     {#snippet belowMarks({ context })}
