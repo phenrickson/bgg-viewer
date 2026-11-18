@@ -42,7 +42,7 @@
   const k = $derived(activity ? kpis(activity) : null);
   const GAME_CHARTS = [
     { kind: 'checkouts', title: 'Most checked out', hint: 'checkouts so far' },
-    { kind: 'demand', title: 'Most in demand', hint: 'share of open time with every copy out · copies beside the name' },
+    { kind: 'demand', title: 'Most in demand', hint: 'share of open time with every copy out' },
     { kind: 'steam', title: 'Gaining steam', hint: 'checkouts, the 3 h before vs the last 3 h' },
     { kind: 'time', title: 'Kept out longest', hint: 'time out per checkout' }
   ] as const;
@@ -90,8 +90,18 @@
       <h2>Games <span class="dim">top 10 each</span></h2>
       <AutoGrid min="lg">
         {#each GAME_CHARTS as c (c.kind)}
-          <Card.Root size="sm">
-            <Card.Header><Card.Title>{c.title}</Card.Title><Card.Description>{c.hint}</Card.Description></Card.Header>
+          <!-- Subgrid: headers in the same row of cards share one height, so the charts line up
+               however the subtitles and legends wrap. -->
+          <Card.Root size="sm" class="game-card">
+            <Card.Header>
+              <Card.Title>{c.title}</Card.Title>
+              <Card.Description>{c.hint}</Card.Description>
+              {#if c.kind === 'steam'}
+                <p class="legend"><span class="k hollow"></span>3 h before <span class="k filled"></span>last 3 h</p>
+              {:else if c.kind === 'time'}
+                <p class="legend"><span class="k dot"></span>typical (median) <span class="k band"></span>middle half of checkouts</p>
+              {/if}
+            </Card.Header>
             <Card.Content>
               {#if view?.games}<GameRanks games={view.games.games} kind={c.kind} {narrow} />{:else}<div class="loading" style:height="6rem"><Spinner /></div>{/if}
             </Card.Content>
@@ -108,6 +118,14 @@
   .dim { color: var(--muted-foreground); font-size: 0.8rem; font-weight: 400; margin: 0; }
   h2 { font-size: 1.05rem; font-weight: 650; margin: 0 0 var(--space-md); display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
   section { min-width: 0; }
+  :global(.game-card) { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--card-spacing); align-content: start; }
+  .legend { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--muted-foreground); }
+  .k { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 50%; margin-left: 0.5rem; }
+  .k:first-child { margin-left: 0; }
+  .hollow { border: 2px solid var(--muted-foreground); box-sizing: border-box; }
+  .filled { background: var(--chart-1); }
+  .dot { background: var(--chart-1); }
+  .band { background: var(--chart-1); opacity: 0.3; border-radius: 999px; height: 0.35rem; }
   .v { font-size: 1.5rem; font-weight: 650; }
   .tnum { font-variant-numeric: tabular-nums; }
   .err { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--status-fail); border-radius: var(--radius); padding: var(--space-lg); }

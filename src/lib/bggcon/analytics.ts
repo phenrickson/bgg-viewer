@@ -150,7 +150,7 @@ export function topGames(games: BggconGame[], kind: GameKind, maxName: number): 
 		.map((g) => ({
 			...g,
 			key: String(g.bgg_id),
-			label: short(g.name ?? `#${g.bgg_id}`) + (kind === 'demand' ? ` · ${g.copies}` : ''),
+			label: short(g.name ?? `#${g.bgg_id}`),
 			share: allOutShare(g)
 		}));
 }

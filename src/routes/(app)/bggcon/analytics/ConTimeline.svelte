@@ -37,7 +37,7 @@
     x="t"
     y="checkouts"
     bandPadding={0.1}
-    series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-2)' }]}
+    series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}
     props={{
       xAxis: { ticks: dayStarts, format: (t: Date) => chicago(t.toISOString()).day },
       yAxis: { format: (v: number) => String(v) },
