@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.40](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.39...bgg-viewer-v0.0.40) (2026-11-18)
+
+
+### Bug Fixes
+
+* **bggcon:** polish the analytics charts ([#115](https://github.com/phenrickson/bgg-viewer/issues/115)) ([b3d88e7](https://github.com/phenrickson/bgg-viewer/commit/b3d88e78a5dd9fe26434e4fe9fa12b9f2ef185a5))
+
 ## [0.0.39](https://github.com/phenrickson/bgg-viewer/compare/bgg-viewer-v0.0.38...bgg-viewer-v0.0.39) (2026-11-17)
 
 
