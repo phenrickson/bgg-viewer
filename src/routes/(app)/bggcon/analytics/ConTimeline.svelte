@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Over the con: checkouts every 15 minutes, Tue 00:00 to Sun 1 PM Chicago, the whole range
+   * Over the con: checkouts every 15 minutes, Wed 00:00 to the end of Sun, Chicago, the whole range
    * always drawn so the con's shape reads as it fills in. Closed hours are shaded, "now" is
    * marked, and the current 15 minutes (still counting) is faded.
    */
@@ -11,8 +11,8 @@
   let { activity }: { activity: BggconActivity } = $props();
 
   const STEP = 15 * 60 * 1000;
-  const START = Date.parse('2026-11-17T06:00:00Z'); // Tue 00:00 Chicago
-  const END = Date.parse('2026-11-22T19:00:00Z'); // Sun 1 PM Chicago
+  const START = Date.parse('2026-11-18T06:00:00Z'); // Wed 00:00 Chicago
+  const END = Date.parse('2026-11-23T06:00:00Z'); // Mon 00:00 Chicago: the end of Sunday
 
   const counts = $derived(new Map(activity.buckets.map((b) => [Date.parse(b.start), b.checkouts])));
   const asOf = $derived(activity.as_of ? Date.parse(activity.as_of) : null);

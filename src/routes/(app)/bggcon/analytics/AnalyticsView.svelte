@@ -42,8 +42,8 @@
   const k = $derived(activity ? kpis(activity) : null);
   const GAME_CHARTS = [
     { kind: 'checkouts', title: 'Most checked out', hint: 'checkouts so far' },
-    { kind: 'demand', title: 'Most in demand', hint: 'share of open time with every copy out' },
-    { kind: 'steam', title: 'Gaining steam', hint: 'checkouts, the 3 h before vs the last 3 h' },
+    { kind: 'demand', title: 'Most in demand', hint: 'share of open time all copies were out' },
+    { kind: 'steam', title: 'Gaining steam', hint: 'checkouts, last 3 h vs the 3 h before' },
     { kind: 'time', title: 'Kept out longest', hint: 'time out per checkout' }
   ] as const;
   const gamesOut = $derived(view?.games?.games.filter((g) => g.checkouts > 0).length ?? 0);
@@ -64,6 +64,7 @@
     <p>{view.error}</p>
   </div>
 {:else}
+  <div class="charts">
   <Stack>
     <AutoGrid min="sm">
       {@render kpi((k?.total ?? 0).toLocaleString(), 'checkouts so far')}
@@ -90,18 +91,8 @@
       <h2>Games <span class="dim">top 10 each</span></h2>
       <AutoGrid min="lg">
         {#each GAME_CHARTS as c (c.kind)}
-          <!-- Subgrid: headers in the same row of cards share one height, so the charts line up
-               however the subtitles and legends wrap. -->
-          <Card.Root size="sm" class="game-card">
-            <Card.Header>
-              <Card.Title>{c.title}</Card.Title>
-              <Card.Description>{c.hint}</Card.Description>
-              {#if c.kind === 'steam'}
-                <p class="legend"><span class="k hollow"></span>3 h before <span class="k filled"></span>last 3 h</p>
-              {:else if c.kind === 'time'}
-                <p class="legend"><span class="k dot"></span>typical (median) <span class="k band"></span>middle half of checkouts</p>
-              {/if}
-            </Card.Header>
+          <Card.Root size="sm">
+            <Card.Header><Card.Title>{c.title}</Card.Title><Card.Description>{c.hint}</Card.Description></Card.Header>
             <Card.Content>
               {#if view?.games}<GameRanks games={view.games.games} kind={c.kind} {narrow} />{:else}<div class="loading" style:height="6rem"><Spinner /></div>{/if}
             </Card.Content>
@@ -110,6 +101,7 @@
       </AutoGrid>
     </section>
   </Stack>
+  </div>
 {/if}
 
 <style>
@@ -118,14 +110,25 @@
   .dim { color: var(--muted-foreground); font-size: 0.8rem; font-weight: 400; margin: 0; }
   h2 { font-size: 1.05rem; font-weight: 650; margin: 0 0 var(--space-md); display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
   section { min-width: 0; }
-  :global(.game-card) { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--card-spacing); align-content: start; }
-  .legend { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--muted-foreground); }
-  .k { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 50%; margin-left: 0.5rem; }
-  .k:first-child { margin-left: 0; }
-  .hollow { border: 2px solid var(--muted-foreground); box-sizing: border-box; }
-  .filled { background: var(--chart-1); }
-  .dot { background: var(--chart-1); }
-  .band { background: var(--chart-1); opacity: 0.3; border-radius: 999px; height: 0.35rem; }
+  /* Chart chrome for every chart on this page: recessive hairline grid, muted axis text, and a
+     tooltip on the app's popover surface (LayerChart's default reads tokens this app doesn't
+     define, so it fell back to a cramped black box). Value leads; the label follows. */
+  .charts :global(.lc-grid-x-line), .charts :global(.lc-grid-y-line) { stroke: var(--border); stroke-width: 1; stroke-dasharray: none; opacity: 1; }
+  .charts :global(.lc-rule-x-line), .charts :global(.lc-rule-y-line), .charts :global(.lc-axis-rule) { stroke: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
+  .charts :global(.lc-axis-tick-label) { fill: var(--muted-foreground); font-size: 11px; stroke: none; }
+  .charts :global(.ranks .lc-axis[data-placement='left'] .lc-axis-tick-label) { fill: var(--foreground); font-size: 12px; }
+  .charts :global(.lc-tooltip-container) {
+    background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 2px); padding: 0.55rem 0.7rem; min-width: 10rem; max-width: 18rem;
+    box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.35); backdrop-filter: none; font-size: 0.78rem; line-height: 1.3;
+  }
+  .charts :global(.lc-tooltip-header) {
+    font-weight: 600; font-size: 0.82rem; white-space: normal; border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem; margin-bottom: 0.4rem;
+  }
+  .charts :global(.lc-tooltip-list) { column-gap: 1.25rem; row-gap: 0.25rem; }
+  .charts :global(.lc-tooltip-item-label) { color: var(--muted-foreground); }
+  .charts :global(.lc-tooltip-item-value) { color: var(--popover-foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
   .v { font-size: 1.5rem; font-weight: 650; }
   .tnum { font-variant-numeric: tabular-nums; }
   .err { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--status-fail); border-radius: var(--radius); padding: var(--space-lg); }

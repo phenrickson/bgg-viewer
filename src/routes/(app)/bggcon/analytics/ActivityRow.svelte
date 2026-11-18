@@ -78,7 +78,6 @@
             data={lines}
             x="hour"
             series={daySeries}
-            legend
             props={{ xAxis: { format: (h: number) => hourLabel(h), ticks: HOURS.filter((h) => h % 3 === 2) }, spline: { 'stroke-width': 2 } }}
           >
             {#snippet aboveMarks({ context })}
@@ -94,6 +93,12 @@
           <p class="dim">No complete library hours yet.</p>
         {/if}
       </div>
+      <!-- Under the chart area, not inside it, so this plot is the same size as its neighbours'. -->
+      {#if activity && daySeries.length}
+        <p class="legend">
+          {#each daySeries as s (s.key)}<span><span class="line-key" style:background={s.color}></span>{s.label}</span>{/each}
+        </p>
+      {/if}
     </Card.Content>
   </Card.Root>
 
@@ -127,4 +132,8 @@
   /* Holds a card's place while its data loads, so nothing jumps when it arrives. */
   .loading { display: grid; place-items: center; }
   .dim { color: var(--muted-foreground); font-size: 0.8rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--muted-foreground); }
+  .legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  /* A line chart's key is a short stroke, mirroring the mark. */
+  .line-key { display: inline-block; width: 0.9rem; height: 2px; border-radius: 1px; }
 </style>
