@@ -12,6 +12,7 @@
   import { BarChart, Tooltip } from 'layerchart';
   import { topGames, type GameKind, type RankedGame } from '$lib/bggcon/analytics';
   import type { BggconGame } from '$lib/server/warehouse/types';
+  import { tipRoot } from './tooltip';
 
   let { games, kind, narrow }: { games: BggconGame[]; kind: GameKind; narrow: boolean } = $props();
 
@@ -108,7 +109,7 @@
       {/snippet}
 
       {#snippet tooltip({ context })}
-        <Tooltip.Root {context}>
+        <Tooltip.Root {context} {...tipRoot}>
           {#snippet children({ data })}
             {@const g = data as RankedGame}
             <Tooltip.Header value={g.name ?? `#${g.bgg_id}`} />

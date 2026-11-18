@@ -7,6 +7,7 @@
   import { BarChart } from 'layerchart';
   import { chicago, isOpen } from '$lib/bggcon/analytics';
   import type { BggconActivity } from '$lib/server/warehouse/types';
+  import { tipRoot } from './tooltip';
 
   let { activity }: { activity: BggconActivity } = $props();
 
@@ -39,9 +40,9 @@
     bandPadding={0.1}
     series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}
     props={{
-      xAxis: { ticks: dayStarts, format: (t: Date) => chicago(t.toISOString()).day },
-      yAxis: { format: (v: number) => String(v) },
-      tooltip: { header: { format: (t: Date) => label(t) } }
+      xAxis: { ticks: dayStarts, format: (t: Date) => chicago(t.toISOString()).day, tickMarks: false },
+      yAxis: { format: (v: number) => String(v), ticks: 4, tickMarks: false },
+      tooltip: { root: tipRoot, header: { format: (t: Date) => label(t) } }
     }}
   >
     {#snippet belowMarks({ context })}

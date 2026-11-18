@@ -10,6 +10,7 @@
   import { HOURS, averageByHour, byDay, eachDay } from '$lib/bggcon/analytics';
   import { Spinner } from '$lib/components/ui/spinner';
   import type { BggconActivity } from '$lib/server/warehouse/types';
+  import { tipRoot } from './tooltip';
 
   /** `activity` is null while it loads: each card spins in place of its chart. */
   let { activity }: { activity: BggconActivity | null } = $props();
@@ -24,7 +25,8 @@
     Sat: 'var(--chart-4)',
     Sun: 'var(--chart-5)'
   };
-  const hourLabel = (h: number) => `${h % 12 || 12}${h < 12 ? 'AM' : 'PM'}`;
+  const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
+  const allHours = HOURS.map(hourLabel); // 8AM … 11PM, the library window
   const axisTicks = HOURS.filter((h) => h % 3 === 2).map(hourLabel); // 8AM, 11AM, 2PM, …
 
   const avg = $derived(averageByHour(a).map((d) => ({ hour: hourLabel(d.hour), average: Math.round(d.average * 10) / 10 })));
@@ -59,7 +61,19 @@
         {#if !activity}
           <div class="loading" style:height="12rem"><Spinner /></div>
         {:else if avg.length}
-          <BarChart data={avg} x="hour" y="average" series={[{ key: 'average', label: 'Average', color: 'var(--chart-1)' }]} props={{ xAxis: { ticks: axisTicks } }} />
+          <!-- Every library hour on the axis, so the day's shape keeps its place as hours fill in. -->
+          <BarChart
+            data={avg}
+            x="hour"
+            y="average"
+            xDomain={allHours}
+            series={[{ key: 'average', label: 'Average', color: 'var(--chart-1)' }]}
+            props={{
+              xAxis: { ticks: axisTicks, tickMarks: false },
+              yAxis: { ticks: 4, tickMarks: false },
+              tooltip: { root: tipRoot }
+            }}
+          />
         {:else}
           <p class="dim">No complete library hours yet.</p>
         {/if}
@@ -78,7 +92,12 @@
             data={lines}
             x="hour"
             series={daySeries}
-            props={{ xAxis: { format: (h: number) => hourLabel(h), ticks: HOURS.filter((h) => h % 3 === 2) }, spline: { 'stroke-width': 2 } }}
+            props={{
+              xAxis: { format: (h: number) => hourLabel(h), ticks: HOURS.filter((h) => h % 3 === 2), tickMarks: false },
+              yAxis: { ticks: 4, tickMarks: false },
+              spline: { 'stroke-width': 2 },
+              tooltip: { root: tipRoot, header: { format: (h: number) => hourLabel(h) } }
+            }}
           >
             {#snippet aboveMarks({ context })}
               {#if today && todayEnd}
@@ -109,7 +128,13 @@
         {#if !activity}
           <div class="loading" style:height="12rem"><Spinner /></div>
         {:else}
-        <BarChart data={totals} x="day" y="checkouts" series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}>
+        <BarChart
+          data={totals}
+          x="day"
+          y="checkouts"
+          series={[{ key: 'checkouts', label: 'Checkouts', color: 'var(--chart-1)' }]}
+          props={{ xAxis: { tickMarks: false }, yAxis: { ticks: 4, tickMarks: false }, tooltip: { root: tipRoot } }}
+        >
           {#snippet aboveMarks({ context })}
             {#each totals as d (d.day)}
               {@const x = context.xScale(d.day)}

@@ -117,18 +117,19 @@
   .charts :global(.lc-rule-x-line), .charts :global(.lc-rule-y-line), .charts :global(.lc-axis-rule) { stroke: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
   .charts :global(.lc-axis-tick-label) { fill: var(--muted-foreground); font-size: 11px; stroke: none; }
   .charts :global(.ranks .lc-axis[data-placement='left'] .lc-axis-tick-label) { fill: var(--foreground); font-size: 12px; }
-  .charts :global(.lc-tooltip-container) {
+  /* Tooltips are portaled to the body (see tooltip.ts), so they're styled by their own class. */
+  :global(.bgg-tip.lc-tooltip-container) {
     background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 2px); padding: 0.55rem 0.7rem; min-width: 10rem; max-width: 18rem;
+    border-radius: calc(var(--radius) - 2px); padding: 0.55rem 0.7rem; min-width: 10rem; max-width: min(18rem, calc(100vw - 2rem));
     box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.35); backdrop-filter: none; font-size: 0.78rem; line-height: 1.3;
   }
-  .charts :global(.lc-tooltip-header) {
+  :global(.bgg-tip .lc-tooltip-header) {
     font-weight: 600; font-size: 0.82rem; white-space: normal; border-bottom: 1px solid var(--border);
     padding-bottom: 0.4rem; margin-bottom: 0.4rem;
   }
-  .charts :global(.lc-tooltip-list) { column-gap: 1.25rem; row-gap: 0.25rem; }
-  .charts :global(.lc-tooltip-item-label) { color: var(--muted-foreground); }
-  .charts :global(.lc-tooltip-item-value) { color: var(--popover-foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+  :global(.bgg-tip .lc-tooltip-list) { column-gap: 1.25rem; row-gap: 0.25rem; }
+  :global(.bgg-tip .lc-tooltip-item-label) { color: var(--muted-foreground); }
+  :global(.bgg-tip .lc-tooltip-item-value) { color: var(--popover-foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
   .v { font-size: 1.5rem; font-weight: 650; }
   .tnum { font-variant-numeric: tabular-nums; }
   .err { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--status-fail); border-radius: var(--radius); padding: var(--space-lg); }
